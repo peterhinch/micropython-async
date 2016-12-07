@@ -1,5 +1,8 @@
 # Application of uasyncio to hardware interfaces
 
+Note this document and code is a "work in progress" and likely to be subject to
+substantial revision.
+
 The MicroPython uasyncio library comprises a subset of Python's asyncio library
 designed for use on microcontrollers. As such it has a small RAM footprint and
 fast context switching. This document describes its use in interfacing hardware
@@ -11,7 +14,12 @@ pushbuttons.
 This can be done by installing the Unix build of MicroPython, then installing
 ``uasyncio`` by following the instructions [here](https://github.com/micropython/micropython-lib).
 This will create a directory under ``~/.micropython/lib`` which may be copied to
-the Pyboard, either to the root or to a ``lib`` subdirectory.
+the target hardware, either to the root or to a ``lib`` subdirectory.
+Alternatively mount the device and use the "-p" option to upip to specify the
+target directory as the mounted filesystem.
+
+Another approach is to use CPython's pip to install the files to a local
+directory and then copy them to the target.
 
 # 2. Introduction
 
@@ -119,21 +127,21 @@ This module provides the following classes:
 This assumes a normally open switch connected between a pin and ground. The pin
 should be initialised as an input with a pullup.
 
-Constructor arguments (defaults in brackets)
+Constructor argument (mandatory):
 
- 1. ``loop`` The event loop. (Mandatory).
- 2. ``pin`` The initialised Pin instance. (Mandatory).
- 3. ``close_func`` A coro to be scheduled on switch closure (``None``).
- 4. ``close_func_args`` A tuple of arguments for the above (``()``).
- 5. ``open_func`` A coro to be scheduled on switch opening (``None``).
- 6. ``open_func_args`` A tuple of arguments for the above  (``()``).
+ 1. ``pin`` The initialised Pin instance.
+ 
+Methods:
 
-The first argument to the open and close coros will be the event loop
-instance. This will be followed by any arguments provided in the tuple.
-
-A ``Switch`` object supports one method:
- 1. ``__call__`` Call syntax e.g. ``myswitch()`` returns the physical debounced
+ 1. ``close_coro`` Args: ``coro`` (mandatory) a coro to run on contact closure.
+ ``args`` a tuple of arguments for the coro (default ())
+ 2. ``open_coro`` Args: ``coro`` (mandatory) a coro to run on contact open.
+ ``args`` a tuple of arguments for the coro (default ())
+ 3. ``__call__`` Call syntax e.g. ``myswitch()`` returns the physical debounced
  state of the switch i.e. 0 if grounded, 1 if connected to ``3V3``.
+
+Class attribute:
+ 1. ``debounce_ms`` Debounce time in ms. Default 50.
 
 ## 3.2 Pushbutton class
 
@@ -146,23 +154,29 @@ The Pushbutton class uses logical rather than physical state: a button's state
 is considered ``True`` if pressed, otherwise ``False`` regardless of its
 physical implementation.
 
-The pushbutton constructor takes the following arguments (defaults in brackets):
+Constructor argument (mandatory):
 
- 1. ``loop`` The event loop. (Mandatory).
- 2. ``pin`` The initialised Pin instance. (Mandatory).
- 3. ``true_func`` A coro to be scheduled on button press (``None``).
- 4. ``true_func_args`` Tuple of arguments for above (``()``).
- 5. ``false_func`` Coro to be scheduled on button release (``None``).
- 6. ``false_func_args`` Tuple of arguments for above (``()``).
- 7. ``long_func`` Coro to be scheduled on long press (``None``).
- 8. ``long_func_args`` Tuple of arguments for above (``()``).
- 9. ``double_func`` Coro to be scheduled on double click (``None``).
- 10. ``double_func_args`` Tuple of arguments for above (``()``).
+ 1. ``pin`` The initialised Pin instance.
 
-A ``Pushbutton`` object supports two methods.
- 1. ``__call__`` Call syntax e.g. ``mybutton()`` returns the logical debounced
+Methods:
+
+ 1. ``true_coro`` Args: ``coro`` (mandatory) a coro to run on button push.
+ ``args`` a tuple of arguments for the coro (default ())
+ 2. ``false_coro`` Args: ``coro`` (mandatory) a coro to run on button release.
+ ``args`` a tuple of arguments for the coro (default ())
+ 3. ``long_coro`` Args: ``coro`` (mandatory) a coro to run on long button push.
+ ``args`` a tuple of arguments for the coro (default ())
+ 4. ``double_coro`` Args: ``coro`` (mandatory) a coro to run on double push.
+ ``args`` a tuple of arguments for the coro (default ())
+ 5. ``__call__`` Call syntax e.g. ``mybutton()`` Returns the logical debounced
  state of the button.
- 2. ``rawstate()`` Returns the logical instantaneous state of the button.
+ 6. ``rawstate()`` Returns the logical instantaneous state of the button. There
+ is probably no reason to use this.
+
+Class attributes:
+ 1. ``debounce_ms`` Debounce time in ms. Default 50.
+ 2. ``long_press_ms`` Threshold time in ms for a long press. Default 1000.
+ 3. ``double_click_ms`` Threshold time in ms for a double click. Default 400.
 
 ## 3.3 Delay_ms class
 
@@ -180,15 +194,47 @@ timeout occurs.
 
 Constructor arguments (defaults in brackets):
 
- 1. ``loop``  The event loop. (Mandatory).
- 2. ``callback`` The coro to run on timeout (default ``None``).
- 3. ``callback_args`` A tuple of arguments for the coro (default ``()``).
+ 1. ``coro`` The coro to run on timeout (default ``None``).
+ 2. ``coro_args`` A tuple of arguments for the coro (default ``()``).
 
-User methods:
+Methods:
 
- 1. ``trigger`` argument ``duration``. (Mandatory). A timeout will occur after
+ 1. ``trigger`` mandatory argument ``duration``. A timeout will occur after
  ``duration`` ms unless retriggered.
- 2. ``stop`` No argument. Cancels the callback. The timer can be restarted by
- issuing ``trigger`` again.
+ 2. ``stop`` No argument. Cancels the timeout, setting the ``running`` status
+ ``False``. The timer can be restarted by issuing ``trigger`` again.
  3. ``running`` No argument. Returns the running status of the object.
 
+# 4. Module astests.py
+
+This provides demonstration/test functions for the ``Switch`` and ``Pushbutton``
+classes. They assume a switch or button wired between pin X1 and gnd.
+
+## 4.1 Function test_sw()
+
+This will flash the red LED on switch closure, and the green LED on opening.
+
+### 4.1.1 Race conditions
+
+Note that if the switch is cycled rapidly the LED behaviour may seem surprising.
+This is because each time the switch is closed a coro is launched to flash the
+red LED; on each open event one is launched for the green LED. With rapid
+cycling a new coro instance will commence while one is still running against
+the same LED. This type of conflict over a resource is known as a race
+condition: in this instance it leads to the LED behaving erratically.
+
+This is a hazard of asynchronous programming. In some situations it is
+desirable to launch a new instance on each button press or switch closure, even
+if other instances are still incomplete. In other cases it can lead to a race
+condition, leading to the need to code an interlock to ensure that the desired
+behaviour occurs. The programmer must define the desired behaviour.
+
+In the case of this test program it might be to ignore events while a similar
+one is running, or to extend the timer to prolong the LED illumination.
+
+## 4.2 Function test_btn()
+
+This will flash the red LED on button push, and the green LED on release. A
+long press will flash the blue LED and a double-press the yellow one.
+
+The above note on race conditions applies.
