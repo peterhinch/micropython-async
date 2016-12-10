@@ -1,4 +1,8 @@
-# TEST
+# Test/demo programs for the aswitch module.
+# Tested on Pyboard but should run on other microcontroller platforms
+# running MicroPython and uasyncio.
+# Author: Peter Hinch.
+# Copyright Peter Hinch 2016 Released under the MIT license.
 
 from machine import Pin
 from pyb import LED

@@ -1,11 +1,14 @@
 # aswitch.py Switch and pushbutton classes for asyncio
 # Delay_ms A retriggerable delay class. Can schedule a coro on timeout.
 # Switch Simple debounced switch class for normally open grounded switch.
+# Pushbutton extend the above to support logical state, long press and
+# double-click events
+# Tested on Pyboard but should run on other microcontroller platforms
+# running MicroPython and uasyncio.
+# Author: Peter Hinch.
+# Copyright Peter Hinch 2016 Released under the MIT license.
 
-try:
-    import uasyncio as asyncio
-except ImportError:
-    import asyncio
+import uasyncio as asyncio
 
 class Delay_ms(object):
     def __init__(self, coro=None, coro_args=()):
@@ -21,7 +24,7 @@ class Delay_ms(object):
         self.tstop = self.loop.time() + duration
         if not self._running:
             # Start a thread which stops the delay after its period has elapsed
-            self.loop.call_soon(self.killer())
+            self.loop.create_task(self.killer())
             self._running = True
 
     def running(self):
@@ -33,7 +36,7 @@ class Delay_ms(object):
             # Must loop here: might be retriggered
             await asyncio.sleep_ms(self.tstop - self.loop.time())
         if self._running and self.coro is not None:
-            loop.call_soon(self.coro(*self.coro_args))
+            loop.create_task(self.coro(*self.coro_args))
         self._running = False
 
 
@@ -45,7 +48,7 @@ class Switch(object):
         self._open_coro = False
         self._close_coro = False
         self.switchstate = self.pin.value()  # Get initial state
-        self.loop.call_soon(self.switchcheck())  # Thread runs forever
+        self.loop.create_task(self.switchcheck())  # Thread runs forever
 
     def open_coro(self, coro, args=()):
         self._open_coro = coro
@@ -67,9 +70,9 @@ class Switch(object):
                 # State has changed: act on it now.
                 self.switchstate = state
                 if state == 0 and self.close_coro:
-                    loop.call_soon(self._close_coro(*self._close_coro_args))
+                    loop.create_task(self._close_coro(*self._close_coro_args))
                 elif state == 1 and self._open_coro:
-                    loop.call_soon(self._open_coro(*self._open_coro_args))
+                    loop.create_task(self._open_coro(*self._open_coro_args))
             # Ignore further state changes until switch has settled
             await asyncio.sleep_ms(Switch.debounce_ms)
 
@@ -86,7 +89,7 @@ class Pushbutton(object):
         self._long_coro = False
         self.sense = pin.value()  # Convert from electrical to logical value
         self.buttonstate = self.rawstate()  # Initial state
-        self.loop.call_soon(self.buttoncheck())  # Thread runs forever
+        self.loop.create_task(self.buttoncheck())  # Thread runs forever
 
     def true_coro(self, coro, args=()):
         self._true_coro = coro
@@ -130,18 +133,18 @@ class Pushbutton(object):
                         longdelay.trigger(Pushbutton.long_press_ms)
                     if self._double_coro:
                         if doubledelay.running():
-                            loop.call_soon(self._double_coro(*self._double_coro_args))
+                            loop.create_task(self._double_coro(*self._double_coro_args))
                         else:
                             # First click: start doubleclick timer
                             doubledelay.trigger(Pushbutton.double_click_ms)
                     if self._true_coro:
-                        loop.call_soon(self._true_coro(*self._true_coro_args))
+                        loop.create_task(self._true_coro(*self._true_coro_args))
                 else:
                     # Button release
                     if self._long_coro and longdelay.running():
                         # Avoid interpreting a second click as a long push
                         longdelay.stop()
                     if self._false_coro:
-                        loop.call_soon(self._false_coro(*self._false_coro_args))
+                        loop.create_task(self._false_coro(*self._false_coro_args))
             # Ignore state changes until switch has settled
             await asyncio.sleep_ms(Pushbutton.debounce_ms)

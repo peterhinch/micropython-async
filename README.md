@@ -1,15 +1,15 @@
 # Application of uasyncio to hardware interfaces
 
-Note this document and code is a "work in progress" and likely to be subject to
-substantial revision.
+This document describes some device drivers and example programs using uasyncio
+to access hardware devices. Further code to follow.
 
-The MicroPython uasyncio library comprises a subset of Python's asyncio library
-designed for use on microcontrollers. As such it has a small RAM footprint and
-fast context switching. This document describes its use in interfacing hardware
-devices and provides classes to support devices including switches and
-pushbuttons.
+In general cooperative muti tasking simplifies the design of many types of
+embedded applications without incurring the overheads and many of the hazards
+of pre-emptive paradigms. It is particularly well suited to applications
+involving user interfaces. The official way to achieve it in MicroPython is
+to use the uasyncio library.
 
-# 1. Installation
+# 1. Installation of uasyncio
 
 This can be done by installing the Unix build of MicroPython, then installing
 ``uasyncio`` by following the instructions [here](https://github.com/micropython/micropython-lib).
@@ -21,106 +21,29 @@ target directory as the mounted filesystem.
 Another approach is to use CPython's pip to install the files to a local
 directory and then copy them to the target.
 
-# 2. Introduction
+# 2. Modules
 
-The asyncio concept is of cooperative multi-tasking based on coroutines,
-referred in this document as coros.
-
-A key difference between uasyncio and asyncio is that the latter uses floating
-point values of seconds for timing. For performance reasons, and to support
-ports lacking floating point, uasyncio uses integers. These can refer to seconds
-or milliseconds depending on context.
-
-## 2.1 Program structure: the event loop
-
-Consider the following example:
-
-```python
-import uasyncio as asyncio
-loop = asyncio.get_event_loop()
-async def bar():
-    count = 0
-    while True:
-        count += 1
-        print(count)
-        await asyncio.sleep(1)  # Pause 1s
-
-loop.call_soon(bar()) # Schedule ASAP
-loop.run_forever()
-```
-
-Program execution proceeds normally until the call to ``loop.run_forever``. At
-this point execution is controlled by the scheduler. A line after
-``loop.run_forever`` would never be executed. The scheduler runs ``bar``
-because this has been placed on the queue by ``loop.call_soon``. In this
-trivial example there is only one coro: ``bar``. If there were others, the
-scheduler would schedule them in periods when ``bar`` was paused.
-
-Many embedded applications have an event loop which runs continuously. The event
-loop can also be started in a way which permits termination, by using the event
-loop's ``run_until_complete`` method. Examples of this may be found in the
-``astests.py`` module.
-
-## 2.2 Coroutines (coros)
-
-A coro is instantiated as follows:
-
-```python
-async def foo(delay_secs):
-    await asyncio.sleep(delay_secs)
-    print('Hello')
-```
-
-A coro must include at least one of the following statements:
-
- * ``yield`` Allow the scheduler to schedule another coro.
- * ``yield from mycoro`` Calling coro pauses until mycoro runs to completion.
- * ``await mycoro`` Calling coro pauses until mycoro runs to completion.
-
-A coro is queued for scheduling by means of event loop methods ``call_soon``,
-``call_later``, or``call_at``:
-
-```python
-loop = asyncio.get_event_loop()
-loop.call_soon(foo(5)) # Schedule coro 'foo' ASAP
-loop.call_later(2, foo(5)) # Schedule after 2 seconds
-loop.call_at(time.ticks_add(loop.time(), 100), foo(2)) # after 100ms
-loop.run_forever()
-```
-
-## 2.3 Delays
-
-Where a delay is required in a coro there are two options. For longer delays and
-those where the duration need not be precise, the following should be used:
-
-```python
-async def foo(delay_secs, delay_ms):
-    await asyncio.sleep(delay_secs)
-    print('Hello')
-    await asyncio.sleep_ms(delay_ms)
-```
-
-While these delays are in progress the scheduler will schedule other coros.
-This is generally highly desirable, but it does introduce uncertainty in the
-timing as the calling routine will only be rescheduled when the one running at
-the appropriate time has yielded.
-
-More precise delays may be issued by using the ``utime.sleep`` functions. These
-are best suited for short delays as the scheduler will be unable to schedule
-other coros while the delay is in progress.
+ 1. ``aledflash.py`` Flashes the four Pyboard LED's asynchronously for 10s. The
+ simplest uasyncio demo. Import it to run.
+ 2. ``aswitch.py`` This provides classes for interfacing switches and
+ pushbuttons and also a software retriggerable delay object. Pushbuttons are a
+ generalisation of switches providing logical rather than physical status along
+ with double-clicked and long pressed events.
+ 3. ``astests.py`` Test/demonstration programs for the above.
 
 # 3. Module aswitch.py
 
 This module provides the following classes:
 
- * Switch This supports debouncing a normally open switch connected between a
+ * ``Switch`` This supports debouncing a normally open switch connected between a
  pin and ground. Can schedule coros on contact closure and/or opening.
- * Pushbutton A generalisation of the Switch to support normally open or
+ * ``Pushbutton`` A generalisation of ``Switch`` to support normally open or
  normally closed switches connected to ground or 3V3. Can also schedule
  coros on double-click or long press events.
- * Delay_ms A class providing a retriggerable delay measured in ms. Can be used
- to schedule a coro. Alternatively its state can be tested by other
- coros.
+ * ``Delay_ms`` A class providing a retriggerable delay measured in ms. Can be
+ used to schedule a coro. Alternatively its state can be tested by any coro.
+ 
+The module ``astests.py`` provides examples of usage.
 
 ## 3.1 Switch class
 
@@ -169,7 +92,7 @@ Methods:
  4. ``double_coro`` Args: ``coro`` (mandatory) a coro to run on double push.
  ``args`` a tuple of arguments for the coro (default ())
  5. ``__call__`` Call syntax e.g. ``mybutton()`` Returns the logical debounced
- state of the button.
+ state of the button (``True`` corresponds to pressed).
  6. ``rawstate()`` Returns the logical instantaneous state of the button. There
  is probably no reason to use this.
 
