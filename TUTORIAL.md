@@ -27,25 +27,29 @@ filesystem.
 
 ## 1.1 Modules
 
-The following modules and test programs are provided:
+The following modules and test programs are provided. The first two are the
+most immediately rewarding as they produce visible results by accessing Pyboard
+hardware.
 
  1. ``aledflash.py`` Flashes the four Pyboard LED's asynchronously for 10s. The
  simplest uasyncio demo. Import it to run.
- 2. ``aswitch.py`` This provides classes for interfacing switches and
+ 2. ``apoll.py`` A device driver for the Pyboard accelerometer. Demonstrates
+ the use of a coroutine to poll a device. Runs for 20s.
+ 3. ``aswitch.py`` This provides classes for interfacing switches and
  pushbuttons and also a software retriggerable delay object. Pushbuttons are a
  generalisation of switches providing logical rather than physical status along
  with double-clicked and long pressed events.
- 3. ``astests.py`` Test/demonstration programs for the above.
- 4. ``asyn.py`` Synchronisation primitives ``Lock`` and ``Event``.
- 5. ``asyntest.py`` Example/demo programs for above.
- 6. ``event_test.py`` Multiple coros awaiting a single event.
- 7. ``roundrobin.py`` Demo of round-robin scheduling. Also a benchmark of
+ 4. ``astests.py`` Test/demonstration programs for the above.
+ 5. ``asyn.py`` Synchronisation primitives ``Lock`` and ``Event``.
+ 6. ``asyntest.py`` Example/demo programs for above.
+ 7. ``event_test.py`` Multiple coros awaiting a single event.
+ 8. ``roundrobin.py`` Demo of round-robin scheduling. Also a benchmark of
  scheduling performance.
- 8. ``awaitable.py`` Demo of an awaitable class. One way of implementing a
+ 9. ``awaitable.py`` Demo of an awaitable class. One way of implementing a
  device driver which polls an interface.
- 9. ``chain.py`` Copied from the Python docs. Demo of chaining coros.
- 10. ``aqtest.py`` Demo of uasyncio ``Queue`` class.
- 11. ``io.py`` Using the ``IORead`` class for fast polling. Currently this does
+ 10. ``chain.py`` Copied from the Python docs. Demo of chaining coros.
+ 11. ``aqtest.py`` Demo of uasyncio ``Queue`` class.
+ 12. ``io.py`` Using the ``IORead`` class for fast polling. Currently this does
  not work.
 
 # 2. Introduction
@@ -185,7 +189,7 @@ More precise delays may be issued by using the ``utime.sleep`` functions. These
 are best suited for short delays as the scheduler will be unable to schedule
 other coros while the delay is in progress.
 
-# 3 Syncronisation
+# 3 Synchronisation
 
 There is often a need to provide synchronisation between coros. A common
 example is to avoid what are known as "race conditions" where multiple coros
@@ -296,7 +300,7 @@ cotrolled. Full documentation of this is in the code.
 
 # 4 Designing classes for asyncio
 
-## Awaitable classes
+## 4.1 Awaitable classes
 
 A coro can pause execution by issuing an awaitable object: ``await asyncio.sleep(delay_secs)``
 is an example. This can be extended to custom classes:
@@ -325,7 +329,7 @@ class Foo():
             yield
 ```
 
-## Asyncronous context managers
+## 4.2 Asyncronous context managers
 
 Classes can be designed to support asynchronous context managers. An example is
 the ``Lock`` class described above. Such classes are accessed from within a
@@ -351,13 +355,40 @@ example comes from the ``Lock`` class:
         await asyncio.sleep_ms(0)
 ```
 
-## IORead
+# 5 Device driver examples
+
+Many devices such as sensors are basically read-only in nature and need to be
+polled to acquire data. There are two ways to do this using asyncio. One is
+simply to have a coro which does this periodically. The other is to delegate
+the polling to the scheduler using the IORead mechanism. The latter is more
+efficient, especially for devices which need to be polled frequently or with
+a (fairly) repeatable polling interval.
+
+Note that where a very repeatable polling interval is required, it should be
+done using a timer callback. For "very" repeatable read microsecond level.
+"Fairly" repeatable is application dependent but likely to be variable on the
+order of tens of milliseconds: the latency defined by the slowest running coro.
+
+## 5.1 Using a coro to poll hardware
+
+This is a simple approach, but is only appropriate to hardware which is to be
+polled at a relatively low rate. This is for two reasons. Firstly the variable
+latency caused by the execution of other coros will result in variable polling
+intervals - this may or may not matter depending on the application. Secondly,
+attempting to poll at high speed may cause the coro to consume more processor
+time than is desireable.
+
+The example ``apoll.py`` demonstrates this approach by polling the Pyboard
+accelerometer at 100ms intervals. It performs some simple filtering to ignore
+noisy samples and prints a message every two seconds if the board is not moved.
+
+## 5.2 Using IORead to poll hardware
 
 The uasyncio ``IORead`` class is provided to support IO to stream devices. It
 may be employed by drivers of devices which need to be polled: the polling will
 be delegated to the scheduler which uses ``select`` to schedule the first
 stream or device driver to be ready. This is more efficient, and offers lower
-latency, than running mutliple coros each polling a device. TODO: how does it compare to awaitable classes?
+latency, than running mutliple coros each polling a device.
 
-Unfortunately I can't get it to work right now but the general idea may be
-found in ``io.py``.
+Unfortunately I can't actually get it to work but the general idea may be found
+in ``io.py``.
