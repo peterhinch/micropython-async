@@ -119,7 +119,7 @@ async def foo(delay_secs):
 
 A coro can allow other coroutines to run by means of the following statements:
 
- * ``await mycoro`` Calling coro pauses until mycoro runs to completion, for
+ * ``await mycoro`` Calling coro pauses until ``mycoro`` runs to completion, for
  example ``await asyncio.sleep(delay_secs)``.
  * ``yield`` A fast way to allow other coros to run. However it would produce
  a syntax error in CPython. A portable (slightly slower) solution is to issue
@@ -145,10 +145,11 @@ The following ``EventLoop`` methods schedule callbacks:
  2. ``call_later`` Call after a delay in secs. Args: ``delay``, ``callback``,
  ``*args``
  3. ``call_later_ms_`` Call after a delay in ms. Args: ``delay``, ``callback``,
- ``args``. Args are stored in a tuple for efficiency. Default ``()``
- 4. ``call_at`` Call at a future time in secs. Args: ``time``, ``*args``
+ ``args``. Args are stored in a tuple for efficiency. Default an empty
+ tuple ``()``.
+ 4. ``call_at`` Call at a future time in secs. Args: ``time``, ``*args``.
  5. ``call_at_`` Call at a future time in secs. Args: ``time``, ``args``. Args
- are stored in a tuple for efficiency. Default ``()``
+ stored in a tuple, default ``()``.
 
 ```python
 loop = asyncio.get_event_loop()
@@ -194,8 +195,8 @@ other coros while the delay is in progress.
 There is often a need to provide synchronisation between coros. A common
 example is to avoid what are known as "race conditions" where multiple coros
 compete to access a single resource. An example is provided in the ``aledflash.py``
-program. Another hazard is the "deadly embrace" where two coros wait on the
-other's completion.
+program and discussed in [the docs](./README.md). Another hazard is the "deadly
+embrace" where two coros wait on the other's completion.
 
 In simple applications these are often addressed with global flags however a
 more elegant approach is to use synchronisation primitives. The module ``asyn.py``
@@ -250,6 +251,17 @@ async def eventwait(event):
     event.clear()
 ```
 
+The coro raising the event may need to check that it has been serviced:
+
+```python
+async def foo(event):
+    while True:
+        # Acquire data from somewhere
+        while event.is_set():
+            await asyncio.sleep(1) # Wait for coro to respond
+        event.set()
+```
+
 Where multiple coros wait on a single event clearing is best performed by the
 coro which set it, as it should only be cleared when all dependent coros have
 received it. One way to achieve this is with an acknowledge event:
@@ -294,16 +306,17 @@ async def consumer(q):
 ```
 
 The ``Queue`` class provides significant additional functionality in that the
-size of queues may be limited and the status may be interrogated. The beahviour
+size of queues may be limited and the status may be interrogated. The behaviour
 on empty status and (where size is limited) the behaviour on full status may be
-cotrolled. Full documentation of this is in the code.
+controlled. Documentation of this is in the code.
 
 # 4 Designing classes for asyncio
 
 ## 4.1 Awaitable classes
 
-A coro can pause execution by issuing an awaitable object: ``await asyncio.sleep(delay_secs)``
-is an example. This can be extended to custom classes:
+A coro can pause execution by issuing an ``awaitable`` object: ``await asyncio.sleep(delay_secs)``
+is an example. This can be extended to custom classes by implementing an ``__await__``
+special method:
 
 ```python
 async def bar():
@@ -329,7 +342,7 @@ class Foo():
             yield
 ```
 
-## 4.2 Asyncronous context managers
+## 4.2 Asynchronous context managers
 
 Classes can be designed to support asynchronous context managers. An example is
 the ``Lock`` class described above. Such classes are accessed from within a
@@ -343,7 +356,7 @@ async def bar(lock):
 
 As with normal context managers an exit method is guaranteed to be called once
 the context manager terminates. To achieve this the special methods ``__aenter__``
-and ``aexit`` must be defined, both returning an awaiatable object. This
+and ``__aexit__`` must be defined, both returning an awaitable object. This
 example comes from the ``Lock`` class:
 
 ```python
@@ -367,7 +380,8 @@ a (fairly) repeatable polling interval.
 Note that where a very repeatable polling interval is required, it should be
 done using a timer callback. For "very" repeatable read microsecond level.
 "Fairly" repeatable is application dependent but likely to be variable on the
-order of tens of milliseconds: the latency defined by the slowest running coro.
+order of tens of milliseconds: the latency being determined by the coro with
+the longest run time between yields.
 
 ## 5.1 Using a coro to poll hardware
 
@@ -376,7 +390,7 @@ polled at a relatively low rate. This is for two reasons. Firstly the variable
 latency caused by the execution of other coros will result in variable polling
 intervals - this may or may not matter depending on the application. Secondly,
 attempting to poll at high speed may cause the coro to consume more processor
-time than is desireable.
+time than is desirable.
 
 The example ``apoll.py`` demonstrates this approach by polling the Pyboard
 accelerometer at 100ms intervals. It performs some simple filtering to ignore
@@ -388,7 +402,7 @@ The uasyncio ``IORead`` class is provided to support IO to stream devices. It
 may be employed by drivers of devices which need to be polled: the polling will
 be delegated to the scheduler which uses ``select`` to schedule the first
 stream or device driver to be ready. This is more efficient, and offers lower
-latency, than running mutliple coros each polling a device.
+latency, than running multiple coros each polling a device.
 
 Unfortunately I can't actually get it to work but the general idea may be found
 in ``io.py``.
