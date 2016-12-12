@@ -6,20 +6,47 @@ errors.
 
 The MicroPython uasyncio library comprises a subset of Python's asyncio library
 designed for use on microcontrollers. As such it has a small RAM footprint and
-fast context switching. This document describes its use in interfacing hardware
-devices.
+fast context switching. This document describes its use with a focus on
+interfacing hardware devices.
 
 # 1. Installation of uasyncio
 
-This can be done by installing the Unix build of MicroPython, then installing
-``uasyncio`` by following the instructions [here](https://github.com/micropython/micropython-lib).
-This will create a directory under ``~/.micropython/lib`` which may be copied to
-the target hardware, either to the root or to a ``lib`` subdirectory.
-Alternatively mount the device and use the "-p" option to upip to specify the
-target directory as the mounted filesystem.
+Firstly install the latest version of ``micropython-uasyncio``. To use queues, also
+install the ``micropython-uasyncio.queues`` module.
 
-Another approach is to use CPython's pip to install the files to a local
-directory and then copy them to the target.
+Instructions on installing library modules may be found [here](https://github.com/micropython/micropython-lib).
+
+On networked hardware, upip may be run locally.
+
+On non-networked hardware the resultant modules will need to be copied to the
+target. The above Unix installation will create directories under
+``~/.micropython/lib`` which may be copied to the target hardware, either to
+the root or to a ``lib`` subdirectory. Alternatively the device may be mounted;
+then use the "-p" option to upip to specify the target directory as the mounted
+filesystem.
+
+## 1.1 Modules
+
+The following modules and test programs are provided:
+
+ 1. ``aledflash.py`` Flashes the four Pyboard LED's asynchronously for 10s. The
+ simplest uasyncio demo. Import it to run.
+ 2. ``aswitch.py`` This provides classes for interfacing switches and
+ pushbuttons and also a software retriggerable delay object. Pushbuttons are a
+ generalisation of switches providing logical rather than physical status along
+ with double-clicked and long pressed events.
+ 3. ``astests.py`` Test/demonstration programs for the above.
+ 4. ``asyn.py`` Synchronisation primitives ``Lock`` and ``Event``.
+ 5. ``asyntest.py`` Example/demo programs for above.
+ 6. ``event_test.py`` Multiple coros awaiting a single event.
+ 7. ``roundrobin.py`` Demo of round-robin scheduling. Also a benchmark of
+ scheduling performance.
+ 8. ``awaitable.py`` Demo of an awaitable class. One way of implementing a
+ device driver which polls an interface.
+ 9. ``chain.py`` Copied from the Python docs. Demo of chaining coros.
+ 10. ``aqtest.py`` Demo of uasyncio ``Queue`` class.
+ 11. ``io.py`` Using the ``IORead`` class for fast polling. Currently this does
+ not work.
 
 # 2. Introduction
 
@@ -34,11 +61,14 @@ size and efficiency uasyncio is a subset of asyncio with some differences.
 It doesn't support objects of type ``Future`` and ``Task``. Routines to run
 concurrently are defined as coroutines instantiated with ``async def``.
 
-The __await__ special method (to create an awaitable class) is not supported.
+At the time of writing the ``__await__`` special method (to create an awaitable
+class) is not supported but a workround is described below.
 
-For timing asyncio uses floating point values of seconds. For performance
-reasons, and to support ports lacking floating point, uasyncio uses integers.
-These can refer to seconds or milliseconds depending on context.
+For timing asyncio uses floating point values of seconds. The uasyncio ``sleep``
+method accepts floats (including sub-second values) or integers. For
+performance reasons, and to support ports lacking floating point, uasyncio
+also supports a ``sleep_ms`` method accepting integer millisecond values. For
+similar reasons a ``call_later_ms_`` event loop method is provided.
 
 ## 2.2 Program structure: the event loop
 
@@ -87,8 +117,10 @@ A coro can allow other coroutines to run by means of the following statements:
 
  * ``await mycoro`` Calling coro pauses until mycoro runs to completion, for
  example ``await asyncio.sleep(delay_secs)``.
- * ``yield`` (not allowed in Cpython) arg (optional) a delay in ms. If no delay
- is specified the coro will be rescheduled when other pending coros have run. **TODO** Check this 
+ * ``yield`` A fast way to allow other coros to run. However it would produce
+ a syntax error in CPython. A portable (slightly slower) solution is to issue
+ ``await asyncio.sleep(0)``. If all coros have paused by these methods, they
+ will be scheduled in round-robin fashion. See ``roundrobin.py`` example.
 
 ### Queueing a coro for scheduling
 
@@ -99,8 +131,8 @@ A coro can allow other coroutines to run by means of the following statements:
 
 ### Running a callback function
 
-Callbacks should be designed to complete in a short period of time to give
-coroutines an opportunity to run.
+Callbacks should be designed to complete in a short period of time as
+coroutines will have no opportunity to run for the duration.
 
 The following ``EventLoop`` methods schedule callbacks:
 
@@ -153,4 +185,179 @@ More precise delays may be issued by using the ``utime.sleep`` functions. These
 are best suited for short delays as the scheduler will be unable to schedule
 other coros while the delay is in progress.
 
+# 3 Syncronisation
 
+There is often a need to provide synchronisation between coros. A common
+example is to avoid what are known as "race conditions" where multiple coros
+compete to access a single resource. An example is provided in the ``aledflash.py``
+program. Another hazard is the "deadly embrace" where two coros wait on the
+other's completion.
+
+In simple applications these are often addressed with global flags however a
+more elegant approach is to use synchronisation primitives. The module ``asyn.py``
+offers "micro" implementations of the ``Lock`` and ``Event`` primitives, with
+a demo program ``asyntest.py``.
+
+Another synchronisation issue arises with producer and consumer coros. The
+producer generates data which the consumer uses. Asyncio provides the ``Queue``
+object. The producer puts data onto the queue while the consumer waits for its
+arrival (with other coros getting scheduled for the duration).
+
+## 3.1 Lock
+
+This guarantees unique access to a shared resource. The preferred way to use it
+is via an asynchronous context manager. In the following code sample a ``Lock``
+instance ``lock`` has been created and is passed to all coros wishing to access
+the shared resource. Each coro issues the following:
+
+```python
+async def bar(lock):
+    async with lock:
+        # Access resource
+```
+
+While the coro ``bar`` is accessing the resource, other coros will pause at the
+``async with lock`` statement until the context manager in ``bar()`` is
+complete.
+
+### 3.1.1 Definition
+
+Constructor: this takes no arguments.  
+Methods:
+
+ * ``locked`` No args. Returns ``True`` if locked.
+ * ``release`` No args. Releases the lock.
+ * ``acquire`` No args. Coro which pauses until the lock has been acquired. Use
+ by executing ``await lock.acquire()``.
+
+## 3.2 Event
+
+This provides a way for one or more coros to pause until another one flags them
+to continue. An ``Event`` object is instantiated and passed to all coros using
+it. Coros waiting on the event issue ``await event.wait()``. Execution pauses
+until a coro issues ``event.set()``. ``event.clear()`` must then be issued.
+
+In the usual case where a single coro is awaiting the event this can be done
+immediately after it is received:
+
+```python
+async def eventwait(event):
+    await event.wait()
+    event.clear()
+```
+
+Where multiple coros wait on a single event clearing is best performed by the
+coro which set it, as it should only be cleared when all dependent coros have
+received it. One way to achieve this is with an acknowledge event:
+
+```python
+async def eventwait(event, ack_event):
+    await event.wait()
+    ack_event.set()
+```
+
+An example of this is provided in ``event_test.py``.
+
+### 3.2.1 Definition
+
+Constructor: this takes no arguments.  
+Methods:
+
+ * ``set`` No args. Initiates the event.
+ * ``clear`` No args. Clears the event.
+ * ``is_set`` No args. Returns ``True`` if the event is set.
+ * ``wait`` No args. Coro. A coro waiting on an event issues ``await event.wait()``.
+
+## 3.3 Queue
+
+The sample program ``aqtest.py`` demonstrates simple use of this class. A
+typical producer coro might work as follows:
+
+```python
+async def producer(q):
+    while True:
+        result = await slow_process()  # somehow get some data
+        await q.put(result)  # may pause if a size limited queue fills
+```
+
+and the consumer works along these lines:
+
+```python
+async def consumer(q):
+    while True:
+        result = await(q.get())  # Will pause if q is empty
+        print('Result was {}'.format(result))
+```
+
+The ``Queue`` class provides significant additional functionality in that the
+size of queues may be limited and the status may be interrogated. The beahviour
+on empty status and (where size is limited) the behaviour on full status may be
+cotrolled. Full documentation of this is in the code.
+
+# 4 Designing classes for asyncio
+
+## Awaitable classes
+
+A coro can pause execution by issuing an awaitable object: ``await asyncio.sleep(delay_secs)``
+is an example. This can be extended to custom classes:
+
+```python
+async def bar():
+    foo = Foo()  # Foo is an awaitable class
+    print('waiting for foo')
+    await foo
+    print('done')
+```
+
+In order for this to work, the ``Foo`` class must have an ``__await__`` special
+method which returns a generator. The calling coro will pause until the
+generator terminates. NOTE: currently MicroPython doesn't quite work that way
+(issue #2678) and ``__iter__`` must be used.
+
+```python
+class Foo():
+    def __iter__(self): # workround for issue #2678
+        yield from self.__await__()
+
+    def __await__(self):
+        for n in range(5):
+            print('__await__ called')
+            yield
+```
+
+## Asyncronous context managers
+
+Classes can be designed to support asynchronous context managers. An example is
+the ``Lock`` class described above. Such classes are accessed from within a
+coro with the following syntax:
+
+```python
+async def bar(lock):
+    async with lock:
+        print('bar acquired lock')
+```
+
+As with normal context managers an exit method is guaranteed to be called once
+the context manager terminates. To achieve this the special methods ``__aenter__``
+and ``aexit`` must be defined, both returning an awaiatable object. This
+example comes from the ``Lock`` class:
+
+```python
+    async def __aenter__(self):
+        await self.acquire()  # a coro defined with async def
+
+    async def __aexit__(self, *args):
+        self.release()  # A conventional method
+        await asyncio.sleep_ms(0)
+```
+
+## IORead
+
+The uasyncio ``IORead`` class is provided to support IO to stream devices. It
+may be employed by drivers of devices which need to be polled: the polling will
+be delegated to the scheduler which uses ``select`` to schedule the first
+stream or device driver to be ready. This is more efficient, and offers lower
+latency, than running mutliple coros each polling a device. TODO: how does it compare to awaitable classes?
+
+Unfortunately I can't get it to work right now but the general idea may be
+found in ``io.py``.
