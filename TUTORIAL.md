@@ -26,12 +26,21 @@ directory and then copy them to the target.
 The asyncio concept is of cooperative multi-tasking based on coroutines,
 referred in this document as coros.
 
-A key difference between uasyncio and asyncio is that the latter uses floating
-point values of seconds for timing. For performance reasons, and to support
-ports lacking floating point, uasyncio uses integers. These can refer to seconds
-or milliseconds depending on context.
+## 2.1 Differences from CPython
 
-## 2.1 Program structure: the event loop
+CPython refers to Python 3.5 as installed on PC's. In the interests of small
+size and efficiency uasyncio is a subset of asyncio with some differences.
+
+It doesn't support objects of type ``Future`` and ``Task``. Routines to run
+concurrently are defined as coroutines instantiated with ``async def``.
+
+The __await__ special method (to create an awaitable class) is not supported.
+
+For timing asyncio uses floating point values of seconds. For performance
+reasons, and to support ports lacking floating point, uasyncio uses integers.
+These can refer to seconds or milliseconds depending on context.
+
+## 2.2 Program structure: the event loop
 
 Consider the following example:
 
@@ -64,7 +73,7 @@ loop's ``run_until_complete`` method. Examples of this may be found in the
 The event loop instance is a singleton. If a coro needs to call an event loop
 method, calling ``asyncio.get_event_loop()`` will efficiently return it.
 
-## 2.2 Coroutines (coros)
+## 2.3 Coroutines (coros)
 
 A coro is instantiated as follows:
 
@@ -78,7 +87,8 @@ A coro can allow other coroutines to run by means of the following statements:
 
  * ``await mycoro`` Calling coro pauses until mycoro runs to completion, for
  example ``await asyncio.sleep(delay_secs)``.
- * ``yield`` (not allowed in Cpython).
+ * ``yield`` (not allowed in Cpython) arg (optional) a delay in ms. If no delay
+ is specified the coro will be rescheduled when other pending coros have run. **TODO** Check this 
 
 ### Queueing a coro for scheduling
 
@@ -110,6 +120,15 @@ loop.call_soon(foo(5)) # Schedule callback 'foo' ASAP
 loop.call_later(2, foo(5)) # Schedule after 2 seconds
 loop.call_at(time.ticks_add(loop.time(), 100), foo(2)) # after 100ms
 loop.run_forever()
+```
+
+### Returning values
+
+A coro can contain a ``return`` statement with arbitrary return values. To
+retrieve them issue:
+
+```python
+result = await my_coro()
 ```
 
 ## 2.3 Delays

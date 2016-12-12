@@ -83,9 +83,9 @@ Constructor argument (mandatory):
 
 Methods:
 
- 1. ``true_coro`` Args: ``coro`` (mandatory) a coro to run on button push.
+ 1. ``press_coro`` Args: ``coro`` (mandatory) a coro to run on button push.
  ``args`` a tuple of arguments for the coro (default ())
- 2. ``false_coro`` Args: ``coro`` (mandatory) a coro to run on button release.
+ 2. ``release_coro`` Args: ``coro`` (mandatory) a coro to run on button release.
  ``args`` a tuple of arguments for the coro (default ())
  3. ``long_coro`` Args: ``coro`` (mandatory) a coro to run on long button push.
  ``args`` a tuple of arguments for the coro (default ())

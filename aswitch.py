@@ -91,11 +91,11 @@ class Pushbutton(object):
         self.buttonstate = self.rawstate()  # Initial state
         self.loop.create_task(self.buttoncheck())  # Thread runs forever
 
-    def true_coro(self, coro, args=()):
+    def press_coro(self, coro, args=()):
         self._true_coro = coro
         self._true_coro_args = args
 
-    def false_coro(self, coro, args=()):
+    def release_coro(self, coro, args=()):
         self._false_coro = coro
         self._false_coro_args = args
 
