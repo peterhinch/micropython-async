@@ -1,13 +1,17 @@
 # Application of uasyncio to hardware interfaces
 
-This document is a "work in progress" as I learn the content myself and
-will be subject to substantial revision. At this juncture it will contain
-errors.
+This document is a "work in progress" as I learn the content myself. Further
+at the time of writing uasyncio is itself under development. It is likely that
+these notes may contain errors; they will be subject to substantial revision. 
+
+For those unfamiliar with asynchronous programming there is an introduction
+in section 7 below.
 
 The MicroPython uasyncio library comprises a subset of Python's asyncio library
 designed for use on microcontrollers. As such it has a small RAM footprint and
 fast context switching. This document describes its use with a focus on
-interfacing hardware devices.
+interfacing hardware devices. Its other major application area is in network
+programming: many guides to this may be found online.
 
 # 1. Installation of uasyncio
 
@@ -49,8 +53,6 @@ hardware.
  device driver which polls an interface.
  10. ``chain.py`` Copied from the Python docs. Demo of chaining coros.
  11. ``aqtest.py`` Demo of uasyncio ``Queue`` class.
- 12. ``io.py`` Using the ``IORead`` class for fast polling. Currently this does
- not work.
 
 # 2. Introduction
 
@@ -59,8 +61,8 @@ referred in this document as coros.
 
 ## 2.1 Differences from CPython
 
-CPython refers to Python 3.5 as installed on PC's. In the interests of small
-size and efficiency uasyncio is a subset of asyncio with some differences.
+Here CPython refers to Python 3.5. In the interests of small size and
+efficiency uasyncio is a subset of asyncio with some differences.
 
 It doesn't support objects of type ``Future`` and ``Task``. Routines to run
 concurrently are defined as coroutines instantiated with ``async def``.
@@ -117,23 +119,29 @@ async def foo(delay_secs):
     print('Hello')
 ```
 
-A coro can allow other coroutines to run by means of the following statements:
+A coro can allow other coroutines to run by means of the ``await coro``
+statement. This causes ``coro`` to run to completion before execution passes to
+the next instruction. Consider these lines of code:
 
- * ``await mycoro`` Calling coro pauses until ``mycoro`` runs to completion, for
- example ``await asyncio.sleep(delay_secs)``.
- * ``yield`` A fast way to allow other coros to run. However it would produce
- a syntax error in CPython. A portable (slightly slower) solution is to issue
- ``await asyncio.sleep(0)``. If all coros have paused by these methods, they
- will be scheduled in round-robin fashion. See ``roundrobin.py`` example.
+```python
+await asyncio.sleep(delay_secs)
+await asyncio.sleep(0)
+```
 
-### Queueing a coro for scheduling
+The first causes the code to pause for the duration of the delay, with other
+coros being scheduled for the duration. A delay of 0 causes any pending coros
+to be scheduled in round-robin fashion before the following line is run. See
+``roundrobin.py`` example.
+
+### 2.3.1 Queueing a coro for scheduling
 
  * ``EventLoop.create_task`` Arg: the coro to run. Starts the coro ASAP and
- returns immediately.
- * ``await``  Arg: the coro to run. Starts the coro ASAP and waits until it has
- run to completion.
+ returns immediately. The coro is specified with function call syntax with any
+ required arguments being passed.
+ * ``await``  Arg: the coro to run, specified with function call syntax. Starts
+ the coro ASAP and blocks until it has run to completion.
 
-### Running a callback function
+### 2.3.2 Running a callback function
 
 Callbacks should be designed to complete in a short period of time as
 coroutines will have no opportunity to run for the duration.
@@ -159,7 +167,7 @@ loop.call_at(time.ticks_add(loop.time(), 100), foo(2)) # after 100ms
 loop.run_forever()
 ```
 
-### Returning values
+### 2.3.3 Returning values
 
 A coro can contain a ``return`` statement with arbitrary return values. To
 retrieve them issue:
@@ -168,7 +176,7 @@ retrieve them issue:
 result = await my_coro()
 ```
 
-## 2.3 Delays
+## 2.4 Delays
 
 Where a delay is required in a coro there are two options. For longer delays and
 those where the duration need not be precise, the following should be used:
@@ -186,7 +194,7 @@ timing as the calling routine will only be rescheduled when the one running at
 the appropriate time has yielded. The amount of uncertainty depends on the
 design of the application, but is likely to be on the order of tens of ms.
 
-More precise delays may be issued by using the ``utime.sleep`` functions. These
+Very precise delays may be issued by using the ``utime.sleep`` functions. These
 are best suited for short delays as the scheduler will be unable to schedule
 other coros while the delay is in progress.
 
@@ -198,15 +206,16 @@ compete to access a single resource. An example is provided in the ``aledflash.p
 program and discussed in [the docs](./README.md). Another hazard is the "deadly
 embrace" where two coros wait on the other's completion.
 
-In simple applications these are often addressed with global flags however a
-more elegant approach is to use synchronisation primitives. The module ``asyn.py``
+In simple applications these are often addressed with global flags. A more
+elegant approach is to use synchronisation primitives. The module ``asyn.py``
 offers "micro" implementations of the ``Lock`` and ``Event`` primitives, with
 a demo program ``asyntest.py``.
 
 Another synchronisation issue arises with producer and consumer coros. The
 producer generates data which the consumer uses. Asyncio provides the ``Queue``
 object. The producer puts data onto the queue while the consumer waits for its
-arrival (with other coros getting scheduled for the duration).
+arrival (with other coros getting scheduled for the duration). The ``Queue``
+guarantees that items are removed in the order in which they were received.
 
 ## 3.1 Lock
 
@@ -328,18 +337,18 @@ async def bar():
 
 In order for this to work, the ``Foo`` class must have an ``__await__`` special
 method which returns a generator. The calling coro will pause until the
-generator terminates. NOTE: currently MicroPython doesn't quite work that way
-(issue #2678) and ``__iter__`` must be used.
+generator terminates. Currently MicroPython doesn't support ``__await__``
+(issue #2678) and ``__iter__`` must be used. Alternatively the following will
+work under CPython and MicroPython.
 
 ```python
 class Foo():
-    def __iter__(self): # workround for issue #2678
-        yield from self.__await__()
-
     def __await__(self):
         for n in range(5):
             print('__await__ called')
             yield
+
+    __iter__ = __await__  # workround for issue #2678
 ```
 
 ## 4.2 Asynchronous context managers
@@ -396,6 +405,9 @@ The example ``apoll.py`` demonstrates this approach by polling the Pyboard
 accelerometer at 100ms intervals. It performs some simple filtering to ignore
 noisy samples and prints a message every two seconds if the board is not moved.
 
+Further examples may be found in ``aswitch.py`` which provides drivers for
+switch and pushbutton devices.
+
 ## 5.2 Using IORead to poll hardware
 
 The uasyncio ``IORead`` class is provided to support IO to stream devices. It
@@ -404,5 +416,121 @@ be delegated to the scheduler which uses ``select`` to schedule the first
 stream or device driver to be ready. This is more efficient, and offers lower
 latency, than running multiple coros each polling a device.
 
-Unfortunately I can't actually get it to work but the general idea may be found
-in ``io.py``.
+At the time of writing support for using this mechanism in device drivers has
+not yet been implemented.
+
+# 6 Hints and tips
+
+### 6.1 Program hangs
+
+Hanging usually occurs because a thread has blocked without yielding: this will
+hang the entire system. When developing it is useful to have a coro which
+periodically toggles an onboard LED. This provides confirmtion that the
+scheduler is running.
+
+# 7 Notes for beginners
+
+These notes are intended for those unfamiliar with asynchronous code or unsure
+of the relative merits of asyncio and the _thread module (i.e. cooperative vs
+pre-emptive scheduling).
+
+## 7.1 Why Scheduling?
+
+Using a scheduler doesn't enable anything that can't be done with conventional
+code. But it does make the solution of certain types of problem simpler to code
+and easier to read and maintain.
+
+It facilitates a style of programming based on the concept of routines offering
+the illusion of running concurrently. This can simplify the process of
+interacting with physical devices. Consider the task of reading 12
+push-buttons. Mechanical switches such as buttons suffer from contact bounce.
+This means that several rapidly repeating transitions can occur when the button
+is pushed or released.
+
+A simple way to overcome this is as follows. On receipt of the first transition
+perform any programmed action. Then wait (typically 50ms) and read the state
+of the button. By then the bouncing will be over and its state can be stored to
+detect future transitions. Doing this in linear code for 12 buttons can get
+messy. If you extend this to support long press or double-click events the code
+will get positively convoluted. Using asyncio with the ``aswitch.py`` module we
+can write:
+
+```python
+async def cb(button_no):  # user code omitted. This runs when
+                    # button pressed, with the button number passed
+
+buttons = ('X1', 'X2', 'X3', 'X4', 'X5', 'X6', 'X7', 'X8', 'X9', 'X10', 'X11', 'X12')
+for button_no, button in enumerate(buttons):
+    pb = Pushbutton(Pin(button, Pin.IN, Pin.PULL_UP)
+    pb.press_coro(cb, (button_no,))
+```
+
+The ``Pushbutton`` class hides the detail, but for each button a coroutine is
+created which polls the ``Pin`` object and performs the debouncing. It can also
+start user supplied coroutines on button release events, long presses and
+double clicks.
+
+Scheduling also solves the problem of blocking. If a routine needs to wait for
+a physical event to occur before it can continue it is said to be blocked. You
+may not want the entire system to be blocked. While this can be solved in
+linear code, in threaded code the solution is trivial. The coroutine blocks,
+but while it does so it periodically yields execution. Hence the rest of the
+system continues to run.
+
+## 7.2 Why cooperative rather than pre-emptive?
+
+The initial reaction of beginners to the idea of cooperative multi-tasking is
+often one of disappointment. Surely pre-emptive is better? Why should I have to
+explicitly yield control when the Python virtual machine can do it for me?
+
+When it comes to embedded systems the cooperative model has two advantages.
+Fistly, it is lightweight. It is possible to have large numbers of coroutines
+because unlike descheduled threads, paused coroutines do not contain much
+state. Secondly it avoids some of the subtle problems associated with
+pre-emptive scheduling. In practice cooperative multi-tasking is widely used,
+notably in user interface applications.
+
+To make a case for the defence a pre-emptive model has one advantage: if
+someone writes
+
+```python
+for x in range(1000000):
+    # do something time consuming
+```
+
+it won't lock out other threads, whereas without an ``await asyncio.sleep(0)``
+statement it will lock up the entire application until it completes.
+
+Alas this benefit pales into insignificance compared to the drawbacks. Some of
+these are covered in the documentation on writing
+[interrupt handlers](http://docs.micropython.org/en/latest/reference/isr_rules.html).
+In a pre-emptive model every thread can interrupt every other thread. It is
+generally much easier to find and fix a lockup resulting from a coro which
+fails to yield than locating the sometimes deeply subtle and rarely occurring
+bugs which can occur in pre-emptive code.
+
+To put this in simple terms, if you write a MicroPython coroutine, you can be
+sure that variables won't suddenly be changed by another coro: your coro has
+complete control until it issues ``await asyncio.sleep(0)``. Unless you are
+running an interrupt handler; these are pre-emptive.
+
+## 7.3 Communication
+
+In non-trivial applications coroutines need to communicate. Conventional Python
+techniques can be employed. These include the use of global variables or
+declaring coros as object methods: these can then share instance variables.
+Alternatively a mutable object may be passed as a coro argument.
+
+Pre-emptive systems mandate specialist classes to achieve "thread safe"
+communications; in a cooperative system these are seldom required.
+
+## 7.4 Polling
+
+Some hardware devices such as the accelerometer don't support interrupts, and
+therefore must be polled. One option suitable for slow devices is to write a
+coro which polls the device periodically. A faster and more elegant way is to
+delegate this activity to the scheduler. The thread then suspends execution of
+that thread pending the result of a user supplied callback function, which is
+run by the scheduler. From the thread's point of view it blocks pending an
+event - with an optional timeout available. See paragraph "Using IORead to poll
+hardware" above.

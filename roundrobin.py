@@ -6,6 +6,8 @@
 # executions/second:
 # Using yield: 3187
 # Using sleep_ms(0) 2238
+# Note using yield in a coro is "unofficial" and may not
+# work in future uasyncio revisions.
 
 import uasyncio as asyncio
 

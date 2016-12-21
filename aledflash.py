@@ -8,24 +8,21 @@ import pyb
 import uasyncio as asyncio
 
 async def killer(duration):
-    global running
     await asyncio.sleep(duration)
 
 async def toggle(objLED, time_ms):
-    while running:
+    while True:
         await asyncio.sleep_ms(time_ms)
         objLED.toggle()
 
 # TEST FUNCTION
 
 def test(duration):
-    global running
     loop = asyncio.get_event_loop()
     duration = int(duration)
     if duration > 0:
         print("Flash LED's for {:3d} seconds".format(duration))
     leds = [pyb.LED(x) for x in range(1,5)]  # Initialise all four on board LED's
-    running = True
     for x, led in enumerate(leds):           # Create a coroutine for each LED
         t = int((0.2 + x/2) * 1000)
         loop.create_task(toggle(leds[x], t))

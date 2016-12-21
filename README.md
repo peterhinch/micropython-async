@@ -42,20 +42,26 @@ filesystem.
 
 This module provides the following classes:
 
- * ``Switch`` This supports debouncing a normally open switch connected between a
- pin and ground. Can schedule coros on contact closure and/or opening.
+ * ``Switch`` This supports debouncing a normally open switch connected between
+ a pin and ground. Can run callbacks or schedule coros on contact closure
+ and/or opening.
  * ``Pushbutton`` A generalisation of ``Switch`` to support normally open or
- normally closed switches connected to ground or 3V3. Can also schedule
- coros on double-click or long press events.
+ normally closed switches connected to ground or 3V3. Can run callbacks or
+ schedule coros on double-click or long press events.
  * ``Delay_ms`` A class providing a retriggerable delay measured in ms. Can be
- used to schedule a coro. Alternatively its state can be tested by any coro.
+ used to run a callback or to schedule a coro. Its state can be tested by any
+ coro.
  
 The module ``astests.py`` provides examples of usage.
 
 ## 3.1 Switch class
 
 This assumes a normally open switch connected between a pin and ground. The pin
-should be initialised as an input with a pullup.
+should be initialised as an input with a pullup. Functions may be specified to
+run on contact closure or opening. Functions can be callbacks or coroutines;
+coroutines will be scheduled for execution and will run asynchronously.
+Debouncing is implicit: contact bounce will not cause spurious execution of
+these functions.
 
 Constructor argument (mandatory):
 
@@ -63,10 +69,10 @@ Constructor argument (mandatory):
  
 Methods:
 
- 1. ``close_coro`` Args: ``coro`` (mandatory) a coro to run on contact closure.
- ``args`` a tuple of arguments for the coro (default ())
- 2. ``open_coro`` Args: ``coro`` (mandatory) a coro to run on contact open.
- ``args`` a tuple of arguments for the coro (default ())
+ 1. ``close_func`` Args: ``func`` (mandatory) a function to run on contact
+ closure. ``args`` a tuple of arguments for the function (default ())
+ 2. ``open_func`` Args: ``func`` (mandatory) a function to run on contact open.
+ ``args`` a tuple of arguments for the function (default ())
  3. ``__call__`` Call syntax e.g. ``myswitch()`` returns the physical debounced
  state of the switch i.e. 0 if grounded, 1 if connected to ``3V3``.
 
@@ -84,20 +90,24 @@ The Pushbutton class uses logical rather than physical state: a button's state
 is considered ``True`` if pressed, otherwise ``False`` regardless of its
 physical implementation.
 
+Functions may be specified to run on button press, release, double click or
+long press events. Functions can be a callbacks or coroutines; coroutines will
+be scheduled for execution and will run asynchronously.
+
 Constructor argument (mandatory):
 
  1. ``pin`` The initialised Pin instance.
 
 Methods:
 
- 1. ``press_coro`` Args: ``coro`` (mandatory) a coro to run on button push.
- ``args`` a tuple of arguments for the coro (default ())
- 2. ``release_coro`` Args: ``coro`` (mandatory) a coro to run on button release.
- ``args`` a tuple of arguments for the coro (default ())
- 3. ``long_coro`` Args: ``coro`` (mandatory) a coro to run on long button push.
- ``args`` a tuple of arguments for the coro (default ())
- 4. ``double_coro`` Args: ``coro`` (mandatory) a coro to run on double push.
- ``args`` a tuple of arguments for the coro (default ())
+ 1. ``press_func`` Args: ``func`` (mandatory) a function to run on button push.
+ ``args`` a tuple of arguments for the function (default ()).
+ 2. ``release_func`` Args: ``func`` (mandatory) a function to run on button
+ release. ``args`` a tuple of arguments for the function (default ()).
+ 3. ``long_func`` Args: ``func`` (mandatory) a function to run on long button
+ push. ``args`` a tuple of arguments for the function (default ()).
+ 4. ``double_func`` Args: ``func`` (mandatory) a function to run on double
+ push. ``args`` a tuple of arguments for the function (default ()).
  5. ``__call__`` Call syntax e.g. ``mybutton()`` Returns the logical debounced
  state of the button (``True`` corresponds to pressed).
  6. ``rawstate()`` Returns the logical instantaneous state of the button. There
@@ -118,14 +128,15 @@ triggering it again (with a new timeout duration). So long as it is triggered
 before the time specified in the preceeding trigger it will never time out.
 
 If it does time out the ``running`` state will revert to ``False``. This can be
-interrogated by the object's ``running()`` method. In addition a coro can be
-specified to the constructor. This will be scheduled for execution when a
-timeout occurs.
+interrogated by the object's ``running()`` method. In addition a function can
+be specified to the constructor. This will execute when a timeout occurs. The
+function can be a callback or a coroutine; in the latter case it will be
+scheduled for execution and will run asynchronously.
 
 Constructor arguments (defaults in brackets):
 
- 1. ``coro`` The coro to run on timeout (default ``None``).
- 2. ``coro_args`` A tuple of arguments for the coro (default ``()``).
+ 1. ``func`` The function to call on timeout (default ``None``).
+ 2. ``args`` A tuple of arguments for the function (default ``()``).
 
 Methods:
 
@@ -142,11 +153,30 @@ classes. They assume a switch or button wired between pin X1 and gnd.
 
 ## 4.1 Function test_sw()
 
-This will flash the red LED on switch closure, and the green LED on opening.
+This will flash the red LED on switch closure, and the green LED on opening
+and demonstrates the scheduling of coroutines. See section 5 for a discussion
+of its behaviour if the switch is toggled rapidly.
 
-### 4.1.1 Race conditions
+## 4.2 Function test_swcb()
 
-Note that if the switch is cycled rapidly the LED behaviour may seem surprising.
+Demonstrates the use of callbacks to toggle the red and green LED's.
+
+## 4.3 Function test_btn()
+
+This will flash the red LED on button push, and the green LED on release. A
+long press will flash the blue LED and a double-press the yellow one.
+
+The note below on race conditions applies.
+
+## 4.4 Function test_btncb()
+
+Demonstrates the use of callbacks. Toggles the red, green, yellow and blue
+LED's on press, release, double-press and long press respectively.
+
+# 5 Race conditions
+
+Note that in the tests such as test_sw() where coroutines are scheduled by
+events and the switch is cycled rapidly the LED behaviour may seem surprising.
 This is because each time the switch is closed a coro is launched to flash the
 red LED; on each open event one is launched for the green LED. With rapid
 cycling a new coro instance will commence while one is still running against
@@ -161,10 +191,5 @@ behaviour occurs. The programmer must define the desired behaviour.
 
 In the case of this test program it might be to ignore events while a similar
 one is running, or to extend the timer to prolong the LED illumination.
-
-## 4.2 Function test_btn()
-
-This will flash the red LED on button push, and the green LED on release. A
-long press will flash the blue LED and a double-press the yellow one.
-
-The above note on race conditions applies.
+Alternatively a subsequent button press might be required to terminate the
+illumination. The "right" behaviour is application dependent.

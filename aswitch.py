@@ -9,70 +9,77 @@
 # Copyright Peter Hinch 2016 Released under the MIT license.
 
 import uasyncio as asyncio
+type_gen = type((lambda: (yield))())
 
 class Delay_ms(object):
-    def __init__(self, coro=None, coro_args=()):
-        self.loop = asyncio.get_event_loop()
-        self.coro = coro
-        self.coro_args = coro_args
+    def __init__(self, func=None, args=()):
+        self.func = func
+        self.args = args
         self._running = False
 
     def stop(self):
         self._running = False
 
     def trigger(self, duration):  # Update end time
-        self.tstop = self.loop.time() + duration
+        loop = asyncio.get_event_loop()
+        self.tstop = loop.time() + duration
         if not self._running:
             # Start a thread which stops the delay after its period has elapsed
-            self.loop.create_task(self.killer())
+            loop.create_task(self.killer())
             self._running = True
 
     def running(self):
         return self._running
 
     async def killer(self):
-        loop = self.loop
-        while self.tstop > self.loop.time():
+        loop = asyncio.get_event_loop()
+        while self.tstop > loop.time():
             # Must loop here: might be retriggered
-            await asyncio.sleep_ms(self.tstop - self.loop.time())
-        if self._running and self.coro is not None:
-            loop.create_task(self.coro(*self.coro_args))
+            await asyncio.sleep_ms(self.tstop - loop.time())
+        if self._running and self.func is not None:
+            res = self.func(*self.args)  # Execute callback
+            if isinstance(res, type_gen):  # It was a generator function
+                loop.create_task(res)  # schedule the coro
         self._running = False
 
 
 class Switch(object):
     debounce_ms = 50
     def __init__(self, pin):
-        self.loop = asyncio.get_event_loop()
         self.pin = pin # Should be initialised for input with pullup
-        self._open_coro = False
-        self._close_coro = False
+        self._open_func = False
+        self._close_func = False
         self.switchstate = self.pin.value()  # Get initial state
-        self.loop.create_task(self.switchcheck())  # Thread runs forever
+        loop = asyncio.get_event_loop()
+        loop.create_task(self.switchcheck())  # Thread runs forever
 
-    def open_coro(self, coro, args=()):
-        self._open_coro = coro
-        self._open_coro_args = args
+    def open_func(self, func, args=()):
+        self._open_func = func
+        self._open_args = args
 
-    def close_coro(self, coro, args=()):
-        self._close_coro = coro
-        self._close_coro_args = args
+    def close_func(self, func, args=()):
+        self._close_func = func
+        self._close_args = args
 
     # Return current state of switch (0 = pressed)
     def __call__(self):
         return self.switchstate
 
     async def switchcheck(self):
-        loop = self.loop
+        loop = asyncio.get_event_loop()
         while True:
             state = self.pin.value()
             if state != self.switchstate:
                 # State has changed: act on it now.
                 self.switchstate = state
-                if state == 0 and self.close_coro:
-                    loop.create_task(self._close_coro(*self._close_coro_args))
-                elif state == 1 and self._open_coro:
-                    loop.create_task(self._open_coro(*self._open_coro_args))
+                if state == 0 and self.close_func:
+                    res = self._close_func(*self._close_args)
+                    if isinstance(res, type_gen):
+                        loop.create_task(res)
+                elif state == 1 and self._open_func:
+                    res = self._open_func(*self._open_args)
+                    if isinstance(res, type_gen):
+                        loop.create_task(res)
             # Ignore further state changes until switch has settled
             await asyncio.sleep_ms(Switch.debounce_ms)
 
@@ -82,30 +89,30 @@ class Pushbutton(object):
     double_click_ms = 400
     def __init__(self, pin):
         self.pin = pin # Initialise for input
-        self.loop = asyncio.get_event_loop()
-        self._true_coro = False
-        self._false_coro = False
-        self._double_coro = False
-        self._long_coro = False
+        self._true_func = False
+        self._false_func = False
+        self._double_func = False
+        self._long_func = False
         self.sense = pin.value()  # Convert from electrical to logical value
         self.buttonstate = self.rawstate()  # Initial state
-        self.loop.create_task(self.buttoncheck())  # Thread runs forever
+        loop = asyncio.get_event_loop()
+        loop.create_task(self.buttoncheck())  # Thread runs forever
 
-    def press_coro(self, coro, args=()):
-        self._true_coro = coro
-        self._true_coro_args = args
+    def press_func(self, func, args=()):
+        self._true_func = func
+        self._true_args = args
 
-    def release_coro(self, coro, args=()):
-        self._false_coro = coro
-        self._false_coro_args = args
+    def release_func(self, func, args=()):
+        self._false_func = func
+        self._false_args = args
 
-    def double_coro(self, coro, args=()):
-        self._double_coro = coro
-        self._double_coro_args = args
+    def double_func(self, func, args=()):
+        self._double_func = func
+        self._double_args = args
 
-    def long_coro(self, coro, args=()):
-        self._long_coro = coro
-        self._long_coro_args = args
+    def long_func(self, func, args=()):
+        self._long_func = func
+        self._long_args = args
 
     # Current non-debounced logical button state: True == pressed
     def rawstate(self):
@@ -116,10 +123,10 @@ class Pushbutton(object):
         return self.buttonstate
 
     async def buttoncheck(self):
-        loop = self.loop
-        if self._long_coro:
-            longdelay = Delay_ms(self._long_coro, self._long_coro_args)
-        if self._double_coro:
+        loop = asyncio.get_event_loop()
+        if self._long_func:
+            longdelay = Delay_ms(self._long_func, self._long_args)
+        if self._double_func:
             doubledelay = Delay_ms()
         while True:
             state = self.rawstate()
@@ -128,23 +135,29 @@ class Pushbutton(object):
                 self.buttonstate = state
                 if state:
                     # Button is pressed
-                    if self._long_coro and not longdelay.running():
+                    if self._long_func and not longdelay.running():
                         # Start long press delay
                         longdelay.trigger(Pushbutton.long_press_ms)
-                    if self._double_coro:
+                    if self._double_func:
                         if doubledelay.running():
-                            loop.create_task(self._double_coro(*self._double_coro_args))
+                            res = self._double_func(*self._double_args)
+                            if isinstance(res, type_gen):
+                                loop.create_task(res)
                         else:
                             # First click: start doubleclick timer
                             doubledelay.trigger(Pushbutton.double_click_ms)
-                    if self._true_coro:
-                        loop.create_task(self._true_coro(*self._true_coro_args))
+                    if self._true_func:
+                        res = self._true_func(*self._true_args)
+                        if isinstance(res, type_gen):
+                            loop.create_task(res)
                 else:
                     # Button release
-                    if self._long_coro and longdelay.running():
+                    if self._long_func and longdelay.running():
                         # Avoid interpreting a second click as a long push
                         longdelay.stop()
-                    if self._false_coro:
-                        loop.create_task(self._false_coro(*self._false_coro_args))
+                    if self._false_func:
+                        res = self._false_func(*self._false_args)
+                        if isinstance(res, type_gen):
+                            loop.create_task(res)
             # Ignore state changes until switch has settled
             await asyncio.sleep_ms(Pushbutton.debounce_ms)

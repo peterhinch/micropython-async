@@ -1,7 +1,8 @@
-# runs in CPython
-# In Unix MicroPython fails with
-# TypeError: 'Hardware' object is not iterable
-# Fixed by supplying __iter__()
+# awaitable.py Demo of an awaitable class
+# Author: Peter Hinch
+# Copyright Peter Hinch 2016 Released under the MIT license
+# runs in CPython and MicroPython
+# Trivial fix for MicroPython issue #2678
 
 try:
     import uasyncio as asyncio
@@ -12,14 +13,13 @@ class Hardware(object):
     def __init__(self, count):
         self.count = count
 
-    def __iter__(self):  # issue #2678
-        yield from self.__await__()
-
     def __await__(self):  # Typical use, loop until an interface becomes ready.
         while self.count:
             print(self.count)
             yield
             self.count -= 1
+
+    __iter__ = __await__  # issue #2678
 
 loop = asyncio.get_event_loop()
 
