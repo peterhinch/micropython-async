@@ -149,7 +149,8 @@ Methods:
 # 4. Module astests.py
 
 This provides demonstration/test functions for the ``Switch`` and ``Pushbutton``
-classes. They assume a switch or button wired between pin X1 and gnd.
+classes. They assume a switch or button wired between pin X1 and gnd. Tests may
+be terminated by grounding X2.
 
 ## 4.1 Function test_sw()
 

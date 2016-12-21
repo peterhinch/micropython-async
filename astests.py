@@ -1,19 +1,19 @@
 # Test/demo programs for the aswitch module.
 # Tested on Pyboard but should run on other microcontroller platforms
-# running MicroPython and uasyncio.
+# running MicroPython with uasyncio library.
 # Author: Peter Hinch.
 # Copyright Peter Hinch 2016 Released under the MIT license.
 
 from machine import Pin
 from pyb import LED
-from utime import ticks_add
-
-try:
-    import uasyncio as asyncio
-except ImportError:
-    import asyncio
-
 from aswitch import Switch, Pushbutton
+import uasyncio as asyncio
+
+helptext = '''
+Test using switch or pushbutton between X1 and gnd.
+Ground pin X2 to terminate test.
+Soft reset (ctrl-D) after each test.
+'''
 
 # Pulse an LED (coroutine)
 async def pulse(led, ms):
@@ -33,7 +33,8 @@ async def killer():
 
 # Test for the Switch class passing coros
 def test_sw():
-    loop = asyncio.get_event_loop()
+    print('Test of switch scheduling coroutines.')
+    print(helptext)
     pin = Pin('X1', Pin.IN, Pin.PULL_UP)
     red = LED(1)
     green = LED(2)
@@ -41,11 +42,13 @@ def test_sw():
     # Register a coro to launch on contact close
     sw.close_func(pulse, (green, 1000))
     sw.open_func(pulse, (red, 1000))
+    loop = asyncio.get_event_loop()
     loop.run_until_complete(killer())
 
 # Test for the switch class with a callback
 def test_swcb():
-    loop = asyncio.get_event_loop()
+    print('Test of switch executing callbacks.')
+    print(helptext)
     pin = Pin('X1', Pin.IN, Pin.PULL_UP)
     red = LED(1)
     green = LED(2)
@@ -53,11 +56,13 @@ def test_swcb():
     # Register a coro to launch on contact close
     sw.close_func(toggle, (red,))
     sw.open_func(toggle, (green,))
+    loop = asyncio.get_event_loop()
     loop.run_until_complete(killer())
 
 # Test for the Pushbutton class (coroutines)
 def test_btn():
-    loop = asyncio.get_event_loop()
+    print('Test of pushbutton scheduling coroutines.')
+    print(helptext)
     pin = Pin('X1', Pin.IN, Pin.PULL_UP)
     red = LED(1)
     green = LED(2)
@@ -68,11 +73,13 @@ def test_btn():
     pb.release_func(pulse, (green, 1000))
     pb.double_func(pulse, (yellow, 1000))
     pb.long_func(pulse, (blue, 1000))
+    loop = asyncio.get_event_loop()
     loop.run_until_complete(killer())
 
 # Test for the Pushbutton class (callbacks)
 def test_btncb():
-    loop = asyncio.get_event_loop()
+    print('Test of pushbutton executing callbacks.')
+    print(helptext)
     pin = Pin('X1', Pin.IN, Pin.PULL_UP)
     red = LED(1)
     green = LED(2)
@@ -83,4 +90,5 @@ def test_btncb():
     pb.release_func(toggle, (green,))
     pb.double_func(toggle, (yellow,))
     pb.long_func(toggle, (blue,))
+    loop = asyncio.get_event_loop()
     loop.run_until_complete(killer())
