@@ -9,12 +9,9 @@
 # Copyright Peter Hinch 2016 Released under the MIT license.
 
 import uasyncio as asyncio
+from asyn import launch
+# launch: run a callback or initiate a coroutine depending on which is passed.
 
-# Define coroutine type. Portable to CPython unlike type_gen.
-async def _g():
-    pass
-
-type_coro = type(_g())
 
 class Delay_ms(object):
     def __init__(self, func=None, args=()):
@@ -42,9 +39,7 @@ class Delay_ms(object):
             # Must loop here: might be retriggered
             await asyncio.sleep_ms(self.tstop - loop.time())
         if self._running and self.func is not None:
-            res = self.func(*self.args)  # Execute callback
-            if isinstance(res, type_coro):  # It was a generator function
-                loop.create_task(res)  # schedule the coro
+            launch(self.func, self.args)  # Execute callback
         self._running = False
 
 
@@ -78,13 +73,9 @@ class Switch(object):
                 # State has changed: act on it now.
                 self.switchstate = state
                 if state == 0 and self.close_func:
-                    res = self._close_func(*self._close_args)
-                    if isinstance(res, type_coro):
-                        loop.create_task(res)
+                    launch(self._close_func, self._close_args)
                 elif state == 1 and self._open_func:
-                    res = self._open_func(*self._open_args)
-                    if isinstance(res, type_coro):
-                        loop.create_task(res)
+                    launch(self._open_func, self._open_args)
             # Ignore further state changes until switch has settled
             await asyncio.sleep_ms(Switch.debounce_ms)
 
@@ -145,24 +136,18 @@ class Pushbutton(object):
                         longdelay.trigger(Pushbutton.long_press_ms)
                     if self._double_func:
                         if doubledelay.running():
-                            res = self._double_func(*self._double_args)
-                            if isinstance(res, type_coro):
-                                loop.create_task(res)
+                            launch(self._double_func, self._double_args)
                         else:
                             # First click: start doubleclick timer
                             doubledelay.trigger(Pushbutton.double_click_ms)
                     if self._true_func:
-                        res = self._true_func(*self._true_args)
-                        if isinstance(res, type_coro):
-                            loop.create_task(res)
+                        launch(self._true_func, self._true_args)
                 else:
                     # Button release
                     if self._long_func and longdelay.running():
                         # Avoid interpreting a second click as a long push
                         longdelay.stop()
                     if self._false_func:
-                        res = self._false_func(*self._false_args)
-                        if isinstance(res, type_coro):
-                            loop.create_task(res)
+                        launch(self._false_func, self._false_args)
             # Ignore state changes until switch has settled
             await asyncio.sleep_ms(Pushbutton.debounce_ms)

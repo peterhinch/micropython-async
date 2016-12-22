@@ -1,10 +1,25 @@
 # asyn.py 'micro' synchronisation primitives for uasyncio
 # Author: Peter Hinch
 # Copyright Peter Hinch 2016 Released under the MIT license
-# Test/demo program asyntest.py
-# Provides Lock and Event classes
+# Test/demo programs asyntest.py, barrier_test.py
+# Provides Lock, Event and Barrier classes and launch function
 
 import uasyncio as asyncio
+
+async def _g():
+    pass
+
+type_coro = type(_g())
+
+# If a callback is passed, run it and return.
+# If a coro is passed initiate it and return.
+# coros are passed by name i.e. not using function call syntax.
+def launch(func, tup_args):
+    res = func(*tup_args)
+    if isinstance(res, type_coro):
+        loop = asyncio.get_event_loop()
+        loop.create_task(res)
+
 
 # To access a lockable resource a coro should issue
 # async with lock_instance:
@@ -65,4 +80,39 @@ class Event():
 
     async def wait(self):
         while not self._flag:
-            yield
+            asyncio.sleep_ms(0)
+
+class Barrier():
+    def __init__(self, participants, func=None, args=()):
+        self._participants = participants
+        self._func = func
+        self._args = args
+        self._reset(True)
+
+    def _reset(self, down):
+        self._down = down
+        self._count = self._participants if down else 0
+
+    def _at_limit(self):
+        limit = 0 if self._down else self._participants
+        return self._count == limit
+
+    def _update(self):
+        self._count += -1 if self._down else 1
+        if self._count < 0 or self._count > self._participants:
+            raise ValueError('Too many threads accessing Barrier')
+
+    async def signal_and_wait(self):
+        self._update()
+        if self._at_limit():  # All other threads are also at limit
+            if self._func is not None:
+                launch(self._func, self._args)
+            self._reset(not self._down)
+            return
+
+        direction = self._down
+        while True:  # Wait until last waiting thread changes the direction
+            if direction != self._down:
+                return
+            await asyncio.sleep(0)
+

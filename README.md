@@ -36,7 +36,8 @@ filesystem.
  pushbuttons and also a software retriggerable delay object. Pushbuttons are a
  generalisation of switches providing logical rather than physical status along
  with double-clicked and long pressed events.
- 3. ``astests.py`` Test/demonstration programs for the above.
+ 3. ``asyn.py`` Provides synchronisation primitives. Required by ``aswitch.py``.
+ 4. ``astests.py`` Test/demonstration programs for ``aswitch.py``.
 
 # 3. Module aswitch.py
 
