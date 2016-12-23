@@ -4,7 +4,12 @@
 # Test/demo programs asyntest.py, barrier_test.py
 # Provides Lock, Event and Barrier classes and launch function
 
-import uasyncio as asyncio
+# CPython 3.5 compatibility
+# (ignore RuntimeWarning: coroutine '_g' was never awaited)
+try:
+    import uasyncio as asyncio
+except ImportError:
+    import asyncio
 
 async def _g():
     pass
@@ -43,12 +48,12 @@ class Lock():
 
     async def __aexit__(self, *args):
         self.release()
-        await asyncio.sleep_ms(0)
+        await asyncio.sleep(0)
 
     async def acquire(self):
         while True:
             if self._locked:
-                await asyncio.sleep_ms(0)
+                await asyncio.sleep(0)
             else:
                 self._locked = True
                 break
@@ -80,8 +85,12 @@ class Event():
 
     async def wait(self):
         while not self._flag:
-            asyncio.sleep_ms(0)
+            await asyncio.sleep(0)
 
+# A Barrier synchronises N coros. Each issues barrier.signal_and_wait():
+# execution pauses until the other participant coros have issued that method.
+# At that point the callback is executed. Then the barrier is 'opened' and
+# excution of all participants resumes.
 class Barrier():
     def __init__(self, participants, func=None, args=()):
         self._participants = participants
@@ -116,3 +125,34 @@ class Barrier():
                 return
             await asyncio.sleep(0)
 
+# A Semaphore is typically used to limit the number of coros running a
+# particular piece of code at once. The number is defined in the constructor.
+class Semaphore():
+    def __init__(self, value=1):
+        self._count = value
+
+    async def __aenter__(self):
+        await self.acquire()
+
+    async def __aexit__(self, *args):
+        self.release()
+        await asyncio.sleep(0)
+
+    async def acquire(self):
+        while self._count == 0:
+            await asyncio.sleep(0)
+        self._count -= 1
+
+    def release(self):
+        self._count += 1
+
+class BoundedSemaphore(Semaphore):
+    def __init__(self, value=1):
+        super().__init__(value)
+        self._initial_value = value
+
+    def release(self):
+        if self._count < self._initial_value:
+            self._count += 1
+        else:
+            raise ValueError('Semaphore released more than acquired')

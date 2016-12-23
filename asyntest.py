@@ -1,4 +1,14 @@
-import uasyncio as asyncio
+# asyntest.py Test/demo of the 'micro' Lock and Event classes
+# Author: Peter Hinch
+# Copyright Peter Hinch 2016 Released under the MIT license
+
+# CPython 3.5 compatibility
+# (ignore RuntimeWarning: coroutine '_g' was never awaited)
+try:
+    import uasyncio as asyncio
+except ImportError:
+    import asyncio
+
 from asyn import Lock, Event
 
 async def bar(n, lock):
@@ -29,12 +39,12 @@ async def main():
     loop.create_task(bar(3, lock))
     print('Test Event class')
     event = Event()
+    print('got here')
     loop.create_task(eventset(event))
+    print('gh1')
     await eventwait(event)  # main runs fast until this point
     print('Event status {}'.format(event.is_set()))
     print('Tasks complete')
-    yield asyncio.StopLoop(loop)  # stop a loop started with run_forever()
 
 loop = asyncio.get_event_loop()
-loop.create_task(main())
-loop.run_forever()
+loop.run_until_complete(main())

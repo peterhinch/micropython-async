@@ -208,8 +208,9 @@ embrace" where two coros wait on the other's completion.
 
 In simple applications these are often addressed with global flags. A more
 elegant approach is to use synchronisation primitives. The module ``asyn.py``
-offers "micro" implementations of the ``Lock`` and ``Event`` primitives, with
-a demo program ``asyntest.py``.
+offers "micro" implementations of ``Lock``, ``Event``, ``Barrier`` and ``Semaphore``
+primitives. These are for use only with asyncio. They are not thread safe and
+should not be used with the ``_thread`` module.
 
 Another synchronisation issue arises with producer and consumer coros. The
 producer generates data which the consumer uses. Asyncio provides the ``Queue``
@@ -271,9 +272,11 @@ async def foo(event):
         event.set()
 ```
 
-Where multiple coros wait on a single event clearing is best performed by the
-coro which set it, as it should only be cleared when all dependent coros have
-received it. One way to achieve this is with an acknowledge event:
+If multiple coros are to wait on a single event, consider using a ``Barrier``
+object described below. This is because the coro which raised the event has no
+way to determine whether all others have received it; determining when to clear
+it down requires further synchronisation. One way to achieve this is with an
+acknowledge event:
 
 ```python
 async def eventwait(event, ack_event):
@@ -285,15 +288,68 @@ An example of this is provided in ``event_test.py``.
 
 ### 3.2.1 Definition
 
-Constructor: this takes no arguments.  
-Methods:
+Constructor: this takes no arguments.
 
+Methods:
  * ``set`` No args. Initiates the event.
  * ``clear`` No args. Clears the event.
  * ``is_set`` No args. Returns ``True`` if the event is set.
  * ``wait`` No args. Coro. A coro waiting on an event issues ``await event.wait()``.
 
-## 3.3 Queue
+## 3.3 Barrier
+
+This enables multiple coros to rendezvous at a particular point. For example
+producer and consumer coros can synchronise at a point where the producer has
+data available and the consumer is ready to use it. At that point in time the
+``Barrier`` can optionally run a callback before releasing the barrier and
+allowing all waiting coros to continue.
+
+Constructor.  
+Mandatory arg:  
+``participants`` The number of coros which will wait on the barrier.  
+Optional args:  
+``func`` Callback to run. Default ``None``.  
+``args`` Tuple of args for the callback. Default ``()``.
+
+Method:  
+``signal_and_wait`` Coro. No args. Waiting on this will cause the coro to block
+until all other particpants are also blocking on the barrier.
+
+The callback can be a function or a coro. In most applications a function is
+likely to be used: this can be guaranteed to run to completion beore the
+barrier is released.
+
+## 3.4 Semaphore
+
+A semaphore limits the number of coros which can access a resource. It can be
+used to limit the number of instances of a particular coro which can run
+concurrently. It performs this using an access counter which is initialised by
+the constructor and decremented each time a coro acquires the semaphore.
+
+Constructor: Optional arg ``value`` default 1. Number of permitted concurrent
+accesses.
+
+Methods:
+ * ``release`` No args. Increments the access counter.
+ * ``acquire`` No args. Coro. If the access counter is greater than 0,
+ decrements it and terminates. Otherwise waits for it to become greater than 0
+ before decrementing it and terminating.
+
+The easiest way to use it is with a context manager:
+
+```python
+async def foo(sema):
+    async with sema:
+        # Limited access here
+```
+
+### 3.4.1 BoundedSemaphore
+
+This works identically to the ``Semaphore`` class except that if the ``release``
+method causes the access counter to exceed its initial value, a ``ValueError``
+is raised.
+
+## 3.5 Queue
 
 The sample program ``aqtest.py`` demonstrates simple use of this class. A
 typical producer coro might work as follows:
