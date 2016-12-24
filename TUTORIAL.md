@@ -12,11 +12,10 @@ programming: many guides to this may be found online.
 
 # 1. Cooperative scheduling
 
-The technique of cooperative multi-tasking is very widely used in embedded
-systems. It offers lower overheads than pre-emptive scheduling and avoids many
-of the pitfalls associated with truly asynchronous threads of execution. For
-those new to asynchronous programming there is an introduction in section 7
-below.
+The technique of cooperative multi-tasking is widely used in embedded systems.
+It offers lower overheads than pre-emptive scheduling and avoids many of the
+pitfalls associated with truly asynchronous threads of execution. For those new
+to asynchronous programming there is an introduction in section 7 below.
 
 ## 1.1 Modules
 
@@ -27,7 +26,7 @@ hardware.
  1. ``aledflash.py`` Flashes the four Pyboard LED's asynchronously for 10s. The
  simplest uasyncio demo. Import it to run.
  2. ``apoll.py`` A device driver for the Pyboard accelerometer. Demonstrates
- the use of a coroutine to poll a device. Runs for 20s.
+ the use of a coroutine to poll a device. Runs for 20s. Import it to run.
  3. ``aswitch.py`` This provides classes for interfacing switches and
  pushbuttons and also a software retriggerable delay object. Pushbuttons are a
  generalisation of switches providing logical rather than physical status along
@@ -57,7 +56,7 @@ It doesn't support objects of type ``Future`` and ``Task``. Routines to run
 concurrently are defined as coroutines instantiated with ``async def``.
 
 At the time of writing the ``__await__`` special method (to create an awaitable
-class) is not supported but a workround is described below.
+class) is not supported but a workround is described in section 4.1.
 
 For timing asyncio uses floating point values of seconds. The uasyncio ``sleep``
 method accepts floats (including sub-second values) or integers. For
@@ -109,8 +108,9 @@ async def foo(delay_secs):
 ```
 
 A coro can allow other coroutines to run by means of the ``await coro``
-statement. This causes ``coro`` to run to completion before execution passes to
-the next instruction. Consider these lines of code:
+statement and must contain at least one ``awwait`` statement. This causes
+``coro`` to run to completion before execution passes to the next instruction.
+Consider these lines of code:
 
 ```python
 await asyncio.sleep(delay_secs)
@@ -120,7 +120,7 @@ await asyncio.sleep(0)
 The first causes the code to pause for the duration of the delay, with other
 coros being scheduled for the duration. A delay of 0 causes any pending coros
 to be scheduled in round-robin fashion before the following line is run. See
-``roundrobin.py`` example.
+the ``roundrobin.py`` example.
 
 ### 2.3.1 Queueing a coro for scheduling
 
@@ -132,13 +132,13 @@ to be scheduled in round-robin fashion before the following line is run. See
 
 ### 2.3.2 Running a callback function
 
-Callbacks should be designed to complete in a short period of time as
-coroutines will have no opportunity to run for the duration.
+Callbacks should be Python functions designed to complete in a short period of
+time as coroutines will have no opportunity to run for the duration.
 
 The following ``EventLoop`` methods schedule callbacks:
 
  1. ``call_soon`` Call as soon as possible. Args: ``callback`` the callback to
- run, ``*args`` any positional args.
+ run, ``*args`` any positional args may follow separated by commas.
  2. ``call_later`` Call after a delay in secs. Args: ``delay``, ``callback``,
  ``*args``
  3. ``call_later_ms_`` Call after a delay in ms. Args: ``delay``, ``callback``,
@@ -150,9 +150,10 @@ The following ``EventLoop`` methods schedule callbacks:
 
 ```python
 loop = asyncio.get_event_loop()
-loop.call_soon(foo(5)) # Schedule callback 'foo' ASAP
-loop.call_later(2, foo(5)) # Schedule after 2 seconds
-loop.call_at(time.ticks_add(loop.time(), 100), foo(2)) # after 100ms
+loop.call_soon(foo, 5) # Schedule callback 'foo' ASAP with an arg of 5
+loop.call_later(2, foo, 5) # Schedule after 2 seconds
+loop.call_later_ms_(50, foo, (5,)) # Schedule after 50ms. Note arg in tuple.
+loop.call_at(time.ticks_add(loop.time(), 4), foo, 5) # after 4s
 loop.run_forever()
 ```
 
@@ -180,8 +181,8 @@ async def foo(delay_secs, delay_ms):
 While these delays are in progress the scheduler will schedule other coros.
 This is generally highly desirable, but it does introduce uncertainty in the
 timing as the calling routine will only be rescheduled when the one running at
-the appropriate time has yielded. The amount of uncertainty depends on the
-design of the application, but is likely to be on the order of tens of ms.
+the appropriate time has yielded. The amount of latency depends on the design
+of the application, but is likely to be on the order of tens of ms.
 
 Very precise delays may be issued by using the ``utime`` functions ``sleep_ms``
 and ``sleep_us``. These are best suited for short delays as the scheduler will
@@ -206,8 +207,8 @@ producer generates data which the consumer uses. Asyncio provides the ``Queue``
 object. The producer puts data onto the queue while the consumer waits for its
 arrival (with other coros getting scheduled for the duration). The ``Queue``
 guarantees that items are removed in the order in which they were received.
-Alternatively a ``Barrier`` instance can be used if the producer must wait util
-the consumer is ready to access the data.
+Alternatively a ``Barrier`` instance can be used if the producer must wait
+until the consumer is ready to access the data.
 
 The interface specification for the primitves is [here](./PRIMITIVES.md).
 
@@ -255,11 +256,11 @@ async def foo(event):
         event.set()
 ```
 
-If multiple coros are to wait on a single event, consider using a ``Barrier``
-object described below. This is because the coro which raised the event has no
-way to determine whether all others have received it; determining when to clear
-it down requires further synchronisation. One way to achieve this is with an
-acknowledge event:
+Especially if multiple coros are to wait on a single event, consider using a
+``Barrier`` object described below. This is because the coro which raised the
+event has no way to determine whether all others have received it; determining
+when to clear it down requires further synchronisation. One way to achieve this
+is with an acknowledge event, but each coro would need to provide one:
 
 ```python
 async def eventwait(event, ack_event):
@@ -278,7 +279,7 @@ data available and the consumer is ready to use it. At that point in time the
 allowing all waiting coros to continue.
 
 The callback can be a function or a coro. In most applications a function is
-likely to be used: this can be guaranteed to run to completion beore the
+likely to be used: this can be guaranteed to run to completion before the
 barrier is released.
 
 An example is the ``barrier_test`` function in ``asyntest.py``.
@@ -436,8 +437,8 @@ be delegated to the scheduler which uses ``select`` to schedule the first
 stream or device driver to be ready. This is more efficient, and offers lower
 latency, than running multiple coros each polling a device.
 
-At the time of writing support for using this mechanism in device drivers has
-not yet been implemented.
+At the time of writing firmware support for using this mechanism in device
+drivers has not yet been implemented.
 
 # 6 Hints and tips
 

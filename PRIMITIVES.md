@@ -167,6 +167,10 @@ async def foo(sema):
         # Limited access here
 ```
 
+There is a difference between a ``Semaphore`` and a ``Lock``. A ``Lock``
+instance is owned by the coro which locked it: only that coro can release it. A
+``Semaphore`` can be released by any coro which acquired it.
+
 ### 3.4.1 BoundedSemaphore
 
 This works identically to the ``Semaphore`` class except that if the ``release``

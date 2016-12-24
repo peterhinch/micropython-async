@@ -51,9 +51,9 @@ Constructor argument (mandatory):
 Methods:
 
  1. ``close_func`` Args: ``func`` (mandatory) a function to run on contact
- closure. ``args`` a tuple of arguments for the function (default ())
+ closure. ``args`` a tuple of arguments for the function (default ``()``)
  2. ``open_func`` Args: ``func`` (mandatory) a function to run on contact open.
- ``args`` a tuple of arguments for the function (default ())
+ ``args`` a tuple of arguments for the function (default ``()``)
  3. ``__call__`` Call syntax e.g. ``myswitch()`` returns the physical debounced
  state of the switch i.e. 0 if grounded, 1 if connected to ``3V3``.
 
@@ -72,8 +72,8 @@ is considered ``True`` if pressed, otherwise ``False`` regardless of its
 physical implementation.
 
 Functions may be specified to run on button press, release, double click or
-long press events. Functions can be a callbacks or coroutines; coroutines will
-be scheduled for execution and will run asynchronously.
+long press events. Functions can be callbacks or coroutines; coroutines will be
+scheduled for execution and will run asynchronously.
 
 Constructor argument (mandatory):
 
@@ -82,13 +82,13 @@ Constructor argument (mandatory):
 Methods:
 
  1. ``press_func`` Args: ``func`` (mandatory) a function to run on button push.
- ``args`` a tuple of arguments for the function (default ()).
+ ``args`` a tuple of arguments for the function (default ``()``).
  2. ``release_func`` Args: ``func`` (mandatory) a function to run on button
- release. ``args`` a tuple of arguments for the function (default ()).
+ release. ``args`` a tuple of arguments for the function (default ``()``).
  3. ``long_func`` Args: ``func`` (mandatory) a function to run on long button
- push. ``args`` a tuple of arguments for the function (default ()).
+ push. ``args`` a tuple of arguments for the function (default ``()``).
  4. ``double_func`` Args: ``func`` (mandatory) a function to run on double
- push. ``args`` a tuple of arguments for the function (default ()).
+ push. ``args`` a tuple of arguments for the function (default ``()``).
  5. ``__call__`` Call syntax e.g. ``mybutton()`` Returns the logical debounced
  state of the button (``True`` corresponds to pressed).
  6. ``rawstate()`` Returns the logical instantaneous state of the button. There
