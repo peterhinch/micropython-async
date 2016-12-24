@@ -231,13 +231,15 @@ complete.
 
 ## 3.2 Event
 
-This provides a way for one or more coros to pause until another one flags them
-to continue. An ``Event`` object is instantiated and passed to all coros using
-it. Coros waiting on the event issue ``await event.wait()``. Execution pauses
-until a coro issues ``event.set()``. ``event.clear()`` must then be issued.
+This provides a way for one or more coros to pause until another flags them to
+continue. An ``Event`` object is instantiated and made accessible to all coros
+using it. Coros waiting on the event issue ``await event.wait()`` whereupon
+execution pauses until another issues ``event.set()``.
 
-In the usual case where a single coro is awaiting the event this can be done
-immediately after it is received:
+This presents a problem if ``event.set()`` is issued in a looping construct; the
+code must wait until the event has been accessed by all waiting coros before
+setting it again. In the case where a single coro is awaiting the event this
+can be achieved by the receiving coro clearing the event:
 
 ```python
 async def eventwait(event):
@@ -245,7 +247,7 @@ async def eventwait(event):
     event.clear()
 ```
 
-The coro raising the event may need to check that it has been serviced:
+The coro raising the event checks that it has been serviced:
 
 ```python
 async def foo(event):
@@ -256,11 +258,8 @@ async def foo(event):
         event.set()
 ```
 
-Especially if multiple coros are to wait on a single event, consider using a
-``Barrier`` object described below. This is because the coro which raised the
-event has no way to determine whether all others have received it; determining
-when to clear it down requires further synchronisation. One way to achieve this
-is with an acknowledge event, but each coro would need to provide one:
+Where multiple coros wait on a single event synchronisationcan be achieved by
+means of an acknowledge event. Each coro needs a separate event.
 
 ```python
 async def eventwait(event, ack_event):
@@ -269,6 +268,8 @@ async def eventwait(event, ack_event):
 ```
 
 An example of this is provided in the ``event_test`` function in ``asyntest.py``.
+This is cumbersome. In most cases - even those with a single waiting coro - the
+Barrier class below offers a simpler approach.
 
 ## 3.3 Barrier
 
@@ -454,6 +455,19 @@ scheduler is running.
 When running programs using ``uasyncio`` at the REPL, issue a soft reset
 (ctrl-D) between runs. This is because ``uasyncio`` retains state between runs
 which can lead to confusing behaviour.
+
+## 6.3 Garbage Collection
+
+You may want to consider running a coro which issues:
+
+```python
+    gc.collect()
+    gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
+```
+
+This assumes ``import gc`` has been issued. The purpose of this is discussed
+[here](http://docs.micropython.org/en/latest/pyboard/reference/constrained.html)
+in the section on the heap.
 
 # 7 Notes for beginners
 
