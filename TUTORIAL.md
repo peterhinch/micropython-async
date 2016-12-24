@@ -4,30 +4,19 @@ This document is a "work in progress" as I learn the content myself. Further
 at the time of writing uasyncio is itself under development. It is likely that
 these notes may contain errors; they will be subject to substantial revision. 
 
-For those unfamiliar with asynchronous programming there is an introduction
-in section 7 below.
-
 The MicroPython uasyncio library comprises a subset of Python's asyncio library
 designed for use on microcontrollers. As such it has a small RAM footprint and
 fast context switching. This document describes its use with a focus on
-interfacing hardware devices. Its other major application area is in network
+interfacing hardware devices. Another major application area is in network
 programming: many guides to this may be found online.
 
-# 1. Installation of uasyncio
+# 1. Cooperative scheduling
 
-Firstly install the latest version of ``micropython-uasyncio``. To use queues, also
-install the ``micropython-uasyncio.queues`` module.
-
-Instructions on installing library modules may be found [here](https://github.com/micropython/micropython-lib).
-
-On networked hardware, upip may be run locally.
-
-On non-networked hardware the resultant modules will need to be copied to the
-target. The above Unix installation will create directories under
-``~/.micropython/lib`` which may be copied to the target hardware, either to
-the root or to a ``lib`` subdirectory. Alternatively the device may be mounted;
-then use the "-p" option to upip to specify the target directory as the mounted
-filesystem.
+The technique of cooperative multi-tasking is very widely used in embedded
+systems. It offers lower overheads than pre-emptive scheduling and avoids many
+of the pitfalls associated with truly asynchronous threads of execution. For
+those new to asynchronous programming there is an introduction in section 7
+below.
 
 ## 1.1 Modules
 
@@ -44,17 +33,17 @@ hardware.
  generalisation of switches providing logical rather than physical status along
  with double-clicked and long pressed events.
  4. ``astests.py`` Test/demonstration programs for the above.
- 5. ``asyn.py`` Synchronisation primitives ``Lock`` and ``Event``.
+ 5. ``asyn.py`` Synchronisation primitives ``Lock``, ``Event``, ``Barrier`` and
+ ``Semaphore``.
  6. ``asyntest.py`` Example/demo programs for above.
- 7. ``event_test.py`` Multiple coros awaiting a single event.
- 8. ``roundrobin.py`` Demo of round-robin scheduling. Also a benchmark of
+ 7. ``roundrobin.py`` Demo of round-robin scheduling. Also a benchmark of
  scheduling performance.
- 9. ``awaitable.py`` Demo of an awaitable class. One way of implementing a
+ 8. ``awaitable.py`` Demo of an awaitable class. One way of implementing a
  device driver which polls an interface.
- 10. ``chain.py`` Copied from the Python docs. Demo of chaining coros.
- 11. ``aqtest.py`` Demo of uasyncio ``Queue`` class.
+ 9. ``chain.py`` Copied from the Python docs. Demo of chaining coros.
+ 10. ``aqtest.py`` Demo of uasyncio ``Queue`` class.
 
-# 2. Introduction
+# 2. uasyncio
 
 The asyncio concept is of cooperative multi-tasking based on coroutines,
 referred in this document as coros.
@@ -194,16 +183,16 @@ timing as the calling routine will only be rescheduled when the one running at
 the appropriate time has yielded. The amount of uncertainty depends on the
 design of the application, but is likely to be on the order of tens of ms.
 
-Very precise delays may be issued by using the ``utime.sleep`` functions. These
-are best suited for short delays as the scheduler will be unable to schedule
-other coros while the delay is in progress.
+Very precise delays may be issued by using the ``utime`` functions ``sleep_ms``
+and ``sleep_us``. These are best suited for short delays as the scheduler will
+be unable to schedule other coros while the delay is in progress.
 
 # 3 Synchronisation
 
 There is often a need to provide synchronisation between coros. A common
 example is to avoid what are known as "race conditions" where multiple coros
-compete to access a single resource. An example is provided in the ``aledflash.py``
-program and discussed in [the docs](./README.md). Another hazard is the "deadly
+compete to access a single resource. An example is provided in the ``astests.py``
+program and discussed in [the docs](./DRIVERS.md). Another hazard is the "deadly
 embrace" where two coros wait on the other's completion.
 
 In simple applications these are often addressed with global flags. A more
@@ -217,6 +206,10 @@ producer generates data which the consumer uses. Asyncio provides the ``Queue``
 object. The producer puts data onto the queue while the consumer waits for its
 arrival (with other coros getting scheduled for the duration). The ``Queue``
 guarantees that items are removed in the order in which they were received.
+Alternatively a ``Barrier`` instance can be used if the producer must wait util
+the consumer is ready to access the data.
+
+The interface specification for the primitves is [here](./PRIMITIVES.md).
 
 ## 3.1 Lock
 
@@ -234,16 +227,6 @@ async def bar(lock):
 While the coro ``bar`` is accessing the resource, other coros will pause at the
 ``async with lock`` statement until the context manager in ``bar()`` is
 complete.
-
-### 3.1.1 Definition
-
-Constructor: this takes no arguments.  
-Methods:
-
- * ``locked`` No args. Returns ``True`` if locked.
- * ``release`` No args. Releases the lock.
- * ``acquire`` No args. Coro which pauses until the lock has been acquired. Use
- by executing ``await lock.acquire()``.
 
 ## 3.2 Event
 
@@ -284,17 +267,7 @@ async def eventwait(event, ack_event):
     ack_event.set()
 ```
 
-An example of this is provided in ``event_test.py``.
-
-### 3.2.1 Definition
-
-Constructor: this takes no arguments.
-
-Methods:
- * ``set`` No args. Initiates the event.
- * ``clear`` No args. Clears the event.
- * ``is_set`` No args. Returns ``True`` if the event is set.
- * ``wait`` No args. Coro. A coro waiting on an event issues ``await event.wait()``.
+An example of this is provided in the ``event_test`` function in ``asyntest.py``.
 
 ## 3.3 Barrier
 
@@ -304,20 +277,11 @@ data available and the consumer is ready to use it. At that point in time the
 ``Barrier`` can optionally run a callback before releasing the barrier and
 allowing all waiting coros to continue.
 
-Constructor.  
-Mandatory arg:  
-``participants`` The number of coros which will wait on the barrier.  
-Optional args:  
-``func`` Callback to run. Default ``None``.  
-``args`` Tuple of args for the callback. Default ``()``.
-
-Method:  
-``signal_and_wait`` Coro. No args. Waiting on this will cause the coro to block
-until all other particpants are also blocking on the barrier.
-
 The callback can be a function or a coro. In most applications a function is
 likely to be used: this can be guaranteed to run to completion beore the
 barrier is released.
+
+An example is the ``barrier_test`` function in ``asyntest.py``.
 
 ## 3.4 Semaphore
 
@@ -326,15 +290,6 @@ used to limit the number of instances of a particular coro which can run
 concurrently. It performs this using an access counter which is initialised by
 the constructor and decremented each time a coro acquires the semaphore.
 
-Constructor: Optional arg ``value`` default 1. Number of permitted concurrent
-accesses.
-
-Methods:
- * ``release`` No args. Increments the access counter.
- * ``acquire`` No args. Coro. If the access counter is greater than 0,
- decrements it and terminates. Otherwise waits for it to become greater than 0
- before decrementing it and terminating.
-
 The easiest way to use it is with a context manager:
 
 ```python
@@ -342,6 +297,7 @@ async def foo(sema):
     async with sema:
         # Limited access here
 ```
+An example is the ``semaphore_test`` function in ``asyntest.py``.
 
 ### 3.4.1 BoundedSemaphore
 
@@ -375,13 +331,16 @@ size of queues may be limited and the status may be interrogated. The behaviour
 on empty status and (where size is limited) the behaviour on full status may be
 controlled. Documentation of this is in the code.
 
+An example of its use is provided in ``aqtest.py``.
+
 # 4 Designing classes for asyncio
 
 ## 4.1 Awaitable classes
 
-A coro can pause execution by issuing an ``awaitable`` object: ``await asyncio.sleep(delay_secs)``
-is an example. This can be extended to custom classes by implementing an ``__await__``
-special method:
+A coro can pause execution by waiting on an ``awaitable`` object:
+``await asyncio.sleep(delay_secs)`` is an example. Under CPython a custom class
+is made ``awaitable`` by implementing an ``__await__`` special method. This
+returns a generator. An awaitable class is used as follows:
 
 ```python
 async def bar():
@@ -391,11 +350,10 @@ async def bar():
     print('done')
 ```
 
-In order for this to work, the ``Foo`` class must have an ``__await__`` special
-method which returns a generator. The calling coro will pause until the
-generator terminates. Currently MicroPython doesn't support ``__await__``
-(issue #2678) and ``__iter__`` must be used. Alternatively the following will
-work under CPython and MicroPython.
+Execution proceeds to ``print('done')`` when the generator terminates.
+Currently MicroPython doesn't support ``__await__`` (issue #2678) and
+``__iter__`` must be used. Portability between CPython and MicroPython may be
+achieved as follows:
 
 ```python
 class Foo():
@@ -409,9 +367,13 @@ class Foo():
 
 ## 4.2 Asynchronous context managers
 
-Classes can be designed to support asynchronous context managers. An example is
-the ``Lock`` class described above. Such classes are accessed from within a
-coro with the following syntax:
+Classes can be designed to support asynchronous context managers. These are CM's
+having enter and exit procdures which are coros. An example is the ``Lock``
+class described above. This has an ``__aenter__`` coro which is logically
+required to run asynchronously. To support the asynchronous CM protocol its
+``__aexit__`` method also must be a coro, achieved by including
+``await asyncio.sleep(0)``. Such classes are accessed from within a coro with
+the following syntax:
 
 ```python
 async def bar(lock):
@@ -419,10 +381,11 @@ async def bar(lock):
         print('bar acquired lock')
 ```
 
-As with normal context managers an exit method is guaranteed to be called once
-the context manager terminates. To achieve this the special methods ``__aenter__``
-and ``__aexit__`` must be defined, both returning an awaitable object. This
-example comes from the ``Lock`` class:
+As with normal context managers an exit method is guaranteed to be called when
+the context manager terminates, whether in the normal way or via an exception.
+To achieve this the special methods ``__aenter__`` and ``__aexit__`` must be
+defined, both being coros waiting on an awaitable object. This example comes
+from the ``Lock`` class:
 
 ```python
     async def __aenter__(self):
@@ -440,7 +403,8 @@ polled to acquire data. There are two ways to do this using asyncio. One is
 simply to have a coro which does this periodically. The other is to delegate
 the polling to the scheduler using the IORead mechanism. The latter is more
 efficient, especially for devices which need to be polled frequently or with
-a (fairly) repeatable polling interval.
+a (fairly) repeatable polling interval. At the time of writing the latter
+approch is not yet supported in the firmware.
 
 Note that where a very repeatable polling interval is required, it should be
 done using a timer callback. For "very" repeatable read microsecond level.
@@ -477,12 +441,18 @@ not yet been implemented.
 
 # 6 Hints and tips
 
-### 6.1 Program hangs
+## 6.1 Program hangs
 
 Hanging usually occurs because a thread has blocked without yielding: this will
 hang the entire system. When developing it is useful to have a coro which
 periodically toggles an onboard LED. This provides confirmtion that the
 scheduler is running.
+
+## 6.2 uasyncio retains state
+
+When running programs using ``uasyncio`` at the REPL, issue a soft reset
+(ctrl-D) between runs. This is because ``uasyncio`` retains state between runs
+which can lead to confusing behaviour.
 
 # 7 Notes for beginners
 
@@ -497,7 +467,9 @@ code. But it does make the solution of certain types of problem simpler to code
 and easier to read and maintain.
 
 It facilitates a style of programming based on the concept of routines offering
-the illusion of running concurrently. This can simplify the process of
+the illusion of running concurrently. They do this by periodically passing
+control to the scheduler which will allow another routine waiting for execution
+to run - until it in turn yields control. This can simplify the process of
 interacting with physical devices. Consider the task of reading 12
 push-buttons. Mechanical switches such as buttons suffer from contact bounce.
 This means that several rapidly repeating transitions can occur when the button
@@ -524,7 +496,7 @@ for button_no, button in enumerate(buttons):
 The ``Pushbutton`` class hides the detail, but for each button a coroutine is
 created which polls the ``Pin`` object and performs the debouncing. It can also
 start user supplied coroutines on button release events, long presses and
-double clicks.
+double clicks. The code in ``aswitch.py`` achieves this using asyncio.
 
 Scheduling also solves the problem of blocking. If a routine needs to wait for
 a physical event to occur before it can continue it is said to be blocked. You
@@ -541,10 +513,10 @@ explicitly yield control when the Python virtual machine can do it for me?
 
 When it comes to embedded systems the cooperative model has two advantages.
 Fistly, it is lightweight. It is possible to have large numbers of coroutines
-because unlike descheduled threads, paused coroutines do not contain much
-state. Secondly it avoids some of the subtle problems associated with
-pre-emptive scheduling. In practice cooperative multi-tasking is widely used,
-notably in user interface applications.
+because unlike descheduled threads, paused coroutines contain little state.
+Secondly it avoids some of the subtle problems associated with pre-emptive
+scheduling. In practice cooperative multi-tasking is widely used, notably in
+user interface applications.
 
 To make a case for the defence a pre-emptive model has one advantage: if
 someone writes
@@ -554,21 +526,24 @@ for x in range(1000000):
     # do something time consuming
 ```
 
-it won't lock out other threads, whereas without an ``await asyncio.sleep(0)``
-statement it will lock up the entire application until it completes.
+it won't lock out other threads. Under cooperative schedulers the loop must
+explicitly yield control every so many iterations e.g. by putting the code in
+a coro and periodically issuing ``await asyncio.sleep(0)``.
 
-Alas this benefit pales into insignificance compared to the drawbacks. Some of
-these are covered in the documentation on writing
+Alas this benefit of pre-emption pales into insignificance compared to the
+drawbacks. Some of these are covered in the documentation on writing
 [interrupt handlers](http://docs.micropython.org/en/latest/reference/isr_rules.html).
-In a pre-emptive model every thread can interrupt every other thread. It is
-generally much easier to find and fix a lockup resulting from a coro which
-fails to yield than locating the sometimes deeply subtle and rarely occurring
-bugs which can occur in pre-emptive code.
+In a pre-emptive model every thread can interrupt every other thread, changing
+data which might be used in other threads. It is generally much easier to find
+and fix a lockup resulting from a coro which fails to yield than locating the
+sometimes deeply subtle and rarely occurring bugs which can occur in
+pre-emptive code.
 
 To put this in simple terms, if you write a MicroPython coroutine, you can be
 sure that variables won't suddenly be changed by another coro: your coro has
-complete control until it issues ``await asyncio.sleep(0)``. Unless you are
-running an interrupt handler; these are pre-emptive.
+complete control until it issues ``await asyncio.sleep(0)``.
+
+Bear in mind that interrupt handlers are pre-emptive.
 
 ## 7.3 Communication
 
