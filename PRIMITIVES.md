@@ -73,7 +73,7 @@ Methods:
 
 This provides a way for one or more coros to pause until another one flags them
 to continue. An ``Event`` object is instantiated and passed to all coros using
-it. Coros waiting on the event issue ``await event.wait()``. Execution pauses
+it. Coros waiting on the event issue ``await event``. Execution pauses
 until a coro issues ``event.set()``. ``event.clear()`` must then be issued.
 
 In the usual case where a single coro is awaiting the event this can be done
@@ -81,7 +81,7 @@ immediately after it is received:
 
 ```python
 async def eventwait(event):
-    await event.wait()
+    await event
     event.clear()
 ```
 
@@ -104,11 +104,11 @@ acknowledge event:
 
 ```python
 async def eventwait(event, ack_event):
-    await event.wait()
+    await event
     ack_event.set()
 ```
 
-An example of this is provided in ``event_test.py``.
+Example of this are in ``event_test`` and ``ack_test`` in asyntest.py.
 
 ### 3.2.1 Definition
 
@@ -118,7 +118,6 @@ Methods:
  * ``set`` No args. Initiates the event.
  * ``clear`` No args. Clears the event.
  * ``is_set`` No args. Returns ``True`` if the event is set.
- * ``wait`` No args. Coro. A coro waiting on an event issues ``await event.wait()``.
 
 ## 3.3 Barrier
 
@@ -135,13 +134,15 @@ Optional args:
 ``func`` Callback to run. Default ``None``.  
 ``args`` Tuple of args for the callback. Default ``()``.
 
-Method:  
-``signal_and_wait`` Coro. No args. Waiting on this will cause the coro to block
-until all other particpants are also blocking on the barrier.
-
 The callback can be a function or a coro. In most applications a function is
 likely to be used: this can be guaranteed to run to completion beore the
 barrier is released.
+
+The ``Barrier`` has no properties or methods for user access. Participant
+coros issue ``await my_barrier`` whereupon execution pauses until all other
+participants are also waiting on it. At this point any callback will run and
+then each participant will re-commence execution. See ``barrier_test`` and
+``semaphore_test`` in asyntest.py for example usage.
 
 ## 3.4 Semaphore
 
