@@ -13,7 +13,6 @@ except ImportError:
 
 async def _g():
     pass
-
 type_coro = type(_g())
 
 # If a callback is passed, run it and return.
@@ -64,15 +63,19 @@ class Lock():
         self._locked = False
 
 
-# A coro waiting on an event issues
-# await event.wait()
-# A coro wishing to flag coros waiting on the event issues
-# event.set()
+# A coro waiting on an event issues await event
+# A coro rasing the event issues event.set()
 # When all waiting coros have run
 # event.clear() should be issued
 class Event():
     def __init__(self):
         self._flag = False
+
+    def __await__(self):
+        while not self._flag:
+            yield from asyncio.sleep(0)
+
+    __iter__ = __await__
 
     def clear(self):
         self._flag = False
@@ -83,12 +86,8 @@ class Event():
     def set(self):
         self._flag = True
 
-    async def wait(self):
-        while not self._flag:
-            await asyncio.sleep(0)
-
-# A Barrier synchronises N coros. Each issues barrier.signal_and_wait():
-# execution pauses until the other participant coros have issued that method.
+# A Barrier synchronises N coros. Each issues await barrier
+# execution pauses until all other participant coros are waiting on it.
 # At that point the callback is executed. Then the barrier is 'opened' and
 # excution of all participants resumes.
 class Barrier():
@@ -97,6 +96,22 @@ class Barrier():
         self._func = func
         self._args = args
         self._reset(True)
+
+    def __await__(self):
+        self._update()
+        if self._at_limit():  # All other threads are also at limit
+            if self._func is not None:
+                launch(self._func, self._args)
+            self._reset(not self._down)
+            return
+
+        direction = self._down
+        while True:  # Wait until last waiting thread changes the direction
+            if direction != self._down:
+                return
+            yield from asyncio.sleep(0)
+
+    __iter__ = __await__
 
     def _reset(self, down):
         self._down = down
@@ -110,20 +125,6 @@ class Barrier():
         self._count += -1 if self._down else 1
         if self._count < 0 or self._count > self._participants:
             raise ValueError('Too many threads accessing Barrier')
-
-    async def signal_and_wait(self):
-        self._update()
-        if self._at_limit():  # All other threads are also at limit
-            if self._func is not None:
-                launch(self._func, self._args)
-            self._reset(not self._down)
-            return
-
-        direction = self._down
-        while True:  # Wait until last waiting thread changes the direction
-            if direction != self._down:
-                return
-            await asyncio.sleep(0)
 
 # A Semaphore is typically used to limit the number of coros running a
 # particular piece of code at once. The number is defined in the constructor.

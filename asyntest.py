@@ -22,7 +22,7 @@ from asyn import Lock, Event, Semaphore, BoundedSemaphore, Barrier
 # Demo use of acknowledge event
 
 async def event_wait(event, ack_event, n):
-    await event.wait()
+    await event
     print('Eventwait {} got event.'.format(n))
     ack_event.set()
 
@@ -36,10 +36,10 @@ async def run_ack():
         loop.create_task(event_wait(event, ack2, 2))
         event.set()
         print('event was set')
-        await ack1.wait()
+        await ack1
         ack1.clear()
         print('Cleared ack1')
-        await ack2.wait()
+        await ack2
         ack2.clear()
         print('Cleared ack2')
         event.clear()
@@ -73,7 +73,7 @@ async def eventset(event):
 
 async def eventwait(event):
     print('waiting for event')
-    await event.wait()
+    await event
     print('got event')
     event.clear()
 
@@ -90,7 +90,7 @@ async def run_event_test():
     loop.create_task(eventset(event))
     print('gh1')
     await eventwait(event)  # run_event_test runs fast until this point
-    print('Event status {}'.format(event.is_set()))
+    print('Event status {}'.format('Incorrect' if event.is_set() else 'OK'))
     print('Tasks complete')
 
 def event_test():
@@ -110,13 +110,12 @@ barrier = Barrier(3, callback, ('Synch',))
 async def report():
     for i in range(5):
         print('{} '.format(i), end='')
-        await barrier.signal_and_wait()
+        await barrier
 
 def barrier_test():
     loop = asyncio.get_event_loop()
-    loop.create_task(report())
-    loop.create_task(report())
-    loop.create_task(report())
+    for _ in range(3):
+        loop.create_task(report())
     loop.run_until_complete(killer(2))
     loop.close()
 
@@ -128,7 +127,7 @@ async def run_sema(n, sema, barrier):
         print('run_sema {} acquired semaphore'.format(n))
         await asyncio.sleep(1)  # Delay to demo other coros waiting for sema
     print('run_sema {} has released semaphore'.format(n))
-    await barrier.signal_and_wait()
+    await barrier
 
 async def run_sema_test(bounded):
     num_coros = 5
@@ -140,7 +139,7 @@ async def run_sema_test(bounded):
         semaphore = Semaphore(3)
     for n in range(num_coros):
         loop.create_task(run_sema(n, semaphore, barrier))
-    await barrier.signal_and_wait()  # Quit when all coros complete
+    await barrier  # Quit when all coros complete
     try:
         semaphore.release()
     except ValueError:

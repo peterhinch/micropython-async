@@ -2,13 +2,16 @@
 
 This document is a "work in progress" as I learn the content myself. Further
 at the time of writing uasyncio is itself under development. It is likely that
-these notes may contain errors; they will be subject to substantial revision. 
+these notes may contain errors; they will be subject to substantial revision.
 
 The MicroPython uasyncio library comprises a subset of Python's asyncio library
 designed for use on microcontrollers. As such it has a small RAM footprint and
 fast context switching. This document describes its use with a focus on
-interfacing hardware devices. Another major application area is in network
-programming: many guides to this may be found online.
+interfacing hardware devices with the aim of designing drivers with
+non-blocking behaviour.
+
+Another major application area for asyncio is in network programming: many
+guides to this may be found online.
 
 # 1. Cooperative scheduling
 
@@ -39,7 +42,7 @@ hardware.
  scheduling performance.
  8. ``awaitable.py`` Demo of an awaitable class. One way of implementing a
  device driver which polls an interface.
- 9. ``chain.py`` Copied from the Python docs. Demo of chaining coros.
+ 9. ``chain.py`` Copied from the Python docs. Demo of chaining coroutines.
  10. ``aqtest.py`` Demo of uasyncio ``Queue`` class.
 
 # 2. uasyncio
@@ -85,9 +88,9 @@ loop.run_forever()
 Program execution proceeds normally until the call to ``loop.run_forever``. At
 this point execution is controlled by the scheduler. A line after
 ``loop.run_forever`` would never be executed. The scheduler runs ``bar``
-because this has been placed on the queue by ``loop.create_task``. In this
-trivial example there is only one coro: ``bar``. If there were others, the
-scheduler would schedule them in periods when ``bar`` was paused.
+because this has been placed on the scheduler's queue by ``loop.create_task``.
+In this trivial example there is only one coro: ``bar``. If there were others,
+the scheduler would schedule them in periods when ``bar`` was paused.
 
 Many embedded applications have an event loop which runs continuously. The event
 loop can also be started in a way which permits termination, by using the event
@@ -108,7 +111,7 @@ async def foo(delay_secs):
 ```
 
 A coro can allow other coroutines to run by means of the ``await coro``
-statement and must contain at least one ``awwait`` statement. This causes
+statement. A coro must contain at least one ``await`` statement. This causes
 ``coro`` to run to completion before execution passes to the next instruction.
 Consider these lines of code:
 
@@ -124,9 +127,9 @@ the ``roundrobin.py`` example.
 
 ### 2.3.1 Queueing a coro for scheduling
 
- * ``EventLoop.create_task`` Arg: the coro to run. Starts the coro ASAP and
- returns immediately. The coro is specified with function call syntax with any
- required arguments being passed.
+ * ``EventLoop.create_task`` Arg: the coro to run. The scheduler queues the
+ coro to run ASAP. The ``create_task`` call returns immediately. The coro
+ arg is specified with function call syntax with any required arguments passed.
  * ``await``  Arg: the coro to run, specified with function call syntax. Starts
  the coro ASAP and blocks until it has run to completion.
 
@@ -243,7 +246,7 @@ can be achieved by the receiving coro clearing the event:
 
 ```python
 async def eventwait(event):
-    await event.wait()
+    await event
     event.clear()
 ```
 
@@ -263,13 +266,17 @@ means of an acknowledge event. Each coro needs a separate event.
 
 ```python
 async def eventwait(event, ack_event):
-    await event.wait()
+    await event
     ack_event.set()
 ```
 
 An example of this is provided in the ``event_test`` function in ``asyntest.py``.
 This is cumbersome. In most cases - even those with a single waiting coro - the
 Barrier class below offers a simpler approach.
+
+An Event can also provide a means of communication between an interrupt handler
+and a coro. The handler services the hardware and sets an event which is tested
+in slow time by the coro.
 
 ## 3.3 Barrier
 
@@ -283,7 +290,24 @@ The callback can be a function or a coro. In most applications a function is
 likely to be used: this can be guaranteed to run to completion before the
 barrier is released.
 
-An example is the ``barrier_test`` function in ``asyntest.py``.
+An example is the ``barrier_test`` function in ``asyntest.py``. In the code
+fragment from that program:
+
+```python
+def callback(text):
+    print(text)
+
+barrier = Barrier(3, callback, ('Synch',))
+
+async def report():
+    for i in range(5):
+        print('{} '.format(i), end='')
+        await barrier
+```
+
+multiple instances of ``report`` print their result and pause until the other
+instances are also complete. At that point the callback runs. On its completion
+the coros resume.
 
 ## 3.4 Semaphore
 
@@ -337,40 +361,94 @@ An example of its use is provided in ``aqtest.py``.
 
 # 4 Designing classes for asyncio
 
+In the context of device drivers the aim is to ensure nonblocking operation.
+The design should ensure that other coros get scheduled in periods while the
+driver is waiting for the hardware. For example data arriving on a UART or
+a user pressing a button.
+
 ## 4.1 Awaitable classes
 
 A coro can pause execution by waiting on an ``awaitable`` object:
 ``await asyncio.sleep(delay_secs)`` is an example. Under CPython a custom class
 is made ``awaitable`` by implementing an ``__await__`` special method. This
-returns a generator. An awaitable class is used as follows:
+returns a generator. An ``awaitable`` class is used as follows:
 
 ```python
+import uasyncio as asyncio
+
+class Foo():
+    def __await__(self):
+        for n in range(5):
+            print('__await__ called')
+            yield from asyncio.sleep(1) # Other coros get scheduled here
+
+    __iter__ = __await__  # See note below
+
 async def bar():
     foo = Foo()  # Foo is an awaitable class
     print('waiting for foo')
     await foo
     print('done')
+
+loop = asyncio.get_event_loop()
+loop.run_until_complete(bar())
 ```
 
-Execution proceeds to ``print('done')`` when the generator terminates.
 Currently MicroPython doesn't support ``__await__`` (issue #2678) and
-``__iter__`` must be used. Portability between CPython and MicroPython may be
-achieved as follows:
+``__iter__`` must be used. The line ``__iter__ = __await__`` enables portability
+between CPython and MicroPython.
+
+Example code may be found in the ``Event`` and ``Barrier`` classes in asyn.py.
+
+## 4.2 Asynchronous iterators
+
+These provide a means of returning a finite or infinite sequence of values
+and could be used as a means of retrieving successive data items as they arrive
+from a read-only device. An asynchronous iterable calls asynchronous code in
+its ``next`` method. The class must conform to the following requirements:
+
+ * It has an ``__aiter__`` method defined with  ``async def``and returning the
+ asynchronous iterator.
+ * It has an `` __anext__`` method which is a coro - i.e. defined with
+ ``async def`` and containing at least one ``await`` statement. To stop
+ iteration it must raise a ``StopAsyncIteration`` exception.
+
+Successive values are retrieved with ``async for`` as below:
 
 ```python
-class Foo():
-    def __await__(self):
-        for n in range(5):
-            print('__await__ called')
-            yield
+class AsyncIterable:
+    def __init__(self):
+        self.data = (1, 2, 3, 4, 5)
+        self.index = 0
 
-    __iter__ = __await__  # workround for issue #2678
+    async def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        data = await self.fetch_data()
+        if data:
+            return data
+        else:
+            raise StopAsyncIteration
+
+    async def fetch_data(self):
+        await asyncio.sleep(0.1)  # Other coros get to run
+        if self.index >= len(self.data):
+            return None
+        x = self.data[self.index]
+        self.index += 1
+        return x
+
+async def run():
+    ai = AsyncIterable()
+    async for x in ai:
+        print(x)
 ```
 
-## 4.2 Asynchronous context managers
+## 4.3 Asynchronous context managers
 
 Classes can be designed to support asynchronous context managers. These are CM's
-having enter and exit procdures which are coros. An example is the ``Lock``
+having enter and exit procedures which are coros. An example is the ``Lock``
 class described above. This has an ``__aenter__`` coro which is logically
 required to run asynchronously. To support the asynchronous CM protocol its
 ``__aexit__`` method also must be a coro, achieved by including
@@ -384,9 +462,9 @@ async def bar(lock):
 ```
 
 As with normal context managers an exit method is guaranteed to be called when
-the context manager terminates, whether in the normal way or via an exception.
-To achieve this the special methods ``__aenter__`` and ``__aexit__`` must be
-defined, both being coros waiting on an awaitable object. This example comes
+the context manager terminates, whether normally or via an exception. To
+achieve this the special methods ``__aenter__`` and ``__aexit__`` must be
+defined, both being coros waiting on an ``awaitable`` object. This example comes
 from the ``Lock`` class:
 
 ```python
@@ -419,9 +497,9 @@ the longest run time between yields.
 This is a simple approach, but is only appropriate to hardware which is to be
 polled at a relatively low rate. This is for two reasons. Firstly the variable
 latency caused by the execution of other coros will result in variable polling
-intervals - this may or may not matter depending on the application. Secondly,
-attempting to poll at high speed may cause the coro to consume more processor
-time than is desirable.
+intervals - this may or may not matter depending on the device and application.
+Secondly, attempting to poll with a short polling interval may cause the coro
+to consume more processor time than is desirable.
 
 The example ``apoll.py`` demonstrates this approach by polling the Pyboard
 accelerometer at 100ms intervals. It performs some simple filtering to ignore
@@ -429,6 +507,69 @@ noisy samples and prints a message every two seconds if the board is not moved.
 
 Further examples may be found in ``aswitch.py`` which provides drivers for
 switch and pushbutton devices.
+
+An example of a driver for a device capable of reading and writing is shown
+below. For ease of testing Pyboard UART 4 emulates the notional device. The
+driver implements a ``RecordOrientedUart`` class, where data is supplied in
+variable length records consisting of bytes instances. The object appends a
+delimiter before sending and buffers incoming data until the delimiter is
+received.
+
+For the purpose of demonstrating asynchronous transmission we assume the
+device being emulated has a means of checking that transmission is complete
+and that the application requires that we wait on this. Neither assumption is
+true in this example but the code fakes it with ``await asyncio.sleep(0.1)``.
+
+Link pins X1 and X2 to run.
+
+```python
+import uasyncio as asyncio
+from pyb import UART
+
+class RecordOrientedUart():
+    DELIMITER = b'\0'
+    def __init__(self):
+        self.uart = UART(4, 9600)
+        self.data = b''
+
+    def __await__(self):
+        data = b''
+        while not data.endswith(self.DELIMITER):
+            yield from asyncio.sleep(0) # Neccessary because:
+            while not self.uart.any():
+                yield from asyncio.sleep(0) # timing may mean this is never called
+            data = b''.join((data, self.uart.read(self.uart.any())))
+        self.data = data
+
+    __iter__ = __await__  # workround for issue #2678
+
+    async def send_record(self, data):
+        data = b''.join((data, self.DELIMITER))
+        self.uart.write(data)
+        await self._send_complete()
+
+    # In a real device driver we would poll the hardware
+    # for completion in a loop with await asyncio.sleep(0)
+    async def _send_complete(self):
+        await asyncio.sleep(0.1)
+
+    def read_record(self):  # Synchronous: await the object before calling
+        return self.data[0:-1] # Discard delimiter
+
+async def run():
+    foo = RecordOrientedUart()
+    rx_data = b''
+    await foo.send_record(b'A line of text.')
+    for _ in range(20):
+        await foo  # Other coros are scheduled while we wait
+        rx_data = foo.read_record()
+        print('Got: {}'.format(rx_data))
+        await foo.send_record(rx_data)
+        rx_data = b''
+
+loop = asyncio.get_event_loop()
+loop.run_until_complete(run())
+```
 
 ## 5.2 Using IORead to poll hardware
 
@@ -468,6 +609,52 @@ You may want to consider running a coro which issues:
 This assumes ``import gc`` has been issued. The purpose of this is discussed
 [here](http://docs.micropython.org/en/latest/pyboard/reference/constrained.html)
 in the section on the heap.
+
+## 6.4 Testing
+
+It's advisable to test that a device driver yields control when you intend it
+to. This can be done by running one or more instances of a dummy coro which
+runs a loop printing a message, and checking that it runs in the periods when
+the driver is blocking:
+
+```python
+async def rr(n):
+    while True:
+        print('Roundrobin ', n)
+        await asyncio.sleep(0)
+```
+
+As an example of the type of hazard which can occur, in the ``RecordOrientedUart``
+example above the ``__await__`` method was originally written as:
+
+```python
+    def __await__(self):
+        data = b''
+        while not data.endswith(self.DELIMITER):
+            while not self.uart.any():
+                yield from asyncio.sleep(0)
+            data = b''.join((data, self.uart.read(self.uart.any())))
+        self.data = data
+```
+
+In testing this hogged execution until an entire record was received. This was
+because ``uart.any()`` always returned a nonzero quantity. By the time it was
+called, characters had been received. The solution was to yield execution in
+the outer loop:
+
+```python
+    def __await__(self):
+        data = b''
+        while not data.endswith(self.DELIMITER):
+            yield from asyncio.sleep(0) # Neccessary because:
+            while not self.uart.any():
+                yield from asyncio.sleep(0) # timing may mean this is never called
+            data = b''.join((data, self.uart.read(self.uart.any())))
+        self.data = data
+```
+
+It is perhaps worth noting that this error would not have been apparent had
+data been sent to the UART at a slow rate rather than via a loopback test.
 
 # 7 Notes for beginners
 
