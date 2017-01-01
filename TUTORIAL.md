@@ -44,30 +44,14 @@ hardware.
  device driver which polls an interface.
  9. ``chain.py`` Copied from the Python docs. Demo of chaining coroutines.
  10. ``aqtest.py`` Demo of uasyncio ``Queue`` class.
+ 11. ``aremote.py`` Example device driver for NEC protocol IR remote control.
 
 # 2. uasyncio
 
 The asyncio concept is of cooperative multi-tasking based on coroutines,
 referred in this document as coros.
 
-## 2.1 Differences from CPython
-
-Here CPython refers to Python 3.5. In the interests of small size and
-efficiency uasyncio is a subset of asyncio with some differences.
-
-It doesn't support objects of type ``Future`` and ``Task``. Routines to run
-concurrently are defined as coroutines instantiated with ``async def``.
-
-At the time of writing the ``__await__`` special method (to create an awaitable
-class) is not supported but a workround is described in section 4.1.
-
-For timing asyncio uses floating point values of seconds. The uasyncio ``sleep``
-method accepts floats (including sub-second values) or integers. For
-performance reasons, and to support ports lacking floating point, uasyncio
-also supports a ``sleep_ms`` method accepting integer millisecond values. For
-similar reasons a ``call_later_ms_`` event loop method is provided.
-
-## 2.2 Program structure: the event loop
+## 2.1 Program structure: the event loop
 
 Consider the following example:
 
@@ -100,7 +84,7 @@ loop's ``run_until_complete`` method. Examples of this may be found in the
 The event loop instance is a singleton. If a coro needs to call an event loop
 method, calling ``asyncio.get_event_loop()`` will efficiently return it.
 
-## 2.3 Coroutines (coros)
+## 2.2 Coroutines (coros)
 
 A coro is instantiated as follows:
 
@@ -125,7 +109,7 @@ coros being scheduled for the duration. A delay of 0 causes any pending coros
 to be scheduled in round-robin fashion before the following line is run. See
 the ``roundrobin.py`` example.
 
-### 2.3.1 Queueing a coro for scheduling
+### 2.2.1 Queueing a coro for scheduling
 
  * ``EventLoop.create_task`` Arg: the coro to run. The scheduler queues the
  coro to run ASAP. The ``create_task`` call returns immediately. The coro
@@ -133,7 +117,7 @@ the ``roundrobin.py`` example.
  * ``await``  Arg: the coro to run, specified with function call syntax. Starts
  the coro ASAP and blocks until it has run to completion.
 
-### 2.3.2 Running a callback function
+### 2.2.2 Running a callback function
 
 Callbacks should be Python functions designed to complete in a short period of
 time as coroutines will have no opportunity to run for the duration.
@@ -147,9 +131,9 @@ The following ``EventLoop`` methods schedule callbacks:
  3. ``call_later_ms_`` Call after a delay in ms. Args: ``delay``, ``callback``,
  ``args``. Args are stored in a tuple for efficiency. Default an empty
  tuple ``()``.
- 4. ``call_at`` Call at a future time in secs. Args: ``time``, ``*args``.
- 5. ``call_at_`` Call at a future time in secs. Args: ``time``, ``args``. Args
- stored in a tuple, default ``()``.
+ 4. ``call_at`` Call at a future time in ms. Args: ``time``, ``callback``, ``*args``.
+ 5. ``call_at_`` Call at a future time in ms. Args: ``time``, ``callback``,
+ ``args``. Args stored in a tuple, default ``()``.
 
 ```python
 loop = asyncio.get_event_loop()
@@ -160,7 +144,7 @@ loop.call_at(time.ticks_add(loop.time(), 4), foo, 5) # after 4s
 loop.run_forever()
 ```
 
-### 2.3.3 Returning values
+### 2.2.3 Returning values
 
 A coro can contain a ``return`` statement with arbitrary return values. To
 retrieve them issue:
@@ -169,7 +153,7 @@ retrieve them issue:
 result = await my_coro()
 ```
 
-## 2.4 Delays
+## 2.3 Delays
 
 Where a delay is required in a coro there are two options. For longer delays and
 those where the duration need not be precise, the following should be used:
@@ -236,8 +220,8 @@ complete.
 
 This provides a way for one or more coros to pause until another flags them to
 continue. An ``Event`` object is instantiated and made accessible to all coros
-using it. Coros waiting on the event issue ``await event.wait()`` whereupon
-execution pauses until another issues ``event.set()``.
+using it. Coros waiting on the event issue ``await event`` whereupon execution
+pauses until another issues ``event.set()``.
 
 This presents a problem if ``event.set()`` is issued in a looping construct; the
 code must wait until the event has been accessed by all waiting coros before
@@ -277,6 +261,15 @@ Barrier class below offers a simpler approach.
 An Event can also provide a means of communication between an interrupt handler
 and a coro. The handler services the hardware and sets an event which is tested
 in slow time by the coro.
+
+### 3.2.1 The event's value
+
+The ``event.set()`` method can accept an optional data value of any type. A
+coro waiting on the event can retrieve it by means of ``event.value()``. Note
+that ``event.clear()`` will set the value to ``None``. A typical use for this
+is for the coro setting the event to issue ``event.set(loop.time())``. Any coro
+waiting on the event can determine the latency incurred, for example to perform
+
 
 ## 3.3 Barrier
 
@@ -581,6 +574,21 @@ latency, than running multiple coros each polling a device.
 
 At the time of writing firmware support for using this mechanism in device
 drivers has not yet been implemented.
+
+## 5.3 A complete example: aremote.py
+
+This demo provides a complete device driver example: a receiver/decoder for
+an infra red remote controller. It runs on the Pyboard and assumes a remote
+running the NEC protocol such as [this one](https://www.adafruit.com/products/389)
+connected to Pyboard pin X3 with a chip such as [this](https://www.adafruit.com/products/157).
+
+A pin interrupt records the time of a state change (in us) and sets an event,
+passing the time when the first state change occurred. A coro waits on the
+event, yields for the duration of a data burst, then decodes the stored data
+before calling a user-specified callback.
+
+The algorithm promotes simplicity over RAM use: the 276 bytes used for the data
+array may be reduced to 68 bytes or less.
 
 # 6 Hints and tips
 

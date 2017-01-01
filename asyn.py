@@ -69,7 +69,11 @@ class Lock():
 # event.clear() should be issued
 class Event():
     def __init__(self):
+        self.clear()
+
+    def clear(self):
         self._flag = False
+        self._data = None
 
     def __await__(self):
         while not self._flag:
@@ -77,14 +81,15 @@ class Event():
 
     __iter__ = __await__
 
-    def clear(self):
-        self._flag = False
-
     def is_set(self):
         return self._flag
 
-    def set(self):
+    def set(self, data=None):
         self._flag = True
+        self._data = data
+
+    def value(self):
+        return self._data
 
 # A Barrier synchronises N coros. Each issues await barrier
 # execution pauses until all other participant coros are waiting on it.

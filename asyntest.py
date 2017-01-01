@@ -23,7 +23,7 @@ from asyn import Lock, Event, Semaphore, BoundedSemaphore, Barrier
 
 async def event_wait(event, ack_event, n):
     await event
-    print('Eventwait {} got event.'.format(n))
+    print('Eventwait {} got event with value {}'.format(n, event.value()))
     ack_event.set()
 
 async def run_ack():
@@ -31,10 +31,12 @@ async def run_ack():
     event = Event()
     ack1 = Event()
     ack2 = Event()
+    count = 0
     while True:
         loop.create_task(event_wait(event, ack1, 1))
         loop.create_task(event_wait(event, ack2, 2))
-        event.set()
+        event.set(count)
+        count += 1
         print('event was set')
         await ack1
         ack1.clear()

@@ -74,7 +74,9 @@ Methods:
 This provides a way for one or more coros to pause until another one flags them
 to continue. An ``Event`` object is instantiated and passed to all coros using
 it. Coros waiting on the event issue ``await event``. Execution pauses
-until a coro issues ``event.set()``. ``event.clear()`` must then be issued.
+until a coro issues ``event.set()``. ``event.clear()`` must then be issued. An
+optional data argument may be passed to ``event.set()`` and retrieved by
+``event.value()``.
 
 In the usual case where a single coro is awaiting the event this can be done
 immediately after it is received:
@@ -115,9 +117,14 @@ Example of this are in ``event_test`` and ``ack_test`` in asyntest.py.
 Constructor: this takes no arguments.
 
 Methods:
- * ``set`` No args. Initiates the event.
- * ``clear`` No args. Clears the event.
+ * ``set`` Initiates the event. Optional arg ``data``: may be of any type,
+ sets the event's value. Default ``None``.
+ * ``clear`` No args. Clears the event, sets the value to ``None``.
  * ``is_set`` No args. Returns ``True`` if the event is set.
+ * ``value`` No args. Returns the value passed to ``set``.
+
+The optional data value may be used to compensate for the latency in awaiting
+the event by passing ``loop.time()``.
 
 ## 3.3 Barrier
 
