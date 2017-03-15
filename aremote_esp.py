@@ -1,15 +1,15 @@
-# aremote.py
+# aremote_esp.py Variant of aremote.py for ESP8266
 # Decoder for NEC protocol IR remote control e.g.https://www.adafruit.com/products/389
 # asyncio version
 # Assumes a Vishay TSOP4838 receiver chip or https://www.adafruit.com/products/157
-# connected to an arbitrary Pyboard pin
+# connected to an arbitrary pin
 # http://techdocs.altium.com/display/FPGA/NEC+Infrared+Transmission+Protocol
-
+#0x5fb00ff
 import uasyncio as asyncio
 from asyn import Event
 import micropython
 from array import array
-from pyb import Pin, ExtInt
+from machine import Pin, freq
 from utime import ticks_us, ticks_diff
 
 micropython.alloc_emergency_exception_buf(100)
@@ -25,7 +25,7 @@ class NEC_IR():
         self._ev_start = Event()
         self._callback = callback
         self._times = array('i',  (0 for _ in range(self.edgecount + 1))) # 1 for overrun
-        ExtInt(pin, ExtInt.IRQ_RISING_FALLING, Pin.PULL_NONE, self._cb_pin)
+        pin.irq(handler = self._cb_pin, trigger=(Pin.IRQ_FALLING | Pin.IRQ_RISING))
         self._reset()
         loop = asyncio.get_event_loop()
         loop.create_task(self._run())
@@ -37,15 +37,16 @@ class NEC_IR():
 
     async def _run(self):
         while True:
-            await self._ev_start  # Wait unitl data collection has started
+            await self._ev_start  # Wait until data collection has started
             await asyncio.sleep_ms(self.block_time)  # Data block should have ended
             self._decode() # decode, clear event, prepare for new rx, call cb
 
     # Pin interrupt. Save time of each edge for later decode.
     def _cb_pin(self, line):
-        if not self._overrun: # Overrun: ignore pulses until software timer times out
+        if not self._overrun: # Ignore pulses until software timer times out
             if not self._ev_start.is_set(): # First edge received
-                self._ev_start.set()
+                loop = asyncio.get_event_loop()
+                self._ev_start.set() #(loop.time()) # time for latency compensation
             self._times[self._edge] = ticks_us()
             if self._edge < self.edgecount:
                 self._edge += 1
@@ -92,8 +93,9 @@ def cb(v):
         print('Error: overrun')
 
 def test():
+    freq(160000000)
     print('Test for IR receiver. Assumes NEC protocol.')
-    p = Pin('X3', Pin.IN)
+    p = Pin(13, Pin.IN)
     ir = NEC_IR(p, cb)
     loop = asyncio.get_event_loop()
     loop.run_forever()
