@@ -2,16 +2,22 @@
 # e.g.https://www.adafruit.com/products/389
 
 # Author: Peter Hinch
-# Copyright Peter Hinch 2016 Released under the MIT license
+# Copyright Peter Hinch 2017 Released under the MIT license
 
 # Supports Pyboard and ESP8266. Requires asyncio library. Runs a user callback
 # when a button is pressed. Assumes a Vishay TSOP4838 receiver chip or
 # https://www.adafruit.com/products/157 connected to an arbitrary pin.
 # Protocol definition:
 # http://techdocs.altium.com/display/FPGA/NEC+Infrared+Transmission+Protocol
+# http://www.circuitvalley.com/2013/09/nec-protocol-ir-infrared-remote-control.html
 
 # On ESP8266 transmission errors are common. This is because, even at 160MHz,
-# the Pin interrupt latency can exceed the pulse width.
+# the Pin interrupt latency can exceed the pulse width. Transmission errors can
+# occur for reasons including r/c not aligned properly or nearly out of range.
+# User feedback should be provided on success to encourage users to retry in
+# event of failure.
+
+# Use art.py to characterise a remote. art1.py is a simple test program.
 
 from sys import platform
 import uasyncio as asyncio
@@ -33,18 +39,22 @@ BADBLOCK = -3
 BADREP = -4
 OVERRUN = -5
 BADDATA = -6
+BADADDR = -7
 
 EDGECOUNT = const(68)  # No. of edges in data block
+
+
 # On 1st edge start a block timer. When it times out decode the data. Time must
 # exceed the worst case block transmission time, but (with asyncio latency) be
 # less than the interval between a block start and a repeat code start (108ms)
 # Value of 73 allows for up to 35ms latency.
 class NEC_IR():
     block_time = 73 # 68.1ms nominal. Allow for some tx tolerance (?)
-    def __init__(self, pin, callback, *args):  # Optional args for callback
+    def __init__(self, pin, callback, extended, *args):  # Optional args for callback
         self._ev_start = Event()
         self._callback = callback
-        self.args = args
+        self._extended = extended
+        self._args = args
         self._times = array('i',  (0 for _ in range(EDGECOUNT + 1))) # 1 for overrun
         if platform == 'pyboard':
             ExtInt(pin, ExtInt.IRQ_RISING_FALLING, Pin.PULL_NONE, self._cb_pin)
@@ -97,17 +107,22 @@ class NEC_IR():
                         # Skip last bit which is always 1
                         val = 0
                         for edge in range(3, EDGECOUNT - 2, 2):
-                            val <<= 1
-                            val |= ticks_diff(self._times[edge + 1], self._times[edge]) > 1120
+                            val >>= 1
+                            if ticks_diff(self._times[edge + 1], self._times[edge]) > 1120:
+                                val |= 0x80000000
                 elif width > 1700: # 2.5ms space for a repeat code. Should have exactly 4 edges.
                     val = REPEAT if self._edge == 4 else BADREP
         addr = 0
-        if val >= 0:  # validate
-            addr = val >> 24
-            if addr == ((val >> 16) ^ 0xff) & 0xff:  # Address OK
-                cmd = (val >> 8) & 0xff
-                val = cmd if cmd == (val & 0xff) ^ 0xff else BADDATA
+        if val >= 0:  # validate. Byte layout of val ~cmd cmd ~addr addr
+            addr = val & 0xff
+            cmd = (val >> 16) & 0xff
+            if self._extended:  # 16 bit address with no redundancy
+                addr |= val & 0xff00
+                val = cmd if cmd == (val >> 24) ^ 0xff else BADDATA
             else:
-                val = BADDATA
+                if addr == ((val >> 8) ^ 0xff) & 0xff:  # Address OK
+                    val = cmd if cmd == (val >> 24) ^ 0xff else BADDATA
+                else:
+                    val = BADADDR
         self._reset()
-        self._callback(val, addr, *self.args)
+        self._callback(val, addr, *self._args)
