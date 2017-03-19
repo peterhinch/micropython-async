@@ -696,21 +696,18 @@ drivers has not yet been implemented.
 
 ## 5.3 A complete example: aremote.py
 
-This may be found in the nec_ir directory. This demo provides a complete device
-driver example: a receiver/decoder for an infra red remote controller. It runs
-on the Pyboard and ESP8266 and assumes a remote running the NEC protocol such
-as [this one](https://www.adafruit.com/products/389). Use a chip such as
-[this](https://www.adafruit.com/products/157). If using the Pyboard connect it
-to pin X3. On the ESP use pin 13.
+This may be found in the ``nec_ir`` directory. Its use is documented
+[here](./nec_ir/README.md). The demo provides a complete device driver example:
+a receiver/decoder for an infra red remote controller. The following notes are
+salient points regarding its asyncio usage.
 
 A pin interrupt records the time of a state change (in us) and sets an event,
 passing the time when the first state change occurred. A coro waits on the
 event, yields for the duration of a data burst, then decodes the stored data
 before calling a user-specified callback.
 
-The algorithm promotes interrupt handler speed over RAM use: the 276 bytes used
-for the data array may be reduced to 69 bytes by computing and saving deltas in
-the interrupt service routine.
+Passing the time to the ``Event`` instance enables the coro to compensate for
+any asyncio latency when setting its delay period.
 
 ######[Jump to Contents](./TUTORIAL.md#contents)
 

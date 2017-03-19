@@ -4,21 +4,6 @@
 # Author: Peter Hinch
 # Copyright Peter Hinch 2017 Released under the MIT license
 
-# Supports Pyboard and ESP8266. Requires asyncio library. Runs a user callback
-# when a button is pressed. Assumes a Vishay TSOP4838 receiver chip or
-# https://www.adafruit.com/products/157 connected to an arbitrary pin.
-# Protocol definition:
-# http://techdocs.altium.com/display/FPGA/NEC+Infrared+Transmission+Protocol
-# http://www.circuitvalley.com/2013/09/nec-protocol-ir-infrared-remote-control.html
-
-# On ESP8266 transmission errors are common. This is because, even at 160MHz,
-# the Pin interrupt latency can exceed the pulse width. Transmission errors can
-# occur for reasons including r/c not aligned properly or nearly out of range.
-# User feedback should be provided on success to encourage users to retry in
-# event of failure.
-
-# Use art.py to characterise a remote. art1.py is a simple test program.
-
 from sys import platform
 import uasyncio as asyncio
 from asyn import Event
@@ -49,11 +34,12 @@ EDGECOUNT = const(68)  # No. of edges in data block
 # less than the interval between a block start and a repeat code start (108ms)
 # Value of 73 allows for up to 35ms latency.
 class NEC_IR():
-    block_time = 73 # 68.1ms nominal. Allow for some tx tolerance (?)
     def __init__(self, pin, callback, extended, *args):  # Optional args for callback
         self._ev_start = Event()
         self._callback = callback
         self._extended = extended
+        self._addr = 0
+        self.block_time = 80 if extended else 73  # Allow for some tx tolerance (?)
         self._args = args
         self._times = array('i',  (0 for _ in range(EDGECOUNT + 1)))  # +1 for overrun
         if platform == 'pyboard':
@@ -112,12 +98,16 @@ class NEC_IR():
             cmd = (val >> 16) & 0xff
             if addr == ((val >> 8) ^ 0xff) & 0xff:  # 8 bit address OK
                 val = cmd if cmd == (val >> 24) ^ 0xff else BADDATA
+                self._addr = addr
             else:
                 addr |= val & 0xff00  # pass assumed 16 bit address to callback
                 if self._extended:
                     val = cmd if cmd == (val >> 24) ^ 0xff else BADDATA
+                    self._addr = addr
                 else:
                     val = BADADDR
+        if val == REPEAT:
+            addr = self._addr  # Last valid addresss
         self._edge = 0  # Set up for new data burst and run user callback
         self._ev_start.clear()
         self._callback(val, addr, *self._args)
