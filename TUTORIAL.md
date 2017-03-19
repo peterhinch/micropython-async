@@ -696,10 +696,12 @@ drivers has not yet been implemented.
 
 ## 5.3 A complete example: aremote.py
 
-This demo provides a complete device driver example: a receiver/decoder for
-an infra red remote controller. It runs on the Pyboard and assumes a remote
-running the NEC protocol such as [this one](https://www.adafruit.com/products/389)
-connected to Pyboard pin X3 with a chip such as [this](https://www.adafruit.com/products/157).
+This may be found in the nec_ir directory. This demo provides a complete device
+driver example: a receiver/decoder for an infra red remote controller. It runs
+on the Pyboard and ESP8266 and assumes a remote running the NEC protocol such
+as [this one](https://www.adafruit.com/products/389). Use a chip such as
+[this](https://www.adafruit.com/products/157). If using the Pyboard connect it
+to pin X3. On the ESP use pin 13.
 
 A pin interrupt records the time of a state change (in us) and sets an event,
 passing the time when the first state change occurred. A coro waits on the
