@@ -1,6 +1,6 @@
 # Decoder for IR Remote Controls using the NEC protocol
 
-This protocol is widely used. An example is [this one](https://www.adafruit.com/products/389).
+This protocol is widely used. An example remote is [this one](https://www.adafruit.com/products/389).
 To interface the device a receiver chip such as the Vishay TSOP4838 or the
 [adafruit one](https://www.adafruit.com/products/157) is required. This
 demodulates the 38KHz IR pulses and passes the demodulated pulse train to the
@@ -80,8 +80,8 @@ The test program ``art1.py`` provides an example of a minimal application.
 
 # How it works
 
-The NEC protocol is described in these references.
-[altium](http://techdocs.altium.com/display/FPGA/NEC+Infrared+Transmission+Protocol)
+The NEC protocol is described in these references.  
+[altium](http://techdocs.altium.com/display/FPGA/NEC+Infrared+Transmission+Protocol)  
 [circuitvalley](http://www.circuitvalley.com/2013/09/nec-protocol-ir-infrared-remote-control.html)
 
 A normal burst comprises exactly 68 edges, the exception being a repeat code
@@ -98,7 +98,7 @@ burst is constant, giving a constant burst length of 67.5ms. In extended
 address mode this constancy is lost. The burst length can (by my calculations)
 run to 76.5ms.
 
-A pin interrupt records the time of every state change (in us). The first
+A pin interrupt records the time of every state change (in µs). The first
 interrupt in a burst sets an event, passing the time of the state change. A
 coroutine waits on the event, yields for the duration of a data burst, then
 decodes the stored data before calling the user-specified callback.
@@ -123,7 +123,7 @@ they are listed below.
 
 ``BADSTART`` A short (<= 4ms) start pulse was received. May occur due to IR
 interference, e.g. from fluorescent lights. The TSOP4838 is prone to producing
-200us pulses on occasion, especially when using the ESP8266.  
+200µs pulses on occasion, especially when using the ESP8266.  
 ``BADBLOCK`` A normal data block: too few edges received. Occurs on the ESP8266
 owing to high interrupt latency.  
 ``BADREP`` A repeat block: an incorrect number of edges were received.  
