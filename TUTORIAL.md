@@ -15,21 +15,21 @@ guides to this may be found online.
 
 # Contents
 
-1. [Cooperative scheduling](./TUTORIAL.md#1-cooperative-scheduling)
+ 1. [Cooperative scheduling](./TUTORIAL.md#1-cooperative-scheduling)
   
   1.1 [Modules](./TUTORIAL.md#11-modules)
 
-2. [uasyncio](./TUTORIAL.md#2-uasyncio)
+ 2. [uasyncio](./TUTORIAL.md#2-uasyncio)
 
   2.1 [Program structure: the event loop](./TUTORIAL.md#21-program-structure-the-event-loop)
   
   2.2 [Coroutines (coros)](./TUTORIAL.md#22-coroutines-coros)
 
-    2.2.1 [Queueing a coro for scheduling](./TUTORIAL.md#221-queueing-a-coro-for-scheduling)
+   2.2.1 [Queueing a coro for scheduling](./TUTORIAL.md#221-queueing-a-coro-for-scheduling)
 
-    2.2.2 [Running a callback function](./TUTORIAL.md#222-running-a-callback-function)
+   2.2.2 [Running a callback function](./TUTORIAL.md#222-running-a-callback-function)
 
-    2.2.3 [Returning values](./TUTORIAL.md#223-returning-values)
+   2.2.3 [Returning values](./TUTORIAL.md#223-returning-values)
 
   2.3 [Delays](./TUTORIAL.md#23-delays)
 
@@ -39,13 +39,13 @@ guides to this may be found online.
 
   3.2 [Event](./TUTORIAL.md#32-event)
 
-    3.2.1 [The event's value](./TUTORIAL.md#321-the-events-value)
+   3.2.1 [The event's value](./TUTORIAL.md#321-the-events-value)
 
   3.3 [Barrier](./TUTORIAL.md#33-barrier)
 
   3.4 [Semaphore](./TUTORIAL.md#34-semaphore)
 
-    3.4.1 [BoundedSemaphore](./TUTORIAL.md#341-boundedsemaphore)
+   3.4.1 [BoundedSemaphore](./TUTORIAL.md#341-boundedsemaphore)
 
   3.5 [Queue](./TUTORIAL.md#35-queue)
 
@@ -706,8 +706,9 @@ passing the time when the first state change occurred. A coro waits on the
 event, yields for the duration of a data burst, then decodes the stored data
 before calling a user-specified callback.
 
-The algorithm promotes simplicity over RAM use: the 276 bytes used for the data
-array may be reduced to 68 bytes or less.
+The algorithm promotes interrupt handler speed over RAM use: the 276 bytes used
+for the data array may be reduced to 69 bytes by computing and saving deltas in
+the interrupt service routine.
 
 ######[Jump to Contents](./TUTORIAL.md#contents)
 
