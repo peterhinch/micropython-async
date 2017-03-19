@@ -55,19 +55,15 @@ class NEC_IR():
         self._callback = callback
         self._extended = extended
         self._args = args
-        self._times = array('i',  (0 for _ in range(EDGECOUNT + 1))) # 1 for overrun
+        self._times = array('i',  (0 for _ in range(EDGECOUNT + 1)))  # +1 for overrun
         if platform == 'pyboard':
             ExtInt(pin, ExtInt.IRQ_RISING_FALLING, Pin.PULL_NONE, self._cb_pin)
         else:
             pin.irq(handler = self._cb_pin, trigger=(Pin.IRQ_FALLING | Pin.IRQ_RISING))
-        self._reset()
+        self._edge = 0
+        self._ev_start.clear()
         loop = asyncio.get_event_loop()
         loop.create_task(self._run())
-
-    def _reset(self):
-        self._edge = 0
-        self._overrun = False
-        self._ev_start.clear()
 
     async def _run(self):
         loop = asyncio.get_event_loop()
@@ -76,24 +72,22 @@ class NEC_IR():
             # Compensate for asyncio latency
             latency = ticks_diff(loop.time(), self._ev_start.value())
             await asyncio.sleep_ms(self.block_time - latency)  # Data block should have ended
-            self._decode() # decode, clear event, prepare for new rx, call cb
+            self._decode()  # decode, clear event, prepare for new rx, call cb
 
     # Pin interrupt. Save time of each edge for later decode.
     def _cb_pin(self, line):
         # On overrun ignore pulses until software timer times out
-        if not self._overrun:
-            if not self._ev_start.is_set(): # First edge received
+        if self._edge <= EDGECOUNT:  # Allow 1 extra pulse to record overrun
+            if not self._ev_start.is_set():  # First edge received
                 loop = asyncio.get_event_loop()
-                self._ev_start.set(loop.time()) # time for latency compensation
+                self._ev_start.set(loop.time())  # asyncio latency compensation
             self._times[self._edge] = ticks_us()
-            if self._edge < EDGECOUNT:
-                self._edge += 1
-            else:
-                self._overrun = True # Overrun. decode() will test and reset
+            self._edge += 1
 
     def _decode(self):
-        val = OVERRUN if self._overrun else BADSTART
-        if not self._overrun:
+        overrun = self._edge > EDGECOUNT
+        val = OVERRUN if overrun else BADSTART
+        if not overrun:
             width = ticks_diff(self._times[1], self._times[0])
             if width > 4000:  # 9ms leading mark for all valid data
                 width = ticks_diff(self._times[2], self._times[1])
@@ -116,13 +110,14 @@ class NEC_IR():
         if val >= 0:  # validate. Byte layout of val ~cmd cmd ~addr addr
             addr = val & 0xff
             cmd = (val >> 16) & 0xff
-            if self._extended:  # 16 bit address with no redundancy
-                addr |= val & 0xff00
+            if addr == ((val >> 8) ^ 0xff) & 0xff:  # 8 bit address OK
                 val = cmd if cmd == (val >> 24) ^ 0xff else BADDATA
             else:
-                if addr == ((val >> 8) ^ 0xff) & 0xff:  # Address OK
+                addr |= val & 0xff00  # pass assumed 16 bit address to callback
+                if self._extended:
                     val = cmd if cmd == (val >> 24) ^ 0xff else BADDATA
                 else:
                     val = BADADDR
-        self._reset()
+        self._edge = 0  # Set up for new data burst and run user callback
+        self._ev_start.clear()
         self._callback(val, addr, *self._args)

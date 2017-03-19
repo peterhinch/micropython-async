@@ -15,11 +15,11 @@ guides to this may be found online.
 
 # Contents
 
-1. [Cooperative scheduling](./TUTORIAL.md#1-cooperative-scheduling)
+ 1. [Cooperative scheduling](./TUTORIAL.md#1-cooperative-scheduling)
   
   * 1.1 [Modules](./TUTORIAL.md#11-modules)
 
-2. [uasyncio](./TUTORIAL.md#2-uasyncio)
+ 2. [uasyncio](./TUTORIAL.md#2-uasyncio)
 
   * 2.1 [Program structure: the event loop](./TUTORIAL.md#21-program-structure-the-event-loop)
   
@@ -706,8 +706,9 @@ passing the time when the first state change occurred. A coro waits on the
 event, yields for the duration of a data burst, then decodes the stored data
 before calling a user-specified callback.
 
-The algorithm promotes simplicity over RAM use: the 276 bytes used for the data
-array may be reduced to 68 bytes or less.
+The algorithm promotes interrupt handler speed over RAM use: the 276 bytes used
+for the data array may be reduced to 69 bytes by computing and saving deltas in
+the interrupt service routine.
 
 ###### [Jump to Contents](./TUTORIAL.md#contents)
 

@@ -20,9 +20,9 @@ else:
 from aremote import *
 
 # User callback. Buttons on the remote produce address and data values. Data is
-# in range 0..255. Address is in range 0..255 unless the remote uses extended
-# addressing when it is in range 0..65535. If remote produces invalid addresses
-# try instantiating with extended = True.
+# in range 0..255. Address is assumed to be in range 0..65535. If remote
+# produces an address < 256 instantiate with extended = False for extra error
+# checking.
 
 # If a button is held down a repeat code is transmitted when data == REPEAT.
 # Applications typically ignore errors as they can be triggered by stray IR
@@ -39,7 +39,7 @@ def cb(data, addr):
     elif data >= 0:
         print(hex(data), hex(addr))
     else:
-        print(errors[data])
+        print('{} Address: {}'.format(errors[data], hex(addr)))
 
 def test():
     print('Test for IR receiver. Assumes NEC protocol.')
@@ -48,7 +48,7 @@ def test():
     elif platform == 'esp8266':
         freq(160000000)
         p = Pin(13, Pin.IN)
-    ir = NEC_IR(p, cb, False)  # r/c doesn't use extended addressing
+    ir = NEC_IR(p, cb, True)  # Assume r/c uses extended addressing
     loop = asyncio.get_event_loop()
     loop.run_forever()
 

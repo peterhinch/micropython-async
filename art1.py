@@ -22,7 +22,7 @@ else:
 from aremote import NEC_IR, REPEAT
 
 # User callback. Buttons on the remote are characterised by address and data
-# values. These are in range 0..255 (the rmeote under test does not use the
+# values. These are in range 0..255 (the remote under test does not use the
 # extended address mode). If a button is held down a repeat code is
 # transmitted. In this case data == REPEAT. data < REPEAT == error.
 
@@ -52,7 +52,7 @@ def test():
         p = Pin(13, Pin.IN)
         led = Pin(2, Pin.OUT)
         led(1)
-    ir = NEC_IR(p, cb, False, led)  # Not an extended address mode r/c
+    ir = NEC_IR(p, cb, True, led)  # Assume extended address mode r/c
     loop = asyncio.get_event_loop()
     loop.run_forever()
 
