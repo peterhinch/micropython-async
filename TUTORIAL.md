@@ -17,73 +17,73 @@ guides to this may be found online.
 
  1. [Cooperative scheduling](./TUTORIAL.md#1-cooperative-scheduling)
   
-  * 1.1 [Modules](./TUTORIAL.md#11-modules)
+   1.1 [Modules](./TUTORIAL.md#11-modules)
 
  2. [uasyncio](./TUTORIAL.md#2-uasyncio)
 
-  * 2.1 [Program structure: the event loop](./TUTORIAL.md#21-program-structure-the-event-loop)
+  2.1 [Program structure: the event loop](./TUTORIAL.md#21-program-structure-the-event-loop)
   
-  * 2.2 [Coroutines (coros)](./TUTORIAL.md#22-coroutines-coros)
+  2.2 [Coroutines (coros)](./TUTORIAL.md#22-coroutines-coros)
 
-    * 2.2.1 [Queueing a coro for scheduling](./TUTORIAL.md#221-queueing-a-coro-for-scheduling)
+   2.2.1 [Queueing a coro for scheduling](./TUTORIAL.md#221-queueing-a-coro-for-scheduling)
 
-    * 2.2.2 [Running a callback function](./TUTORIAL.md#222-running-a-callback-function)
+   2.2.2 [Running a callback function](./TUTORIAL.md#222-running-a-callback-function)
 
-    * 2.2.3 [Returning values](./TUTORIAL.md#223-returning-values)
+   2.2.3 [Returning values](./TUTORIAL.md#223-returning-values)
 
-  * 2.3 [Delays](./TUTORIAL.md#23-delays)
+  2.3 [Delays](./TUTORIAL.md#23-delays)
 
 3. [Synchronisation](./TUTORIAL.md#3-synchronisation)
 
-  * 3.1 [Lock](./TUTORIAL.md#31-lock)
+  3.1 [Lock](./TUTORIAL.md#31-lock)
 
-  * 3.2 [Event](./TUTORIAL.md#32-event)
+  3.2 [Event](./TUTORIAL.md#32-event)
 
-    * 3.2.1 [The event's value](./TUTORIAL.md#321-the-events-value)
+   3.2.1 [The event's value](./TUTORIAL.md#321-the-events-value)
 
-  * 3.3 [Barrier](./TUTORIAL.md#33-barrier)
+  3.3 [Barrier](./TUTORIAL.md#33-barrier)
 
-  * 3.4 [Semaphore](./TUTORIAL.md#34-semaphore)
+  3.4 [Semaphore](./TUTORIAL.md#34-semaphore)
 
-    * 3.4.1 [BoundedSemaphore](./TUTORIAL.md#341-boundedsemaphore)
+   3.4.1 [BoundedSemaphore](./TUTORIAL.md#341-boundedsemaphore)
 
-  * 3.5 [Queue](./TUTORIAL.md#35-queue)
+  3.5 [Queue](./TUTORIAL.md#35-queue)
 
 4. [Designing classes for asyncio](./TUTORIAL.md#4-designing-classes-for-asyncio)
 
-  * 4.1 [Awaitable classes](./TUTORIAL.md#41-awaitable-classes)
+  4.1 [Awaitable classes](./TUTORIAL.md#41-awaitable-classes)
 
-  * 4.2 [Asynchronous iterators](./TUTORIAL.md#42-asynchronous-iterators)
+  4.2 [Asynchronous iterators](./TUTORIAL.md#42-asynchronous-iterators)
 
-  * 4.3 [Asynchronous context managers](./TUTORIAL.md#43-asynchronous-context-managers)
+  4.3 [Asynchronous context managers](./TUTORIAL.md#43-asynchronous-context-managers)
 
 5. [Device driver examples](./TUTORIAL.md#5-device-driver-examples)
 
-  * 5.1 [Using a coro to poll hardware](./TUTORIAL.md#51-using-a-coro-to-poll-hardware)
+  5.1 [Using a coro to poll hardware](./TUTORIAL.md#51-using-a-coro-to-poll-hardware)
 
-  * 5.2 [Using IORead to poll hardware](./TUTORIAL.md#52-using-ioread-to-poll-hardware)
+  5.2 [Using IORead to poll hardware](./TUTORIAL.md#52-using-ioread-to-poll-hardware)
 
-  * 5.3 [A complete example: aremote.py](./TUTORIAL.md#53-a-complete-example-aremotepy)
+  5.3 [A complete example: aremote.py](./TUTORIAL.md#53-a-complete-example-aremotepy)
 
 6. [Hints and tips](./TUTORIAL.md#6-hints-and-tips)
 
-  * 6.1 [Program hangs](./TUTORIAL.md#61-program-hangs)
+  6.1 [Program hangs](./TUTORIAL.md#61-program-hangs)
 
-  * 6.2 [uasyncio retains state](./TUTORIAL.md#62-uasyncio-retains-state)
+  6.2 [uasyncio retains state](./TUTORIAL.md#62-uasyncio-retains-state)
 
-  * 6.3 [Garbage Collection](./TUTORIAL.md#63-garbage-collection)
+  6.3 [Garbage Collection](./TUTORIAL.md#63-garbage-collection)
 
-  * 6.4 [Testing](./TUTORIAL.md#64-testing)
+  6.4 [Testing](./TUTORIAL.md#64-testing)
 
 7. [Notes for beginners](./TUTORIAL.md#7-notes-for-beginners)
 
-  * 7.1 [Why Scheduling?](./TUTORIAL.md#71-why-scheduling)
+  7.1 [Why Scheduling?](./TUTORIAL.md#71-why-scheduling)
 
-  * 7.2 [Why cooperative rather than pre-emptive?](./TUTORIAL.md#72-why-cooperative-rather-than-pre-emptive)
+  7.2 [Why cooperative rather than pre-emptive?](./TUTORIAL.md#72-why-cooperative-rather-than-pre-emptive)
 
-  * 7.3 [Communication](./TUTORIAL.md#73-communication)
+  7.3 [Communication](./TUTORIAL.md#73-communication)
 
-  * 7.4 [Polling](./TUTORIAL.md#74-polling)
+  7.4 [Polling](./TUTORIAL.md#74-polling)
 
 # 1. Cooperative scheduling
 
