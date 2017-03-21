@@ -358,13 +358,14 @@ in slow time by the coro.
 
 ######[Jump to Contents](./TUTORIAL.md#contents)
 
-### 3.2.1 The event's value
+### 3.2.1 The event's value [Back](./TUTORIAL.md#contents)
 
 The ``event.set()`` method can accept an optional data value of any type. A
 coro waiting on the event can retrieve it by means of ``event.value()``. Note
 that ``event.clear()`` will set the value to ``None``. A typical use for this
 is for the coro setting the event to issue ``event.set(loop.time())``. Any coro
 waiting on the event can determine the latency incurred, for example to perform
+compensation for this.
 
 ######[Jump to Contents](./TUTORIAL.md#contents)
 
