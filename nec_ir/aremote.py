@@ -45,7 +45,7 @@ class NEC_IR():
         if platform == 'pyboard':
             ExtInt(pin, ExtInt.IRQ_RISING_FALLING, Pin.PULL_NONE, self._cb_pin)
         else:
-            pin.irq(handler = self._cb_pin, trigger=(Pin.IRQ_FALLING | Pin.IRQ_RISING))
+            pin.irq(handler = self._cb_pin, trigger = (Pin.IRQ_FALLING | Pin.IRQ_RISING), hard = True)
         self._edge = 0
         self._ev_start.clear()
         loop = asyncio.get_event_loop()
