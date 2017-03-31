@@ -62,12 +62,13 @@ class NEC_IR():
 
     # Pin interrupt. Save time of each edge for later decode.
     def _cb_pin(self, line):
+        t = ticks_us()
         # On overrun ignore pulses until software timer times out
         if self._edge <= EDGECOUNT:  # Allow 1 extra pulse to record overrun
             if not self._ev_start.is_set():  # First edge received
                 loop = asyncio.get_event_loop()
                 self._ev_start.set(loop.time())  # asyncio latency compensation
-            self._times[self._edge] = ticks_us()
+            self._times[self._edge] = t
             self._edge += 1
 
     def _decode(self):
