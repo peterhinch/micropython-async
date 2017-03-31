@@ -29,9 +29,7 @@ guides to this may be found online.
 
    2.2.2 [Running a callback function](./TUTORIAL.md#222-running-a-callback-function)
 
-   2.2.3 [Returning values](./TUTORIAL.md#223-returning-values)
-
-   2.2.4 [Coroutines as bound methods](./TUTORIAL.md#224-coroutines-as-bound-methods)
+   2.2.3 [Notes](./TUTORIAL.md#223-notes) Coros as bound methods. Returning values.
 
   2.3 [Delays](./TUTORIAL.md#23-delays)
 
@@ -232,7 +230,7 @@ loop.run_forever()
 
 ###### [Jump to Contents](./TUTORIAL.md#contents)
 
-### 2.2.3 Returning values
+### 2.2.3 Notes
 
 A coro can contain a ``return`` statement with arbitrary return values. To
 retrieve them issue:
@@ -241,30 +239,7 @@ retrieve them issue:
 result = await my_coro()
 ```
 
-### 2.2.4 Coroutines as bound methods
-
-Coros may be bound methods. Default arguments are permitted but these may not
-be instance variables.
-
-The following will fail with ``NameError: name 'self' is not defined``.
-This behaviour is consistent with cPython 3.5.
-
-```python
-import asyncio
-class Foo():
-    def __init__(self):
-        self.msg = 'Why hello...'
-        loop = asyncio.get_event_loop()
-        loop.create_task(self.bar())
-
-    async def bar(self, msg=self.msg):
-        print(msg)
-        await asyncio.sleep(0)
-
-foo = Foo()
-loop = asyncio.get_event_loop()
-loop.run_forever()
-```
+Coros may be bound methods.
 
 ###### [Jump to Contents](./TUTORIAL.md#contents)
 
