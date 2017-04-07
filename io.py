@@ -3,20 +3,13 @@ import uasyncio as asyncio
 MP_STREAM_POLL_RD = 1
 MP_STREAM_POLL = 3
 
-# Get address of object not supporting the buffer protocol
-#@micropython.asm_thumb
-#def addressof(r0):
-#    nop()
-
+import uasyncio as asyncio
 class Device():
     def __init__(self):
         self.ready = False
 
     def fileno(self):
-        return 999 # 'runs' without error in Unix, on Pyboard mp_get_stream_raise() sees stream_p == NULL
-    # Runs in the sense that the read loop keeps iterating
-#        print(hex(addressof(self)))
-#        return addressof(self)
+        return 999
 
     def ioctl(self, cmd, flags):
         res = 0

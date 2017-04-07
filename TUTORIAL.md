@@ -59,11 +59,13 @@ guides to this may be found online.
 
 5. [Device driver examples](./TUTORIAL.md#5-device-driver-examples)
 
-  5.1 [Using a coro to poll hardware](./TUTORIAL.md#51-using-a-coro-to-poll-hardware)
+  5.1 [The IORead mechnaism](./TUTORIAL.md#51-the-ioread-mechanism)
 
-  5.2 [Using IORead to poll hardware](./TUTORIAL.md#52-using-ioread-to-poll-hardware)
+  5.2 [Using a coro to poll hardware](./TUTORIAL.md#52-using-a-coro-to-poll-hardware)
 
-  5.3 [A complete example: aremote.py](./TUTORIAL.md#53-a-complete-example-aremotepy)
+  5.3 [Using IORead to poll hardware](./TUTORIAL.md#53-using-ioread-to-poll-hardware)
+
+  5.4 [A complete example: aremote.py](./TUTORIAL.md#54-a-complete-example-aremotepy)
 
 6. [Hints and tips](./TUTORIAL.md#6-hints-and-tips)
 
@@ -593,7 +595,8 @@ simply to have a coro which does this periodically. The other is to delegate
 the polling to the scheduler using the IORead mechanism. The latter is more
 efficient, especially for devices which need to be polled frequently or with
 a (fairly) repeatable polling interval. At the time of writing the latter
-approch is not yet supported in the firmware.
+approch is only partially supported in the firmware: device drivers must be
+written in C.
 
 Note that where a very repeatable polling interval is required, it should be
 done using a timer callback. For "very" repeatable read microsecond level.
@@ -603,7 +606,44 @@ the longest run time between yields.
 
 ###### [Jump to Contents](./TUTORIAL.md#contents)
 
-## 5.1 Using a coro to poll hardware
+## 5.1 The IORead Mechanism
+
+This can be illustrated using a Pyboard UART. The following code sample
+demonstrates concurrent I/O on one UART. To run, link Pyboard pins X1 and X2
+(UART Txd and Rxd).
+
+```python
+import uasyncio as asyncio
+from pyb import UART
+uart = UART(4, 9600)
+
+async def sender():
+    swriter = asyncio.StreamWriter(uart, {})
+    while True:
+        await swriter.awrite('Hello uart\n')
+        await asyncio.sleep(2)
+
+async def receiver():
+    sreader = asyncio.StreamReader(uart)
+    while True:
+        res = await sreader.readline()
+        print('Recieved', res)
+
+loop = asyncio.get_event_loop()
+loop.create_task(sender())
+loop.create_task(receiver())
+loop.run_forever()
+```
+
+The supporting code may be found in ``__init__.py`` in the uasyncio library.
+The mechanism works because the (C) device driver implements the following
+methods: ``ioctl``, ``read``, ``write``, ``readline`` and ``close``. See section
+5.3 for details of implementing such a device driver in Python (when support
+for this becomes available).
+
+###### [Jump to Contents](./TUTORIAL.md#contents)
+
+## 5.2 Using a coro to poll hardware
 
 This is a simple approach, but is only appropriate to hardware which is to be
 polled at a relatively low rate. This is for two reasons. Firstly the variable
@@ -684,7 +724,7 @@ loop.run_until_complete(run())
 
 ###### [Jump to Contents](./TUTORIAL.md#contents)
 
-## 5.2 Using IORead to poll hardware
+## 5.3 Using IORead to poll hardware
 
 The uasyncio ``IORead`` class is provided to support IO to stream devices. It
 may be employed by drivers of devices which need to be polled: the polling will
@@ -693,11 +733,11 @@ stream or device driver to be ready. This is more efficient, and offers lower
 latency, than running multiple coros each polling a device.
 
 At the time of writing firmware support for using this mechanism in device
-drivers has not yet been implemented.
+drivers written in Python has not yet been implemented.
 
 ###### [Jump to Contents](./TUTORIAL.md#contents)
 
-## 5.3 A complete example: aremote.py
+## 5.4 A complete example: aremote.py
 
 This may be found in the ``nec_ir`` directory. Its use is documented
 [here](./nec_ir/README.md). The demo provides a complete device driver example:
