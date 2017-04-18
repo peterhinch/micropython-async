@@ -1,8 +1,9 @@
 # asyn.py 'micro' synchronisation primitives for uasyncio
 # Author: Peter Hinch
-# Copyright Peter Hinch 2016 Released under the MIT license
+# Copyright Peter Hinch 2017 Released under the MIT license
 # Test/demo programs asyntest.py, barrier_test.py
 # Provides Lock, Event and Barrier classes and launch function
+# Now uses low_priority where available and appropriate.
 
 # CPython 3.5 compatibility
 # (ignore RuntimeWarning: coroutine '_g' was never awaited)
@@ -10,6 +11,9 @@ try:
     import uasyncio as asyncio
 except ImportError:
     import asyncio
+
+# Check availability of 'priority' core.py
+low_priority = asyncio.low_priority if 'low_priority' in dir(asyncio) else None
 
 async def _g():
     pass
@@ -35,6 +39,7 @@ def launch(func, tup_args):
 #   do stuff with locked resource
 # finally:
 #   lock.release
+# Uses normal scheduling on assumption that locks are held briefly.
 class Lock():
     def __init__(self):
         self._locked = False
@@ -67,8 +72,11 @@ class Lock():
 # A coro rasing the event issues event.set()
 # When all waiting coros have run
 # event.clear() should be issued
+# Use of low_priority may be specified in the constructor
+# when it will be used if available.
 class Event():
-    def __init__(self):
+    def __init__(self, lp=False):
+        self.low_priority = low_priority if lp else None
         self.clear()
 
     def clear(self):
@@ -77,7 +85,7 @@ class Event():
 
     def __await__(self):
         while not self._flag:
-            yield from asyncio.sleep(0)
+            yield self.low_priority  # If available and specified
 
     __iter__ = __await__
 
@@ -95,6 +103,7 @@ class Event():
 # execution pauses until all other participant coros are waiting on it.
 # At that point the callback is executed. Then the barrier is 'opened' and
 # excution of all participants resumes.
+# Uses low_priority if available
 class Barrier():
     def __init__(self, participants, func=None, args=()):
         self._participants = participants
@@ -114,7 +123,7 @@ class Barrier():
         while True:  # Wait until last waiting thread changes the direction
             if direction != self._down:
                 return
-            yield from asyncio.sleep(0)
+            yield low_priority  # If available
 
     __iter__ = __await__
 
@@ -146,7 +155,7 @@ class Semaphore():
 
     async def acquire(self):
         while self._count == 0:
-            await asyncio.sleep(0)
+            yield low_priority  # If available
         self._count -= 1
 
     def release(self):

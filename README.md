@@ -7,9 +7,9 @@ This GitHub repository consists of the following parts:
  * [A tutorial](./TUTORIAL.md) An introductory tutorial on asynchronous
  programming and the use of the uasyncio library is offered. This is a work in
  progress, not least because uasyncio is not yet complete.
- * [A driver for an IR remote control](./nec_ir/README.md) An asynchronous
- driver to provide a more typical device driver example. Handles remote control
- reception for infra red remotes using the popular NEC protocol.
+ * [A driver for an IR remote control](./nec_ir/README.md) This is intended as
+ an example of an asynchronous device driver. It decodes signals received from
+ infra red remote controls using the popular NEC protocol.
 
 # Installation of uasyncio
 
@@ -51,8 +51,9 @@ yield execution with ``await <awaitable>``.
 
 ## Asynchronous I/O and uselect
 
-At the time of writing this was under development. Check the current state on
-GitHub.
+At the time of writing this was under development. Asynchronous I/O works with
+devices whose drivers support streaming, such as the UART. As I understand it
+support for ``select`` is in the pipeline. Check the current state on GitHub.
 
 ## Time values
 

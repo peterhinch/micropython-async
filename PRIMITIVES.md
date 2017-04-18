@@ -114,7 +114,10 @@ Example of this are in ``event_test`` and ``ack_test`` in asyntest.py.
 
 ### 3.2.1 Definition
 
-Constructor: this takes no arguments.
+Constructor: takes one optional boolean argument, defaulting False.
+ * ``lp`` If ``True`` and the experimental low priority core.py is installed,
+ low priority scheduling will be used while awaiting the event. If the standard
+ version of uasyncio is installed the arg will have no effect.
 
 Methods:
  * ``set`` Initiates the event. Optional arg ``data``: may be of any type,

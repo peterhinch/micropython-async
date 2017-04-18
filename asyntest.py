@@ -87,7 +87,7 @@ async def run_event_test():
     loop.create_task(run_lock(2, lock))
     loop.create_task(run_lock(3, lock))
     print('Test Event class')
-    event = Event()
+    event = Event(True)  # Use low priority scheduling if available
     print('got here')
     loop.create_task(eventset(event))
     print('gh1')
