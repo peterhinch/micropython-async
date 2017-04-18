@@ -171,8 +171,12 @@ loop can also be started in a way which permits termination, by using the event
 loop's ``run_until_complete`` method. Examples of this may be found in the
 ``astests.py`` module.
 
-The event loop instance is a singleton. If a coro needs to call an event loop
-method, calling ``asyncio.get_event_loop()`` will efficiently return it.
+The event loop instance is a singleton, instantiated by a program's first call
+to ``asyncio.get_event_loop()``. This takes an optional integer arg being the
+length of the coro queue - i.e. the maximum number of concurrent coros allowed.
+The default of 42 is likely to be adequate for most purposes. If a coro needs
+to call an event loop method, calling ``asyncio.get_event_loop()`` (without
+args) will efficiently return it.
 
 ###### [Jump to Contents](./TUTORIAL.md#contents)
 
