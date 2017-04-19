@@ -22,7 +22,7 @@ with improved millisecond-level timing accuracy and reduced scheduling latency.
 
    2.4 [Background](./FASTPOLL.md#24-background)
 
- 3. [Solution](./FASTPOLL.md#3-solution)
+ 3. [A solution](./FASTPOLL.md#3-a-solution)
 
    3.1 [Low priority yield](./FASTPOLL.md#31-low-priority-yield)
 
@@ -31,6 +31,8 @@ with improved millisecond-level timing accuracy and reduced scheduling latency.
    3.3 [Event loop constructor](./FASTPOLL.md#33-event-loop-constructor)
 
  4. [The asyn library](./FASTPOLL.md#4-the-asyn-library)
+
+ 5. [Heartbeat](./FASTPOLL.md#5-heartbeat)
 
 # 1. Installation
 
@@ -53,12 +55,13 @@ experimental versions of usayncio.
 # 2. Rationale
 
 Applications may be required to regularly poll a hardware device or a flag set
-by an interrupt service routine (ISR). Problems such as overruns may occur if
-the scheduling of the polling coro is subject to excessive latency. Further,
-the accuracy of millisecond level delays can be compromised by the scheduling
-of other coros. This variant provides a means of mitigating this by enabling
-coros to yield control in a way which prevents them from competing with coros
-which have timed out.
+by an interrupt service routine (ISR). An overrun may occur if the scheduling
+of the polling coro is subject to excessive latency. Further, the accuracy of
+millisecond level delays can be compromised by the scheduling of other coros.
+This variant provides a means of mitigating this by enabling coros to yield
+control in a way which prevents them from competing with coros which are ready
+for execution. Coros which have yielded in a low priority fashion will not be
+scheduled until all other coros are waiting on a nonzero timeout.
 
 ## 2.1 Latency
 
@@ -80,12 +83,13 @@ async def handle_isr():
         yield
 ```
 
-A hardware interrupt handler sets the ``isr_has_run`` flag.
+Assume a hardware interrupt handler sets the ``isr_has_run`` flag.
 
 Assume we have ten instances of ``foo()`` and one instance of ``handle_isr()``.
 When ``handle_isr()`` issues ``yield``, its execution will pause for 40ms while
-each instance of ``foo()`` is scheduled and performs one iteration. It may be
-necessary to poll the flag at a rate high enough to avoid overruns.
+each instance of ``foo()`` is scheduled and performs one iteration. This may be
+unacceptable: it may be necessary to poll the flag at a rate high enough to
+avoid overruns.
 
 This version provides a mechanism for reducing this latency by enabling the
 ``foo()`` instances to yield in a low priority manner. In the case where all
@@ -136,7 +140,7 @@ be run against the official and experimental versions.
 
 ## 2.3 The conventional approach
 
-The official uasyncio module offers only one solution which is is to redesign
+The official uasyncio package offers only one solution which is is to redesign
 ``foo()`` to reduce the delay between yields to the scheduler. This can be
 difficult or impossible. Further it is inefficient to reduce the delay much
 below 2ms as the scheduler takes 230us to schedule a task.
@@ -148,28 +152,28 @@ execution with time critical coros. Another case is of a coro which is not time
 critical is one which performs a lengthy calculation whose results are not
 required urgently - a possible example being sensor fusion in a drone. An
 extreme case is in some astronomy applications where a delay on a complex
-calculation running into minutes would not be apparent.
+calculation running into many minutes would not be apparent.
 
 ###### [Jump to Contents](./FASTPOLL.md#contents)
 
 ## 2.4 Background
 
-This issue has been discussed in detail
-[here](https://github.com/micropython/micropython/issues/2989).
+This has been discussed in detail
+[in issue 2989](https://github.com/micropython/micropython/issues/2989).
 
 A further discussion on the subject of using the ioread mechanism to achieve
 fast scheduling took place
-[here](https://github.com/micropython/micropython/issues/2664). The final
+[in issue 2664](https://github.com/micropython/micropython/issues/2664). The final
 comment to this issue suggests that it may never be done for drivers written in
 Python.
 
 It seems there is no plan to incorporate a priority mechanism in the official
 verion of uasyncio but I believe it confers significant advantages for the
-reasons discussed above.
+reasons discussed above. Hence this variant.
 
 ###### [Jump to Contents](./FASTPOLL.md#contents)
 
-# 3. Solution
+# 3. A solution
 
 # 3.1 Low priority yield
 
@@ -187,10 +191,10 @@ A coro yielding in this way will only be re-scheduled if there are no "normal"
 coros ready for execution. A "normal" coro is one that has yielded by any other
 means.
 
-Coros whose times have elapsed, or which have issued ``await asyncio.sleep(0)``
-will be executed regardless of any pending low priority coros. The latter will
-only run when all normal coros are waiting on a non-zero delay. An inevitable
-implication of having this degree of control is if a coro issues
+A "normal" coro will be executed regardless of any pending low priority coros.
+The latter will only run when all normal coros are waiting on a non-zero delay.
+An inevitable implication of having this degree of control is that if a coro
+issues
 
 ```python
 while True:
@@ -215,16 +219,17 @@ added:
 ``call_lp`` Call with low priority. Args: ``callback`` the callback to run,
 ``*args`` any positional args may follow separated by commas.
 
-A simple demo of this is ``benchmarks/call_lp.py``.
+A simple demo of this is ``benchmarks/call_lp.py``. Documentation is in the
+code.
 
 ###### [Jump to Contents](./FASTPOLL.md#contents)
 
 ## 3.3 Event loop constructor
 
 The ``get_event_loop`` method supports two optional integer positional args:
-defining the queue sizes for normal and low priority coros. Note that all coros
-are initially put in the normal queue. They temporarily occupy the LP queue
-when they issue a low priority yield or schedule a LP callback.
+defining the queue sizes for normal and low priority (LP) coros. Note that all
+coros are initially put in the normal queue. They temporarily employ the LP
+queue when they issue a low priority yield or schedule a LP callback.
 
 The default queue size is 42 for both queues. This is sufficient for many
 applications.
@@ -237,9 +242,11 @@ import uasyncio as asyncio
 low_priority = asyncio.low_priority if 'low_priority' in dir(asyncio) else None
 ```
 
+with a coro issuing ``yield low_priority`` as required.
+
 ###### [Jump to Contents](./FASTPOLL.md#contents)
 
-## 4 The asyn library
+## 4. The asyn library
 
 This now uses the low priority (LP) mechanism if available and where
 appropriate. It is employed as follows:
@@ -255,5 +262,21 @@ appropriate. It is employed as follows:
 
 A coro waiting on a ``Lock`` or an ``Event`` which uses normal scheduling will
 therefore prevent the execution of LP tasks for the duration.
+
+###### [Jump to Contents](./FASTPOLL.md#contents)
+
+# 5. Heartbeat
+
+I find it useful to run a "heartbeat" coro in development as a simple check
+for code which has failed to yield. If the low priority mechanism is used this
+can be extended to check that no coro loops indefinitely on a zero delay.
+
+```python
+async def heartbeat(led):
+    while True:
+        led.toggle()
+        await asyncio.sleep_ms(500)
+        yield low_priority  # Will hang while a coro loops on a zero delay
+```
 
 ###### [Jump to Contents](./FASTPOLL.md#contents)
