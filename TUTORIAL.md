@@ -2,16 +2,19 @@
 
 This document is a "work in progress" as I learn the content myself. Further
 at the time of writing uasyncio is itself under development. It is likely that
-these notes may contain errors; they will be subject to substantial revision.
+these notes may contain errors; please report any you discover.
 
 The MicroPython uasyncio library comprises a subset of Python's asyncio library
 designed for use on microcontrollers. As such it has a small RAM footprint and
-fast context switching. This document describes its use with a focus on
-interfacing hardware devices with the aim of designing drivers with
-non-blocking behaviour.
+fast context switching with zero RAM allocation. This document describes its
+use with a focus on interfacing hardware devices. The aim is to design drivers
+in such a way that the application continues to run while the driver is waiting
+for a response from the hardware or for a user interaction.
 
 Another major application area for asyncio is in network programming: many
 guides to this may be found online.
+
+###### [Main README](./README.md)
 
 # Contents
 
@@ -87,16 +90,13 @@ guides to this may be found online.
 
   7.4 [Polling](./TUTORIAL.md#74-polling)
 
-8. [A priority mechanism](./TUTORIAL.md#8-a-priority-mechanism)
-
-  8.1 [The asyn library](./TUTORIAL.md#81-the-asyn-library)
-
 # 1. Cooperative scheduling
 
 The technique of cooperative multi-tasking is widely used in embedded systems.
 It offers lower overheads than pre-emptive scheduling and avoids many of the
 pitfalls associated with truly asynchronous threads of execution. For those new
-to asynchronous programming there is an introduction in section 7 below.
+to asynchronous programming there is an introduction
+[here](./TUTORIAL.md#7-notes-for-beginners).
 
 ###### [Jump to Contents](./TUTORIAL.md#contents)
 
@@ -127,10 +127,10 @@ hardware.
  11. ``aremote.py`` Example device driver for NEC protocol IR remote control.
  12. ``auart.py`` Demo of streaming I/O via a Pyboard UART.
  13. ``core.py`` An experimental version of the uasyncio core with a simple
- priority mechanism.
+ priority mechanism. See [this doc](./FASTPOLL.md).
 
 The ``benchmarks`` directory contains scripts to test and characterise the
-uasyncio scheduler.
+uasyncio scheduler. See [this doc](./FASTPOLL.md).
 
 ###### [Jump to Contents](./TUTORIAL.md#contents)
 
@@ -276,6 +276,9 @@ yield None  # As above
 await asyncio.sleep_ms(100)  # Pause for 100ms and schedule other coros.
 yield 100  # Pause 100ms - equivalent to above
 ```
+
+The ``yield`` syntax should be regarded as povisional: it is possible that its
+support may be removed in future uasyncio versions.
 
 ###### [Jump to Contents](./TUTORIAL.md#contents)
 
@@ -628,27 +631,31 @@ acquire data. In the case of a driver written in Python this must be done by
 having a coro which does this periodically. This may present problems if there
 is a requirement for rapid polling owing to the round-robin nature of uasyncio
 scheduling: the coro will compete for execution with others. There are two
-solutions to this. The first is to use the modified version of uasyncio
-discussed in section 8.
+solutions to this. One is to use the experimental version of uasyncio presented
+[here](./FASTPOLL.md).
 
 The other potential solution is to delegate the polling to the scheduler using
 the IORead mechanism. This is unsupported for Python drivers: see section 5.3.
 
 Note that where a very repeatable polling interval is required, it should be
-done using a timer callback. For "very" repeatable read microsecond level.
-"Fairly" repeatable is application dependent but likely to be variable on the
-order of tens or hundreds of milliseconds. The latency is determined as
-follows. When a ``await asyncio.sleep_ms(tim)`` times out, the coro is
-scheduled for execution. It competes with other coros which have timed out, and
-also ones which have issued ``await asyncio.sleep(0)``. In the worst case each
-of these will be scheduled before it.
+done using a hardware timer hard interrupt callback. For "very" repeatable read
+microsecond level.
 
-Each coro will have a worst-case latency being the maximum execution time
-between ``await`` statements. The sum of these represents the timing
-uncertainty of the ``sleep_ms()`` function.
+In many cases less precise timing is acceptable. The definition of "less" is
+application dependent but the latency associated with scheduling the polling
+coro is likely to be variable on the order of tens or hundreds of milliseconds.
+Latency is determined as follows. When a ``await asyncio.sleep_ms(tim)`` times
+out, the coro is scheduled for execution; likewise if tim == 0 or ``yield`` is
+issued. It then competes with other coros which have behaved similarly. Since
+coros are scheduled in "fair round-robin" fashion you can expect each competing
+coro to be scheduled before it.
 
-[Section 8](./TUTORIAL.md#8-a-priority-mechanism) describes an experimental
-means of improving this.
+Each coro will have a worst-case latency which can be calculated by summing,
+for every other coro, the worst-case execution time between yielding. This
+value also represents the timing uncertainty of the ``sleep_ms()`` function.
+
+[This document](./FASTPOLL.md) describes an experimental version of uasyncio
+which offers a means of improving this.
 
 ###### [Jump to Contents](./TUTORIAL.md#contents)
 
@@ -1001,117 +1008,5 @@ therefore must be polled (i.e. checked periodically). Polling can also be used
 in conjunction with interrupt handlers: the interrupt handler services the
 hardware and sets a flag. A coro polls the flag: if it's set it handles the
 data and clears the flag.
-
-###### [Jump to Contents](./TUTORIAL.md#contents)
-
-# 8 A priority mechanism
-
-This section describes an experimental version of uasyncio. It has been
-discussed in detail [here](https://github.com/micropython/micropython/issues/2989).
-There is no plan to incorporate this in the official verion but I believe it
-confers significant advantages for code needing predictable delays or requiring
-coros to be scheduled with low latency. The scripts in the ``benchmarks``
-directory demonstrate this and can be run against the official and experimental
-versions.
-
-Coroutines in uasyncio which are pending execution are scheduled in a "fair"
-round-robin fashion. Assume we have ten instances of the following coro:
-
-```python
-async def foo():
-    while True:
-        await asyncio.sleep(0)
-        # code which takes 4ms to complete
-```
-
-If we have another coro ``bar()`` which issues ``await asyncio.sleep(0)``, its
-execution will pause for 40ms while each instance of ``foo()`` is scheduled and
-performs one iteration. This version provides a mechanism for reducing this
-latency - in the case where all other coros are low priority to 300us.
-
-If ``bar()`` issues ``await asyncio.sleep_ms(15)`` it will not see a 15ms
-delay. During the 15ms period ``foo()`` instances will be scheduled. When it
-elapses, ``bar()`` will compete with ``foo()`` instances which are pending.
-This results in variable delays up to 55ms (10 threads * 4ms + 15ms). The
-experimental version can improve this substantially. The degree of improvement
-is dependent on other coros regularly yielding with low priority: if any coro
-hogs execution for a substantial period that will inevitably contribute to
-latency in any cooperative system.
-
-In the somewhat contrived example of 200 tasks each issuing a low priority
-yield every 2ms, a 10ms nominal delay produced times in the range 9.7 to 14.4ms
-contrasing to 407.9 to 410.9ms using normal scheduling.
-
-With normal scheduling one solution is to redesign ``foo()`` to reduce the
-delay between yields to the scheduler. This can be difficult or impossible. It
-is inefficient to reduce the delay much below 2ms as the scheduler takes 230us
-to schedule a task.
-
-There are cases where the `foo()`` task is not time-critical. One example is
-user interface code where a latency as long as 100ms would usually not be
-noticed. A system with ten pushbuttons will have ten coros competing for
-execution with other time critical coros. Another case is where a coro performs
-a lengthy calculation whose results are not required urgently.
-
-The file ``core.py`` offers an experimental version of uasyncio with a simple
-priority mechanism. To use it, simply replace the official version of
-``core.py`` on the target hardware. A non time-critical yield to the scheduler
-is performed by issuing
-
-```python
-await asyncio.low_priority
-```
-
-Coros whose times have elapsed, or which have issued ``await asyncio.sleep(0)``
-will be executed regardless of any pending low priority coros. The latter will
-only run when all normal coros are waiting on a non-zero delay. An inevitable
-implication of having this degree of control is if a coro issues
-
-```python
-while True:
-    await asyncio.sleep(0)
-    # Do something which does not yield to the scheduler
-```
-
-low priority tasks will never be executed. Normal coros must sometimes wait on
-a non-zero delay to enable the low priority ones to be scheduled.
-
-Low priority coros will run in a mutually "fair" round-robin fashion.
-
-An additional extension provides for a callback function which runs when all
-normal coros are waiting on a delay. The following ``EventLoop`` method is
-added:
-
-``call_lp`` Call with low priority. Args: ``callback`` the callback to run,
-``*args`` any positional args may follow separated by commas.
-
-A simple demo of this is ``benchmarks/call_lp.py``.
-
-The ``get_event_loop`` method supports two optional integer positional args:
-defining the queue sizes for normal and low priority coros. Note that all coros
-are initially put in the normal queue. They temporarily occupy the LP queue
-when they issue a low priority yield or schedule a LP callback.
-
-The scripts in the ``benchmarks`` directory illustrate a way to write code able
-to run under the official or experimental versions.
-
-###### [Jump to Contents](./TUTORIAL.md#contents)
-
-## 8.1 The asyn library
-
-This now uses the low priority (LP) mechanism if available and where
-appropriate. It is employed as follows:
-
- * ``Lock`` class. Uses normal scheduling on the basis that locks should be
- held for brief periods only.
- * ``Event`` class. An optional boolean constructor arg, defaulting ``False``,
- specifies LP scheduling (if available). A ``True`` value provides for cases
- where response to an event is not time-critical.
- * ``Barrier``, ``Semaphore`` and ``BoundedSemaphore`` classes use LP
- scheduling if available. This is on the basis that typical code may wait on
- these objects for some time.
-
-A coro waiting on a ``Lock`` or an ``Event`` which uses normal scheduling will
-therefore prevent the execution of LP tasks for the duration.
 
 ###### [Jump to Contents](./TUTORIAL.md#contents)

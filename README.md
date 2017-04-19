@@ -10,6 +10,9 @@ This GitHub repository consists of the following parts:
  * [A driver for an IR remote control](./nec_ir/README.md) This is intended as
  an example of an asynchronous device driver. It decodes signals received from
  infra red remote controls using the popular NEC protocol.
+ * [A modified uasyncio core.py](./FASTPOLL.md) This incorporates a simple
+ priority mechanism. With suitable application design this improves the rate
+ at which devices can be polled and improves the accuracy of time delays.
 
 # Installation of uasyncio
 
@@ -60,9 +63,9 @@ support for ``select`` is in the pipeline. Check the current state on GitHub.
 For timing asyncio uses floating point values of seconds. The uasyncio ``sleep``
 method accepts floats (including sub-second values) or integers. Note that in
 MicroPython the use of floats implies RAM allocation which incurs a performance
-penalty. uasyncio is designed to be capable of allocation-free scheduling. In
+penalty. The design of uasyncio enables allocation-free scheduling. In
 applications where performance is an issue, integers should be used and the
-millisecond level functions (with integer argumnts) employed where necessary.
+millisecond level functions (with integer arguments) employed where necessary.
 
 The ``loop.time`` method returns an integer number of milliseconds whereas
 CPython returns a floating point number of seconds. ``call_at`` follows the

@@ -18,6 +18,8 @@ arrival (with other coros getting scheduled for the duration). The ``Queue``
 guarantees that items are removed in the order in which they were received. As
 this is a part of the uasyncio library its use is described in the [tutorial](./TUTORIAL.md).
 
+###### [Main README](./README.md)
+
 # 2. Modules
 
 The following modules are provided:
