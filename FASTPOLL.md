@@ -39,11 +39,16 @@ Replace the file core.py on the target hardware with the one supplied.
 ## 1.1 Benchmarks
 
 The benchmarks directory contains files demonstrating the performance gains
-offered by prioritisation (latency.py and timing.py). The file rate.py
-demonstrates the rate at which uasyncio can schedule minimal coroutines
-(coros). The call_lp file demos low priority callbacks. With the exception of
-call_lp, benchmarks can be run against the official and experimental versions
-of usayncio.
+offered by prioritisation. Documentation is in the code.
+
+ * latency.py Shows the effect on latency with and without low priority usage.
+ * timing.py Shows the effect on timing with and without low priority usage.
+ * rate.py Shows the frequency with which uasyncio schedules minimal coroutines
+ (coros).
+ * call_lp.py Demos low priority callbacks.
+
+With the exception of call_lp, benchmarks can be run against the official and
+experimental versions of usayncio.
 
 # 2. Rationale
 
@@ -84,7 +89,7 @@ necessary to poll the flag at a rate high enough to avoid overruns.
 
 This version provides a mechanism for reducing this latency by enabling the
 ``foo()`` instances to yield in a low priority manner. In the case where all
-coros other than ``handle_hardware()`` are low priority the latency is reduced
+coros other than ``handle_isr()`` are low priority the latency is reduced
 to 300us.
 
 The benchmark latency.py demonstrates this. Documentation is in the code. It

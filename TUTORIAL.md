@@ -814,7 +814,7 @@ any asyncio latency when setting its delay period.
 
 ## 6.1 Program hangs
 
-Hanging usually occurs because a thread has blocked without yielding: this will
+Hanging usually occurs because a task has blocked without yielding: this will
 hang the entire system. When developing it is useful to have a coro which
 periodically toggles an onboard LED. This provides confirmtion that the
 scheduler is running.
