@@ -96,7 +96,7 @@ avoid overruns.
 This version provides a mechanism for reducing this latency by enabling the
 ``foo()`` instances to yield in a low priority manner. In the case where all
 coros other than ``handle_isr()`` are low priority the latency is reduced
-to 300us.
+to 250us.
 
 The benchmark latency.py demonstrates this. Documentation is in the code. It
 can be run against the official and experimental versions.
@@ -132,7 +132,7 @@ hogs execution for a substantial period that will inevitably contribute to
 latency in a cooperative system.
 
 In the somewhat contrived example of 200 tasks each issuing a low priority
-yield every 2ms, a 10ms nominal delay produced times in the range 9.7 to 14.4ms
+yield every 2ms, a 10ms nominal delay produced times in the range 9.8 to 10.8ms
 contrasing to 407.9 to 410.9ms using normal scheduling.
 
 The benchmark timing.py demonstrates this. Documentation is in the code. It can
@@ -308,7 +308,7 @@ can be extended to check that no coro loops indefinitely on a zero delay.
 async def heartbeat(led):
     while True:
         led.toggle()
-        yield LowPriority(0.5)  # Will hang while a coro loops on a zero delay
+        await after_ms(500)  # Will hang while a coro loops on a zero delay
 ```
 
 ###### [Jump to Contents](./FASTPOLL.md#contents)

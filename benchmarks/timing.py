@@ -4,7 +4,7 @@
 # other coros. This can test the version of core.py which incorporates the priority
 # mechanism. (In the home directory of this repo).
 
-# Outcome: when the priority mechanism is used the worst-case 10ms delay was 11.93ms
+# Outcome: when the priority mechanism is used the worst-case 10ms delay was 11.0ms
 # With the normal algorithm the 10ms delay takes ~N*Dms where N is the number of
 # lp_task() instances and D is the lp_task() processing delay (2ms).
 # So for 200 coros the 10ms delay takes up to 411ms.
@@ -47,6 +47,7 @@ async def lp_task(delay):
 async def priority(ms):
     global tmax, tmin, dtotal, count
     while True:
+        gc.collect()  # GC was affecting result
         tstart = time.ticks_us()
         await asyncio.sleep_ms(ms)  # Measure the actual delay
         delta = time.ticks_diff(time.ticks_us(), tstart)
@@ -65,7 +66,6 @@ async def run_test(delay, ms_delay):
         for _ in range(n_coros - old_n):
             loop.create_task(lp_task(delay))
         await asyncio.sleep(1)  # ensure tasks are all on LP queue before we measure
-        gc.collect()  # ensure it doesn't cloud the issue
         old_n = n_coros
         tmax = 0
         tmin = 1000000
