@@ -1,8 +1,8 @@
 # latency.py Benchmark for uasyncio. Author Peter Hinch April 2017.
 
 # This measures the scheduling latency of a notional device driver running in the
-# presence of other coros. This tests (and therefore requires) the version
-# of core.py which incorporates the priority mechanism (in parent directory).
+# presence of other coros. This can test the version of core.py which incorporates
+# the priority mechanism. (In the home directory of this repo).
 
 # When running the test that uses the priority mechanism the latency is 300us which
 # is determined by the time it takes uasyncio to schedule a coro (see rate.py).
@@ -17,17 +17,10 @@
 # For compute-intensive tasks a yield every 2ms is reasonably efficient. A shorter
 # period implies a significant proportion of CPU cycles being taken up in scheduling.
 
-# TEST state after adding gc
-# With priority works fine.
-# Without get max latency of almost 4ms more than calculated value on occasion.
-
 import uasyncio as asyncio
 import pyb
 import utime as time
 import gc
-
-# Determine version of core.py
-low_priority = asyncio.low_priority if 'low_priority' in dir(asyncio) else None
 
 num_coros = (5, 10, 100, 200)
 duration = 2  # Time to run for each number of coros
@@ -37,7 +30,7 @@ tmax = 0
 tmin = 1000000
 dtotal = 0
 count = 0
-lst_tmax = [tmax] * len(num_coros)  # Max, min and RMS error values
+lst_tmax = [tmax] * len(num_coros)  # Max, min and avg error values
 lst_tmin = [tmin] * len(num_coros)
 lst_sd = [0] * len(num_coros)
 
@@ -46,23 +39,26 @@ class DummyDeviceDriver():
         yield
 
 async def report():
+    # Don't compromise results by executing too soon. Time round loop is duration + 1
+    await after(1 + len(num_coros) * (duration + 1))
+    print('Awaiting result...')
     while not done:
-        await asyncio.sleep(1)
+        await after_ms(1000)
+    s = 'Coros {:4d} Latency = {:6.2f}ms min. {:6.2f}ms max. {:6.2f}ms avg.'
     for x, n in enumerate(num_coros):
-        print('Coros {:4d} Latency = {:5.1f}ms min. {:5.1f}ms max. {:5.1f}ms avg.'.format(
-            n, lst_tmin[x] / 1000, lst_tmax[x] /1000, lst_sd[x] / 1000))
+        print(s.format(n, lst_tmin[x] / 1000, lst_tmax[x] /1000, lst_sd[x] / 1000))
 
 async def lp_task(delay):
-    yield low_priority  # If running low priority get on LP queue ASAP
+    await after_ms(0)  # If running low priority get on LP queue ASAP
     while True:
         time.sleep_ms(delay)  # Simulate processing
-        yield low_priority
+        await after_ms(0)
 
 async def priority():
     global tmax, tmin, dtotal, count
     device = DummyDeviceDriver()
     while True:
-        await asyncio.sleep_ms(10)  # Ensure low priority coros get to run
+        await after(0)  # Ensure low priority coros get to run
         tstart = time.ticks_us()
         await device  # Measure the latency
         delta = time.ticks_diff(time.ticks_us(), tstart)
@@ -73,12 +69,7 @@ async def priority():
 
 async def run_test(delay):
     global done, tmax, tmin, dtotal, count
-    print('Testing latency of priority task with coros blocking for {}ms.'.format(delay))
-    if low_priority is None:
-        print('Not using priority mechanism.')
-    else:
-        print('Using priority mechanism.')
-    loop = asyncio.get_event_loop(max(num_coros) + 3)
+    loop = asyncio.get_event_loop()
     loop.create_task(priority())
     old_n = 0
     for n, n_coros in enumerate(num_coros):
@@ -99,18 +90,29 @@ async def run_test(delay):
     done = True
 
 def test(use_priority=True):
-    global low_priority
+    global after, after_ms
     processing_delay = 2  # Processing time in low priority task (ms)
-    if use_priority and low_priority is None:
+    lp_version = 'after' in dir(asyncio)
+    if use_priority and not lp_version:
         print('To test priority mechanism you must use the modified core.py')
     else:
+        ntasks = max(num_coros) + 4
         if use_priority:
-            loop = asyncio.get_event_loop(max(num_coros) + 3, max(num_coros))
+            loop = asyncio.get_event_loop(ntasks, ntasks)
+            after = asyncio.after
+            after_ms = asyncio.after_ms
         else:
-            low_priority = None
-            loop = asyncio.get_event_loop(max(num_coros) + 3)
+            lp_version = False
+            after = asyncio.sleep
+            after_ms = asyncio.sleep_ms
+            loop = asyncio.get_event_loop(ntasks)
+        s = 'Testing latency of priority task with coros blocking for {}ms.'
+        print(s.format(processing_delay))
+        if lp_version:
+            print('Using priority mechanism.')
+        else:
+            print('Not using priority mechanism.')
         loop.create_task(run_test(processing_delay))
         loop.run_until_complete(report())
 
 print('Issue latency.test() to test priority mechanism, latency.test(False) to test standard algo.')
-

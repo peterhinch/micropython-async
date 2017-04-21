@@ -13,7 +13,8 @@ except ImportError:
     import asyncio
 
 # Check availability of 'priority' core.py
-low_priority = asyncio.low_priority if 'low_priority' in dir(asyncio) else None
+lp_core = 'after' in dir(asyncio)
+after = asyncio.after if lp_core else asyncio.sleep
 
 async def _g():
     pass
@@ -76,7 +77,7 @@ class Lock():
 # when it will be used if available.
 class Event():
     def __init__(self, lp=False):
-        self.low_priority = low_priority if lp else None
+        self.after = after if (lp_core and lp) else asyncio.sleep
         self.clear()
 
     def clear(self):
@@ -85,7 +86,7 @@ class Event():
 
     def __await__(self):
         while not self._flag:
-            yield self.low_priority  # If available and specified
+            yield from self.after(0)
 
     __iter__ = __await__
 
@@ -123,7 +124,7 @@ class Barrier():
         while True:  # Wait until last waiting thread changes the direction
             if direction != self._down:
                 return
-            yield low_priority  # If available
+            yield from after(0)
 
     __iter__ = __await__
 
@@ -155,7 +156,7 @@ class Semaphore():
 
     async def acquire(self):
         while self._count == 0:
-            yield low_priority  # If available
+            await after(0)
         self._count -= 1
 
     def release(self):

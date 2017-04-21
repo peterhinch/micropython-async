@@ -17,7 +17,8 @@ class EventLoop:
     def __init__(self, len=42):
         # lpqlen encoded in len to avoid modifying __init__.py
         # I'm lazy and want to maintain one file only.
-        lpqlen, qlen = divmod(len, 100000)
+        lpqlen = len >> 16
+        qlen = len & 0xffff
         self.q = utimeq.utimeq(qlen)
         self.lpq = utimeq.utimeq(lpqlen)
 
@@ -29,19 +30,19 @@ class EventLoop:
         self.call_later_ms_(0, coro)
         # CPython asyncio incompatibility: we don't return Task object
 
-    def call_lp_(self, callback, args=()):
-        # low priority. time is only for debug here and in run_forever
-        time = self.time()
+    def call_after_ms_(self, delay, callback, args=()):
+        # low priority.
+        t = time.ticks_add(self.time(), delay)
         if __debug__ and DEBUG:
             log.debug("Scheduling LP %s", (time, callback, args))
-        self.lpq.push(time, callback, args)
+        self.lpq.push(t, callback, args)
 
-    def call_lp(self, callback, *args):
-        # low priority. time is only for debug here and in run_forever
-        time = self.time()
+    def call_after(self, delay, callback, *args):
+        # low priority.
+        t = time.ticks_add(self.time(), int(delay * 1000))
         if __debug__ and DEBUG:
             log.debug("Scheduling LP %s", (time, callback, args))
-        self.lpq.push(time, callback, args)
+        self.lpq.push(t, callback, args)
 
     def call_soon(self, callback, *args):
         self.call_at(self.time(), callback, *args)
@@ -83,10 +84,13 @@ class EventLoop:
                         self.q.pop(cur_task)
                         break
                     if self.lpq:
-                        self.lpq.pop(cur_task)
-                        break
+                        t = self.lpq.peektime()
+                        lpdelay = time.ticks_diff(t, tnow)
+                        if lpdelay <= 0:
+                            self.lpq.pop(cur_task)
+                            break
+                        delay = min(delay, lpdelay)
                     self.wait(delay)
-
                 t = cur_task[0]
                 cb = cur_task[1]
                 args = cur_task[2]
@@ -94,11 +98,19 @@ class EventLoop:
                     log.debug("Next coroutine to run: %s", (t, cb, args))
 #                __main__.mem_info()
             else:
+                ready = False
                 if self.lpq:
-                    self.lpq.pop(cur_task)
-                    cb = cur_task[1]
-                    args = cur_task[2]
-                else:
+                    t = self.lpq.peektime()
+                    delay = time.ticks_diff(t, self.time())
+                    if delay <= 0:
+                        self.lpq.pop(cur_task)
+                        t = cur_task[0]
+                        cb = cur_task[1]
+                        args = cur_task[2]
+                        if __debug__ and DEBUG:
+                            log.debug("Next coroutine to run: %s", (t, cb, args))
+                        ready = True
+                if not ready:
                     self.wait(-1)
                     # Assuming IO completion scheduled some tasks
                     continue
@@ -106,6 +118,7 @@ class EventLoop:
                 cb(*args)
             else:
                 delay = 0
+                priority = True
                 try:
                     if __debug__ and DEBUG:
                         log.debug("Coroutine %s send args: %s", cb, args)
@@ -117,9 +130,11 @@ class EventLoop:
                         log.debug("Coroutine %s yield result: %s", cb, ret)
                     if isinstance(ret, SysCall1):
                         arg = ret.arg
-                        if isinstance(ret, Sleep):
+                        if isinstance(ret, AfterMs):
+                            priority = False
+                        if isinstance(ret, Sleep) or isinstance(ret, After):
                             delay = int(arg * 1000)
-                        if isinstance(ret, SleepMs):
+                        elif isinstance(ret, SleepMs):
                             delay = arg
                         elif isinstance(ret, IORead):
 #                            self.add_reader(ret.obj.fileno(), lambda self, c, f: self.call_soon(c, f), self, cb, ret.obj)
@@ -144,9 +159,6 @@ class EventLoop:
                     elif isinstance(ret, int):
                         # Delay
                         delay = ret
-                    elif ret is low_priority:
-                        self.call_lp_(cb, args)
-                        continue
                     elif ret is None:
                         # Just reschedule
                         pass
@@ -156,7 +168,10 @@ class EventLoop:
                     if __debug__ and DEBUG:
                         log.debug("Coroutine finished: %s", cb)
                     continue
-                self.call_later_ms_(delay, cb, args)
+                if priority:
+                    self.call_later_ms_(delay, cb, args)
+                else:
+                    self.call_after_ms_(delay, cb, args)
 
     def run_until_complete(self, coro):
         def _run_and_stop():
@@ -183,9 +198,6 @@ class SysCall1(SysCall):
     def __init__(self, arg):
         self.arg = arg
 
-class Sleep(SysCall1):
-    pass
-
 class StopLoop(SysCall1):
     pass
 
@@ -201,19 +213,13 @@ class IOReadDone(SysCall1):
 class IOWriteDone(SysCall1):
     pass
 
-class LowPriority():
-    def __iter__(self):
-        yield self
-
-# Singleton awaitable
-low_priority = LowPriority()
-
 _event_loop = None
 _event_loop_class = EventLoop
 def get_event_loop(qlen=42, lpqlen=42):
     global _event_loop
     if _event_loop is None:
-        _event_loop = _event_loop_class(qlen + 1000000 * lpqlen)
+        # Compatibility with official __init__.py: pack into 1 word
+        _event_loop = _event_loop_class(qlen + (lpqlen << 16))
     return _event_loop
 
 def sleep(secs):
@@ -248,6 +254,18 @@ class SleepMs(SysCall1):
 _stop_iter = StopIteration()
 sleep_ms = SleepMs()
 
+class Sleep(SleepMs):
+    pass
+
+# Low priority
+class AfterMs(SleepMs):
+    pass
+
+class After(AfterMs):
+    pass
+
+after_ms = AfterMs()
+after = After()
 
 def coroutine(f):
     return f

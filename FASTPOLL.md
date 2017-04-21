@@ -26,9 +26,11 @@ with improved millisecond-level timing accuracy and reduced scheduling latency.
 
    3.1 [Low priority yield](./FASTPOLL.md#31-low-priority-yield)
 
-   3.2 [Low priority callbacks](./FASTPOLL.md#32-low-priority-callbacks)
+   3.2 [Timed low priority yield](./FASTPOLL.md#32-timed-low-priority-yield)
 
-   3.3 [Event loop constructor](./FASTPOLL.md#33-event-loop-constructor)
+   3.3 [Low priority callbacks](./FASTPOLL.md#33-low-priority-callbacks)
+
+   3.4 [Event loop constructor](./FASTPOLL.md#34-event-loop-constructor)
 
  4. [The asyn library](./FASTPOLL.md#4-the-asyn-library)
 
@@ -154,6 +156,9 @@ required urgently - a possible example being sensor fusion in a drone. An
 extreme case is in some astronomy applications where a delay on a complex
 calculation running into many minutes would not be apparent.
 
+A common case of tasks which can be run at low priority is that of networking:
+such tasks are more tolerant of delays and latency than hardware interfaces.
+
 ###### [Jump to Contents](./FASTPOLL.md#contents)
 
 ## 2.4 Background
@@ -175,6 +180,9 @@ reasons discussed above. Hence this variant.
 
 # 3. A solution
 
+The proposed solution is based on the notion of "after" implying a time delay
+which can be expected to be less precise than the asyncio standard calls.
+
 # 3.1 Low priority yield
 
 Consider this code fragment running under the experimental version:
@@ -184,7 +192,7 @@ import uasyncio as asyncio
 async def foo():
     while True:
         # Do something
-        yield asyncio.low_priority
+        await asyncio.after(0)
 ```
 
 A coro yielding in this way will only be re-scheduled if there are no "normal"
@@ -208,23 +216,55 @@ analogous to running an infinite loop without yielding.
 
 Low priority coros run in a mutually "fair" round-robin fashion.
 
+# 3.2 Timed low priority yield
+
+Low priority coros may also be scheduled in a way which guarantees they will
+not run until a minimum time has elapsed. This is done as follows:
+
+```python
+import uasyncio as asyncio
+async def foo():
+    while True:
+        # Do something
+        await asyncio.after(1.5)  # Wait a minimum of 1.5 secs
+```
+
+Alternatively
+
+```python
+import uasyncio as asyncio
+async def foo():
+    while True:
+        # Do something
+        await asyncio.after_ms(1500)  # Wait a minimum of 1.5 secs
+```
+
+Such coros compete for execution with other LP coros which have timed out or
+which have issued ``yield asyncio.low_priority``.
+
 ###### [Jump to Contents](./FASTPOLL.md#contents)
 
-## 3.2 Low priority callbacks
+## 3.3 Low priority callbacks
 
 An additional extension provides for a callback function which runs when all
 normal coros are waiting on a delay. The following ``EventLoop`` method is
 added:
 
-``call_lp`` Call with low priority. Args: ``callback`` the callback to run,
-``*args`` any positional args may follow separated by commas.
+``call_after`` Call with low priority. Positional args:  
+ 1. ``delay`` Minimum delay in secs before callback runs.
+ 2. ``callback`` The callback to run.
+ 3. ``*args`` Optional comma-separated positional args for the callback.
+
+The delay specifies a minimum period before the callback will run and may have
+a value of 0. It may be a float. The period may be extended depending on other
+high and low priority tasks which are pending execution.
 
 A simple demo of this is ``benchmarks/call_lp.py``. Documentation is in the
 code.
 
 ###### [Jump to Contents](./FASTPOLL.md#contents)
 
-## 3.3 Event loop constructor
+## 3.4 Event loop constructor
 
 The ``get_event_loop`` method supports two optional integer positional args:
 defining the queue sizes for normal and low priority (LP) coros. Note that all
@@ -234,15 +274,8 @@ queue when they issue a low priority yield or schedule a LP callback.
 The default queue size is 42 for both queues. This is sufficient for many
 applications.
 
-If code is to run under the official or experimental versions the following may
-be used:
-
-```python
-import uasyncio as asyncio
-low_priority = asyncio.low_priority if 'low_priority' in dir(asyncio) else None
-```
-
-with a coro issuing ``yield low_priority`` as required.
+An example of code capable of running under official and experimental versions
+may be found in benchmarks/latency.
 
 ###### [Jump to Contents](./FASTPOLL.md#contents)
 
@@ -275,8 +308,7 @@ can be extended to check that no coro loops indefinitely on a zero delay.
 async def heartbeat(led):
     while True:
         led.toggle()
-        await asyncio.sleep_ms(500)
-        yield low_priority  # Will hang while a coro loops on a zero delay
+        yield LowPriority(0.5)  # Will hang while a coro loops on a zero delay
 ```
 
 ###### [Jump to Contents](./FASTPOLL.md#contents)

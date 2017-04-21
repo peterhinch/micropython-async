@@ -79,7 +79,7 @@ async def eventwait(event):
     print('got event')
     event.clear()
 
-async def run_event_test():
+async def run_event_test(lp):
     print('Test Lock class')
     loop = asyncio.get_event_loop()
     lock = Lock()
@@ -87,7 +87,7 @@ async def run_event_test():
     loop.create_task(run_lock(2, lock))
     loop.create_task(run_lock(3, lock))
     print('Test Event class')
-    event = Event(True)  # Use low priority scheduling if available
+    event = Event(lp)
     print('got here')
     loop.create_task(eventset(event))
     print('gh1')
@@ -95,9 +95,9 @@ async def run_event_test():
     print('Event status {}'.format('Incorrect' if event.is_set() else 'OK'))
     print('Tasks complete')
 
-def event_test():
+def event_test(lp=True):  # Option to use low priority scheduling
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(run_event_test())
+    loop.run_until_complete(run_event_test(lp))
 
 # ************ Barrier test ************
 

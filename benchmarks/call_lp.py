@@ -4,14 +4,11 @@
 import uasyncio as asyncio
 import pyb
 
-# Determine version of core.py
-low_priority = asyncio.low_priority if 'low_priority' in dir(asyncio) else None
-
 count = 0
 numbers = 0
 
 async def report():
-    yield 2000  # 2 secs
+    await asyncio.after(2)
     print('Callback executed {} times. Expected count 2000/20 = 100 times.'.format(count))
     print('Avg. of {} random numbers in range 0 to 1023 was {}'.format(count, numbers // count))
 
@@ -20,13 +17,18 @@ def callback(num):
     count += 1
     numbers += num // 2**20  # range 0 to 1023
 
+def cb_1_sec():
+    print('One second has elapsed.')
+
 async def run_test():
     loop = asyncio.get_event_loop()
+    loop.call_after(1, cb_1_sec)
+    print('cb_1_sec scheduled')
     while True:
-        loop.call_lp(callback, pyb.rng())  # demo use of args
+        loop.call_after(0, callback, pyb.rng())  # demo use of args
         yield 20  # 20ms
 
-if low_priority is None:
+if not 'After' in dir(asyncio):
     print('This demo requires the experimental version of core.py')
 else:
     print('Test runs for 2 seconds')
