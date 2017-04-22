@@ -26,11 +26,9 @@ with improved millisecond-level timing accuracy and reduced scheduling latency.
 
    3.1 [Low priority yield](./FASTPOLL.md#31-low-priority-yield)
 
-   3.2 [Timed low priority yield](./FASTPOLL.md#32-timed-low-priority-yield)
+   3.2 [Low priority callbacks](./FASTPOLL.md#32-low-priority-callbacks)
 
-   3.3 [Low priority callbacks](./FASTPOLL.md#33-low-priority-callbacks)
-
-   3.4 [Event loop constructor](./FASTPOLL.md#34-event-loop-constructor)
+   3.3 [Event loop constructor](./FASTPOLL.md#33-event-loop-constructor)
 
  4. [The asyn library](./FASTPOLL.md#4-the-asyn-library)
 
@@ -63,7 +61,7 @@ millisecond level delays can be compromised by the scheduling of other coros.
 This variant provides a means of mitigating this by enabling coros to yield
 control in a way which prevents them from competing with coros which are ready
 for execution. Coros which have yielded in a low priority fashion will not be
-scheduled until all other coros are waiting on a nonzero timeout.
+scheduled until all "normal" coros are waiting on a nonzero timeout.
 
 ## 2.1 Latency
 
@@ -85,21 +83,20 @@ async def handle_isr():
         yield
 ```
 
-Assume a hardware interrupt handler sets the ``isr_has_run`` flag.
-
-Assume we have ten instances of ``foo()`` and one instance of ``handle_isr()``.
-When ``handle_isr()`` issues ``yield``, its execution will pause for 40ms while
-each instance of ``foo()`` is scheduled and performs one iteration. This may be
-unacceptable: it may be necessary to poll the flag at a rate high enough to
-avoid overruns.
+Assume a hardware interrupt handler sets the ``isr_has_run`` flag, and that we
+have ten instances of ``foo()`` and one instance of ``handle_isr()``. When
+``handle_isr()`` issues ``yield``, its execution will pause for 40ms while each
+instance of ``foo()`` is scheduled and performs one iteration. This may be
+unacceptable: it may be necessary to poll and respond to the flag at a rate
+adequate to avoid overruns.
 
 This version provides a mechanism for reducing this latency by enabling the
 ``foo()`` instances to yield in a low priority manner. In the case where all
 coros other than ``handle_isr()`` are low priority the latency is reduced
-to 250us.
+to 250μs - a figure corresponding to the inherent latency of uasyncio.
 
-The benchmark latency.py demonstrates this. Documentation is in the code. It
-can be run against the official and experimental versions.
+The benchmark latency.py demonstrates this. Documentation is in the code; it
+can be run against both official and experimental versions.
 
 ###### [Jump to Contents](./FASTPOLL.md#contents)
 
@@ -123,9 +120,9 @@ async def fast():
 Again assume ten instances of ``foo()`` and one of ``fast()``. When ``fast()``
 issues ``await asyncio.sleep_ms(15)`` it will not see a 15ms delay. During the
 15ms period ``foo()`` instances will be scheduled. When the delay elapses,
-``fast()`` will compete with ``foo()`` instances which are pending.
+``fast()`` will compete with pending ``foo()`` instances.
 
-This results in variable delays up to 55ms (10 threads * 4ms + 15ms). The
+This results in variable delays up to 55ms (10 tasks * 4ms + 15ms). The
 experimental version can improve this substantially. The degree of improvement
 is dependent on other coros regularly yielding with low priority: if any coro
 hogs execution for a substantial period that will inevitably contribute to
@@ -145,9 +142,9 @@ be run against the official and experimental versions.
 The official uasyncio package offers only one solution which is is to redesign
 ``foo()`` to reduce the delay between yields to the scheduler. This can be
 difficult or impossible. Further it is inefficient to reduce the delay much
-below 2ms as the scheduler takes 230us to schedule a task.
+below 2ms as the scheduler takes 230μs to schedule a task.
 
-There are cases where the `foo()`` task is not time-critical. One example is
+There are cases where the ``foo()`` task is not time-critical. One example is
 user interface code where a latency as long as 100ms would usually not be
 noticed. A system with ten pushbuttons might have ten coros competing for
 execution with time critical coros. Another case is of a coro which is not time
@@ -181,7 +178,15 @@ reasons discussed above. Hence this variant.
 # 3. A solution
 
 The proposed solution is based on the notion of "after" implying a time delay
-which can be expected to be less precise than the asyncio standard calls.
+which can be expected to be less precise than the asyncio standard calls. It
+adds the following functions:
+
+ * ``after(t)``  Awaitable. Low priority version of ``sleep(t)``.
+ * ``after_ms(t)``  Awaitable. LP version of ``sleep_ms(t)``.
+
+It also adds an event loop method to schedule a callback at low priority:
+
+ * ``loop.call_after(t, callback, *args)`` Analogous to ``call_later()``.
 
 # 3.1 Low priority yield
 
@@ -216,38 +221,25 @@ analogous to running an infinite loop without yielding.
 
 Low priority coros run in a mutually "fair" round-robin fashion.
 
-# 3.2 Timed low priority yield
-
-Low priority coros may also be scheduled in a way which guarantees they will
-not run until a minimum time has elapsed. This is done as follows:
+A nonzero time argument schedules a coro in a way which guarantees they will
+not run until a minimum time has elapsed.
 
 ```python
 import uasyncio as asyncio
 async def foo():
     while True:
         # Do something
-        await asyncio.after(1.5)  # Wait a minimum of 1.5 secs
+        await asyncio.after(1.5)  # Wait a minimum of 1.5s
+        # code
+        await asyncio.after_ms(20)  # Wait a minimum of 20ms
 ```
-
-Alternatively
-
-```python
-import uasyncio as asyncio
-async def foo():
-    while True:
-        # Do something
-        await asyncio.after_ms(1500)  # Wait a minimum of 1.5 secs
-```
-
-Such coros compete for execution with other LP coros which have timed out or
-which have issued ``yield asyncio.low_priority``.
 
 ###### [Jump to Contents](./FASTPOLL.md#contents)
 
-## 3.3 Low priority callbacks
+## 3.2 Low priority callbacks
 
-An additional extension provides for a callback function which runs when all
-normal coros are waiting on a delay. The following ``EventLoop`` method is
+An additional extension enables a callback function to be scheduled to run when
+all normal coros are waiting on a delay. The following ``EventLoop`` method is
 added:
 
 ``call_after`` Call with low priority. Positional args:  
@@ -264,7 +256,7 @@ code.
 
 ###### [Jump to Contents](./FASTPOLL.md#contents)
 
-## 3.4 Event loop constructor
+## 3.3 Event loop constructor
 
 The ``get_event_loop`` method supports two optional integer positional args:
 defining the queue sizes for normal and low priority (LP) coros. Note that all
@@ -274,8 +266,9 @@ queue when they issue a low priority yield or schedule a LP callback.
 The default queue size is 42 for both queues. This is sufficient for many
 applications.
 
-An example of code capable of running under official and experimental versions
-may be found in benchmarks/latency.
+Code can determine at runtime whether it is running under the official or
+experimental version adapting as appropriate: examples are latency.py and
+timing.py in the benchmarks directory.
 
 ###### [Jump to Contents](./FASTPOLL.md#contents)
 
