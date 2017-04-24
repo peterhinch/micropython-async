@@ -18,7 +18,7 @@ with improved millisecond-level timing accuracy and reduced scheduling latency.
 
    2.2 [Timing accuracy](./FASTPOLL.md#22-timing-accuracy)
 
-   2.3 [The conventional approach](./FASTPOLL.md#23-the-conventional-approach)
+   2.3 [Polling in uasyncio](./FASTPOLL.md#23-polling-in-usayncio)
 
    2.4 [Background](./FASTPOLL.md#24-background)
 
@@ -36,7 +36,8 @@ with improved millisecond-level timing accuracy and reduced scheduling latency.
 
 # 1. Installation
 
-Replace the file core.py on the target hardware with the one supplied.
+After installing uasyncio on the target hardware replace core.py with the one
+supplied.
 
 ## 1.1 Benchmarks
 
@@ -56,12 +57,17 @@ experimental versions of usayncio.
 
 Applications may be required to regularly poll a hardware device or a flag set
 by an interrupt service routine (ISR). An overrun may occur if the scheduling
-of the polling coro is subject to excessive latency. Further, the accuracy of
-millisecond level delays can be compromised by the scheduling of other coros.
+of the polling coroutine (coro) is subject to excessive latency.
+
+Further, a coro issuing ``await asyncio.sleep_ms(t)`` may block for much longer
+than ``t`` depending on the number and design of other coros which are pending
+execution.
+
 This variant provides a means of mitigating this by enabling coros to yield
 control in a way which prevents them from competing with coros which are ready
 for execution. Coros which have yielded in a low priority fashion will not be
-scheduled until all "normal" coros are waiting on a nonzero timeout.
+scheduled until all "normal" coros are waiting on a nonzero timeout. The
+benchmarks show that the improvement can exceed two orders of magnitude.
 
 ## 2.1 Latency
 
@@ -92,8 +98,8 @@ adequate to avoid overruns.
 
 This version provides a mechanism for reducing this latency by enabling the
 ``foo()`` instances to yield in a low priority manner. In the case where all
-coros other than ``handle_isr()`` are low priority the latency is reduced
-to 250μs - a figure corresponding to the inherent latency of uasyncio.
+coros other than ``handle_isr()`` are low priority the latency is reduced to
+250μs - a figure corresponding to the inherent latency of uasyncio.
 
 The benchmark latency.py demonstrates this. Documentation is in the code; it
 can be run against both official and experimental versions.
@@ -137,24 +143,37 @@ be run against the official and experimental versions.
 
 ###### [Jump to Contents](./FASTPOLL.md#contents)
 
-## 2.3 The conventional approach
+## 2.3 Polling in uasyncio
 
-The official uasyncio package offers only one solution which is is to redesign
-``foo()`` to reduce the delay between yields to the scheduler. This can be
-difficult or impossible. Further it is inefficient to reduce the delay much
-below 2ms as the scheduler takes 230μs to schedule a task.
+The asyncio library provides various mechanisms for polling a device or flag.
+Aside from a polling loop these include awaitable classes and asynchronous
+iterators. It is important to appreciate that these mechanisms have the same
+drawback as the polling loop: uasyncio schedules tasks by placing them on a
+``utimeq`` queue. This is a queue sorted by time-to-run. Tasks at the top of
+the queue (i.e. those ready to run) will be scheduled in "fair" round-robin
+fashion. This means that unless a task waits on a nonzero delay it will be
+rescheduled only after all other such tasks have been scheduled.
 
-There are cases where the ``foo()`` task is not time-critical. One example is
-user interface code where a latency as long as 100ms would usually not be
-noticed. A system with ten pushbuttons might have ten coros competing for
-execution with time critical coros. Another case is of a coro which is not time
-critical is one which performs a lengthy calculation whose results are not
-required urgently - a possible example being sensor fusion in a drone. An
-extreme case is in some astronomy applications where a delay on a complex
-calculation running into many minutes would not be apparent.
+A partial solution is to design the competing ``foo()`` tasks to minimise the
+delay between yields to the scheduler. This can be difficult or impossible.
+Further it is inefficient to reduce the delay much below 2ms as the scheduler
+takes 230μs to schedule a task.
 
-A common case of tasks which can be run at low priority is that of networking:
-such tasks are more tolerant of delays and latency than hardware interfaces.
+Practical cases exist where the ``foo()`` tasks are not time-critical: in such
+cases the performance of time critical tasks may be enhanced by enabling
+``foo()`` to submit for rescheduling in a way which does not compete with tasks
+requiring a fast response. In essence "slow" operations tolerate longer latency
+and longer time delays so that fast operations meet their performance targets.
+Examples are:
+
+ * User interface code. A system with ten pushbuttons might have a coro running
+ on each. A GUI touch detector coro needs to check a touch against sequence of
+ objects. Both may tolerate 100ms of latency before users notice any lag.
+ * Networking code: a latency of 100ms may be dwarfed by that of the network.
+ * Mathematical code: there are cases where time consuming calculations may
+ take place which are tolerant of delays. Examples are statistical analysis,
+ sensor fusion and astronomical calculations.
+ * Data logging.
 
 ###### [Jump to Contents](./FASTPOLL.md#contents)
 
@@ -167,7 +186,8 @@ A further discussion on the subject of using the ioread mechanism to achieve
 fast scheduling took place
 [in issue 2664](https://github.com/micropython/micropython/issues/2664). The final
 comment to this issue suggests that it may never be done for drivers written in
-Python.
+Python. While a driver written in C is an undoubted solution, it's arguable
+that the purpose of MicroPython is to facilitate coding in Python where possible.
 
 It seems there is no plan to incorporate a priority mechanism in the official
 verion of uasyncio but I believe it confers significant advantages for the
