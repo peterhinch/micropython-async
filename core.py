@@ -21,7 +21,7 @@ class EventLoop:
         qlen = len & 0xffff
         self.q = utimeq.utimeq(qlen)
         self.lpq = utimeq.utimeq(lpqlen)
-        self._max_overdue_ms = None
+        self._max_overdue_ms = 0
 
     def time(self):
         return time.ticks_ms()
@@ -33,7 +33,7 @@ class EventLoop:
 
     def max_overdue_ms(self, t=None):
         if t is not None:
-            self._max_overdue_ms = t if t >= 0 else None
+            self._max_overdue_ms = t
         return self._max_overdue_ms
 
     def call_after_ms_(self, delay, callback, args=()):
@@ -85,7 +85,7 @@ class EventLoop:
                 while 1:
                     tnow = self.time()
                     # Schedule most overdue LP coro
-                    if self.lpq and self._max_overdue_ms is not None:
+                    if self.lpq and self._max_overdue_ms > 0:
                         t = self.lpq.peektime()
                         overdue = -time.ticks_diff(t, tnow)
                         if overdue > self._max_overdue_ms:
