@@ -49,6 +49,7 @@ offered by prioritisation. Documentation is in the code.
  * rate.py Shows the frequency with which uasyncio schedules minimal coroutines
  (coros).
  * call_lp.py Demos low priority callbacks.
+ * overdue.py Demo of maximum overdue feature.
 
 With the exception of call_lp, benchmarks can be run against the official and
 experimental versions of usayncio.
@@ -204,9 +205,14 @@ adds the following functions:
  * ``after(t)``  Awaitable. Low priority version of ``sleep(t)``.
  * ``after_ms(t)``  Awaitable. LP version of ``sleep_ms(t)``.
 
-It also adds an event loop method to schedule a callback at low priority:
+It adds two event loop methods.
 
  * ``loop.call_after(t, callback, *args)`` Analogous to ``call_later()``.
+ Schedule a callback at low priority.
+ * ``loop.max_overdue_ms(t=None)`` Forces tasks or callbacks to be scheduled if
+ they become more overdue than the period. If the arg is ``None`` the  period
+ is left unchanged. A value of 0 restores default scheduler behaviour. In all
+ cases the period value is returned.
 
 # 3.1 Low priority yield
 
@@ -217,16 +223,31 @@ import uasyncio as asyncio
 async def foo():
     while True:
         # Do something
+        await asyncio.after(1.5)  # Wait a minimum of 1.5s
+        # code
+        await asyncio.after_ms(20)  # Wait a minimum of 20ms
+```
+
+These ``await`` statements cause the coro to suspend execution for the minimum
+time specified. Low priority coros run in a mutually "fair" round-robin fashion.
+By default the coro will only be rescheduled when all "normal" coros are waiting
+on a nonzero time delay. A "normal" coro is one that has yielded by any other
+means.
+
+This behaviour can be overridden to limit the degree to which they can become
+overdue. Consider this code:
+
+```python
+import uasyncio as asyncio
+async def foo():
+    while True:
+        # Do something
         await asyncio.after(0)
 ```
 
-A coro yielding in this way will only be re-scheduled if there are no "normal"
-coros ready for execution. A "normal" coro is one that has yielded by any other
-means.
-
-A "normal" coro will be executed regardless of any pending low priority coros.
-The latter will only run when all normal coros are waiting on a non-zero delay.
-An inevitable implication of having this degree of control is that if a coro
+By default a coro yielding in this way will be re-scheduled only when there are
+no "normal" coros ready for execution i.e. when all are waiting on a nonzero
+delay. The implication of having this degree of control is that if a coro
 issues
 
 ```python
@@ -239,20 +260,16 @@ low priority tasks will never be executed. Normal coros must sometimes wait on
 a non-zero delay to enable the low priority ones to be scheduled. This is
 analogous to running an infinite loop without yielding.
 
-Low priority coros run in a mutually "fair" round-robin fashion.
-
-A nonzero time argument schedules a coro in a way which guarantees they will
-not run until a minimum time has elapsed.
+This behaviour can be modified by issuing:
 
 ```python
-import uasyncio as asyncio
-async def foo():
-    while True:
-        # Do something
-        await asyncio.after(1.5)  # Wait a minimum of 1.5s
-        # code
-        await asyncio.after_ms(20)  # Wait a minimum of 20ms
+loop = asyncio.get_event_loop()
+loop.max_overdue_ms(1000)
 ```
+
+In this instance tasks which have yielded in a low priority manner will be
+rescheduled in the presence of pending "normal" tasks if they become overdue by
+more than 1s.
 
 ###### [Jump to Contents](./FASTPOLL.md#contents)
 

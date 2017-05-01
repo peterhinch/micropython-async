@@ -21,6 +21,7 @@ class EventLoop:
         qlen = len & 0xffff
         self.q = utimeq.utimeq(qlen)
         self.lpq = utimeq.utimeq(lpqlen)
+        self._max_overdue_ms = None
 
     def time(self):
         return time.ticks_ms()
@@ -29,6 +30,11 @@ class EventLoop:
         # CPython 3.4.2
         self.call_later_ms_(0, coro)
         # CPython asyncio incompatibility: we don't return Task object
+
+    def max_overdue_ms(self, t=None):
+        if t is not None:
+            self._max_overdue_ms = t if t >= 0 else None
+        return self._max_overdue_ms
 
     def call_after_ms_(self, delay, callback, args=()):
         # low priority.
@@ -77,8 +83,15 @@ class EventLoop:
                 # wait() may finish prematurely due to I/O completion,
                 # and schedule new, earlier than before tasks to run.
                 while 1:
-                    t = self.q.peektime()
                     tnow = self.time()
+                    # Schedule most overdue LP coro
+                    if self.lpq and self._max_overdue_ms is not None:
+                        t = self.lpq.peektime()
+                        overdue = -time.ticks_diff(t, tnow)
+                        if overdue > self._max_overdue_ms:
+                            self.lpq.pop(cur_task)
+                            break
+                    t = self.q.peektime()
                     delay = time.ticks_diff(t, tnow)
                     if delay <= 0:
                         self.q.pop(cur_task)
