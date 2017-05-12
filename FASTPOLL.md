@@ -344,19 +344,9 @@ In the current implementation the callback takes no arguments. However it can
 be a bound method, enabling it to access class and instance variables.
 
 No means of scheduling a high piority callback analogous to ``call_soon`` is
-provided. This is because it can be achieved at the application level:
-
-```python
-def callback():
-    # do stuff or call a function or method. Latency would be
-    # no worse than scheduling a callback.
-    return True
-
-    # Coro wanting to rapidly schedule a callback issues
-    await asyncio.when(callback)
-    # await causes yield to scheduler which immediately runs cb.
-    # This returns True so coro is rescheduled when cb returns.
-```
+provided. If such a mechanism existed, the cb would run immediately the coro
+yielded, with the coro being rescheduled once the cb returned ``True``. This
+behaviour can be achieved more efficiently by simply calling the function.
 
 ###### [Jump to Contents](./FASTPOLL.md#contents)
 
