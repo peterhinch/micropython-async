@@ -22,6 +22,7 @@ class EventLoop:
         self.q = utimeq.utimeq(qlen)
         self.lpq = utimeq.utimeq(lpqlen)
         self._max_overdue_ms = 0
+        self.hpq = None
 
     def time(self):
         return time.ticks_ms()
@@ -49,6 +50,25 @@ class EventLoop:
         if __debug__ and DEBUG:
             log.debug("Scheduling LP %s", (time, callback, args))
         self.lpq.push(t, callback, args)
+
+    def _schedule_hp(self, func, callback, args=()):
+        if self.hpq is None:
+            self.hpq = [func, callback, args]
+        else:  # Try to assign without allocation
+            for entry in self.hpq:
+                if not entry[0]:
+                    entry[0] = func
+                    entry[1] = callback
+                    entry[2] = args
+                    break
+            else:
+                self.hpq.append([func, callback, args])
+
+    def allocate_hpq(self, size):  # Optionally pre-allocate HP queue
+        if self.hpq is None:
+            self.hpq = []
+        for _ in range(size - len(self.hpq)):
+            self.hpq.append([0, 0, 0])
 
     def call_soon(self, callback, *args):
         self.call_at(self.time(), callback, *args)
@@ -83,19 +103,34 @@ class EventLoop:
                 # wait() may finish prematurely due to I/O completion,
                 # and schedule new, earlier than before tasks to run.
                 while 1:
-                    tnow = self.time()
+                    # Check high priority queue
+                    if self.hpq is not None:
+                        hp_found = False
+                        for entry in self.hpq:
+                            if entry[0] and entry[0]():
+                                hp_found = True
+                                entry[0] = 0
+                                cur_task[0] = 0
+                                cur_task[1] = entry[1] # ??? quick non-allocating copy
+                                cur_task[2] = entry[2]
+                                break
+                        if hp_found:
+                            break
                     # Schedule most overdue LP coro
+                    tnow = self.time()
                     if self.lpq and self._max_overdue_ms > 0:
                         t = self.lpq.peektime()
                         overdue = -time.ticks_diff(t, tnow)
                         if overdue > self._max_overdue_ms:
                             self.lpq.pop(cur_task)
                             break
+                    # Schedule any due normal task
                     t = self.q.peektime()
                     delay = time.ticks_diff(t, tnow)
                     if delay <= 0:
                         self.q.pop(cur_task)
                         break
+                    # Schedule any due LP task
                     if self.lpq:
                         t = self.lpq.peektime()
                         lpdelay = time.ticks_diff(t, tnow)
@@ -103,7 +138,7 @@ class EventLoop:
                             self.lpq.pop(cur_task)
                             break
                         delay = min(delay, lpdelay)
-                    self.wait(delay)
+                    self.wait(delay)  # superclass
                 t = cur_task[0]
                 cb = cur_task[1]
                 args = cur_task[2]
@@ -131,6 +166,7 @@ class EventLoop:
                 cb(*args)
             else:
                 delay = 0
+                func = None
                 priority = True
                 try:
                     if __debug__ and DEBUG:
@@ -147,6 +183,11 @@ class EventLoop:
                             priority = False
                         if isinstance(ret, Sleep) or isinstance(ret, After):
                             delay = int(arg * 1000)
+                        elif isinstance(ret, When):
+                            if callable(arg):
+                                func = arg
+                            else:
+                                assert False, "Argument to 'when' must be a function or method."
                         elif isinstance(ret, SleepMs):
                             delay = arg
                         elif isinstance(ret, IORead):
@@ -181,10 +222,13 @@ class EventLoop:
                     if __debug__ and DEBUG:
                         log.debug("Coroutine finished: %s", cb)
                     continue
-                if priority:
-                    self.call_later_ms_(delay, cb, args)
+                if func is not None:
+                    self._schedule_hp(func, cb, args)
                 else:
-                    self.call_after_ms_(delay, cb, args)
+                    if priority:
+                        self.call_later_ms_(delay, cb, args)
+                    else:
+                        self.call_after_ms_(delay, cb, args)
 
     def run_until_complete(self, coro):
         def _run_and_stop():
@@ -279,6 +323,12 @@ class After(AfterMs):
 
 after_ms = AfterMs()
 after = After()
+
+# High Priority
+class When(SleepMs):
+    pass
+
+when = When()
 
 def coroutine(f):
     return f
