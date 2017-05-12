@@ -35,11 +35,19 @@ with improved millisecond-level timing accuracy and reduced scheduling latency.
  4. [The asyn library](./FASTPOLL.md#4-the-asyn-library)
 
  5. [Heartbeat](./FASTPOLL.md#5-heartbeat)
+ 
+ 6. [ESP Platforms](./FASTPOLL.md#6-esp-platforms)
 
 # 1. Installation
 
 After installing uasyncio on the target hardware replace core.py with that
 supplied.
+
+In MicroPython 1.9 ``uasyncio`` will be implemented as a frozen module on the
+ESP8266. This is being done to conserve scarce RAM. If you wish to use this
+version replace ``core.py`` in the modules tree and rebuild. See section 6 for
+general comments on the suitability of ESP platforms for systems requiring fast
+response.
 
 ## 1.1 Benchmarks
 
@@ -390,3 +398,11 @@ async def heartbeat(led):
 ```
 
 ###### [Jump to Contents](./FASTPOLL.md#contents)
+
+# 6. ESP Platforms
+
+It should be noted that the response of the ESP8266 to hardware interrupts is
+remarkably slow. This also appears to apply to ESP32 platforms. Consider
+whether a response in the high hundreds of μs meets project requirements; also
+whether a priority mechanism is needed on hardware with such poor realtime
+performance.
