@@ -1,6 +1,6 @@
 # asyntest.py Test/demo of the 'micro' Lock, Event, Barrier and Semaphore classes
 # Author: Peter Hinch
-# Copyright Peter Hinch 2016 Released under the MIT license
+# Copyright Peter Hinch 2017 Released under the MIT license
 
 # Tests:
 # ack_test()

@@ -1,3 +1,5 @@
+# core.py Modified version of uasyncio core.py with priority mechanism.
+# Mods added by Peter Hinch 2017
 try:
     import utime as time
 except ImportError:

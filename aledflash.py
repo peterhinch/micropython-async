@@ -1,6 +1,6 @@
 # aledflash.py Demo/test program for MicroPython asyncio
 # Author: Peter Hinch
-# Copyright Peter Hinch 2016 Released under the MIT license
+# Copyright Peter Hinch 2017 Released under the MIT license
 # Flashes the onboard LED's each at a different rate. Stops after ten seconds.
 # Run on MicroPython board bare hardware
 

@@ -2,7 +2,7 @@
 # Tested on Pyboard but should run on other microcontroller platforms
 # running MicroPython with uasyncio library.
 # Author: Peter Hinch.
-# Copyright Peter Hinch 2016 Released under the MIT license.
+# Copyright Peter Hinch 2017 Released under the MIT license.
 
 from machine import Pin
 from pyb import LED

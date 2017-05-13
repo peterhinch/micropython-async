@@ -1,3 +1,6 @@
+# io.py Failed attempt to use uasyncio IORead mechanism in a custom class.
+# It turns out that the necessary support has not been implemented, and
+# it is unlikely that this will occur.
 import uasyncio as asyncio
 
 MP_STREAM_POLL_RD = 1

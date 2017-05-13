@@ -2,8 +2,8 @@
 # Runs on Pyboard: displays results from the onboard accelerometer.
 # Uses crude filtering to discard noisy data.
 
-# Author: Peter Hinch.
-# Copyright Peter Hinch 2016 Released under the MIT license.
+# Author: Peter Hinch
+# Copyright Peter Hinch 2017 Released under the MIT license
 
 import uasyncio as asyncio
 import pyb

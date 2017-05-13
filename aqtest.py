@@ -1,6 +1,6 @@
 # aqtest.py Demo/test program for MicroPython library micropython-uasyncio.queues
 # Author: Peter Hinch
-# Copyright Peter Hinch 2016 Released under the MIT license
+# Copyright Peter Hinch 2017 Released under the MIT license
 
 import uasyncio as asyncio
 from uasyncio.queues import Queue

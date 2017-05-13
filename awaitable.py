@@ -1,6 +1,6 @@
 # awaitable.py Demo of an awaitable class
 # Author: Peter Hinch
-# Copyright Peter Hinch 2016 Released under the MIT license
+# Copyright Peter Hinch 2017 Released under the MIT license
 # runs in CPython and MicroPython
 # Trivial fix for MicroPython issue #2678
 

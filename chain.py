@@ -1,3 +1,6 @@
+# chain.py Demo of chained coros under MicroPython uasyncio
+# Author: Peter Hinch
+# Copyright Peter Hinch 2017 Released under the MIT license
 try:
     import uasyncio as asyncio
 except ImportError:

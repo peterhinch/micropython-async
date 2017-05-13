@@ -1,4 +1,6 @@
-# As of 7th April 2017 this works with PR #164 installed.
+# Test of uasyncio stream I/O using UART
+# Author: Peter Hinch
+# Copyright Peter Hinch 2017 Released under the MIT license
 # Link X1 and X2 to test.
 
 import uasyncio as asyncio

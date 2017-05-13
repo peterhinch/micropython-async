@@ -1,6 +1,6 @@
 # roundrobin.py Test/demo of round-robin scheduling
 # Author: Peter Hinch
-# Copyright Peter Hinch 2016 Released under the MIT license
+# Copyright Peter Hinch 2017 Released under the MIT license
 
 # Result on Pyboard with print('Foo', n) commented out
 # executions/second:
