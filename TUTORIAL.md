@@ -235,19 +235,15 @@ The following ``EventLoop`` methods schedule callbacks:
  run, ``*args`` any positional args may follow separated by commas.
  2. ``call_later`` Call after a delay in secs. Args: ``delay``, ``callback``,
  ``*args``
- 3. ``call_later_ms_`` Call after a delay in ms. Args: ``delay``, ``callback``,
+ 3. ``call_later_ms`` Call after a delay in ms. Args: ``delay``, ``callback``,
  ``args``. Args are stored in a tuple for efficiency. Default an empty
  tuple ``()``.
- 4. ``call_at`` Call at a future time in ms. Args: ``time``, ``callback``, ``*args``.
- 5. ``call_at_`` Call at a future time in ms. Args: ``time``, ``callback``,
- ``args``. Args stored in a tuple, default ``()``.
 
 ```python
 loop = asyncio.get_event_loop()
 loop.call_soon(foo, 5) # Schedule callback 'foo' ASAP with an arg of 5
 loop.call_later(2, foo, 5) # Schedule after 2 seconds
-loop.call_later_ms_(50, foo, (5,)) # Schedule after 50ms. Note arg in tuple.
-loop.call_at(time.ticks_add(loop.time(), 4), foo, 5) # after 4s
+loop.call_later_ms(50, foo, (5,)) # Schedule after 50ms. Note arg in tuple.
 loop.run_forever()
 ```
 

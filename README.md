@@ -44,8 +44,7 @@ following Python 3.5 features:
 
 It supports millisecond level timing with the following:
 
- * Event loop method ``call_later_ms_``
- * Event loop ``call_at`` - time is specified in ms.
+ * Event loop method ``call_later_ms``
  * uasyncio ``sleep_ms(time)``
 
 It doesn't support objects of type ``Future`` and ``Task``. Routines to run
