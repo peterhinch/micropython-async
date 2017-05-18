@@ -9,6 +9,7 @@
 # Copyright Peter Hinch 2017 Released under the MIT license.
 
 import uasyncio as asyncio
+import utime as time
 from asyn import launch
 # launch: run a callback or initiate a coroutine depending on which is passed.
 
@@ -24,7 +25,7 @@ class Delay_ms(object):
 
     def trigger(self, duration):  # Update end time
         loop = asyncio.get_event_loop()
-        self.tstop = loop.time() + duration
+        self.tstop = time.ticks_add(loop.time(), duration)
         if not self._running:
             # Start a thread which stops the delay after its period has elapsed
             loop.create_task(self.killer())
@@ -35,9 +36,11 @@ class Delay_ms(object):
 
     async def killer(self):
         loop = asyncio.get_event_loop()
-        while self.tstop > loop.time():
+        twait = time.ticks_diff(self.tstop, loop.time())
+        while twait > 0:
             # Must loop here: might be retriggered
-            await asyncio.sleep_ms(self.tstop - loop.time())
+            await asyncio.sleep_ms(twait)
+            twait = time.ticks_diff(self.tstop, loop.time())
         if self._running and self.func is not None:
             launch(self.func, self.args)  # Execute callback
         self._running = False
