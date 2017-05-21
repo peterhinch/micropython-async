@@ -5,7 +5,10 @@
 # Author: Peter Hinch
 # Copyright Peter Hinch 2017 Released under the MIT license
 
-import uasyncio as asyncio
+try:
+    import asyncio_priority as asyncio
+except ImportError:
+    import uasyncio as asyncio
 import pyb
 import utime as time
 
@@ -55,6 +58,7 @@ async def accel_coro(timeout = 2000):
 
 async def main(delay):
     print('Testing accelerometer for {} secs. Move the Pyboard!'.format(delay))
+    print('Test runs for 20s.')
     await asyncio.sleep(delay)
     print('Test complete!')
 

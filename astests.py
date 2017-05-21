@@ -7,7 +7,11 @@
 from machine import Pin
 from pyb import LED
 from aswitch import Switch, Pushbutton
-import uasyncio as asyncio
+# Verify it works under standard and priority version
+try:
+    import asyncio_priority as asyncio
+except ImportError:
+    import uasyncio as asyncio
 
 helptext = '''
 Test using switch or pushbutton between X1 and gnd.
@@ -39,7 +43,7 @@ def test_sw():
     red = LED(1)
     green = LED(2)
     sw = Switch(pin)
-    # Register a coro to launch on contact close
+    # Register coros to launch on contact close and open
     sw.close_func(pulse, (green, 1000))
     sw.open_func(pulse, (red, 1000))
     loop = asyncio.get_event_loop()

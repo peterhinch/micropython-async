@@ -1,7 +1,7 @@
-# latency.py Benchmark for uasyncio. Author Peter Hinch April 2017.
+# latency.py Benchmark for uasyncio. Author Peter Hinch May 2017.
 
 # This measures the scheduling latency of a notional device driver running in the
-# presence of other coros. This can test the version of core.py which incorporates
+# presence of other coros. This can test asyncio_priority.py which incorporates
 # the priority mechanism. (In the home directory of this repo).
 
 # When running the test that uses the priority mechanism the latency is 300us which
@@ -17,7 +17,13 @@
 # For compute-intensive tasks a yield every 2ms is reasonably efficient. A shorter
 # period implies a significant proportion of CPU cycles being taken up in scheduling.
 
-import uasyncio as asyncio
+try:
+    import asyncio_priority as asyncio
+    lp_version = True
+except ImportError:
+    import uasyncio as asyncio
+    lp_version = False
+
 import pyb
 import utime as time
 import gc
@@ -69,7 +75,6 @@ async def priority():
 
 async def run_test(delay):
     global done, tmax, tmin, dtotal, count
-    loop = asyncio.get_event_loop()
     loop.create_task(priority())
     old_n = 0
     for n, n_coros in enumerate(num_coros):
@@ -90,11 +95,10 @@ async def run_test(delay):
     done = True
 
 def test(use_priority=True):
-    global after, after_ms
+    global after, after_ms, loop, lp_version
     processing_delay = 2  # Processing time in low priority task (ms)
-    lp_version = 'after' in dir(asyncio)
     if use_priority and not lp_version:
-        print('To test priority mechanism you must use the modified core.py')
+        print('To test priority mechanism you must use asyncio_priority.py')
     else:
         ntasks = max(num_coros) + 4
         if use_priority:

@@ -36,7 +36,7 @@ guides to this may be found online.
 
   2.3 [Delays](./TUTORIAL.md#23-delays)
 
-3. [Synchronisation](./TUTORIAL.md#3-synchronisation)
+ 3. [Synchronisation](./TUTORIAL.md#3-synchronisation)
 
   3.1 [Lock](./TUTORIAL.md#31-lock)
 
@@ -52,7 +52,7 @@ guides to this may be found online.
 
   3.5 [Queue](./TUTORIAL.md#35-queue)
 
-4. [Designing classes for asyncio](./TUTORIAL.md#4-designing-classes-for-asyncio)
+ 4. [Designing classes for asyncio](./TUTORIAL.md#4-designing-classes-for-asyncio)
 
   4.1 [Awaitable classes](./TUTORIAL.md#41-awaitable-classes)
 
@@ -60,7 +60,7 @@ guides to this may be found online.
 
   4.3 [Asynchronous context managers](./TUTORIAL.md#43-asynchronous-context-managers)
 
-5. [Device driver examples](./TUTORIAL.md#5-device-driver-examples)
+ 5. [Device driver examples](./TUTORIAL.md#5-device-driver-examples)
 
   5.1 [The IORead mechnaism](./TUTORIAL.md#51-the-ioread-mechanism)
 
@@ -70,7 +70,7 @@ guides to this may be found online.
 
   5.4 [A complete example: aremote.py](./TUTORIAL.md#54-a-complete-example-aremotepy)
 
-6. [Hints and tips](./TUTORIAL.md#6-hints-and-tips)
+ 6. [Hints and tips](./TUTORIAL.md#6-hints-and-tips)
 
   6.1 [Program hangs](./TUTORIAL.md#61-program-hangs)
 
@@ -80,7 +80,7 @@ guides to this may be found online.
 
   6.4 [Testing](./TUTORIAL.md#64-testing)
 
-7. [Notes for beginners](./TUTORIAL.md#7-notes-for-beginners)
+ 7. [Notes for beginners](./TUTORIAL.md#7-notes-for-beginners)
 
   7.1 [Why Scheduling?](./TUTORIAL.md#71-why-scheduling)
 
@@ -89,6 +89,8 @@ guides to this may be found online.
   7.3 [Communication](./TUTORIAL.md#73-communication)
 
   7.4 [Polling](./TUTORIAL.md#74-polling)
+
+ 8. [Modifying uasyncio](./TUTORIAL.md#8-modifying-uasyncio)
 
 # 1. Cooperative scheduling
 
@@ -126,8 +128,8 @@ hardware.
  10. ``aqtest.py`` Demo of uasyncio ``Queue`` class.
  11. ``aremote.py`` Example device driver for NEC protocol IR remote control.
  12. ``auart.py`` Demo of streaming I/O via a Pyboard UART.
- 13. ``core.py`` An experimental version of the uasyncio core with a simple
- priority mechanism. See [this doc](./FASTPOLL.md).
+ 13. ``asyncio_priority.py`` An version of uasyncio with a simple priority
+ mechanism. See [this doc](./FASTPOLL.md).
 
 The ``benchmarks`` directory contains scripts to test and characterise the
 uasyncio scheduler. See [this doc](./FASTPOLL.md).
@@ -1006,3 +1008,36 @@ hardware and sets a flag. A coro polls the flag: if it's set it handles the
 data and clears the flag.
 
 ###### [Jump to Contents](./TUTORIAL.md#contents)
+
+# 8 Modifying uasyncio
+
+The library is designed to be extensible, an example being the
+``asyncio_priority`` module. By following the following guidelines a module can
+be constructed which alters the functionality of asyncio without the need to
+change the official library. Such a module may be used where ``uasyncio`` is
+implemented as frozen bytecode.
+
+Assume that the aim is to alter the event loop. The module should issue
+
+```python
+from uasyncio import *
+```
+
+The event loop should be subclassed from ``PollEventLoop`` (defined in
+``__init__.py``).
+
+The event loop is instantiated by the first call to ``get_event_loop()``: this
+creates a singleton instance. This is returned by every call to
+``get_event_loop()``. On the assumption that the constructor arguments for the
+new class differ from those of the base class, the module will need to redefine
+``get_event_loop()`` along the following lines:
+
+```python
+_event_loop = None  # The singleton instance
+_event_loop_class = MyNewEventLoopClass  # The class, not an instance
+def get_event_loop(args):
+    global _event_loop
+    if _event_loop is None:
+        _event_loop = _event_loop_class(args)  # Instantiate once only
+    return _event_loop
+```

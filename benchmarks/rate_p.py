@@ -1,12 +1,17 @@
-# rate.py Benchmark for uasyncio. Author Peter Hinch April 2017.
+# rate_p.py Benchmark for asyncio_priority.py aiming to measure overhead of
+# this version.
+# Author Peter Hinch April 2017.
 # Benchmark uasyncio round-robin scheduling performance
 # This measures the rate at which uasyncio can schedule a minimal coro which
 # mereley increments a global.
 
-# Outcome: minimal coros are scheduled at an interval of ~208us, independent of
-# the number of instances.
+# Outcome: minimal coros are scheduled at an interval of ~250us, independent of
+# the number of instances. Overhead relative to official version ~20%.
 
-import uasyncio as asyncio
+try:
+    import asyncio_priority as asyncio
+except ImportError:
+    print('This demo requires asyncio_priority.py')
 
 num_coros = (100, 200, 500, 1000)
 iterations = [0, 0, 0, 0]

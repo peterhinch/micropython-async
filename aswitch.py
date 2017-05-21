@@ -8,7 +8,10 @@
 # Author: Peter Hinch.
 # Copyright Peter Hinch 2017 Released under the MIT license.
 
-import uasyncio as asyncio
+try:
+    import asyncio_priority as asyncio
+except ImportError:
+    import uasyncio as asyncio
 import utime as time
 from asyn import launch
 # launch: run a callback or initiate a coroutine depending on which is passed.

@@ -5,7 +5,10 @@
 # Run on MicroPython board bare hardware
 
 import pyb
-import uasyncio as asyncio
+try:
+    import asyncio_priority as asyncio
+except ImportError:
+    import uasyncio as asyncio
 
 async def killer(duration):
     await asyncio.sleep(duration)

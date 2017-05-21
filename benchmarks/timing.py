@@ -1,7 +1,7 @@
-# timing.py Benchmark for uasyncio. Author Peter Hinch April 2017.
+# timing.py Benchmark for uasyncio. Author Peter Hinch May 2017.
 
 # This measures the accuracy of uasyncio.sleep_ms() in the presence of a number of
-# other coros. This can test the version of core.py which incorporates the priority
+# other coros. This can test asyncio_priority.py which incorporates the priority
 # mechanism. (In the home directory of this repo).
 
 # Outcome: when the priority mechanism is used the worst-case 10ms delay was 11.0ms
@@ -10,7 +10,13 @@
 # So for 200 coros the 10ms delay takes up to 411ms.
 
 
-import uasyncio as asyncio
+try:
+    import asyncio_priority as asyncio
+    lp_version = True
+except ImportError:
+    import uasyncio as asyncio
+    lp_version = False
+
 import pyb
 import utime as time
 import gc
@@ -58,7 +64,6 @@ async def priority(ms):
 
 async def run_test(delay, ms_delay):
     global done, tmax, tmin, dtotal, count
-    loop = asyncio.get_event_loop()
     loop.create_task(priority(ms_delay))
     old_n = 0
     for n, n_coros in enumerate(num_coros):
@@ -78,12 +83,11 @@ async def run_test(delay, ms_delay):
     done = True
 
 def test(use_priority=True):
-    global after, after_ms
+    global after, after_ms, lp_version, loop
     target_delay = 10  # Nominal delay in priority task (ms)
     processing_delay = 2  # Processing time in low priority task (ms)
-    lp_version = 'after' in dir(asyncio)
     if use_priority and not lp_version:
-        print('To test priority mechanism you must use the modified core.py')
+        print('To test priority mechanism you must use asyncio_priority.py')
     else:
         ntasks = max(num_coros) + 4
         if use_priority:

@@ -7,14 +7,19 @@
 
 # CPython 3.5 compatibility
 # (ignore RuntimeWarning: coroutine '_g' was never awaited)
-try:
-    import uasyncio as asyncio
-except ImportError:
-    import asyncio
 
-# Check availability of 'priority' core.py
-lp_core = 'after' in dir(asyncio)
-after = asyncio.after if lp_core else asyncio.sleep
+# Check availability of 'priority' version
+try:
+    import asyncio_priority as asyncio
+    p_version = True
+except ImportError:
+    p_version = False
+    try:
+        import uasyncio as asyncio
+    except ImportError:
+        import asyncio
+
+after = asyncio.after if p_version else asyncio.sleep
 
 async def _g():
     pass
@@ -77,7 +82,7 @@ class Lock():
 # when it will be used if available.
 class Event():
     def __init__(self, lp=False):
-        self.after = after if (lp_core and lp) else asyncio.sleep
+        self.after = after if (p_version and lp) else asyncio.sleep
         self.clear()
 
     def clear(self):

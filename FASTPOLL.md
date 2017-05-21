@@ -1,8 +1,11 @@
 # A modified version of uasyncio
 
-This document describes an experimental version of uasyncio. Its purpose is to
+This document describes a "priority" version of uasyncio. Its purpose is to
 provide a simple priority mechanism to facilitate the design of applications
 with improved millisecond-level timing accuracy and reduced scheduling latency.
+
+V0.1 May 2017. Now a single module designed to work with the official
+``uasyncio`` library.
 
 ###### [Main README](./README.md)
 
@@ -22,15 +25,13 @@ with improved millisecond-level timing accuracy and reduced scheduling latency.
 
    2.4 [Background](./FASTPOLL.md#24-background)
 
- 3. [A solution](./FASTPOLL.md#3-a-solution)
+ 3. [Solution](./FASTPOLL.md#3-solution)
 
    3.1 [Low priority yield](./FASTPOLL.md#31-low-priority-yield)
 
    3.2 [Low priority callbacks](./FASTPOLL.md#32-low-priority-callbacks)
 
    3.3 [High priority tasks](./FASTPOLL.md#33-high-priority-tasks)
-
-   3.4 [Event loop methods](./FASTPOLL.md#33-event-loop-methods)
 
  4. [The asyn library](./FASTPOLL.md#4-the-asyn-library)
 
@@ -40,14 +41,13 @@ with improved millisecond-level timing accuracy and reduced scheduling latency.
 
 # 1. Installation
 
-After installing uasyncio on the target hardware replace core.py with that
-supplied.
+Install and test uasyncio on the target hardware. Copy ``asyncio_priority.py``
+to the target.
 
 In MicroPython 1.9 ``uasyncio`` will be implemented as a frozen module on the
-ESP8266. This is being done to conserve scarce RAM. If you wish to use this
-version replace ``core.py`` in the modules tree and rebuild. See section 6 for
-general comments on the suitability of ESP platforms for systems requiring fast
-response.
+ESP8266. The ``asyncio_priority.py`` module may be put in the filesystem or
+compiled as frozen bytecode. See section 6 for general comments on the
+suitability of ESP platforms for systems requiring fast response.
 
 ## 1.1 Benchmarks
 
@@ -57,30 +57,35 @@ features. Documentation is in the code.
 
  * latency.py Shows the effect on latency with and without low priority usage.
  * timing.py Shows the effect on timing with and without low priority usage.
- * rate.py Shows the frequency with which uasyncio schedules minimal coroutines
- (coros).
+ * rate.py Shows the frequency with which the official uasyncio schedules
+ minimal coroutines (coros).
+ * rate_p.py As above, but measures the overhead of the priority extension.
  * call_lp.py Demos low priority callbacks.
  * overdue.py Demo of maximum overdue feature.
  * priority.py Demo of high priority coro.
 
 With the exceptions of call_lp and priority.py, benchmarks can be run against
-the official and experimental versions of usayncio.
+the official and priority versions of usayncio.
 
 # 2. Rationale
 
-Applications may be required to regularly poll a hardware device or a flag set
-by an interrupt service routine (ISR). An overrun may occur if the scheduling
-of the polling coroutine (coro) is subject to excessive latency.
+Applications may need to poll a hardware device or a flag set by an interrupt
+service routine (ISR). An overrun may occur if the scheduling of the polling
+coroutine (coro) is subject to excessive latency.
 
 Further, a coro issuing ``await asyncio.sleep_ms(t)`` may block for much longer
 than ``t`` depending on the number and design of other coros which are pending
 execution.
 
-This variant provides a means of mitigating this by enabling coros to yield
-control in a way which prevents them from competing with coros which are ready
-for execution. Coros which have yielded in a low priority fashion will not be
-scheduled until all "normal" coros are waiting on a nonzero timeout. The
-benchmarks show that the improvement can exceed two orders of magnitude.
+This variant mitigates this by enabling coros to yield control in a way which
+prevents them from competing with coros which are ready for execution. Coros
+which have yielded in a low priority fashion will not be scheduled until all
+"normal" coros are waiting on a nonzero timeout. The benchmarks show that the
+improvement can exceed two orders of magnitude.
+
+It also provides for fast scheduling where a user supplied callback is tested
+on every iteration of the scheduler. This minimises latency at some cost to
+overall performance.
 
 ## 2.1 Latency
 
@@ -112,14 +117,17 @@ adequate to avoid overruns.
 This version provides a mechanism for reducing this latency by enabling the
 ``foo()`` instances to yield in a low priority manner. In the case where all
 coros other than ``handle_isr()`` are low priority the latency is reduced to
-250μs - a figure corresponding to the inherent latency of uasyncio.
+250μs - a figure close to the inherent latency of uasyncio.
 
 The benchmark latency.py demonstrates this. Documentation is in the code; it
-can be run against both official and experimental versions.
+can be run against both official and priority versions. This measures scheduler
+latency. Maximum application latency, measured relative to the incidence of an
+asynchronous event, will be 250μs plus the worst-case delay between yields of
+any one competing task.
 
-Where more than one coro must respond rapidly to an event, a mechanism is
-provided to enable the scheduler to run a user supplied test on every
-iteration. See section 3.3 below.
+Where a coro must respond rapidly to an event, the scheduler can test a user
+supplied callback on every iteration. See
+[section 3.3](./FASTPOLL.md#33-high-priority-tasks).
 
 ###### [Jump to Contents](./FASTPOLL.md#contents)
 
@@ -146,7 +154,7 @@ issues ``await asyncio.sleep_ms(15)`` it will not see a 15ms delay. During the
 ``fast()`` will compete with pending ``foo()`` instances.
 
 This results in variable delays up to 55ms (10 tasks * 4ms + 15ms). The
-experimental version can improve this substantially. The degree of improvement
+priority version can improve this substantially. The degree of improvement
 is dependent on other coros regularly yielding with low priority: if any coro
 hogs execution for a substantial period that will inevitably contribute to
 latency in a cooperative system.
@@ -156,7 +164,7 @@ yield every 2ms, a 10ms nominal delay produced times in the range 9.8 to 10.8ms
 contrasing to 407.9 to 410.9ms using normal scheduling.
 
 The benchmark timing.py demonstrates this. Documentation is in the code. It can
-be run against the official and experimental versions.
+be run against the official and priority versions.
 
 ###### [Jump to Contents](./FASTPOLL.md#contents)
 
@@ -166,16 +174,15 @@ The asyncio library provides various mechanisms for polling a device or flag.
 Aside from a polling loop these include awaitable classes and asynchronous
 iterators. It is important to appreciate that these mechanisms have the same
 drawback as the polling loop: uasyncio schedules tasks by placing them on a
-``utimeq`` queue. This is a queue sorted by time-to-run. Tasks at the top of
-the queue (i.e. those ready to run) will be scheduled in "fair" round-robin
-fashion. This means that a task waiting on a zero delay will be rescheduled
-only after the scheduling of all other such tasks including timed waits where
-the time has elapsed.
+``utimeq`` queue. This is a queue sorted by time-to-run. Tasks which are ready
+to run are scheduled in "fair" round-robin fashion. This means that a task
+waiting on a zero delay will be rescheduled only after the scheduling of all
+other such tasks (including timed waits whose time has elapsed).
 
 A partial solution is to design the competing ``foo()`` tasks to minimise the
 delay between yields to the scheduler. This can be difficult or impossible.
 Further it is inefficient to reduce the delay much below 2ms as the scheduler
-takes 230μs to schedule a task.
+takes ~200μs to schedule a task.
 
 Practical cases exist where the ``foo()`` tasks are not time-critical: in such
 cases the performance of time critical tasks may be enhanced by enabling
@@ -204,8 +211,8 @@ A further discussion on the subject of using the ioread mechanism to achieve
 fast scheduling took place
 [in issue 2664](https://github.com/micropython/micropython/issues/2664). The final
 comment to this issue suggests that it may never be done for drivers written in
-Python. While a driver written in C is an undoubted solution, it's arguable
-that the purpose of MicroPython is to facilitate coding in Python where possible.
+Python. While a driver written in C is an undoubted solution, the purpose of
+MicroPython is arguably to facilitate coding in Python where possible.
 
 It seems there is no plan to incorporate a priority mechanism in the official
 verion of uasyncio but I believe it confers significant advantages for the
@@ -213,30 +220,49 @@ reasons discussed above. Hence this variant.
 
 ###### [Jump to Contents](./FASTPOLL.md#contents)
 
-# 3. A solution
+# 3. Solution
 
-The proposed solution is based on the notion of "after" implying a time delay
-which can be expected to be less precise than the asyncio standard calls. It
-adds the following functions:
+The module enables coroutines to yield to the scheduler with three levels of
+priority, one with higher and one with lower priority than standard. It
+provides a replacement for ``uasyncio.get_event_loop()`` enabling the queue
+sizes to be set.
 
- * ``after(t)``  Awaitable. Low priority version of ``sleep(t)``.
- * ``after_ms(t)``  Awaitable. LP version of ``sleep_ms(t)``.
+``aysncio_priority.get_event_loop(len, lpqlen, max_overdue_ms, hpqlen)``
+Arguments:
+ 1. ``len`` Length of normal queue. Default 42 tasks.
+ 2. ``lpqlen`` Length of low priority queue. Default 42.
+ 3. ``max_overdue_ms`` Maximum time a low priority task will wait before being
+ scheduled. Default 0: indefinite delay.
+ 4. ``hpqlen`` Length of high priority queue. Default 0.
 
-It adds two event loop methods.
+The low priority solution is based on the notion of "after" implying a time
+delay which can be expected to be less precise than the asyncio standard calls.
+The optional high priority mechanism adds "when" implying scheduling when a
+condition is met. The library adds the following awaitable instances:
 
- * ``loop.call_after(t, callback, *args)`` Analogous to ``call_later()``.
- Schedule a callback at low priority.
- * ``loop.max_overdue_ms(t=None)`` Forces tasks or callbacks to be scheduled if
- they become more overdue than the period. If the arg is ``None`` the  period
- is left unchanged. A value of 0 restores default scheduler behaviour. In all
- cases the period value is returned.
+ * ``after(t)``  Low priority version of ``sleep(t)``.
+ * ``after_ms(t)``  LP version of ``sleep_ms(t)``.
+ * ``when(callback)`` Re-schedules when the callback returns True.
+
+It adds the following event loop methods:
+
+ * ``loop.call_after(t, callback, *args)``
+ * ``loop.call_after_ms(t, callback, args=())``
+ * ``loop.max_overdue_ms(t=None)`` Allows the value of this time to be read and
+ written at runtime. If the arg is ``None`` the  period is left unchanged. A
+ value of 0 restores default scheduler behaviour with no limit to how overdue
+ low priority tasks may become. Returns the period value.
+
+See [Low priority callbacks](./FASTPOLL.md#32-low-priority-callbacks)
 
 # 3.1 Low priority yield
 
-Consider this code fragment running under the experimental version:
+Consider this code fragment:
 
 ```python
-import uasyncio as asyncio
+import asyncio_priority as asyncio
+loop = asyncio.get_event_loop()
+
 async def foo():
     while True:
         # Do something
@@ -252,10 +278,11 @@ on a nonzero time delay. A "normal" coro is one that has yielded by any other
 means.
 
 This behaviour can be overridden to limit the degree to which they can become
-overdue. Consider this code:
+overdue. For the reasoning behind this consider this code:
 
 ```python
-import uasyncio as asyncio
+import asyncio_priority as asyncio
+
 async def foo():
     while True:
         # Do something
@@ -280,11 +307,10 @@ analogous to running an infinite loop without yielding.
 This behaviour can be modified by issuing:
 
 ```python
-loop = asyncio.get_event_loop()
-loop.max_overdue_ms(1000)
+loop = asyncio.get_event_loop(max_overdue_ms = 1000)
 ```
 
-In this instance tasks which have yielded in a low priority manner will be
+In this instance a task which has yielded in a low priority manner will be
 rescheduled in the presence of pending "normal" tasks if they become overdue by
 more than 1s.
 
@@ -292,52 +318,63 @@ more than 1s.
 
 ## 3.2 Low priority callbacks
 
-An additional extension enables a callback function to be scheduled to run when
-all normal coros are waiting on a delay. The following ``EventLoop`` method is
-added:
+The following ``EventLoop`` methods enable callback functions to be scheduled
+to run when all normal coros are waiting on a delay or when ``max_overdue_ms``
+has elapsed:
 
-``call_after`` Call with low priority. Positional args:  
- 1. ``delay`` Minimum delay in secs before callback runs.
+``call_after`` Schedule a callback with low priority. Positional args:  
+ 1. ``delay``  Minimum delay in seconds. May be a float or integer.
  2. ``callback`` The callback to run.
  3. ``*args`` Optional comma-separated positional args for the callback.
 
 The delay specifies a minimum period before the callback will run and may have
-a value of 0. It may be a float. The period may be extended depending on other
-high and low priority tasks which are pending execution.
+a value of 0. The period may be extended depending on other high and low
+priority tasks which are pending execution.
 
 A simple demo of this is ``benchmarks/call_lp.py``. Documentation is in the
 code.
+
+``call_after_ms(delay, callback, args=())`` Call with low priority. Positional
+args:  
+ 1. ``delay`` Integer. Minimum delay in millisecs before callback runs.
+ 2. ``callback`` The callback to run.
+ 3. ``args`` Optional tuple or other iterable with positional args for the
+ callback.
 
 ###### [Jump to Contents](./FASTPOLL.md#contents)
 
 ## 3.3 High priority tasks
 
-Where latency must be reduced to the absolute minimum, support is provided for
-testing a condition on every iteration of the scheduler. This involves yielding
-a callback function which returns a boolean. When the scheduler runs, each
+Where latency must be reduced to the absolute minimum, a condition may be
+tested on every iteration of the scheduler. This involves yielding a callback
+function which returns a boolean. When a coro yields to the scheduler, each
 pending callback is run until one returns ``True`` when that task is run. If
-there are no pending callbacks returning ``True`` it will schedule other tasks.
+there are no pending callbacks which return ``True`` it will schedule other
+tasks.
 
 This machanism should be used only if the application demands it. Caution is
-called for since running the callbacks inevitably impacts the performance of
-the scheduler. Callbacks should be short (typically returning a boolean flag
-set by a hard interrupt handler). The number of high priority tasks should be
-small.
+required since running the callbacks inevitably impacts the performance of
+the scheduler. To minimise this callbacks should be short (typically returning
+a boolean flag set by a hard interrupt handler) and the number of high priority
+tasks should be small.
 
 The benchmark priority.py demonstrates and tests this mechanism.
 
 To yield at high priority issue
 
 ```python
+import asyncio_priority as asyncio
+  # code omitted
 await asyncio.when(callback)
 ```
 
 Pending callbacks are stored in a list (the high priority queue). This can grow
-dynamically but allocation can be avoided by issuing after the event loop has
-been instantiated
+dynamically but allocation can be avoided by instantiating the event loop with
+the correct size of queue for the application.
 
 ```python
-loop.allocate_hpq(no_of_entries)
+import asyncio_priority as asyncio
+loop = asyncio.get_event_loop(hpqlen = 2)
 ```
 
 In the current implementation the callback takes no arguments. However it can
@@ -347,26 +384,6 @@ No means of scheduling a high piority callback analogous to ``call_soon`` is
 provided. If such a mechanism existed, the cb would run immediately the coro
 yielded, with the coro being rescheduled once the cb returned ``True``. This
 behaviour can be achieved more efficiently by simply calling the function.
-
-###### [Jump to Contents](./FASTPOLL.md#contents)
-
-## 3.4 Event loop methods
-
- 1. ``get_event_loop`` The first time this is called the event loop is
- instantiated. It supports two optional integer positional args defining the
- queue sizes for normal and low priority (LP) coros. Note that all coros are
- initially put in the normal queue. They temporarily employ the LP queue when
- they issue a low priority yield or schedule a LP callback. The default queue
- size is 42 for both queues. This is sufficient for many applications.
- 2. ``max_overdue_ms`` Arg: integer time value in ms. Determines the maximum
- time a low priority task will wait before being scheduled.
- 3. ``allocate_hpq`` Arg: integer number of high priority tasks. This enables
- an application to pre-allocate the high priority queue to avoid uneccessary
- RAM allocation.
-
-Code can determine at runtime whether it is running under the official or
-experimental version adapting as appropriate: examples are latency.py and
-timing.py in the benchmarks directory.
 
 ###### [Jump to Contents](./FASTPOLL.md#contents)
 
