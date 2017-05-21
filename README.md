@@ -10,9 +10,9 @@ This GitHub repository consists of the following parts:
  * [A driver for an IR remote control](./nec_ir/README.md) This is intended as
  an example of an asynchronous device driver. It decodes signals received from
  infra red remote controls using the popular NEC protocol.
- * [A modified uasyncio core.py](./FASTPOLL.md) This incorporates a simple
- priority mechanism. With suitable application design this improves the rate
- at which devices can be polled and improves the accuracy of time delays.
+ * [A modified uasyncio](./FASTPOLL.md) This incorporates a simple priority
+ mechanism. With suitable application design this improves the rate at which
+ devices can be polled and improves the accuracy of time delays.
 
 # Installation of uasyncio
 
