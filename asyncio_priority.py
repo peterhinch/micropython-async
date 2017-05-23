@@ -1,6 +1,7 @@
 # asyncio_priority.py Modified version of uasyncio with priority mechanism.
 # Author: Peter Hinch
 # Copyright Peter Hinch 2017 Released under the MIT license
+# For uasyncio.core V1.4.1
 
 import utime as time
 import utimeq
@@ -174,11 +175,16 @@ class PriorityEventLoop(PollEventLoop):
                     if __debug__ and DEBUG:
                         log.debug("Coroutine finished: %s", cb)
                     continue
+                # _schedule_hp() and call_after_ms() accept args as a tuple so should
+                # work with syscalls returning data
                 if func is not None:
                     self._schedule_hp(func, cb, args)
                 else:
                     if priority:
-                        self.call_later_ms(delay, cb, args)
+                        # Currently all syscalls don't return anything, so we don't
+                        # need to feed anything to the next invocation of coroutine.
+                        # If that changes, need to pass that value below.
+                        self.call_later_ms(delay, cb)
                     else:
                         self.call_after_ms(delay, cb, args)
 

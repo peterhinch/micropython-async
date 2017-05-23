@@ -5,7 +5,7 @@ provide a simple priority mechanism to facilitate the design of applications
 with improved millisecond-level timing accuracy and reduced scheduling latency.
 
 V0.1 May 2017. Now a single module designed to work with the official
-``uasyncio`` library.
+``uasyncio`` library. For uasyncio.core V1.4.1
 
 ###### [Main README](./README.md)
 
