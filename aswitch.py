@@ -30,7 +30,7 @@ class Delay_ms(object):
         loop = asyncio.get_event_loop()
         self.tstop = time.ticks_add(loop.time(), duration)
         if not self._running:
-            # Start a thread which stops the delay after its period has elapsed
+            # Start a task which stops the delay after its period has elapsed
             loop.create_task(self.killer())
             self._running = True
 
@@ -40,7 +40,7 @@ class Delay_ms(object):
     async def killer(self):
         loop = asyncio.get_event_loop()
         twait = time.ticks_diff(self.tstop, loop.time())
-        while twait > 0:
+        while twait > 0 and self._running:  # Return if stop() called during wait
             # Must loop here: might be retriggered
             await asyncio.sleep_ms(twait)
             twait = time.ticks_diff(self.tstop, loop.time())
