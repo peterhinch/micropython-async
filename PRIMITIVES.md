@@ -25,6 +25,7 @@ this is a part of the uasyncio library its use is described in the [tutorial](./
 The following modules are provided:
  * ``asyn.py`` The main library.
  * ``asyntest.py`` Test/demo programs for the library.
+ * ``exit_gate_test.py`` Test for the ExitGate class.
 
 These modules support CPython 3.5 and MicroPython on Unix and microcontroller
 targets. The library is for use only with asyncio. They are ``micro`` in design.
@@ -44,7 +45,7 @@ args:
  * ``tup_args`` Optional. A tuple of arguments, default ``()``. The args are
  upacked when provided to the function.
 
-## 3.1 Lock
+## 3.2 Lock
 
 This guarantees unique access to a shared resource. The preferred way to use it
 is via an asynchronous context manager. In the following code sample a ``Lock``
@@ -61,7 +62,7 @@ While the coro ``bar`` is accessing the resource, other coros will pause at the
 ``async with lock`` statement until the context manager in ``bar()`` is
 complete.
 
-### 3.1.1 Definition
+### 3.2.1 Definition
 
 Constructor: this takes no arguments.  
 Methods:
@@ -71,7 +72,7 @@ Methods:
  * ``acquire`` No args. Coro which pauses until the lock has been acquired. Use
  by executing ``await lock.acquire()``.
 
-## 3.2 Event
+## 3.3 Event
 
 This provides a way for one or more coros to pause until another one flags them
 to continue. An ``Event`` object is instantiated and passed to all coros using
@@ -114,14 +115,14 @@ async def eventwait(event, ack_event):
 
 Example of this are in ``event_test`` and ``ack_test`` in asyntest.py.
 
-### 3.2.1 Definition
+### 3.3.1 Definition
 
 Constructor: takes one optional boolean argument, defaulting False.
  * ``lp`` If ``True`` and the experimental low priority core.py is installed,
  low priority scheduling will be used while awaiting the event. If the standard
  version of uasyncio is installed the arg will have no effect.
 
-Methods:
+Synchronous Methods:
  * ``set`` Initiates the event. Optional arg ``data``: may be of any type,
  sets the event's value. Default ``None``.
  * ``clear`` No args. Clears the event, sets the value to ``None``.
@@ -131,7 +132,7 @@ Methods:
 The optional data value may be used to compensate for the latency in awaiting
 the event by passing ``loop.time()``.
 
-## 3.3 Barrier
+## 3.4 Barrier
 
 This enables multiple coros to rendezvous at a particular point. For example
 producer and consumer coros can synchronise at a point where the producer has
@@ -156,7 +157,7 @@ participants are also waiting on it. At this point any callback will run and
 then each participant will re-commence execution. See ``barrier_test`` and
 ``semaphore_test`` in asyntest.py for example usage.
 
-## 3.4 Semaphore
+## 3.5 Semaphore
 
 A semaphore limits the number of coros which can access a resource. It can be
 used to limit the number of instances of a particular coro which can run
@@ -166,11 +167,13 @@ the constructor and decremented each time a coro acquires the semaphore.
 Constructor: Optional arg ``value`` default 1. Number of permitted concurrent
 accesses.
 
-Methods:
+Synchronous method:
  * ``release`` No args. Increments the access counter.
- * ``acquire`` No args. Coro. If the access counter is greater than 0,
- decrements it and terminates. Otherwise waits for it to become greater than 0
- before decrementing it and terminating.
+
+Asynchronous method:
+ * ``acquire`` No args. If the access counter is greater than 0, decrements it
+ and terminates. Otherwise waits for it to become greater than 0 before
+ decrementing it and terminating.
 
 The easiest way to use it is with a context manager:
 
@@ -184,11 +187,69 @@ There is a difference between a ``Semaphore`` and a ``Lock``. A ``Lock``
 instance is owned by the coro which locked it: only that coro can release it. A
 ``Semaphore`` can be released by any coro which acquired it.
 
-### 3.4.1 BoundedSemaphore
+### 3.5.1 BoundedSemaphore
 
 This works identically to the ``Semaphore`` class except that if the ``release``
 method causes the access counter to exceed its initial value, a ``ValueError``
 is raised.
+
+## 3.6 ExitGate
+
+The uasyncio library lacks a mechanism for preventing a coroutine from being
+rescheduled; the only way for a coro to be removed from the queue is for it to
+run to completion. The ``ExitGate`` class provides a means whereby a coro can
+flag a set of other coros to terminate; its execution pauses until all have
+done so.
+
+As an example assume a parent coro launches child coros. In normal opertaion
+all run forever, however under an error condition the parent terminates the
+child coros and completes. To do this the parent instantiates an ExitGate
+making it available to the children. The latter use it as a context manager and
+can poll the ending method to check if it's necessary to terminate.
+
+When the parent wishes to stop the children it issues ``await exit_gate`` which
+flags each child coro to complete. When all have terminated execution of the
+parent continues.
+
+Parent code:
+
+```python
+    exit_gate = ExitGate()
+    loop = asyncio.get_event_loop()
+    loop.create_task(child(exit_gate))
+    # code omitted. When it's time to quit
+    await exit_gate  # Wait for child tasks to quit
+```
+
+Child code:
+
+```python
+async def child(exit_gate):
+    async with exit_gate:
+        while True:
+            # Example of delay with  premature completion
+            if not await exit_gate.sleep(10):
+                return  # Parent killed me.
+            # Example of polling
+            while my_pin.value() and not exit_gate.ending():
+                await asyncio.sleep_ms(10)
+```
+
+Constructor: optional arg granularity, default 100ms. This determines the
+nominal timing precision.
+
+Synchronous method:
+ * ``ending`` No args. Returns ``True`` if the parent is waiting on the
+ completion of child coros.
+
+Asynchronous method:
+ * ``sleep`` Arg: Time in seconds. Causes execution to be suspended until
+ either the time has elapsed or until the parent is waiting for completion. In
+ the normal case of the time elapsing it returns ``True``. It resturns
+ ``False`` if the parent is awaiting completion.
+
+It is the responsibility of the child task to ensure it terminates in response
+to the ``ExitGate`` being in an ``ending`` state.
 
 # 4 asyntest.py
 

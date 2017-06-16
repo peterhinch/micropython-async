@@ -177,3 +177,49 @@ class BoundedSemaphore(Semaphore):
             self._count += 1
         else:
             raise ValueError('Semaphore released more than acquired')
+
+# uasyncio does not have a mechanism whereby a task can be terminated by another.
+# This can cause an issue if a task instantiates other tasks then terminates:
+# the child tasks continue to run, which may not be desired. The ExitGate helps
+# in managing this. The parent instantiates an ExitGate and makes it available
+# to the children. The latter use it as a context manager and can poll the
+# ending method to check if it's necessary to terminate. The parent issues
+# await exit_gate_instance
+# before terminating. Termination will pause until all children have completed.
+
+class ExitGate():
+    def __init__(self, granularity=100):
+        self._ntasks = 0
+        self._ending = False
+        self._granularity = granularity
+
+    def ending(self):
+        return self._ending
+
+    def __await__(self):
+        self._ending = True
+        while self._ntasks:
+            yield from asyncio.sleep_ms(self._granularity)
+
+    __iter__ = __await__
+
+    async def __aenter__(self):
+        self._ntasks += 1
+        await asyncio.sleep_ms(0)
+
+    async def __aexit__(self, *args):
+        self._ntasks -= 1
+        await asyncio.sleep_ms(0)
+
+    # Sleep while checking for premature ending. Return True on normal ending,
+    # False if premature.
+    async def sleep(self, t):
+        n, rem = divmod(t * 1000, self._granularity)
+        for _ in range(n):
+            if self._ending:
+                return False
+            await asyncio.sleep_ms(self._granularity)
+        if self._ending:
+            return False
+        await asyncio.sleep_ms(rem)
+        return not self._ending

@@ -70,7 +70,7 @@ class SynCom(object):
 # interface restarted. If a user task is provided, this must return if a
 # timeout occurs (i.e. not running() or await_obj returns None).
 # If it returns for other (error) reasons, a timeout event is forced.
-    async def start(self, user_task=None, fail_delay=1):
+    async def start(self, user_task=None, awaitable=None):
         loop = asyncio.get_event_loop()
         while True:
             if not self._running:   # Restarting
@@ -87,8 +87,9 @@ class SynCom(object):
                     await user_task(self)  # User task must quit on timeout
                     # If it quit for other reasons force a t/o exception
                     self.stop()
-            # delay lets _run() quit. User code may ensure tasks quit for a
-            await asyncio.sleep(fail_delay)  # clean restart of user_task
+            await asyncio.sleep_ms(0)
+            if awaitable is not None:  # User code may use an ExitGate
+                await awaitable  # to ensure all coros have quit
 
 # Can be used to force a failure
     def stop(self):
