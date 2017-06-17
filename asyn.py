@@ -200,6 +200,7 @@ class ExitGate():
         self._ending = True
         while self._ntasks:
             yield from asyncio.sleep_ms(self._granularity)
+        self._ending = False  # May want to re-use
 
     __iter__ = __await__
 
