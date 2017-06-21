@@ -622,7 +622,7 @@ from the ``Lock`` class:
 
 Note there is currently a bug in the implementation whereby if an explicit
 ``return`` is issued within an ``async with`` block, the ``__aexit__`` method
-is not called. The solution is to design the code so that in all case it runs
+is not called. The solution is to design the code so that in all cases it runs
 to completion. The error appears to be in PEP492. See
 [this issue](https://github.com/micropython/micropython/issues/3153).
 

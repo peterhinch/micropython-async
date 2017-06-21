@@ -28,8 +28,10 @@ The following modules are provided:
  * ``exit_gate_test.py`` Test for the ExitGate class.
 
 These modules support CPython 3.5 and MicroPython on Unix and microcontroller
-targets. The library is for use only with asyncio. They are ``micro`` in design.
-They are not thread safe and should not be used with the ``_thread`` module.
+targets. The library is for use only with asyncio. They are ``micro`` in design
+and are presented as simple, concise examples of asyncio code. They are not
+thread safe. Hence they are incompatible with the ``_thread`` module and with
+interrupt handlers.
 
 # 3. asyn.py
 
@@ -64,7 +66,9 @@ complete.
 
 ### 3.2.1 Definition
 
-Constructor: this takes no arguments.  
+Constructor: Optional argument ``delay_ms`` default 0. Sets a delay between
+attempts to acquire the lock. In applications with coros needing frequent
+scheduling a nonzero value will facilitate this at the expense of latency.  
 Methods:
 
  * ``locked`` No args. Returns ``True`` if locked.

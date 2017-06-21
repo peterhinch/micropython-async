@@ -47,8 +47,9 @@ def launch(func, tup_args):
 #   lock.release
 # Uses normal scheduling on assumption that locks are held briefly.
 class Lock():
-    def __init__(self):
+    def __init__(self, delay_ms=0):
         self._locked = False
+        self.delay_ms = delay_ms
 
     def locked(self):
         return self._locked
@@ -63,7 +64,7 @@ class Lock():
     async def acquire(self):
         while True:
             if self._locked:
-                await asyncio.sleep(0)
+                await asyncio.sleep_ms(self.delay_ms)
             else:
                 self._locked = True
                 break
