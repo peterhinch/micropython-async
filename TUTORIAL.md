@@ -620,6 +620,12 @@ from the ``Lock`` class:
         await asyncio.sleep_ms(0)
 ```
 
+Note there is currently a bug in the implementation whereby if an explicit
+``return`` is issued within an ``async with`` block, the ``__aexit__`` method
+is not called. The solution is to design the code so that in all case it runs
+to completion. The error appears to be in PEP492. See
+[this issue](https://github.com/micropython/micropython/issues/3153).
+
 ###### [Jump to Contents](./TUTORIAL.md#contents)
 
 # 5 Device driver examples
