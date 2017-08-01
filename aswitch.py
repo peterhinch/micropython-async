@@ -89,14 +89,17 @@ class Pushbutton(object):
     debounce_ms = 50
     long_press_ms = 1000
     double_click_ms = 400
+
     def __init__(self, pin):
-        self.pin = pin # Initialise for input
+        self.pin = pin  # Initialise for input
         self._true_func = False
         self._false_func = False
         self._double_func = False
         self._long_func = False
+        self._single_func = False
         self.sense = pin.value()  # Convert from electrical to logical value
-        self.buttonstate = self.rawstate()  # Initial state
+        self.btnstate = self.rawstate()  # Initial state
+        self.state = 0
         loop = asyncio.get_event_loop()
         loop.create_task(self.buttoncheck())  # Thread runs forever
 
@@ -107,6 +110,10 @@ class Pushbutton(object):
     def release_func(self, func, args=()):
         self._false_func = func
         self._false_args = args
+
+    def single_func(self, func, args=()):
+        self._single_func = func
+        self._single_args = args
 
     def double_func(self, func, args=()):
         self._double_func = func
@@ -122,38 +129,38 @@ class Pushbutton(object):
 
     # Current debounced state of button (True == pressed)
     def __call__(self):
-        return self.buttonstate
+        return self.btnstate
 
     async def buttoncheck(self):
-        loop = asyncio.get_event_loop()
-        if self._long_func:
-            longdelay = Delay_ms(self._long_func, self._long_args)
-        if self._double_func:
-            doubledelay = Delay_ms()
+        doubledelay = Delay_ms()
+        longdelay = Delay_ms()
         while True:
-            state = self.rawstate()
-            # State has changed: act on it now.
-            if state != self.buttonstate:
-                self.buttonstate = state
-                if state:
-                    # Button is pressed
-                    if self._long_func and not longdelay.running():
-                        # Start long press delay
-                        longdelay.trigger(Pushbutton.long_press_ms)
-                    if self._double_func:
-                        if doubledelay.running():
-                            launch(self._double_func, self._double_args)
-                        else:
-                            # First click: start doubleclick timer
-                            doubledelay.trigger(Pushbutton.double_click_ms)
-                    if self._true_func:
-                        launch(self._true_func, self._true_args)
-                else:
-                    # Button release
-                    if self._long_func and longdelay.running():
-                        # Avoid interpreting a second click as a long push
-                        longdelay.stop()
-                    if self._false_func:
-                        launch(self._false_func, self._false_args)
-            # Ignore state changes until switch has settled
+            currentstate = self.rawstate()
+            if self.state == 0 and currentstate is True:
+                # Button is pressed first time
+                self.state = 1
+                longdelay.trigger(Pushbutton.long_press_ms)
+            elif self.state == 1 and currentstate is False and longdelay.running():
+                # Button was released before long press
+                longdelay.stop()
+                self.state = 2
+                doubledelay.trigger(Pushbutton.double_click_ms)
+            elif self.state == 2 and not doubledelay.running():
+                # Double timer run out -> single click
+                self.state = 0
+                launch(self._single_func, self._single_args)
+            elif self.state == 2 and currentstate is True and doubledelay.running():
+                # Second click for double click was detected
+                self.state = 3
+            elif self.state == 3 and currentstate is False:
+                # Wait for second click to be released
+                self.state = 0
+                launch(self._double_func, self._double_args)
+            elif self.state == 1 and not longdelay.running():
+                # Button was pressed and long delay timed out
+                self.state = 4
+            elif self.state == 4 and currentstate is False:
+                # Wait for key release on long press
+                self.state = 0
+                launch(self._long_func, self._long_args)
             await asyncio.sleep_ms(Pushbutton.debounce_ms)
