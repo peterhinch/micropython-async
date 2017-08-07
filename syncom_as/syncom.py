@@ -101,7 +101,7 @@ class SynCom(object):
 # object state
     def send(self, obj):
         if self.string_mode:
-            self.lsttx.append(obj)
+            self.lsttx.append(obj)  # strings are immutable
         else:
             self.lsttx.append(pickle.dumps(obj))
 
