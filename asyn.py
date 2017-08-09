@@ -216,12 +216,17 @@ class ExitGate():
     # Sleep while checking for premature ending. Return True on normal ending,
     # False if premature.
     async def sleep(self, t):
-        n, rem = divmod(t * 1000, self._granularity)
-        for _ in range(n):
+        t *= 1000  # ms
+        granularity = self._granularity
+        if t <= granularity:
+            await asyncio.sleep_ms(t)
+        else:
+            n, rem = divmod(t, granularity)
+            for _ in range(n):
+                if self._ending:
+                    return False
+                await asyncio.sleep_ms(granularity)
             if self._ending:
                 return False
-            await asyncio.sleep_ms(self._granularity)
-        if self._ending:
-            return False
-        await asyncio.sleep_ms(rem)
+            await asyncio.sleep_ms(rem)
         return not self._ending
