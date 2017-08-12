@@ -106,8 +106,10 @@ class SynCom(object):
         else:
             self.lsttx.append(pickle.dumps(obj))
 
+# Number of queued objects (None on timeout)
     def any(self):
-        return len(self.lstrx)
+        if self._running:
+            return len(self.lstrx)
 
 # Wait for an object. Return None on timeout.
 # If in string mode returns a string (or None on t/o)
