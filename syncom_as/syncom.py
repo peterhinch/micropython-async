@@ -53,8 +53,7 @@ class SynCom(object):
         self._running = False       # _run coro is down
         self._synchronised = False
         self.verbose = verbose
-        if verbose:
-            self.idstr = 'passive' if self.passive else 'initiator'
+        self.idstr = 'passive' if self.passive else 'initiator'
 
         self.ckin = ckin            # Interface pins
         self.ckout = ckout
