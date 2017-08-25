@@ -81,6 +81,9 @@ class PriorityEventLoop(PollEventLoop):
                     t = self.q.peektime()
                     delay = time.ticks_diff(t, tnow)
                     if delay <= 0:
+                        # https://github.com/micropython/micropython-lib/pull/201
+                        # Always call wait(), to give a chance to I/O scheduling
+                        self.wait(0)
                         self.q.pop(cur_task)
                         break
                     # Schedule any due LP task
