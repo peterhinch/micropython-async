@@ -57,6 +57,8 @@ Methods:
  3. ``__call__`` Call syntax e.g. ``myswitch()`` returns the physical debounced
  state of the switch i.e. 0 if grounded, 1 if connected to ``3V3``.
 
+Methods 1 and 2 should be called before starting the scheduler.
+
 Class attribute:
  1. ``debounce_ms`` Debounce time in ms. Default 50.
 
@@ -93,6 +95,8 @@ Methods:
  state of the button (``True`` corresponds to pressed).
  6. ``rawstate()`` Returns the logical instantaneous state of the button. There
  is probably no reason to use this.
+
+Methods 1 - 4 should be called before starting the scheduler.
 
 Class attributes:
  1. ``debounce_ms`` Debounce time in ms. Default 50.

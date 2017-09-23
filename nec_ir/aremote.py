@@ -7,15 +7,19 @@
 from sys import platform
 import uasyncio as asyncio
 from asyn import Event
-from micropython import alloc_emergency_exception_buf, const
+from micropython import const
 from array import array
 from utime import ticks_us, ticks_diff
 if platform == 'pyboard':
     from pyb import Pin, ExtInt
 else:
-    from machine import Pin, freq
+    from machine import Pin
 
-alloc_emergency_exception_buf(100)
+# Save RAM
+# from micropython import alloc_emergency_exception_buf
+# alloc_emergency_exception_buf(100)
+
+# Result codes (accessible to application)
 # Repeat button code
 REPEAT = -1
 # Error codes
@@ -26,7 +30,7 @@ OVERRUN = -5
 BADDATA = -6
 BADADDR = -7
 
-EDGECOUNT = const(68)  # No. of edges in data block
+_EDGECOUNT = const(68)  # No. of edges in data block
 
 
 # On 1st edge start a block timer. When it times out decode the data. Time must
@@ -41,7 +45,7 @@ class NEC_IR():
         self._addr = 0
         self.block_time = 80 if extended else 73  # Allow for some tx tolerance (?)
         self._args = args
-        self._times = array('i',  (0 for _ in range(EDGECOUNT + 1)))  # +1 for overrun
+        self._times = array('i',  (0 for _ in range(_EDGECOUNT + 1)))  # +1 for overrun
         if platform == 'pyboard':
             ExtInt(pin, ExtInt.IRQ_RISING_FALLING, Pin.PULL_NONE, self._cb_pin)
         else:
@@ -64,7 +68,7 @@ class NEC_IR():
     def _cb_pin(self, line):
         t = ticks_us()
         # On overrun ignore pulses until software timer times out
-        if self._edge <= EDGECOUNT:  # Allow 1 extra pulse to record overrun
+        if self._edge <= _EDGECOUNT:  # Allow 1 extra pulse to record overrun
             if not self._ev_start.is_set():  # First edge received
                 loop = asyncio.get_event_loop()
                 self._ev_start.set(loop.time())  # asyncio latency compensation
@@ -72,14 +76,14 @@ class NEC_IR():
             self._edge += 1
 
     def _decode(self):
-        overrun = self._edge > EDGECOUNT
+        overrun = self._edge > _EDGECOUNT
         val = OVERRUN if overrun else BADSTART
         if not overrun:
             width = ticks_diff(self._times[1], self._times[0])
             if width > 4000:  # 9ms leading mark for all valid data
                 width = ticks_diff(self._times[2], self._times[1])
                 if width > 3000: # 4.5ms space for normal data
-                    if self._edge < EDGECOUNT:
+                    if self._edge < _EDGECOUNT:
                         # Haven't received the correct number of edges
                         val = BADBLOCK
                     else:
@@ -87,7 +91,7 @@ class NEC_IR():
                         # Space is 1.6875ms (1) or 562.5µs (0)
                         # Skip last bit which is always 1
                         val = 0
-                        for edge in range(3, EDGECOUNT - 2, 2):
+                        for edge in range(3, _EDGECOUNT - 2, 2):
                             val >>= 1
                             if ticks_diff(self._times[edge + 1], self._times[edge]) > 1120:
                                 val |= 0x80000000
