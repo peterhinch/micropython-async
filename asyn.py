@@ -109,21 +109,37 @@ class Event():
 # A Barrier synchronises N coros. Each issues await barrier
 # execution pauses until all other participant coros are waiting on it.
 # At that point the callback is executed. Then the barrier is 'opened' and
-# excution of all participants resumes.
+# execution of all participants resumes.
+# The nowait arg enables usage where one or more coros can register that
+# they have reached the barrier without waiting for it. Other coros waiting
+# normally on the barrier will pause until all non-waiting coros have passed
+# the barrier and all waiting ones have reached it.
+# The use of nowait promotes efficiency by enabling tasks to leave the task
+# queue as soon as possible.
+
 # Uses low_priority if available
+
 class Barrier():
     def __init__(self, participants, func=None, args=()):
         self._participants = participants
         self._func = func
         self._args = args
         self._reset(True)
+        self._nowait = False
 
     def __await__(self):
         self._update()
         if self._at_limit():  # All other threads are also at limit
+            self._nowait = False
             if self._func is not None:
                 launch(self._func, self._args)
             self._reset(not self._down)
+            return
+
+        if self._nowait:
+            self._nowait = False
+            if self._func is not None:
+                launch(self._func, self._args)
             return
 
         direction = self._down
@@ -131,6 +147,10 @@ class Barrier():
             if direction != self._down:
                 return
             yield from after(0)
+
+    def __call__(self, nowait=False):  # Enable await barrier(nowait = True)
+        self._nowait = nowait
+        return self
 
     __iter__ = __await__
 
@@ -179,6 +199,36 @@ class BoundedSemaphore(Semaphore):
         else:
             raise ValueError('Semaphore released more than acquired')
 
+# Task cancellation. At the time of writing this is dependent on PR #3380 and
+# micropython-lib PR #221 which are not yet merged.
+# A coro foo is made cancellable by isssuing Cancellable(foo(5), 'foo'), the
+# second arg being a name used when the task is to be cancelled. This is done
+# by issuing Cancellable.cancel('foo'). See asyntest.py and tutorial.
+
+class CancelError(Exception):
+    pass
+
+class Cancellable():
+    tasks = {}
+    @classmethod
+    def cancel(cls, taskname):
+        if taskname in cls.tasks:
+            cls.tasks.pop(taskname).pend_throw(CancelError)
+            return True
+        return False
+
+    def __init__(self, task, name):
+        self.tasks[name] = task
+        self.task = task
+
+    def __await__(self):
+        res = yield from self.task
+        return res
+
+    __iter__ = __await__
+
+# ExitGate is obsolescent - task cancellation is about to be implemented.
+# Retained for compatibilty with existing applications.
 # uasyncio does not have a mechanism whereby a task can be terminated by another.
 # This can cause an issue if a task instantiates other tasks then terminates:
 # the child tasks continue to run, which may not be desired. The ExitGate helps

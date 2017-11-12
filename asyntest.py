@@ -7,6 +7,8 @@
 # event_test()
 # barrier_test()
 # semaphore_test()  Pass True to test BoundedSemaphore class
+# cancel_test1()  Awaiting cancellable coros
+# cancel_test2() Cancellable coros as tasks and using barrier to synchronise.
 # Issue ctrl-D after running each test
 
 # CPython 3.5 compatibility
@@ -16,7 +18,7 @@ try:
 except ImportError:
     import asyncio
 
-from asyn import Lock, Event, Semaphore, BoundedSemaphore, Barrier
+from asyn import Lock, Event, Semaphore, BoundedSemaphore, Barrier, Cancellable, CancelError
 
 # ************ Test Event class ************
 # Demo use of acknowledge event
@@ -150,3 +152,71 @@ async def run_sema_test(bounded):
 def semaphore_test(bounded=False):
     loop = asyncio.get_event_loop()
     loop.run_until_complete(run_sema_test(bounded))
+
+# ************ Cancellation tests ************
+
+async def foo(num):
+    try:
+        await asyncio.sleep(4)
+        return num + 42
+    except CancelError:
+        print('foo was cancelled.')
+        return -1
+
+def kill(task_name):
+    if Cancellable.cancel(task_name):
+        print(task_name, 'will be cancelled when next scheduled')
+    else:
+        print(task_name, 'was not cancellable.')
+
+# Example of a task which cancels another
+async def bar():
+    await asyncio.sleep(1)
+    kill('foo')
+    kill('not_me')  # Will fail because not yet scheduled
+
+async def run_cancel_test1():
+    loop = asyncio.get_event_loop()
+    loop.create_task(bar())
+    res = await Cancellable(foo(5), 'foo')
+    print(res)
+    res = await Cancellable(foo(0), 'not_me')  # Runs to completion
+    print(res)
+
+def cancel_test1():
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(run_cancel_test1())
+
+# TEST with barrier
+
+async def forever(n):
+    print('Started forever() instance', n)
+    while True:
+        await asyncio.sleep(7 + n)
+        print('Running instance', n)
+
+barrier = Barrier(3)
+
+# Cancellable coros must trap the CancelError
+async def rats(n):
+    try:
+        await forever(n)
+    except CancelError:
+        await barrier(nowait = True)
+        print('Instance', n, 'was cancelled')
+
+async def run_cancel_test2():
+    loop = asyncio.get_event_loop()
+    loop.create_task(Cancellable(rats(1), 'rats_1').task)
+    loop.create_task(Cancellable(rats(2), 'rats_2').task)
+    print('Running two tasks')
+    await asyncio.sleep(10)
+    print('About to cancel tasks')
+    Cancellable.cancel('rats_1')
+    Cancellable.cancel('rats_2')
+    await barrier
+    print('tasks were cancelled')
+
+def cancel_test2():
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(run_cancel_test2())

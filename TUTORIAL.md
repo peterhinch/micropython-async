@@ -52,6 +52,8 @@ guides to this may be found online.
 
   3.5 [Queue](./TUTORIAL.md#35-queue)
 
+  3.6 [Task cancellation](./TUTORIAL.md#36-task-cancellation)
+
  4. [Designing classes for asyncio](./TUTORIAL.md#4-designing-classes-for-asyncio)
 
   4.1 [Awaitable classes](./TUTORIAL.md#41-awaitable-classes)
@@ -59,6 +61,8 @@ guides to this may be found online.
   4.2 [Asynchronous iterators](./TUTORIAL.md#42-asynchronous-iterators)
 
   4.3 [Asynchronous context managers](./TUTORIAL.md#43-asynchronous-context-managers)
+  
+  4.4 [Coroutines with timeouts](./TUTORIAL.md#44-coroutines-with-timeouts)
 
  5. [Device driver examples](./TUTORIAL.md#5-device-driver-examples)
 
@@ -440,6 +444,13 @@ multiple instances of ``report`` print their result and pause until the other
 instances are also complete. At that point the callback runs. On its completion
 the coros resume.
 
+A special case of `Barrier` usage is where some coros are allowed to pass the
+barrier, registering the fact that they have done so. At least one coro must
+wait on the barrier. It will continue execution when all non-waiting coros have
+passed the barrier, and all other waiting coros have reached it. This can be of
+use when cancelling coros. A coro which cancels others might wait until all
+cancelled coros have passed the barrier as they quit.
+
 ###### [Jump to Contents](./TUTORIAL.md#contents)
 
 ## 3.4 Semaphore
@@ -495,6 +506,71 @@ on empty status and (where size is limited) the behaviour on full status may be
 controlled. Documentation of this is in the code.
 
 An example of its use is provided in ``aqtest.py``.
+
+###### [Jump to Contents](./TUTORIAL.md#contents)
+
+## 3.6 Task cancellation
+
+At the time of writing (12th Nov 2017) this requires PR #3380 and
+micropython-lib PR #221 which are yet to be merged.
+
+The `uasyncio` library supports task cancellation by throwing an exception to
+the coro which is to be cancelled. The latter must trap the exception and
+(after performing any cleanup) terminate. The use of this mechanism is
+facilitated by the `Cancellable` class which enables a coro to be associated
+with a user-defined name for cancellation. Examples of its usage may be found
+in `asyntest.py`.
+
+A cancellable coro is instantiated from a normal coro `foo()` by means of
+`Cancellable(foo(5), 'foo')`. Note the passing of an argument to the coro. A
+coro can `await` such a task with `await Cancellable(foo(5), 'foo')`.
+Alternatively a cancellable task can be scheduled for execution with
+`loop.create_task(Cancellable(foo(5), 'foo').task)`
+
+In either case the coro with the user-defined name 'foo' is cancelled with
+`Cancellable.cancel('foo')`. The coro `foo` will receive the `CancelError` when
+it next runs. This means that in real time, and from the point of view of the
+coro which has cancelled it, cancellation may not be immediate. In some
+situations this may matter. Synchronisation may be achieved using the `Barrier`
+class, with the cancelling task pausing until all the coros it has cancelled
+have processed the exception. The following - adapted from `asyntest.py` - 
+illustrates this.
+
+```python
+import uasyncio as asyncio
+from asyn import Barrier, Cancellable, CancelError
+
+async def forever(n):
+    print('Started forever() instance', n)
+    while True:  # Run until cancelled. Error propagates to caller.
+        await asyncio.sleep(7 + n)
+        print('Running instance', n)
+
+barrier = Barrier(3)  # 3 tasks share the barrier
+
+async def rats(n):
+    # Cancellable coros must trap the CancelError
+    try:
+        await forever(n)  # Error propagates up from forever()
+    except CancelError:
+        await barrier(nowait = True)  # Quit immediately
+        print('Instance', n, 'was cancelled')
+
+async def run_cancel_test2():
+    loop = asyncio.get_event_loop()
+    loop.create_task(Cancellable(rats(1), 'rats_1').task)
+    loop.create_task(Cancellable(rats(2), 'rats_2').task)
+    print('Running two tasks')
+    await asyncio.sleep(10)
+    print('About to cancel tasks')
+    Cancellable.cancel('rats_1')
+    Cancellable.cancel('rats_2')
+    await barrier  # Continue when dependent tasks have quit
+    print('tasks were cancelled')
+
+loop = asyncio.get_event_loop()
+loop.run_until_complete(run_cancel_test2())
+```
 
 ###### [Jump to Contents](./TUTORIAL.md#contents)
 
@@ -625,6 +701,43 @@ Note there is currently a bug in the implementation whereby if an explicit
 is not called. The solution is to design the code so that in all cases it runs
 to completion. The error appears to be in PEP492. See
 [this issue](https://github.com/micropython/micropython/issues/3153).
+
+###### [Jump to Contents](./TUTORIAL.md#contents)
+
+## 4.4 Coroutines with timeouts
+
+At the time of writing (12th Nov 2017) this requires PR #3380 and
+micropython-lib PR #221 which are yet to be merged.
+
+Timeouts are implemented by means of `uasyncio.wait_for()`. This takes as
+arguments a coroutine and a timeout in seconds. If the timeout expires a
+`TimeoutError` will be thrown to the coro. The next time the coro is scheduled
+for execution the exception will be raised: the coro should trap this and quit.
+
+```python
+import uasyncio as asyncio
+
+async def forever():
+    print('Starting')
+    try:
+        while True:
+            await asyncio.sleep_ms(300)
+            print('Got here')
+    except asyncio.TimeoutError:
+        print('Got timeout')
+
+async def foo():
+    await asyncio.wait_for(forever(), 5)
+    await asyncio.sleep(2)
+
+loop = asyncio.get_event_loop()
+loop.run_until_complete(foo())
+```
+
+Note that if the coro awaits a long delay, it will not be rescheduled until the
+time has elapsed. The `TimeoutError` will occur as soon as it is scheduled. But
+in real time and from the point of view of the calling coro, its response to
+the `TimeoutError` will be correspondingly delayed.
 
 ###### [Jump to Contents](./TUTORIAL.md#contents)
 
