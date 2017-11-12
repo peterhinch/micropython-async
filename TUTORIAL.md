@@ -121,8 +121,8 @@ hardware.
  generalisation of switches providing logical rather than physical status along
  with double-clicked and long pressed events.
  4. ``astests.py`` Test/demonstration programs for the above.
- 5. ``asyn.py`` Synchronisation primitives ``Lock``, ``Event``, ``Barrier`` and
- ``Semaphore``.
+ 5. ``asyn.py`` Synchronisation primitives ``Lock``, ``Event``, ``Barrier``,
+ ``Semaphore``, ``BoundedSemaphore`` and ``Cancellable``.
  6. ``asyntest.py`` Example/demo programs for above.
  7. ``roundrobin.py`` Demo of round-robin scheduling. Also a benchmark of
  scheduling performance.
@@ -524,10 +524,10 @@ in `asyntest.py`.
 A cancellable coro is instantiated from a normal coro `foo()` by means of
 `Cancellable(foo(5), 'foo')`. Note the passing of an argument to the coro. A
 coro can `await` such a task with `await Cancellable(foo(5), 'foo')`.
-Alternatively a cancellable task can be scheduled for execution with
-`loop.create_task(Cancellable(foo(5), 'foo').task)`
+Alternatively a cancellable task may be scheduled for execution with
+`loop.create_task(Cancellable(foo(5), 'foo').task)`.
 
-In either case the coro with the user-defined name 'foo' is cancelled with
+In either case the coro with the user-defined name 'foo' may be cancelled with
 `Cancellable.cancel('foo')`. The coro `foo` will receive the `CancelError` when
 it next runs. This means that in real time, and from the point of view of the
 coro which has cancelled it, cancellation may not be immediate. In some
@@ -571,6 +571,11 @@ async def run_cancel_test2():
 loop = asyncio.get_event_loop()
 loop.run_until_complete(run_cancel_test2())
 ```
+
+In the line `await barrier(nowait = True)` the `nowait` argument is for
+efficiency. It is not required by the program logic. Its purpose is to remove
+the redundant task from the task queue as soon as possible so that it ceases to
+use processor time.
 
 ###### [Jump to Contents](./TUTORIAL.md#contents)
 
@@ -735,9 +740,9 @@ loop.run_until_complete(foo())
 ```
 
 Note that if the coro awaits a long delay, it will not be rescheduled until the
-time has elapsed. The `TimeoutError` will occur as soon as it is scheduled. But
-in real time and from the point of view of the calling coro, its response to
-the `TimeoutError` will be correspondingly delayed.
+time has elapsed. The `TimeoutError` will occur as soon as the coro is
+scheduled. But in real time and from the point of view of the calling coro, its
+response to the `TimeoutError` will correspondingly be delayed.
 
 ###### [Jump to Contents](./TUTORIAL.md#contents)
 
