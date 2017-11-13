@@ -199,6 +199,10 @@ is raised.
 
 ## 3.6 ExitGate
 
+This is obsolescent. It is a nasty hack which will be redundant once these PR's
+which provide task cancellation have been merged: firmware PR #3380 and 
+micropython-lib PR #221.
+
 The uasyncio library lacks a mechanism for preventing a coroutine from being
 rescheduled; the only way for a coro to be removed from the queue is for it to
 run to completion. The ``ExitGate`` class provides a means whereby a coro can

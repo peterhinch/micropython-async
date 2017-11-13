@@ -20,6 +20,16 @@ except ImportError:
 
 from asyn import Lock, Event, Semaphore, BoundedSemaphore, Barrier, Cancellable, CancelError
 
+def printexp(exp, runtime=0):
+    print('Expected output:')
+    print('\x1b[32m')
+    print(exp)
+    print('\x1b[39m')
+    if runtime:
+        print('Running (runtime = {}s):'.format(runtime))
+    else:
+        print('Running (runtime < 1s):')
+
 # ************ Test Event class ************
 # Demo use of acknowledge event
 
@@ -52,10 +62,30 @@ async def run_ack():
 
 async def ack_coro(delay):
     await asyncio.sleep(delay)
-    print("I've seen starships burn off the shoulder of Orion...")
+    print("I've seen attack ships burn on the shoulder of Orion...")
     print("Time to die...")
 
 def ack_test():
+    printexp('''event was set
+Eventwait 1 got event with value 0
+Eventwait 2 got event with value 0
+Cleared ack1
+Cleared ack2
+Cleared event
+event was set
+Eventwait 1 got event with value 1
+Eventwait 2 got event with value 1
+
+... text omitted ...
+
+Eventwait 1 got event with value 9
+Eventwait 2 got event with value 9
+Cleared ack1
+Cleared ack2
+Cleared event
+I've seen attack ships burn on the shoulder of Orion...
+Time to die...
+''', 10)
     loop = asyncio.get_event_loop()
     loop.create_task(run_ack())
     loop.run_until_complete(ack_coro(10))
@@ -98,6 +128,26 @@ async def run_event_test(lp):
     print('Tasks complete')
 
 def event_test(lp=True):  # Option to use low priority scheduling
+    printexp('''Test Lock class
+Test Event class
+got here
+gh1
+waiting for event
+run_lock 1 waiting for lock
+run_lock 1 acquired lock
+run_lock 2 waiting for lock
+run_lock 3 waiting for lock
+Waiting 5 secs before setting event
+run_lock 3 acquired lock
+run_lock 1 released lock
+run_lock 2 acquired lock
+run_lock 3 released lock
+run_lock 2 released lock
+event was set
+got event
+Event status OK
+Tasks complete
+''', 5)
     loop = asyncio.get_event_loop()
     loop.run_until_complete(run_event_test(lp))
 
@@ -117,6 +167,12 @@ async def report():
         await barrier
 
 def barrier_test():
+    printexp('''0 0 0 Synch
+1 1 1 Synch
+2 2 2 Synch
+3 3 3 Synch
+4 4 4 Synch
+''')
     loop = asyncio.get_event_loop()
     for _ in range(3):
         loop.create_task(report())
@@ -150,6 +206,44 @@ async def run_sema_test(bounded):
         print('Bounded semaphore exception test OK')
 
 def semaphore_test(bounded=False):
+    if bounded:
+        exp = '''run_sema 0 trying to access semaphore
+run_sema 0 acquired semaphore
+run_sema 1 trying to access semaphore
+run_sema 1 acquired semaphore
+run_sema 2 trying to access semaphore
+run_sema 2 acquired semaphore
+run_sema 3 trying to access semaphore
+run_sema 4 trying to access semaphore
+run_sema 3 acquired semaphore
+run_sema 0 has released semaphore
+run_sema 4 acquired semaphore
+run_sema 1 has released semaphore
+run_sema 2 has released semaphore
+run_sema 3 has released semaphore
+run_sema 4 has released semaphore
+Bounded semaphore exception test OK
+
+Exact sequence of acquisition may vary when 3 and 4 compete for semaphore.'''
+    else:
+        exp = '''run_sema 0 trying to access semaphore
+run_sema 0 acquired semaphore
+run_sema 1 trying to access semaphore
+run_sema 1 acquired semaphore
+run_sema 2 trying to access semaphore
+run_sema 2 acquired semaphore
+run_sema 3 trying to access semaphore
+run_sema 4 trying to access semaphore
+run_sema 3 acquired semaphore
+run_sema 0 has released semaphore
+run_sema 4 acquired semaphore
+run_sema 1 has released semaphore
+run_sema 2 has released semaphore
+run_sema 3 has released semaphore
+run_sema 4 has released semaphore
+
+Exact sequence of acquisition may vary when 3 and 4 compete for semaphore.'''
+    printexp(exp, 3)
     loop = asyncio.get_event_loop()
     loop.run_until_complete(run_sema_test(bounded))
 
@@ -184,6 +278,12 @@ async def run_cancel_test1():
     print(res)
 
 def cancel_test1():
+    printexp('''foo will be cancelled when next scheduled
+not_me was not cancellable.
+foo was cancelled.
+-1
+42
+''', 8)
     loop = asyncio.get_event_loop()
     loop.run_until_complete(run_cancel_test1())
 
@@ -195,14 +295,14 @@ async def forever(n):
         await asyncio.sleep(7 + n)
         print('Running instance', n)
 
-barrier = Barrier(3)
+barrier_cancel = Barrier(3)
 
 # Cancellable coros must trap the CancelError
 async def rats(n):
     try:
         await forever(n)
     except CancelError:
-        await barrier(nowait = True)
+        await barrier_cancel(nowait = True)
         print('Instance', n, 'was cancelled')
 
 async def run_cancel_test2():
@@ -214,9 +314,19 @@ async def run_cancel_test2():
     print('About to cancel tasks')
     Cancellable.cancel('rats_1')
     Cancellable.cancel('rats_2')
-    await barrier
+    await barrier_cancel
     print('tasks were cancelled')
 
 def cancel_test2():
+    printexp('''Running two tasks
+Started forever() instance 1
+Started forever() instance 2
+Running instance 1
+Running instance 2
+About to cancel tasks
+Instance 1 was cancelled
+Instance 2 was cancelled
+tasks were cancelled
+''', 20)
     loop = asyncio.get_event_loop()
     loop.run_until_complete(run_cancel_test2())

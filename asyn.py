@@ -133,13 +133,11 @@ class Barrier():
             self._nowait = False
             if self._func is not None:
                 launch(self._func, self._args)
-            self._reset(not self._down)
+            self._reset(not self._down)  # Toggle direction to release others
             return
 
-        if self._nowait:
+        if self._nowait:  # Updated count, not at limit, so all done
             self._nowait = False
-            if self._func is not None:
-                launch(self._func, self._args)
             return
 
         direction = self._down
@@ -158,7 +156,7 @@ class Barrier():
         self._down = down
         self._count = self._participants if down else 0
 
-    def _at_limit(self):
+    def _at_limit(self):  # Has count reached up or down limit?
         limit = 0 if self._down else self._participants
         return self._count == limit
 
