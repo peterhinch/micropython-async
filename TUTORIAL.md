@@ -122,7 +122,7 @@ hardware.
  with double-clicked and long pressed events.
  4. ``astests.py`` Test/demonstration programs for the above.
  5. ``asyn.py`` Synchronisation primitives ``Lock``, ``Event``, ``Barrier``,
- ``Semaphore``, ``BoundedSemaphore`` and ``Cancellable``.
+ ``Semaphore``, ``BoundedSemaphore`` and ``NamedCoro``.
  6. ``asyntest.py`` Example/demo programs for above.
  7. ``roundrobin.py`` Demo of round-robin scheduling. Also a benchmark of
  scheduling performance.
@@ -444,13 +444,6 @@ multiple instances of ``report`` print their result and pause until the other
 instances are also complete. At that point the callback runs. On its completion
 the coros resume.
 
-A special case of `Barrier` usage is where some coros are allowed to pass the
-barrier, registering the fact that they have done so. At least one coro must
-wait on the barrier. It will continue execution when all non-waiting coros have
-passed the barrier, and all other waiting coros have reached it. This can be of
-use when cancelling coros. A coro which cancels others might wait until all
-cancelled coros have passed the barrier as they quit.
-
 ###### [Jump to Contents](./TUTORIAL.md#contents)
 
 ## 3.4 Semaphore
@@ -517,18 +510,18 @@ micropython-lib PR #221 which are yet to be merged.
 The `uasyncio` library supports task cancellation by throwing an exception to
 the coro which is to be cancelled. The latter must trap the exception and
 (after performing any cleanup) terminate. The use of this mechanism is
-facilitated by the `Cancellable` class which enables a coro to be associated
-with a user-defined name for cancellation. Examples of its usage may be found
-in `asyntest.py`.
+facilitated by the `NamedCoro` class which enables a coro to be associated
+with a user-defined name for easy identification. Examples of its usage may be
+found in `asyntest.py`.
 
 A cancellable coro is instantiated from a normal coro `foo()` by means of
-`Cancellable(foo(5), 'foo')`. Note the passing of an argument to the coro. A
-coro can `await` such a task with `await Cancellable(foo(5), 'foo')`.
+`NamedCoro(foo(5), 'foo')`. Note the passing of an argument `5` to the coro. A
+coro can `await` such a task with `await NamedCoro(foo(5), 'foo')`.
 Alternatively a cancellable task may be scheduled for execution with
-`loop.create_task(Cancellable(foo(5), 'foo').task)`.
+`loop.create_task(NamedCoro(foo(5), 'foo').task)`.
 
 In either case the coro with the user-defined name 'foo' may be cancelled with
-`Cancellable.cancel('foo')`. The coro `foo` will receive the `CancelError` when
+`NamedCoro.cancel('foo')`. The coro `foo` will receive the `CancelError` when
 it next runs. This means that in real time, and from the point of view of the
 coro which has cancelled it, cancellation may not be immediate. In some
 situations this may matter. Synchronisation may be achieved using the `Barrier`
@@ -538,7 +531,7 @@ illustrates this.
 
 ```python
 import uasyncio as asyncio
-from asyn import Barrier, Cancellable, CancelError
+from asyn import Barrier, NamedCoro, CancelError
 
 async def forever(n):
     print('Started forever() instance', n)
@@ -546,25 +539,25 @@ async def forever(n):
         await asyncio.sleep(7 + n)
         print('Running instance', n)
 
-barrier = Barrier(3)  # 3 tasks share the barrier
-
-async def rats(n):
+async def rats(barrier, n):
     # Cancellable coros must trap the CancelError
     try:
         await forever(n)  # Error propagates up from forever()
     except CancelError:
-        await barrier(nowait = True)  # Quit immediately
         print('Instance', n, 'was cancelled')
+    finally:  # Ensure barrier is passed however coro terminates
+        await barrier(nowait = True)  # Quit immediately
 
 async def run_cancel_test2():
+    barrier = Barrier(3)  # 3 tasks share the barrier
     loop = asyncio.get_event_loop()
-    loop.create_task(Cancellable(rats(1), 'rats_1').task)
-    loop.create_task(Cancellable(rats(2), 'rats_2').task)
+    loop.create_task(NamedCoro(rats(barrier, 1), 'rats_1').task)
+    loop.create_task(NamedCoro(rats(barrier, 2), 'rats_2').task)
     print('Running two tasks')
     await asyncio.sleep(10)
     print('About to cancel tasks')
-    Cancellable.cancel('rats_1')
-    Cancellable.cancel('rats_2')
+    NamedCoro.cancel('rats_1')
+    NamedCoro.cancel('rats_2')
     await barrier  # Continue when dependent tasks have quit
     print('tasks were cancelled')
 
@@ -575,7 +568,7 @@ loop.run_until_complete(run_cancel_test2())
 In the line `await barrier(nowait = True)` the `nowait` argument is for
 efficiency. It is not required by the program logic. Its purpose is to remove
 the redundant task from the task queue as soon as possible so that it ceases to
-use processor time.
+use processor time. This usage is detailed [here](./PRIMITIVES.md).
 
 ###### [Jump to Contents](./TUTORIAL.md#contents)
 

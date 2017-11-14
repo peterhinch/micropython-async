@@ -161,6 +161,36 @@ participants are also waiting on it. At this point any callback will run and
 then each participant will re-commence execution. See ``barrier_test`` and
 ``semaphore_test`` in asyntest.py for example usage.
 
+A special case of `Barrier` usage is where some coros are allowed to pass the
+barrier, registering the fact that they have done so. At least one coro must
+wait on the barrier. It will continue execution when all non-waiting coros have
+passed the barrier, and all other waiting coros have reached it. This can be of
+use when cancelling coros. A coro which cancels others might wait until all
+cancelled coros have passed the barrier as they quit.
+
+```python
+barrier = Barrier(3)  # 3 tasks share the barrier
+
+    # This coro does the cancelling and waits until it is complete.
+async def bar():
+    # Cancel two tasks
+    await barrier
+    # Now they have both terminated
+
+    # This coro is capable of being cancelled.
+async def foo(n):
+    # Cancellable coros must trap the CancelError
+    try:
+        await forever(n)  # Error propagates up from forever()
+    except CancelError:
+        print('Instance', n, 'was cancelled')
+    finally:
+        await barrier(nowait = True)  # Quit immediately
+```
+
+Note that `await barrier(nowait = True)` should not be issued in a looping
+construct.
+
 ## 3.5 Semaphore
 
 A semaphore limits the number of coros which can access a resource. It can be
@@ -197,7 +227,32 @@ This works identically to the ``Semaphore`` class except that if the ``release``
 method causes the access counter to exceed its initial value, a ``ValueError``
 is raised.
 
-## 3.6 ExitGate
+## 3.6 NamedCoro
+
+This provides for coros to be readily identified by associating them with a
+user-defined name, to enable them to be cancelled or to have an exception
+thrown to them. The ``NamedCoro`` class maintains a dict of coros indexed by
+the name.
+
+Constructor mandatory args:  
+ * ``task`` A coro.
+ * `name` Names may be any valid dictionary index. A `ValueError` will be
+ raised if the name already exists.
+
+Class methods:  
+ * `cancel` Arg: a coro name.
+ The named coro will receive a `CancelError` exception the next time it is
+ scheduled. The coro should trap this and quit ASAP. `cancel` will return
+ `True` if the coro was cancelled or if it had already terminated. It will
+ return `False` if the coro is not in the dict or has already been killed.
+ * `pend_throw` Args: 1. A coro name 2. An exception.
+ The named coro will receive the exception the next time it is scheduled.
+
+Bound variable:
+ * `task` This contains the coro and is used to schedule the task using the
+ event loop `create_task()` method.
+
+## 3.7 ExitGate
 
 This is obsolescent. It is a nasty hack which will be redundant once these PR's
 which provide task cancellation have been merged: firmware PR #3380 and 
@@ -270,3 +325,6 @@ and before running another.
  * ``barrier_test()`` Use of the ``Barrier`` class.
  * ``semaphore_test()`` Use of ``Semaphore`` objects. Call with a ``True`` arg
  to demonstrate the ``BoundedSemaphore`` error exception.
+ * ``cancel_test1()`` Basic task cancellation.
+ * ``cancel_test2()`` Task cacellation with a ``Barrier``.
+ * ``cancel_test3()`` Cancellation of a task which has terminated.

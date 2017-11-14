@@ -9,6 +9,7 @@
 # semaphore_test()  Pass True to test BoundedSemaphore class
 # cancel_test1()  Awaiting cancellable coros
 # cancel_test2() Cancellable coros as tasks and using barrier to synchronise.
+# cancel_test3() Cancellation of a coro which has terminated.
 # Issue ctrl-D after running each test
 
 # CPython 3.5 compatibility
@@ -18,7 +19,7 @@ try:
 except ImportError:
     import asyncio
 
-from asyn import Lock, Event, Semaphore, BoundedSemaphore, Barrier, Cancellable, CancelError
+from asyn import Lock, Event, Semaphore, BoundedSemaphore, Barrier, NamedCoro, CancelError
 
 def printexp(exp, runtime=0):
     print('Expected output:')
@@ -159,9 +160,7 @@ async def killer(duration):
 def callback(text):
     print(text)
 
-barrier = Barrier(3, callback, ('Synch',))
-
-async def report():
+async def report(barrier):
     for i in range(5):
         print('{} '.format(i), end='')
         await barrier
@@ -173,9 +172,10 @@ def barrier_test():
 3 3 3 Synch
 4 4 4 Synch
 ''')
+    barrier = Barrier(3, callback, ('Synch',))
     loop = asyncio.get_event_loop()
     for _ in range(3):
-        loop.create_task(report())
+        loop.create_task(report(barrier))
     loop.run_until_complete(killer(2))
     loop.close()
 
@@ -248,6 +248,7 @@ Exact sequence of acquisition may vary when 3 and 4 compete for semaphore.'''
     loop.run_until_complete(run_sema_test(bounded))
 
 # ************ Cancellation tests ************
+# cancel_test1()
 
 async def foo(num):
     try:
@@ -258,7 +259,7 @@ async def foo(num):
         return -1
 
 def kill(task_name):
-    if Cancellable.cancel(task_name):
+    if NamedCoro.cancel(task_name):
         print(task_name, 'will be cancelled when next scheduled')
     else:
         print(task_name, 'was not cancellable.')
@@ -272,9 +273,9 @@ async def bar():
 async def run_cancel_test1():
     loop = asyncio.get_event_loop()
     loop.create_task(bar())
-    res = await Cancellable(foo(5), 'foo')
+    res = await NamedCoro(foo(5), 'foo')
     print(res)
-    res = await Cancellable(foo(0), 'not_me')  # Runs to completion
+    res = await NamedCoro(foo(0), 'not_me')  # Runs to completion
     print(res)
 
 def cancel_test1():
@@ -287,7 +288,10 @@ foo was cancelled.
     loop = asyncio.get_event_loop()
     loop.run_until_complete(run_cancel_test1())
 
-# TEST with barrier
+# cancel_test2()
+# This test uses a barrier so that cancelling task pauses until cancelled tasks
+# have actually terminated. Also tests the propagation of the thrown exception
+# to the awaiting coro.
 
 async def forever(n):
     print('Started forever() instance', n)
@@ -295,26 +299,27 @@ async def forever(n):
         await asyncio.sleep(7 + n)
         print('Running instance', n)
 
-barrier_cancel = Barrier(3)
-
-# Cancellable coros must trap the CancelError
-async def rats(n):
+# Cancellable coros must trap the CancelError. If a barrier is used, coro must
+# pass it whether cancelled or terminates normally.
+async def rats(barrier, n):
     try:
         await forever(n)
     except CancelError:
-        await barrier_cancel(nowait = True)
         print('Instance', n, 'was cancelled')
+    finally:
+        await barrier(nowait = True)
 
 async def run_cancel_test2():
+    barrier = Barrier(3)
     loop = asyncio.get_event_loop()
-    loop.create_task(Cancellable(rats(1), 'rats_1').task)
-    loop.create_task(Cancellable(rats(2), 'rats_2').task)
+    loop.create_task(NamedCoro(rats(barrier, 1), 'rats_1').task)
+    loop.create_task(NamedCoro(rats(barrier, 2), 'rats_2').task)
     print('Running two tasks')
     await asyncio.sleep(10)
     print('About to cancel tasks')
-    Cancellable.cancel('rats_1')
-    Cancellable.cancel('rats_2')
-    await barrier_cancel
+    NamedCoro.cancel('rats_1')  # These will stop when their wait is complete
+    NamedCoro.cancel('rats_2')
+    await barrier  # So wait for that to occur.
     print('tasks were cancelled')
 
 def cancel_test2():
@@ -330,3 +335,38 @@ tasks were cancelled
 ''', 20)
     loop = asyncio.get_event_loop()
     loop.run_until_complete(run_cancel_test2())
+
+# cancel_test2()
+# Test of cancelling a task which has already terminated
+
+# Cancellable coros must trap the CancelError
+async def cant3(barrier):
+    try:
+        await asyncio.sleep(1)
+        print('Task cant3 has ended.')
+    except CancelError:
+        print('Task cant3 was cancelled')
+    finally:
+        await barrier(nowait = True)
+
+async def run_cancel_test3():
+    barrier = Barrier(2)
+    loop = asyncio.get_event_loop()
+    loop.create_task(NamedCoro(cant3(barrier), 'cant3').task)
+    print('Running task')
+    await asyncio.sleep(3)
+    print('About to cancel task')
+    NamedCoro.cancel('cant3')
+    print('Cancelled')
+    await barrier
+    print('tasks were cancelled')
+
+def cancel_test3():
+    printexp('''Running task
+Task cant3 has ended.
+About to cancel task
+Cancelled
+tasks were cancelled
+''', 3)
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(run_cancel_test3())
