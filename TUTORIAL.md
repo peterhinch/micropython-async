@@ -504,8 +504,7 @@ An example of its use is provided in ``aqtest.py``.
 
 ## 3.6 Task cancellation
 
-At the time of writing (12th Nov 2017) this requires PR #3380 and
-micropython-lib PR #221 which are yet to be merged.
+This requires uasyncio.core V1.6 which was released on 9th Dec 2017.
 
 The `uasyncio` library supports task cancellation by throwing an exception to
 the coro which is to be cancelled. The latter must trap the exception and
@@ -704,8 +703,7 @@ to completion. The error appears to be in PEP492. See
 
 ## 4.4 Coroutines with timeouts
 
-At the time of writing (12th Nov 2017) this requires PR #3380 and
-micropython-lib PR #221 which are yet to be merged.
+This requires uasyncio.core V1.6 which was released on 9th Dec 2017.
 
 Timeouts are implemented by means of `uasyncio.wait_for()`. This takes as
 arguments a coroutine and a timeout in seconds. If the timeout expires a
