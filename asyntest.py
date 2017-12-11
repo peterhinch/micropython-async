@@ -1,4 +1,5 @@
-# asyntest.py Test/demo of the 'micro' Lock, Event, Barrier and Semaphore classes
+# asyntest.py Test/demo of the 'micro' Event, Barrier and Semaphore classes
+# Test/demo of official Lock class
 # Author: Peter Hinch
 # Copyright Peter Hinch 2017 Released under the MIT license
 
@@ -18,8 +19,12 @@ try:
     import uasyncio as asyncio
 except ImportError:
     import asyncio
+try:
+    from uasyncio.synchro import Lock
+except ImportError:
+    from asyn import Lock
 
-from asyn import Lock, Event, Semaphore, BoundedSemaphore, Barrier, NamedCoro, CancelError
+from asyn import Event, Semaphore, BoundedSemaphore, Barrier, NamedCoro, CancelError
 
 def printexp(exp, runtime=0):
     print('Expected output:')
@@ -95,9 +100,10 @@ Time to die...
 
 async def run_lock(n, lock):
     print('run_lock {} waiting for lock'.format(n))
-    async with lock:
-        print('run_lock {} acquired lock'.format(n))
-        await asyncio.sleep(1)  # Delay to demo other coros waiting for lock
+    await lock.acquire()
+    print('run_lock {} acquired lock'.format(n))
+    await asyncio.sleep(1)  # Delay to demo other coros waiting for lock
+    lock.release()
     print('run_lock {} released lock'.format(n))
 
 async def eventset(event):
@@ -135,15 +141,15 @@ got here
 gh1
 waiting for event
 run_lock 1 waiting for lock
-run_lock 1 acquired lock
 run_lock 2 waiting for lock
 run_lock 3 waiting for lock
 Waiting 5 secs before setting event
-run_lock 3 acquired lock
+run_lock 1 acquired lock
 run_lock 1 released lock
 run_lock 2 acquired lock
-run_lock 3 released lock
 run_lock 2 released lock
+run_lock 3 acquired lock
+run_lock 3 released lock
 event was set
 got event
 Event status OK

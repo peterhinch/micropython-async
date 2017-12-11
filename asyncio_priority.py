@@ -1,7 +1,7 @@
 # asyncio_priority.py Modified version of uasyncio with priority mechanism.
 # Author: Peter Hinch
 # Copyright Peter Hinch 2017 Released under the MIT license
-# For uasyncio.core V1.4.1
+# Updated 11th Dec 2017 for uasyncio.core V1.6
 
 import utime as time
 import utimeq
@@ -118,6 +118,7 @@ class PriorityEventLoop(PollEventLoop):
                     self.wait(-1)
                     # Assuming IO completion scheduled some tasks
                     continue
+            self.cur_task = cb
             if callable(cb):
                 cb(*args)
             else:
@@ -168,6 +169,9 @@ class PriorityEventLoop(PollEventLoop):
                     elif ret is None:
                         # Just reschedule
                         pass
+                    elif ret is False:
+                        # Don't reschedule
+                        continue
                     else:
                         assert False, "Unsupported coroutine yield value: %r (of type %r)" % (ret, type(ret))
                 except StopIteration as e:
@@ -206,10 +210,9 @@ after_ms = AfterMs()
 after = After()
 when = When()
 
-_event_loop = None
-_event_loop_class = PriorityEventLoop
+import uasyncio.core
+uasyncio.core._event_loop_class = PriorityEventLoop
 def get_event_loop(len=42, lpqlen=42, max_overdue_ms=0, hpqlen=0):
-    global _event_loop
-    if _event_loop is None:
-        _event_loop = _event_loop_class(len, lpqlen, max_overdue_ms, hpqlen)
-    return _event_loop
+    if uasyncio.core._event_loop is None:
+        uasyncio.core._event_loop = uasyncio.core._event_loop_class(len, lpqlen, max_overdue_ms, hpqlen)
+    return uasyncio.core._event_loop

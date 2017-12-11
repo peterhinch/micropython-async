@@ -25,7 +25,6 @@ this is a part of the uasyncio library its use is described in the [tutorial](./
 The following modules are provided:
  * ``asyn.py`` The main library.
  * ``asyntest.py`` Test/demo programs for the library.
- * ``exit_gate_test.py`` Test for the ExitGate class.
 
 These modules support CPython 3.5 and MicroPython on Unix and microcontroller
 targets. The library is for use only with asyncio. They are ``micro`` in design
@@ -48,6 +47,13 @@ args:
  upacked when provided to the function.
 
 ## 3.2 Lock
+
+This has now been superceded by the more efficient official version. See the
+[test program](https://github.com/micropython/micropython-lib/blob/master/uasyncio.synchro/example_lock.py).
+For an example of how to use the preferred official version see [this](./TUTORIAL.md#31-lock).
+
+I have retained this version  in ``asyn.py`` merely as an example of uasyncio
+coding. The remainder of this section applies to this version.
 
 This guarantees unique access to a shared resource. The preferred way to use it
 is via an asynchronous context manager. In the following code sample a ``Lock``
@@ -254,65 +260,9 @@ Bound variable:
 
 ## 3.7 ExitGate
 
-This is obsolescent. It is a nasty hack which will be redundant once these PR's
-which provide task cancellation have been merged: firmware PR #3380 and 
-micropython-lib PR #221.
-
-The uasyncio library lacks a mechanism for preventing a coroutine from being
-rescheduled; the only way for a coro to be removed from the queue is for it to
-run to completion. The ``ExitGate`` class provides a means whereby a coro can
-flag a set of other coros to terminate; its execution pauses until all have
-done so.
-
-As an example assume a parent coro launches child coros. In normal opertaion
-all run forever, however under an error condition the parent terminates the
-child coros and completes. To do this the parent instantiates an ExitGate
-making it available to the children. The latter use it as a context manager and
-can poll the ending method to check if it's necessary to terminate.
-
-When the parent wishes to stop the children it issues ``await exit_gate`` which
-flags each child coro to complete. When all have terminated execution of the
-parent continues.
-
-Parent code:
-
-```python
-    exit_gate = ExitGate()
-    loop = asyncio.get_event_loop()
-    loop.create_task(child(exit_gate))
-    # code omitted. When it's time to quit
-    await exit_gate  # Wait for child tasks to quit
-```
-
-Child code:
-
-```python
-async def child(exit_gate):
-    async with exit_gate:
-        while True:
-            # Example of delay with  premature completion
-            if not await exit_gate.sleep(10):
-                return  # Parent killed me.
-            # Example of polling
-            while my_pin.value() and not exit_gate.ending():
-                await asyncio.sleep_ms(10)
-```
-
-Constructor: optional arg granularity, default 100ms. This determines the
-nominal timing precision.
-
-Synchronous method:
- * ``ending`` No args. Returns ``True`` if the parent is waiting on the
- completion of child coros.
-
-Asynchronous method:
- * ``sleep`` Arg: Time in seconds. Causes execution to be suspended until
- either the time has elapsed or until the parent is waiting for completion. In
- the normal case of the time elapsing it returns ``True``. It resturns
- ``False`` if the parent is awaiting completion.
-
-It is the responsibility of the child task to ensure it terminates in response
-to the ``ExitGate`` being in an ``ending`` state.
+This is obsolete. It was a nasty hack to fake task cancellation at a time when
+uasyncio did not support it. The code remains in the module to avoid breaking
+existing applications but it will soon be removed.
 
 # 4 asyntest.py
 

@@ -1,5 +1,6 @@
 # rate_p.py Benchmark for asyncio_priority.py aiming to measure overhead of
-# this version.
+# this version. Compare results with those from rate.py which uses the official
+# version.
 # Author Peter Hinch April 2017.
 # Benchmark uasyncio round-robin scheduling performance
 # This measures the rate at which uasyncio can schedule a minimal coro which

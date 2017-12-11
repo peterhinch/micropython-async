@@ -14,6 +14,22 @@ for a response from the hardware or for a user interaction.
 Another major application area for asyncio is in network programming: many
 guides to this may be found online.
 
+# Installing uasyncio on bare metal
+
+The simplest way is to use the upip utility running under the Unix build (which
+might be in a Linux virtual machine). Create a temporary directory e.g. `~\syn`
+and issue the following commands.
+
+```
+micropython -m upip install -p ~/syn micropython-uasyncio
+micropython -m upip install -p ~/syn micropython-uasyncio.queues
+micropython -m upip install -p ~/syn micropython-uasyncio.synchro
+```
+
+Then copy the contents of the temporary direcory to the device. Note that the
+`queues` and `synchro` modules are optional, but are required to run all the
+examples below.
+
 ###### [Main README](./README.md)
 
 # Contents
@@ -319,9 +335,10 @@ embrace" where two coros wait on the other's completion.
 
 In simple applications these are often addressed with global flags. A more
 elegant approach is to use synchronisation primitives. The module ``asyn.py``
-offers "micro" implementations of ``Lock``, ``Event``, ``Barrier`` and ``Semaphore``
+offers "micro" implementations of ``Event``, ``Barrier`` and ``Semaphore``
 primitives. These are for use only with asyncio. They are not thread safe and
-should not be used with the ``_thread`` module.
+should not be used with the ``_thread`` module. The ``Lock`` primitive is now
+officially supported.
 
 Another synchronisation issue arises with producer and consumer coros. The
 producer generates data which the consumer uses. Asyncio provides the ``Queue``
@@ -337,20 +354,37 @@ The interface specification for the primitives is [here](./PRIMITIVES.md).
 
 ## 3.1 Lock
 
-This guarantees unique access to a shared resource. The preferred way to use it
-is via an asynchronous context manager. In the following code sample a ``Lock``
-instance ``lock`` has been created and is passed to all coros wishing to access
-the shared resource. Each coro issues the following:
+This describes the use of the official ``Lock`` primitive.
+
+This guarantees unique access to a shared resource. In the following code
+sample a ``Lock`` instance ``lock`` has been created and is passed to all coros
+wishing to access the shared resource. Each coro attempts to acquire the lock,
+pausing execution until it succeeds.
 
 ```python
-async def bar(lock):
-    async with lock:
-        # Access resource
-```
+import uasyncio as asyncio
+from uasyncio.synchro import Lock
 
-While the coro ``bar`` is accessing the resource, other coros will pause at the
-``async with lock`` statement until the context manager in ``bar()`` is
-complete.
+async def task(i, lock):
+    while 1:
+        await lock.acquire()
+        print("Acquired lock in task", i)
+        await asyncio.sleep(0.5)
+        lock.release()
+
+async def killer():
+    await asyncio.sleep(10)
+
+loop = asyncio.get_event_loop()
+
+lock = Lock()  # The global Lock instance
+
+loop.create_task(task(1, lock))
+loop.create_task(task(2, lock))
+loop.create_task(task(3, lock))
+
+loop.run_until_complete(killer())  # Run for 10s
+```
 
 ###### [Jump to Contents](./TUTORIAL.md#contents)
 
@@ -504,7 +538,9 @@ An example of its use is provided in ``aqtest.py``.
 
 ## 3.6 Task cancellation
 
-This requires uasyncio.core V1.6 which was released on 9th Dec 2017.
+This requires uasyncio.core V1.6 which was released on 9th Dec 2017. At the
+time of writing (11th Dec 2017) a firmware build incorporating
+[PR3380](https://github.com/micropython/micropython/pull/3380) is required.
 
 The `uasyncio` library supports task cancellation by throwing an exception to
 the coro which is to be cancelled. The latter must trap the exception and
@@ -703,7 +739,9 @@ to completion. The error appears to be in PEP492. See
 
 ## 4.4 Coroutines with timeouts
 
-This requires uasyncio.core V1.6 which was released on 9th Dec 2017.
+This requires uasyncio.core V1.6 which was released on 9th Dec 2017. At the
+time of writing (11th Dec 2017) a firmware build incorporating
+[PR3380](https://github.com/micropython/micropython/pull/3380) is required.
 
 Timeouts are implemented by means of `uasyncio.wait_for()`. This takes as
 arguments a coroutine and a timeout in seconds. If the timeout expires a
@@ -734,6 +772,9 @@ Note that if the coro awaits a long delay, it will not be rescheduled until the
 time has elapsed. The `TimeoutError` will occur as soon as the coro is
 scheduled. But in real time and from the point of view of the calling coro, its
 response to the `TimeoutError` will correspondingly be delayed.
+
+If this matters to the application, create a long delay by awaiting a short one
+in a loop.
 
 ###### [Jump to Contents](./TUTORIAL.md#contents)
 

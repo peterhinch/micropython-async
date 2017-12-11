@@ -100,7 +100,7 @@ def test(use_priority=True):
     if use_priority and not lp_version:
         print('To test priority mechanism you must use asyncio_priority.py')
     else:
-        ntasks = max(num_coros) + 4
+        ntasks = max(num_coros) + 10 #4
         if use_priority:
             loop = asyncio.get_event_loop(ntasks, ntasks)
             after = asyncio.after
