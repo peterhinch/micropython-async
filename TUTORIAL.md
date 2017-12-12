@@ -16,9 +16,9 @@ guides to this may be found online.
 
 # Installing uasyncio on bare metal
 
-The simplest way is to use the upip utility running under the Unix build (which
-might be in a Linux virtual machine). Create a temporary directory e.g. `~\syn`
-and issue the following commands.
+The simplest way is to use the upip utility running under the Unix build.
+Install this (optionally in a Linux virtual machine). Create a temporary
+directory e.g. `~/syn` and issue the following commands:
 
 ```
 micropython -m upip install -p ~/syn micropython-uasyncio
@@ -138,7 +138,7 @@ hardware.
  with double-clicked and long pressed events.
  4. ``astests.py`` Test/demonstration programs for the above.
  5. ``asyn.py`` Synchronisation primitives ``Lock``, ``Event``, ``Barrier``,
- ``Semaphore``, ``BoundedSemaphore`` and ``NamedCoro``.
+ ``Semaphore``, ``BoundedSemaphore`` and ``NamedTask``.
  6. ``asyntest.py`` Example/demo programs for above.
  7. ``roundrobin.py`` Demo of round-robin scheduling. Also a benchmark of
  scheduling performance.
@@ -545,20 +545,20 @@ time of writing (11th Dec 2017) a firmware build incorporating
 The `uasyncio` library supports task cancellation by throwing an exception to
 the coro which is to be cancelled. The latter must trap the exception and
 (after performing any cleanup) terminate. The use of this mechanism is
-facilitated by the `NamedCoro` class which enables a coro to be associated
+facilitated by the `NamedTask` class which enables a coro to be associated
 with a user-defined name for easy identification. Examples of its usage may be
 found in `asyntest.py`.
 
 A cancellable coro is instantiated from a normal coro `foo()` by means of
-`NamedCoro(foo(5), 'foo')`. Note the passing of an argument `5` to the coro. A
-coro can `await` such a task with `await NamedCoro(foo(5), 'foo')`.
+`NamedTask(foo(5), 'foo')`. Note the passing of an argument `5` to the coro. A
+coro can `await` such a task with `await NamedTask(foo(5), 'foo')`.
 Alternatively a cancellable task may be scheduled for execution with
-`loop.create_task(NamedCoro(foo(5), 'foo').task)`.
+`loop.create_task(NamedTask(foo(5), 'foo').task)`.
 
 In either case the coro with the user-defined name 'foo' may be cancelled with
-`NamedCoro.cancel('foo')`. The coro `foo` will receive the `CancelError` when
-it next runs. This means that in real time, and from the point of view of the
-coro which has cancelled it, cancellation may not be immediate. In some
+`NamedTask.cancel('foo')`. The coro `foo` will receive the `StopTask` exception
+when it next runs. This means that in real time, and from the point of view of
+the coro which has cancelled it, cancellation may not be immediate. In some
 situations this may matter. Synchronisation may be achieved using the `Barrier`
 class, with the cancelling task pausing until all the coros it has cancelled
 have processed the exception. The following - adapted from `asyntest.py` - 
@@ -566,7 +566,7 @@ illustrates this.
 
 ```python
 import uasyncio as asyncio
-from asyn import Barrier, NamedCoro, CancelError
+from asyn import Barrier, NamedTask, StopTask
 
 async def forever(n):
     print('Started forever() instance', n)
@@ -575,10 +575,10 @@ async def forever(n):
         print('Running instance', n)
 
 async def rats(barrier, n):
-    # Cancellable coros must trap the CancelError
+    # Cancellable coros must trap the StopTask exception
     try:
         await forever(n)  # Error propagates up from forever()
-    except CancelError:
+    except StopTask:
         print('Instance', n, 'was cancelled')
     finally:  # Ensure barrier is passed however coro terminates
         await barrier(nowait = True)  # Quit immediately
@@ -586,13 +586,13 @@ async def rats(barrier, n):
 async def run_cancel_test2():
     barrier = Barrier(3)  # 3 tasks share the barrier
     loop = asyncio.get_event_loop()
-    loop.create_task(NamedCoro(rats(barrier, 1), 'rats_1').task)
-    loop.create_task(NamedCoro(rats(barrier, 2), 'rats_2').task)
+    loop.create_task(NamedTask(rats(barrier, 1), 'rats_1').task)
+    loop.create_task(NamedTask(rats(barrier, 2), 'rats_2').task)
     print('Running two tasks')
     await asyncio.sleep(10)
     print('About to cancel tasks')
-    NamedCoro.cancel('rats_1')
-    NamedCoro.cancel('rats_2')
+    NamedTask.cancel('rats_1')
+    NamedTask.cancel('rats_2')
     await barrier  # Continue when dependent tasks have quit
     print('tasks were cancelled')
 

@@ -211,10 +211,10 @@ class BoundedSemaphore(Semaphore):
 # cancellation succeeded or if the task had already terminated normally. It is
 # False if the task name is unknown or the task has already been cancelled.
 
-class CancelError(Exception):
+class StopTask(Exception):
     pass
 
-class NamedCoro():
+class NamedTask():
     tasks = {}
     @classmethod
     def cancel(cls, taskname):
@@ -222,7 +222,7 @@ class NamedCoro():
             # pend_throw() fails silently if the task does not exist (because
             # it has terminated). May need
             # to catch an exception if uasyncio behaviour changes.
-            cls.tasks.pop(taskname).pend_throw(CancelError)
+            cls.tasks.pop(taskname).pend_throw(StopTask)
             return True
         return False
 
@@ -247,16 +247,9 @@ class NamedCoro():
 
     __iter__ = __await__
 
-# ExitGate is obsolescent - task cancellation is about to be implemented.
-# Retained for compatibilty with existing applications.
-# uasyncio does not have a mechanism whereby a task can be terminated by another.
-# This can cause an issue if a task instantiates other tasks then terminates:
-# the child tasks continue to run, which may not be desired. The ExitGate helps
-# in managing this. The parent instantiates an ExitGate and makes it available
-# to the children. The latter use it as a context manager and can poll the
-# ending method to check if it's necessary to terminate. The parent issues
-# await exit_gate_instance
-# before terminating. Termination will pause until all children have completed.
+# ExitGate is obsolete - Retained for compatibilty with existing applications.
+# It was a hack to get round the lack of a means of cancelling tasks. This has
+# been remedied in uasyncio V1.6
 
 class ExitGate():
     def __init__(self, granularity=100):
