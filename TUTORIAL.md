@@ -80,7 +80,7 @@ examples below.
   
   4.4 [Coroutines with timeouts](./TUTORIAL.md#44-coroutines-with-timeouts)
 
- 5. [Device driver examples](./TUTORIAL.md#5-device-driver-examples)
+  5. [Device driver examples](./TUTORIAL.md#5-device-driver-examples)
 
   5.1 [The IORead mechnaism](./TUTORIAL.md#51-the-ioread-mechanism)
 
@@ -99,6 +99,8 @@ examples below.
   6.3 [Garbage Collection](./TUTORIAL.md#63-garbage-collection)
 
   6.4 [Testing](./TUTORIAL.md#64-testing)
+
+  6.5 [A common hard to find error](./TUTORIAL.md#65-a-common-error)
 
  7. [Notes for beginners](./TUTORIAL.md#7-notes-for-beginners)
 
@@ -150,6 +152,8 @@ hardware.
  12. ``auart.py`` Demo of streaming I/O via a Pyboard UART.
  13. ``asyncio_priority.py`` An version of uasyncio with a simple priority
  mechanism. See [this doc](./FASTPOLL.md).
+ 14. `check_async_code.py` A Python3 utility to locate a particular coding
+ error which can be hard to find. See [this para](./TUTORIAL.md#65-a-common-error).
 
 The ``benchmarks`` directory contains scripts to test and characterise the
 uasyncio scheduler. See [this doc](./FASTPOLL.md).
@@ -1043,6 +1047,23 @@ the outer loop:
 
 It is perhaps worth noting that this error would not have been apparent had
 data been sent to the UART at a slow rate rather than via a loopback test.
+
+## 6.5 A common error
+
+If a function or method is defined with `async def` and subsequently called as
+if it were a regular (synchronous) callable, MicroPython does not issue an
+error message. This is [by design](https://github.com/micropython/micropython/issues/3241).
+It typically leads to a program silently failing to run correctly. The script
+`check_async_code.py` attempts to locate such errors. It is intended to be run
+on a PC and uses Python3. It takes a single argument, a path to a MicroPython
+sourcefile (or `--help`).
+
+Note it is somewhat crude and intended to be used on otherwise correct files:
+use a tool such as pylint for general syntax checking (pylint currently misses
+this error). Under certain circumstances it can throw up the occasional false
+positive.
+
+I find it useful as-is but improvements are always welcome.
 
 ###### [Jump to Contents](./TUTORIAL.md#contents)
 
