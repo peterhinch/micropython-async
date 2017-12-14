@@ -38,6 +38,7 @@ def pass1(part, lnum):
                         # exists in more than one class.
                         print('Duplicate function declaration "{}" in line {}'.format(fname, lnum))
                         print(opart)
+                        print()
                         good = False
                     else:
                         tasks.add(fname)
@@ -75,12 +76,6 @@ def pass2(part, lnum):
                 continue
             if match.group(0) != task:  # No exact match
                 continue
-            # Accept assignments e.g. a = mytask or
-            # after = asyncio.after if p_version else asyncio.sleep
-            # or comparisons thistask == thattask
-            #sstr = ''.join((r'[^=]=', task, r'|[^=]=[ \t]*', task))
-            if re.search(r'=', part):
-                continue
             # Accept await task, await task(args), a = await task(args)
             sstr = ''.join((r'.*await[ \t]+', task))
             if re.search(sstr, part):
@@ -89,18 +84,40 @@ def pass2(part, lnum):
             sstr = ''.join((r'.*await[ \t]+\w+\.', task))
             if re.search(sstr, part):
                 continue
-            # Not awaited but could be passed to function e.g.
-            # run_until_complete(mytask(args))
-            # or func(mytask, more_args)
-            sstr = ''.join((r'.*\w+[ \t]*\([ \t]*', task))
+            # Accept assignments e.g. a = mytask or
+            # after = asyncio.after if p_version else asyncio.sleep
+            # or comparisons thistask == thattask
+            sstr = ''.join((r'=[ \t]*', task, r'[ \t]*[^(]'))
             if re.search(sstr, part):
                 continue
+            # Not awaited but could be passed to function e.g.
+            # run_until_complete(mytask(args))
+            sstr = ''.join((r'.*\w+[ \t]*\([ \t]*', task, r'[ \t]*\('))
+            if re.search(sstr, part):
+                sstr = r'run_until_complete|run_forever|create_task|NamedTask'
+                if re.search(sstr, part):
+                    continue
+                print('Please review line {}: async function "{}" is passed to a function.'.format(lnum, task))
+                print(opart)
+                print()
+                good = False
+                continue
+            # func(mytask, more_args) may or may not be an error
+            sstr = ''.join((r'.*\w+[ \t]*\([ \t]*', task, r'[ \t]*[^\(]'))
+            if re.search(sstr, part):
+                print('Please review line {}: async function "{}" is passed to a function.'.format(lnum, task))
+                print(opart)
+                print()
+                good = False
+                continue
+
             # Might be a method. Discard object.
             sstr = ''.join((r'.*\w+[ \t]*\([ \t]*\w+\.', task))
             if re.search(sstr, part):
                 continue
-            print('Error in line {}: async function "{}" is not awaited.'.format(lnum, task))
+            print('Please review line {}: async function "{}" is not awaited.'.format(lnum, task))
             print(opart)
+            print()
             good = False
     return good
 
@@ -117,10 +134,19 @@ checking.
 It assumes code is written in the style advocated in the tutorial where coros
 are declared with "async def".
 
-Under certain circumstances it can produce false positives. For example where a
-task has the same name as a synchronous bound method, a call to the latter will
-produce an erroneous error message. This is because the code does not parse
-class definitions. A rigorous solution is non-trivial. Contributions welcome!
+Under certain circumstances it can produce false positives. In some cases this
+is by design. Given an asynchronous function foo the following is correct:
+loop.run_until_complete(foo())
+The following line may or may not be an error depending on the design of bar()
+bar(foo, args)
+Likewise asynchronous functions can be put into objects such as dicts, lists or
+sets. You may wish to review such lines to check that the intention was to put
+the function rather than its result into the object.
+
+A false positive which is a consequence of the hacky nature of this script is
+where a task has the same name as a synchronous bound method of some class. A
+call to the bound method will produce an erroneous warning. This is because the
+code does not parse class definitions.
 
 In practice the odd false positive is easily spotted in the code.
 '''

@@ -1053,15 +1053,31 @@ data been sent to the UART at a slow rate rather than via a loopback test.
 If a function or method is defined with `async def` and subsequently called as
 if it were a regular (synchronous) callable, MicroPython does not issue an
 error message. This is [by design](https://github.com/micropython/micropython/issues/3241).
-It typically leads to a program silently failing to run correctly. The script
-`check_async_code.py` attempts to locate such errors. It is intended to be run
-on a PC and uses Python3. It takes a single argument, a path to a MicroPython
-sourcefile (or `--help`).
+It typically leads to a program silently failing to run correctly.
 
-Note it is somewhat crude and intended to be used on otherwise correct files:
-use a tool such as pylint for general syntax checking (pylint currently misses
-this error). Under certain circumstances it can throw up the occasional false
-positive.
+The script `check_async_code.py` attempts to locate instances of questionable
+use of coros. It is intended to be run on a PC and uses Python3. It takes a
+single argument, a path to a MicroPython sourcefile (or `--help`). It is
+designed for use on scripts written according to the guidelines in this
+tutorial, with coros declared using `async def`.
+
+Note it is somewhat crude and intended to be used on a syntactically correct
+file which is silently failing to run. Use a tool such as pylint for general
+syntax checking (pylint currently misses this error).
+
+The script produces false positives. In part this is by design: asynchronous
+functions are first class objects; you can pass them to functions and can store
+them in data structures. Depending on the program semantics you may intend to
+store the function or the outcome of its execution. The script aims to ignore
+normal cases while identifying other instances for review.
+
+```python
+loop.run_until_complete(foo())  # No warning
+bar(foo)  # These lines will warn but may or may not be correct
+bar(foo())
+z = (foo,)
+z = (foo(),)
+```
 
 I find it useful as-is but improvements are always welcome.
 

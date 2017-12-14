@@ -1,5 +1,5 @@
 # asyntest.py Test/demo of the 'micro' Event, Barrier and Semaphore classes
-# Test/demo of official Lock class
+# Test/demo of official asyncio library and official Lock class
 # Author: Peter Hinch
 # Copyright Peter Hinch 2017 Released under the MIT license
 
@@ -25,6 +25,22 @@ except ImportError:
     from asyn import Lock
 
 from asyn import Event, Semaphore, BoundedSemaphore, Barrier, NamedTask, StopTask
+
+def print_tests():
+    st = '''Available functions:
+print_tests()  Print this list
+ack_test()  Test event acknowledge
+event_test(lp=True)  Test events. If lp use low priority mechanism
+barrier_test()  Test the Barrier class
+semaphore_test(bounded=False) Test Semaphore or BoundedSemaphore
+
+cancel_test1()  Basic task cancellation
+cancel_test2()  Use of Barrier to synchronise task cancellation
+cancel_test3()  Test of cancellation of task which has already run to completion
+'''
+    print(st)
+
+print_tests()
 
 def printexp(exp, runtime=0):
     print('Expected output:')
@@ -342,7 +358,7 @@ tasks were cancelled
     loop = asyncio.get_event_loop()
     loop.run_until_complete(run_cancel_test2())
 
-# cancel_test2()
+# cancel_test3()
 # Test of cancelling a task which has already terminated
 
 # Cancellable coros must trap the StopTask
