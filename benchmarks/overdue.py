@@ -1,6 +1,9 @@
 # overdue.py Test for "low priority" uasyncio. Author Peter Hinch April 2017.
+try:
+    import asyncio_priority as asyncio
+except ImportError:
+    print('This demo requires asyncio_priority.py')
 
-import uasyncio as asyncio
 ntimes = 0
 
 async def lp_task():

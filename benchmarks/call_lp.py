@@ -26,7 +26,7 @@ def cb(arg):
 async def run_test():
     loop = asyncio.get_event_loop()
     loop.call_after(1, cb, 'One second has elapsed.')  # Test args
-    loop.call_after_ms(500, cb, ('500ms has elapsed.',))
+    loop.call_after_ms(500, cb, '500ms has elapsed.')
     print('Callbacks scheduled.')
     while True:
         loop.call_after(0, callback, pyb.rng())  # demo use of args

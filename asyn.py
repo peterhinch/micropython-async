@@ -1,9 +1,31 @@
 # asyn.py 'micro' synchronisation primitives for uasyncio
-# Author: Peter Hinch
-# Copyright Peter Hinch 2017 Released under the MIT license
 # Test/demo programs asyntest.py, barrier_test.py
-# Provides Lock, Event and Barrier classes and launch function
-# Now uses low_priority where available and appropriate.
+# Provides Lock, Event, Barrier, Semaphore, BoundedSemaphore and NamedTask
+# classes.
+# Uses low_priority where available and appropriate.
+# Updated 18th Dec 2017 for uasyncio.core V1.6
+
+# The MIT License (MIT)
+#
+# Copyright (c) 2017 Peter Hinch
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
 
 # CPython 3.5 compatibility
 # (ignore RuntimeWarning: coroutine '_g' was never awaited)
@@ -199,15 +221,14 @@ class BoundedSemaphore(Semaphore):
         else:
             raise ValueError('Semaphore released more than acquired')
 
-# Task cancellation. At the time of writing this is dependent on PR #3380 and
-# micropython-lib PR #221 which are not yet merged.
+# Task cancellation.
 # The NamedCoro class enables a coro to be identified by a user defined name.
 # Thus NamedCoro(foo(5), 'foo') instantiates foo with an arg of 5 and names it
 # 'foo'. It may be cancelled by issuing NamedCoro.cancel('foo').
 # A named coro may be awaited or scheduled with eventloop.create_task() by
 # using its bound variable task.
 
-# Cancelling a nonexistent task fails silently. The return value is True if
+# Cancelling a nonexistent task has no effect. The return value is True if
 # cancellation succeeded or if the task had already terminated normally. It is
 # False if the task name is unknown or the task has already been cancelled.
 
@@ -218,20 +239,19 @@ class NamedTask():
     tasks = {}
     @classmethod
     def cancel(cls, taskname):
-        if taskname in cls.tasks:
-            # pend_throw() fails silently if the task does not exist (because
-            # it has terminated). May need
-            # to catch an exception if uasyncio behaviour changes.
-            cls.tasks.pop(taskname).pend_throw(StopTask)
-            return True
-        return False
+        return cls.pend_throw(taskname, StopTask)
 
     @classmethod
-    def pend_throw(cls, taskname, exception):
+    def pend_throw(cls, taskname, ClsException):
         if taskname in cls.tasks:
-            # See above note on pend_throw()
+            # pend_throw() does nothing if the task does not exist
+            # (because it has terminated).
             # Enable throwing arbitrary exceptions
-            cls.tasks[taskname].pend_throw(exception)
+            loop = asyncio.get_event_loop()
+            task = cls.tasks.pop(taskname)
+            prev = task.pend_throw(ClsException())  # Instantiate exception
+            if prev is False:
+                loop.call_soon(task)
             return True
         return False
 
@@ -242,14 +262,11 @@ class NamedTask():
         self.task = task
 
     def __await__(self):
-        res = yield from self.task
-        return res
+        return (yield from self.task)
 
     __iter__ = __await__
 
-# ExitGate is obsolete - Retained for compatibilty with existing applications.
-# It was a hack to get round the lack of a means of cancelling tasks. This has
-# been remedied in uasyncio V1.6
+# ExitGate is ***obsolete*** since uasyncio now supports task cancellation.
 
 class ExitGate():
     def __init__(self, granularity=100):

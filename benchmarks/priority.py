@@ -101,7 +101,7 @@ async def report():
     tim.deinit()
 
 print('Test runs for two seconds.')
-loop = asyncio.get_event_loop(hpqlen = n_hp_tasks)
+loop = asyncio.get_event_loop()
 #loop.allocate_hpq(n_hp_tasks)  # Allocate a (small) high priority queue
 loop.create_task(norm_latency())  # Measure latency of a normal task
 for _ in range(n_tasks):

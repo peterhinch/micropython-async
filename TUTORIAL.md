@@ -56,6 +56,8 @@ examples below.
 
   3.1 [Lock](./TUTORIAL.md#31-lock)
 
+   3.1.1 [Locks and timeouts](./TUTORIAL.md#311-locks-and-timeouts)
+
   3.2 [Event](./TUTORIAL.md#32-event)
 
    3.2.1 [The event's value](./TUTORIAL.md#321-the-events-value)
@@ -390,6 +392,17 @@ loop.create_task(task(3, lock))
 loop.run_until_complete(killer())  # Run for 10s
 ```
 
+### 3.1.1 Locks and timeouts
+
+At time of writing (18th Dec 2017) the official `Lock` class is not complete.
+If a coro is subject to a timeout and the timeout is triggered while it is
+waiting on a lock, the timeout will be ineffective. It will not receive the
+`TimeoutError` until it has acquired the lock. The same observation applies to
+task cancellation.
+
+The module `asyn.py` offers a `Lock` class which works in these situations. It
+is significantly less efficient than the official class.
+
 ###### [Jump to Contents](./TUTORIAL.md#contents)
 
 ## 3.2 Event
@@ -542,9 +555,8 @@ An example of its use is provided in ``aqtest.py``.
 
 ## 3.6 Task cancellation
 
-This requires uasyncio.core V1.6 which was released on 9th Dec 2017. At the
-time of writing (11th Dec 2017) a firmware build incorporating
-[PR3380](https://github.com/micropython/micropython/pull/3380) is required.
+This requires uasyncio.core V1.7 which was released on 16th Dec 2017, with
+firmware of that date or later.
 
 The `uasyncio` library supports task cancellation by throwing an exception to
 the coro which is to be cancelled. The latter must trap the exception and
@@ -743,9 +755,8 @@ to completion. The error appears to be in PEP492. See
 
 ## 4.4 Coroutines with timeouts
 
-This requires uasyncio.core V1.6 which was released on 9th Dec 2017. At the
-time of writing (11th Dec 2017) a firmware build incorporating
-[PR3380](https://github.com/micropython/micropython/pull/3380) is required.
+This requires uasyncio.core V1.7 which was released on 16th Dec 2017, with
+firmware of that date or later.
 
 Timeouts are implemented by means of `uasyncio.wait_for()`. This takes as
 arguments a coroutine and a timeout in seconds. If the timeout expires a

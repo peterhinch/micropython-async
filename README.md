@@ -12,7 +12,8 @@ This GitHub repository consists of the following parts:
  infra red remote controls using the popular NEC protocol.
  * [A modified uasyncio](./FASTPOLL.md) This incorporates a simple priority
  mechanism. With suitable application design this improves the rate at which
- devices can be polled and improves the accuracy of time delays.
+ devices can be polled and improves the accuracy of time delays. Also provides
+ for low priority tasks which are only scheduled when normal tasks are paused.
  * [Communication between devices](./syncom_as/README.md) Enables MicroPython
  boards to communicate without using a UART. Primarily intended to enable a
  a Pyboard-like device to achieve bidirectional communication with an ESP8266.
@@ -46,15 +47,16 @@ It supports millisecond level timing with the following:
  * Event loop method ``call_later_ms``
  * uasyncio ``sleep_ms(time)``
 
-It doesn't support objects of type ``Future`` and ``Task``. Routines to run
+As of `uasyncio.core` V1.6 (16th Dec 2017) it supports coroutine timeouts and
+cancellation. This is done via a "micro" implementation rather than by
+supporting objects of type ``Future`` and ``Task``. Routines to run
 concurrently are defined as coroutines instantiated with ``async def`` and
 yield execution with ``await <awaitable>``.
 
-## Asynchronous I/O and uselect
+## Asynchronous I/O
 
 At the time of writing this was under development. Asynchronous I/O works with
-devices whose drivers support streaming, such as the UART. As I understand it
-support for ``select`` is in the pipeline. Check the current state on GitHub.
+devices whose drivers support streaming, such as the UART.
 
 ## Time values
 

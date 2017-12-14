@@ -46,7 +46,7 @@ async def test():
         iterations[n] = count
     done = True
 
-loop = asyncio.get_event_loop(max(num_coros) + 2)
+loop = asyncio.get_event_loop(max(num_coros) + 3)
 loop.create_task(test())
 loop.run_until_complete(report())
 
