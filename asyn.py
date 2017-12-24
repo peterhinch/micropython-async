@@ -255,6 +255,11 @@ class NamedTask():
             return True
         return False
 
+    @classmethod
+    def cancel_all(cls):
+        for task in cls.tasks:
+            cls.cancel(task)
+
     def __init__(self, task, name):
         if name in self.tasks:
             raise ValueError('Task name "{}" already exists.'.format(name))
