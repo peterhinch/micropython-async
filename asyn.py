@@ -1,7 +1,7 @@
 # asyn.py 'micro' synchronisation primitives for uasyncio
 # Test/demo programs asyntest.py, barrier_test.py
 # Provides Lock, Event, Barrier, Semaphore, BoundedSemaphore and NamedTask
-# classes.
+# classes, also sleep coro.
 # Uses low_priority where available and appropriate.
 # Updated 18th Dec 2017 for uasyncio.core V1.6
 
@@ -235,6 +235,76 @@ class BoundedSemaphore(Semaphore):
 class StopTask(Exception):
     pass
 
+# Sleep coro breaks up a sleep into shorter intervals to ensure a rapid
+# response to StopTask exceptions
+async def sleep(t):
+    t *= 1000  # ms
+    granularity = 100  # ms
+    if t <= granularity:
+        await asyncio.sleep_ms(t)
+    else:
+        n, rem = divmod(t, granularity)
+        for _ in range(n):
+            await asyncio.sleep_ms(granularity)
+        await asyncio.sleep_ms(rem)
+
+# Anonymous cancellable tasks. Can only be cancelled by classmethod cancel_all
+# This creates a barrier for all the Cancellable tasks still running.
+# Cancellable tasks must take Cancellable.task_no as a constructor arg and
+# abide by the following rules.
+# If they terminate normally they should issue Cancellable.end(task_no)
+# If they receive a StopTask exception they should issue
+# await Cancellable.barrier(nowait=True)
+
+class Cancellable():
+    tasks = {}
+    barrier = None
+    task_no = 0
+
+    @classmethod
+    def _cancel(cls, task_no):
+        # pend_throw() does nothing if the task does not exist
+        # (because it has terminated).
+        task = cls.tasks[task_no]
+        del cls.tasks[task_no]
+        prev = task.pend_throw(StopTask())  # Instantiate exception
+        if prev is False:
+            loop = asyncio.get_event_loop()
+            loop.call_soon(task)
+
+    @classmethod
+    async def cancel_all(cls):
+        cls.barrier = Barrier(len(cls.tasks) + 1)  # Remember this task
+        for task_no in cls.tasks:
+            cls._cancel(task_no)
+        await cls.barrier
+
+    @classmethod
+    def end(cls, task_no):
+        if task_no in cls.tasks:
+            del cls.tasks[task_no]
+
+    @classmethod
+    async def stopped(cls, task_no):
+        cls.end(task_no)
+        await Cancellable.barrier(nowait=True)
+
+    def __init__(self, gf, *args):
+        task = gf(Cancellable.task_no, *args)
+        if task in self.tasks:
+            raise ValueError('Task already exists.')
+        self.tasks[Cancellable.task_no] = task
+        Cancellable.task_no += 1
+        self.task = task
+
+    def __call__(self):
+        return self.task
+
+    def __await__(self):
+        return (yield from self.task)
+
+    __iter__ = __await__
+
 class NamedTask():
     tasks = {}
     @classmethod
@@ -256,15 +326,23 @@ class NamedTask():
         return False
 
     @classmethod
-    def cancel_all(cls):
-        for task in cls.tasks:
-            cls.cancel(task)
+    def is_running(cls, name):
+        return name in cls.tasks
 
-    def __init__(self, task, name):
+    @classmethod
+    def end(cls, name):
+        if name in cls.tasks:
+            del cls.tasks[name]
+
+    def __init__(self, name, gf, *args):
         if name in self.tasks:
             raise ValueError('Task name "{}" already exists.'.format(name))
+        task = gf(name, *args)
         self.tasks[name] = task
         self.task = task
+
+    def __call__(self):
+        return self.task
 
     def __await__(self):
         return (yield from self.task)

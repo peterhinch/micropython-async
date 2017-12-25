@@ -24,7 +24,7 @@ try:
 except ImportError:
     from asyn import Lock
 
-from asyn import Event, Semaphore, BoundedSemaphore, Barrier, NamedTask, StopTask
+from asyn import Event, Semaphore, BoundedSemaphore, Barrier, NamedTask, StopTask, Cancellable, sleep
 
 def print_tests():
     st = '''Available functions:
@@ -37,6 +37,7 @@ semaphore_test(bounded=False) Test Semaphore or BoundedSemaphore
 cancel_test1()  Basic task cancellation
 cancel_test2()  Use of Barrier to synchronise task cancellation
 cancel_test3()  Test of cancellation of task which has already run to completion
+cancel_test4()  Test of Cancellable class
 '''
     print(st)
 
@@ -272,16 +273,18 @@ Exact sequence of acquisition may vary when 3 and 4 compete for semaphore.'''
 # ************ Cancellation tests ************
 # cancel_test1()
 
-async def foo(num):
+async def foo(name, num):
     try:
         await asyncio.sleep(4)
         return num + 42
     except StopTask:
         print('foo was cancelled.')
         return -1
+    finally:
+        NamedTask.end(name)
 
 def kill(task_name):
-    if NamedTask.cancel(task_name):
+    if NamedTask.cancel(task_name): 
         print(task_name, 'will be cancelled when next scheduled')
     else:
         print(task_name, 'was not cancellable.')
@@ -290,22 +293,22 @@ def kill(task_name):
 async def bar():
     await asyncio.sleep(1)
     kill('foo')
-    kill('not_me')  # Will fail because not yet scheduled
+    kill('not me')  # Will fail because not yet scheduled
 
 async def run_cancel_test1():
     loop = asyncio.get_event_loop()
     loop.create_task(bar())
-    res = await NamedTask(foo(5), 'foo')
-    print(res)
-    res = await NamedTask(foo(0), 'not_me')  # Runs to completion
-    print(res)
+    res = await NamedTask('foo', foo, 5)
+    print(res, NamedTask.is_running('foo'))
+    res = await NamedTask('not me', foo, 0)  # Runs to completion
+    print(res, NamedTask.is_running('not me'))
 
 def cancel_test1():
     printexp('''foo will be cancelled when next scheduled
-not_me was not cancellable.
+not me was not cancellable.
 foo was cancelled.
--1
-42
+-1 False
+42 False
 ''', 8)
     loop = asyncio.get_event_loop()
     loop.run_until_complete(run_cancel_test1())
@@ -323,19 +326,20 @@ async def forever(n):
 
 # Cancellable coros must trap the StopTask. If a barrier is used, coro must
 # pass it whether cancelled or terminates normally.
-async def rats(barrier, n):
+async def rats(name, barrier, n):
     try:
         await forever(n)
     except StopTask:
         print('Instance', n, 'was cancelled')
     finally:
         await barrier(nowait = True)
+        NamedTask.end(name)
 
 async def run_cancel_test2():
     barrier = Barrier(3)
     loop = asyncio.get_event_loop()
-    loop.create_task(NamedTask(rats(barrier, 1), 'rats_1').task)
-    loop.create_task(NamedTask(rats(barrier, 2), 'rats_2').task)
+    loop.create_task(NamedTask('rats_1', rats, barrier, 1)())
+    loop.create_task(NamedTask('rats_2', rats, barrier, 2)())
     print('Running two tasks')
     await asyncio.sleep(10)
     print('About to cancel tasks')
@@ -362,7 +366,7 @@ tasks were cancelled
 # Test of cancelling a task which has already terminated
 
 # Cancellable coros must trap the StopTask
-async def cant3(barrier):
+async def cant3(name, barrier):
     try:
         await asyncio.sleep(1)
         print('Task cant3 has ended.')
@@ -370,25 +374,92 @@ async def cant3(barrier):
         print('Task cant3 was cancelled')
     finally:
         await barrier(nowait = True)
+        NamedTask.end(name)
 
 async def run_cancel_test3():
     barrier = Barrier(2)
     loop = asyncio.get_event_loop()
-    loop.create_task(NamedTask(cant3(barrier), 'cant3').task)
-    print('Running task')
+    loop.create_task(NamedTask('cant3', cant3, barrier)())
+    print('Task cant3 running status', NamedTask.is_running('cant3'))
     await asyncio.sleep(3)
+    print('Task cant3 running status', NamedTask.is_running('cant3'))
     print('About to cancel task')
     NamedTask.cancel('cant3')
     print('Cancelled')
+    print('Task cant3 running status', NamedTask.is_running('cant3'))
     await barrier
     print('tasks were cancelled')
 
 def cancel_test3():
-    printexp('''Running task
+    printexp('''Task cant3 running status True
 Task cant3 has ended.
+Task cant3 running status False
 About to cancel task
 Cancelled
+Task cant3 running status False
 tasks were cancelled
 ''', 3)
     loop = asyncio.get_event_loop()
     loop.run_until_complete(run_cancel_test3())
+
+# cancel_test4()
+# Test of cancelling a task which has already terminated
+
+# Cancellable coros must trap the StopTask
+async def cant40(task_no):
+    try:
+        while True:
+            await sleep(1)
+            print('Task cant40 no. {} running.'.format(task_no))
+    except StopTask:
+        await Cancellable.barrier(nowait=True)
+        print('Task cant40 no. {} was cancelled'.format(task_no))
+    finally:
+        Cancellable.end(task_no)
+
+async def cant41(task_no, arg=0):
+    try:
+        await sleep(1)
+        print('Task cant41 no. {} running, arg {}.'.format(task_no, arg))
+    except StopTask:
+        await Cancellable.stopped(task_no)
+        print('Task cant41 no. {} was cancelled.'.format(task_no))
+    else:
+        print('Task cant41 no. {} ended.'.format(task_no))
+    finally:
+        Cancellable.end(task_no)
+
+async def run_cancel_test4():
+    await Cancellable(cant41, 5)
+    loop = asyncio.get_event_loop()
+    loop.create_task(Cancellable(cant40)())
+    loop.create_task(Cancellable(cant40)())
+    loop.create_task(Cancellable(cant40)())
+    loop.create_task(Cancellable(cant41)())  # Runs to completion
+    print('Running tasks')
+    await asyncio.sleep(3)
+    print('About to cancel tasks')
+    await Cancellable.cancel_all()  # This seems to end before last task is cancelled
+    print('tasks were cancelled')
+    await asyncio.sleep(1)
+
+def cancel_test4():
+    printexp('''Task cant41 no. 0 running, arg 5.
+Task cant41 no. 0 ended.
+Running tasks
+Task cant40 no. 1 running.
+Task cant40 no. 2 running.
+Task cant40 no. 3 running.
+Task cant41 no. 4 running, arg 0.
+Task cant41 no. 4 ended.
+Task cant40 no. 1 running.
+Task cant40 no. 2 running.
+Task cant40 no. 3 running.
+About to cancel tasks
+Task cant40 no. 1 was cancelled
+Task cant40 no. 2 was cancelled
+Task cant40 no. 3 was cancelled
+tasks were cancelled
+''', 4)
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(run_cancel_test4())
