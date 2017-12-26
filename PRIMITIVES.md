@@ -288,7 +288,7 @@ loop.create_task(NamedTask('my foo', foo, 1, 2)())  # Note () syntax.
 Cancellation is performed with
 
 ```python
-await NamedTask.cancel('my foo')
+NamedTask.cancel('my foo')
 ```
 
 NamedTask tasks should have the following general form:
@@ -300,8 +300,8 @@ async def foo(name, arg1, arg2):  # Receives its name as 1st arg. User args opti
         print('Task foo has ended.', arg1, arg2)
     except StopTask:  # Optional cleanup code here
         print('Task foo was cancelled')
-    finally:
-        await NamedTask.end(name)  # Tell the NamedTask class that task has ended
+    finally:  # Tell the NamedTask class that task has ended
+        await NamedTask.end(name)  # Finishes "immediately"
 ```
 
 The `NamedTask` class is an awaitable class.
