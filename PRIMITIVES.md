@@ -313,7 +313,7 @@ Mandatory args:
  concurrently, each should be assigned a different name.
  * `task` A coro passed by name i.e. not using function call syntax.
 Optional positional args:  
- * Any further positional args are passed to the coro.
+ * Any further positional args are passed to the coro.  
 Optional keyword only arg:  
  * `barrier` A `Barrier` instance may be passed if the cancelling task needs to
  wait for confirmation of successful cancllation.
@@ -347,9 +347,9 @@ one final time.
 If a `Barrier` instance is passed to the `NamedTask` constructor, a task
 performing cancellation can pause until a set of cancelled tasks have
 terminated. The `Barrier` is constructed with the number of dependent tasks
-plus one (the task which is to wait on it). It is passed to each dependent task
-and the cancelling task waits on it after cancelling each task. See examples in
-`asyntest.py`.
+plus one (the task which is to wait on it). It is passed to the constructor of
+each dependent task and the cancelling task waits on it after cancelling all
+dependent tasks. See examples in `asyntest.py`.
 
 ## 3.6.3 Cancellable
 
@@ -368,7 +368,7 @@ async def comms():  # Perform some communications task
             await do_communications()  # Launches Cancellable tasks
         except CommsError:
             await Cancellable.cancel_all()
-        # All sub-tasks are nw known to be stopped. They can be re-started
+        # All sub-tasks are now known to be stopped. They can be re-started
         # with known state on next pass.
 ```
 
@@ -432,16 +432,5 @@ applications but it will be removed.
 
 # 4 asyntest.py
 
-This provides the following test/demo programs. Because `uasyncio` retains
-state between runs, a soft reset (ctrl-D) should be issued after running a test
-and before running another.
-
- * `ack_test()` Use of `Event` objects. Runs for 10s.
- * `event_test()` Use of `Lock` and `Event` objects.
- * `barrier_test()` Use of the `Barrier` class.
- * `semaphore_test()` Use of `Semaphore` objects. Call with a `True` arg
- to demonstrate the `BoundedSemaphore` error exception.
- * `cancel_test1()` Basic task cancellation.
- * `cancel_test2()` Task cancellation with a `Barrier`.
- * `cancel_test3()` Further test of task cancellation with a `Barrier`.
- * `cancel_test4()` Demo/test of `Cancellable` class.
+This provides various test/demo programs. Issue `import asyntest` to see a list
+of available tests.
