@@ -221,25 +221,17 @@ class BoundedSemaphore(Semaphore):
         else:
             raise ValueError('Semaphore released more than acquired')
 
-# Task cancellation.
-# The NamedCoro class enables a coro to be identified by a user defined name.
-# Thus NamedCoro(foo(5), 'foo') instantiates foo with an arg of 5 and names it
-# 'foo'. It may be cancelled by issuing NamedCoro.cancel('foo').
-# A named coro may be awaited or scheduled with eventloop.create_task() by
-# using its bound variable task.
-
-# Cancelling a nonexistent task has no effect. The return value is True if
-# cancellation succeeded or if the task had already terminated normally. It is
-# False if the task name is unknown or the task has already been cancelled.
+# Task Cancellation
 
 class StopTask(Exception):
     pass
 
 # Sleep coro breaks up a sleep into shorter intervals to ensure a rapid
 # response to StopTask exceptions
-async def sleep(t):
-    t *= 1000  # ms
-    granularity = 100  # ms
+async def sleep(t, granularity=100):  # 100ms default
+    if granularity <= 0:
+        raise ValueError('sleep granularity must be > 0')
+    t = int(t * 1000)  # ms
     if t <= granularity:
         await asyncio.sleep_ms(t)
     else:
@@ -248,68 +240,14 @@ async def sleep(t):
             await asyncio.sleep_ms(granularity)
         await asyncio.sleep_ms(rem)
 
-# Anonymous cancellable tasks. Can only be cancelled by classmethod cancel_all
-# This creates a barrier for all the Cancellable tasks still running.
-# Cancellable tasks must take Cancellable.task_no as a constructor arg and
-# abide by the following rules.
-# If they terminate normally they should issue Cancellable.end(task_no)
-# If they receive a StopTask exception they should issue
-# await Cancellable.barrier(nowait=True)
-
-class Cancellable():
-    tasks = {}
-    barrier = None
-    task_no = 0
-
-    @classmethod
-    def _cancel(cls, task_no):
-        # pend_throw() does nothing if the task does not exist
-        # (because it has terminated).
-        task = cls.tasks[task_no]
-        del cls.tasks[task_no]
-        prev = task.pend_throw(StopTask())  # Instantiate exception
-        if prev is False:
-            loop = asyncio.get_event_loop()
-            loop.call_soon(task)
-
-    @classmethod
-    async def cancel_all(cls):
-        cls.barrier = Barrier(len(cls.tasks) + 1)  # Remember this task
-        for task_no in cls.tasks:
-            cls._cancel(task_no)
-        await cls.barrier
-
-    @classmethod
-    def end(cls, task_no):
-        if task_no in cls.tasks:
-            del cls.tasks[task_no]
-
-    @classmethod
-    async def stopped(cls, task_no):
-        cls.end(task_no)
-        await Cancellable.barrier(nowait=True)
-
-    def __init__(self, gf, *args):
-        task = gf(Cancellable.task_no, *args)
-        if task in self.tasks:
-            raise ValueError('Task already exists.')
-        self.tasks[Cancellable.task_no] = task
-        Cancellable.task_no += 1
-        self.task = task
-
-    def __call__(self):
-        return self.task
-
-    def __await__(self):
-        return (yield from self.task)
-
-    __iter__ = __await__
+# The NamedTask class enables a coro to be identified by a user defined name.
+# It maintains a dict of [coroutine instance, barrier] indexed by name.
 
 class NamedTask():
     tasks = {}
     @classmethod
-    def cancel(cls, taskname):
-        return cls.pend_throw(taskname, StopTask)
+    def cancel(cls, name):
+        return cls.pend_throw(name, StopTask)
 
     @classmethod
     def pend_throw(cls, taskname, ClsException):
@@ -318,7 +256,7 @@ class NamedTask():
             # (because it has terminated).
             # Enable throwing arbitrary exceptions
             loop = asyncio.get_event_loop()
-            task = cls.tasks.pop(taskname)
+            task = cls.tasks[taskname][0]  # coro
             prev = task.pend_throw(ClsException())  # Instantiate exception
             if prev is False:
                 loop.call_soon(task)
@@ -330,15 +268,75 @@ class NamedTask():
         return name in cls.tasks
 
     @classmethod
-    def end(cls, name):
+    async def end(cls, name):  # If task ends normally, remove it
         if name in cls.tasks:
+            barrier = cls.tasks[name][1]
+            if barrier is not None:
+                await barrier(nowait = True)
             del cls.tasks[name]
 
-    def __init__(self, name, gf, *args):
+    def __init__(self, name, gf, *args, barrier=None):
         if name in self.tasks:
             raise ValueError('Task name "{}" already exists.'.format(name))
         task = gf(name, *args)
-        self.tasks[name] = task
+        self.tasks[name] = [task, barrier]
+        self.task = task
+
+    def __call__(self):
+        return self.task
+
+    def __await__(self):
+        return (yield from self.task)
+
+    __iter__ = __await__
+
+# Anonymous cancellable tasks. These are members of a group which is identified
+# by a user supplied name/number (default 0). Class method cancel_all() cancels
+# all tasks in a group and awaits confirmation (signalled by a task awaiting
+# the stopped() class method). A task ending normally removes itself from the
+# tasks dict by issuing the class method end().
+
+class Cancellable():
+    task_no = 0  # Generated task ID, index of tasks dict
+    tasks = {}  # Value is [coro, group]
+    barrier = None  # Instantiated by the cancel_all method
+
+    @classmethod
+    def _cancel(cls, task_no):
+        # pend_throw() does nothing if the task does not exist
+        # (because it has terminated).
+        task = cls.tasks[task_no][0]
+        prev = task.pend_throw(StopTask())  # Instantiate exception
+        if prev is False:
+            loop = asyncio.get_event_loop()
+            loop.call_soon(task)
+
+    @classmethod
+    async def cancel_all(cls, group=0):
+        tokill = [task_no for task_no in cls.tasks if cls.tasks[task_no][1] == group]
+        cls.barrier = Barrier(len(tokill) + 1)  # Include this task
+        for task_no in tokill:
+            cls._cancel(task_no)
+        await cls.barrier
+        cls.barrier = None  # Make available for GC
+
+    @classmethod
+    def end(cls, task_no):
+        if task_no in cls.tasks:
+            del cls.tasks[task_no]
+
+    @classmethod
+    async def stopped(cls, task_no):
+        if task_no in cls.tasks:
+            del cls.tasks[task_no]
+            await Cancellable.barrier(nowait=True)
+
+    def __init__(self, gf, *args, group=0):
+        task = gf(Cancellable.task_no, *args)
+        if task in self.tasks:
+            raise ValueError('Task already exists.')
+        self.tasks[Cancellable.task_no] = [task, group]
+        Cancellable.task_no += 1
         self.task = task
 
     def __call__(self):

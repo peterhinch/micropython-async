@@ -1,20 +1,31 @@
 # asyntest.py Test/demo of the 'micro' Event, Barrier and Semaphore classes
 # Test/demo of official asyncio library and official Lock class
-# Author: Peter Hinch
-# Copyright Peter Hinch 2017 Released under the MIT license
 
-# Tests:
-# ack_test()
-# event_test()
-# barrier_test()
-# semaphore_test()  Pass True to test BoundedSemaphore class
-# cancel_test1()  Awaiting cancellable coros
-# cancel_test2() Cancellable coros as tasks and using barrier to synchronise.
-# cancel_test3() Cancellation of a coro which has terminated.
-# Issue ctrl-D after running each test
+# The MIT License (MIT)
+#
+# Copyright (c) 2017 Peter Hinch
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
 
 # CPython 3.5 compatibility
 # (ignore RuntimeWarning: coroutine '_g' was never awaited)
+
 try:
     import uasyncio as asyncio
 except ImportError:
@@ -38,6 +49,7 @@ cancel_test1()  Basic task cancellation
 cancel_test2()  Use of Barrier to synchronise task cancellation
 cancel_test3()  Test of cancellation of task which has already run to completion
 cancel_test4()  Test of Cancellable class
+Recommended to issue ctrl-D after running each test.
 '''
     print(st)
 
@@ -281,7 +293,7 @@ async def foo(name, num):
         print('foo was cancelled.')
         return -1
     finally:
-        NamedTask.end(name)
+        await NamedTask.end(name)
 
 def kill(task_name):
     if NamedTask.cancel(task_name): 
@@ -326,20 +338,19 @@ async def forever(n):
 
 # Cancellable coros must trap the StopTask. If a barrier is used, coro must
 # pass it whether cancelled or terminates normally.
-async def rats(name, barrier, n):
+async def rats(name, n):
     try:
         await forever(n)
     except StopTask:
         print('Instance', n, 'was cancelled')
     finally:
-        await barrier(nowait = True)
-        NamedTask.end(name)
+        await NamedTask.end(name)
 
 async def run_cancel_test2():
     barrier = Barrier(3)
     loop = asyncio.get_event_loop()
-    loop.create_task(NamedTask('rats_1', rats, barrier, 1)())
-    loop.create_task(NamedTask('rats_2', rats, barrier, 2)())
+    loop.create_task(NamedTask('rats_1', rats, 1, barrier=barrier)())
+    loop.create_task(NamedTask('rats_2', rats, 2, barrier=barrier)())
     print('Running two tasks')
     await asyncio.sleep(10)
     print('About to cancel tasks')
@@ -366,20 +377,19 @@ tasks were cancelled
 # Test of cancelling a task which has already terminated
 
 # Cancellable coros must trap the StopTask
-async def cant3(name, barrier):
+async def cant3(name):
     try:
         await asyncio.sleep(1)
         print('Task cant3 has ended.')
     except StopTask:
         print('Task cant3 was cancelled')
     finally:
-        await barrier(nowait = True)
-        NamedTask.end(name)
+        await NamedTask.end(name)
 
 async def run_cancel_test3():
     barrier = Barrier(2)
     loop = asyncio.get_event_loop()
-    loop.create_task(NamedTask('cant3', cant3, barrier)())
+    loop.create_task(NamedTask('cant3', cant3, barrier=barrier)())
     print('Task cant3 running status', NamedTask.is_running('cant3'))
     await asyncio.sleep(3)
     print('Task cant3 running status', NamedTask.is_running('cant3'))
@@ -405,14 +415,15 @@ tasks were cancelled
 # cancel_test4()
 # Test of cancelling a task which has already terminated
 
-# Cancellable coros must trap the StopTask
+# Cancellable coros must trap the StopTask. They are passed the
+# task_no automatically
 async def cant40(task_no):
     try:
         while True:
             await sleep(1)
             print('Task cant40 no. {} running.'.format(task_no))
     except StopTask:
-        await Cancellable.barrier(nowait=True)
+        await Cancellable.stopped(task_no)
         print('Task cant40 no. {} was cancelled'.format(task_no))
     finally:
         Cancellable.end(task_no)
@@ -429,37 +440,64 @@ async def cant41(task_no, arg=0):
     finally:
         Cancellable.end(task_no)
 
+async def cant42(task_no):
+    while True:
+        print('Task cant42 no. {} running'.format(task_no))
+        await sleep(1.2)
+
+# Test await syntax and throwing exception to subtask
+async def chained(task_no):
+    try:
+        await cant42(task_no)
+    except StopTask:
+        await Cancellable.stopped(task_no)
+        print('Task chained no. {} was cancelled'.format(task_no))
+    finally:
+        Cancellable.end(task_no)
+
 async def run_cancel_test4():
     await Cancellable(cant41, 5)
     loop = asyncio.get_event_loop()
+    loop.create_task(Cancellable(cant40)())  # 3 instances in default group 0
     loop.create_task(Cancellable(cant40)())
     loop.create_task(Cancellable(cant40)())
-    loop.create_task(Cancellable(cant40)())
+    loop.create_task(Cancellable(chained, group=1)())
     loop.create_task(Cancellable(cant41)())  # Runs to completion
     print('Running tasks')
     await asyncio.sleep(3)
-    print('About to cancel tasks')
-    await Cancellable.cancel_all()  # This seems to end before last task is cancelled
-    print('tasks were cancelled')
+    print('About to cancel group 0 tasks')
+    await Cancellable.cancel_all()  # All in default group 0
+    print('Group 0 tasks were cancelled')
+    await asyncio.sleep(1)  # Demo chained still running
+    print('About to cancel group 1 tasks')
+    await Cancellable.cancel_all(1)  # Group 1
+    print('Group 1 tasks were cancelled')
     await asyncio.sleep(1)
 
 def cancel_test4():
     printexp('''Task cant41 no. 0 running, arg 5.
 Task cant41 no. 0 ended.
 Running tasks
+Task cant42 no. 4 running
 Task cant40 no. 1 running.
 Task cant40 no. 2 running.
 Task cant40 no. 3 running.
-Task cant41 no. 4 running, arg 0.
-Task cant41 no. 4 ended.
+Task cant41 no. 5 running, arg 0.
+Task cant41 no. 5 ended.
+Task cant42 no. 4 running
 Task cant40 no. 1 running.
 Task cant40 no. 2 running.
 Task cant40 no. 3 running.
-About to cancel tasks
+Task cant42 no. 4 running
+About to cancel group 0 tasks
 Task cant40 no. 1 was cancelled
 Task cant40 no. 2 was cancelled
 Task cant40 no. 3 was cancelled
-tasks were cancelled
-''', 4)
+Group 0 tasks were cancelled
+Task cant42 no. 4 running
+About to cancel group 1 tasks
+Task chained no. 4 was cancelled
+Group 1 tasks were cancelled
+''', 6)
     loop = asyncio.get_event_loop()
     loop.run_until_complete(run_cancel_test4())

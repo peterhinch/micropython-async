@@ -238,22 +238,41 @@ is raised.
 
 ## 3.6 Task Cancellation
 
-This is supported by two classes, `NamedCoro` and `Cancellable`. The
-`NamedCoro` class enables a task to be associated with a user supplied name,
+In `uasyncio` task cancellation is achieved by throwing an exception to the
+coro to be cancelled. Cancellation occurs when it is next scheduled. If a coro
+issues `await uasyncio.sleep(secs)` or `uasyncio.sleep_ms(ms)` scheduling will
+not occur until the time has elapsed. This introduces latency into cancellation
+which matters in certain use-cases.
+
+Cancellation is supported by two classes, `NamedTask` and `Cancellable`. The
+`NamedTask` class enables a task to be associated with a user supplied name,
 enabling it to be cancelled and its status checked.
 
-The `Cancellable` class is a convenience and does nothing that can't be done
-with `NamedCoro` and `Barrier` instances. It provides for a set of anonymous
-tasks to be cancelled by a task which awaits the completion of cancellation.
-The point here is that the `uasyncio` method of task cancellation is to send an
-exception to the task. This will only be processed when the task is next
-scheduled, so response (from the point of view of the cancelling task, and also
-in real time) is not immediate.
+The `Cancellable` class allows the creation of named groups of anonymous tasks
+which may be cancelled as a group. Crucially this awaits confirmation of
+completion of cancellation of all tasks in the group.
 
-### 3.6.1 NamedCoro
+It is also possible to determine completion of cancellation of `NamedTask`
+objects by means of the `Barrier` class. This is detailed below.
 
-A `NamedCoro` instance is associated with a user-defined name. The `NamedCoro`
-class maintains a `dict` of coros indexed by the name. The purpose is that the
+For cases where cancellation latency is of concern `asyn.py` offers a `sleep`
+function which can reduce this.
+
+### 3.6.1 sleep
+
+Pause for a period as per `uasyncio.sleep` but with reduced exception handling
+latency.
+
+The asynchronous `sleep` function takes two args:  
+ * `t` Time in seconds. May be integer or float.
+ * `granularity` Integer >= 0, units ms. Default 100. Defines the maximum
+ latency. Small values reduce latency at cost of increased scheduler workload.
+
+This repetaedly issues `uasyncio.sleep_ms(t)` where t <= `granularity`.
+
+### 3.6.2 NamedTask
+
+A `NamedTask` instance is associated with a user-defined name such that the
 name may outlive the task: a coro may end but the class enables its state to be
 checked. It may be cancelled with no need to verify that it is still running.
 These usage examples assume a user coro `foo` taking two integer arguments.
@@ -266,7 +285,13 @@ loop = asyncio.get_event_loop()  # Or schedule and continue:
 loop.create_task(NamedTask('my foo', foo, 1, 2)())  # Note () syntax.
 ```
 
-NamedCoro tasks should have the following general form:
+Cancellation is performed with
+
+```python
+await NamedTask.cancel('my foo')
+```
+
+NamedTask tasks should have the following general form:
 
 ```python
 async def foo(name, arg1, arg2):  # Receives its name as 1st arg. User args optional.
@@ -276,48 +301,91 @@ async def foo(name, arg1, arg2):  # Receives its name as 1st arg. User args opti
     except StopTask:  # Optional cleanup code here
         print('Task foo was cancelled')
     finally:
-        NamedTask.end(name)  # Tell the NamedTask class that task has ended
+        await NamedTask.end(name)  # Tell the NamedTask class that task has ended
 ```
 
-The `NamedCoro` class is an awaitable class.
+The `NamedTask` class is an awaitable class.
 
-Constructor mandatory args:  
+Constructor.  
+Mandatory args:  
  * `name` Names may be any valid dictionary index. A `ValueError` will be
  raised if the name already exists. If multiple instances of a coro are to run
  concurrently, each should be assigned a different name.
  * `task` A coro passed by name i.e. not using function call syntax.
-Constructor optional args:  
+Optional positional args:  
  * Any further positional args are passed to the coro.
+Optional keyword only arg:  
+ * `barrier` A `Barrier` instance may be passed if the cancelling task needs to
+ wait for confirmation of successful cancllation.
 
-Class methods. All are synchronous:  
- * `cancel` Arg: a coro name.
+Class methods:  
+ * `cancel` Synchronous. Arg: a coro name.
  The named coro will receive a `CancelError` exception the next time it is
  scheduled. The coro should trap this and quit ASAP. `cancel` will return
  `True` if the coro was cancelled. It will return `False` if the coro has
  already ended or been cancelled.
- * `is_running` Arg: A coro name. Returns `True` if coro is queued for
- scheduling, `False` if has ended or been scheduled for cancellation. Note
- that it does not verify that a task has yet handled the `StopTask` exception:
- in such cases it will return `False` even though `uasyncio` will run the task
- for one final time. If confirmation of cancellation is required a `Barrier`
- should be used. See examples in `asyntest.py`.
- * `end` Arg: A coro name. Called by the user `NamedCoro` instance to inform
- the class that the instance has ended.
- * `pend_throw` Args: 1. A coro name 2. An exception passed by exception class
- name (not an instance). The named coro will receive the exception the next
- time it is scheduled.
+ * `is_running` Synchronous. Arg: A coro name. Returns `True` if coro is queued
+ for scheduling, `False` if has ended or been scheduled for cancellation. See
+ note below.
+ * `end` Asynchronous. Arg: A coro name. Run by the `NamedTask` instance to
+ inform the class that the instance has ended. Completes quickly.
+ * `pend_throw` Synchronous. Args: 1. A coro name 2. An exception passed by
+ exception class name (not an instance). The named coro will receive an
+ instance of the exception the next time it is scheduled.
 
 Bound method:
  * `__call__` This returns the coro and is used to schedule the task using the
  event loop `create_task()` method.
 
-## 3.6.2 Cancellable
+**Latency and Barrier objects**  
+Consider the latency discussed at the start of section 3.6. A `NamedTask` has
+no mechanism to determine if a cancelled task has been scheduled and has acted
+on the `StopTask` exception. Consequently calling `is_running()` on a recently
+cancelled task may return `False` even though `uasyncio` will run the task for
+one final time.
 
-This provides for anonymous coros capable of being cancelled. The class is
-aimed at a specific use case where a `teardown` task is required to cancel a
-set of other tasks, pausing until all have actually terminated. This can be
+If a `Barrier` instance is passed to the `NamedTask` constructor, a task
+performing cancellation can pause until a set of cancelled tasks have
+terminated. The `Barrier` is constructed with the number of dependent tasks
+plus one (the task which is to wait on it). It is passed to each dependent task
+and the cancelling task waits on it after cancelling each task. See examples in
+`asyntest.py`.
+
+## 3.6.3 Cancellable
+
+The class is aimed at a specific use case where a "teardown" task is required
+to cancel a group of other tasks, pausing until all have actually terminated.
+`Cancellable` instances are anonymous coros which are members of a named group.
+They are capable of being cancelled as a group. Similar functionality can be
 achieved with `NamedTask` instances and a `Barrier` but this class provides a
-simpler solution. Usage is similar to the `NamedTask`:
+simpler solution. A typical use-case might take this form:
+
+```python
+async def comms():  # Perform some communications task
+    while True:
+        await initialise_link()
+        try:
+            await do_communications()  # Launches Cancellable tasks
+        except CommsError:
+            await Cancellable.cancel_all()
+        # All sub-tasks are nw known to be stopped. They can be re-started
+        # with known state on next pass.
+```
+
+`Cancellable` tasks have the following structure. They receive an initial arg
+which is the class-assigned task number followed by any user-defined args:
+
+```python
+async def foo(task_no, arg):
+    try:
+        await sleep(1)  # Main body of task
+    except StopTask:
+        await Cancellable.stopped(task_no)  # Rapid completion
+    finally:
+        Cancellable.end(task_no)
+```
+
+`Cancellable` tasks may be awaited or placed on the event loop:
 
 ```python
 await Cancellable(foo, 5)  # single arg to foo.
@@ -325,26 +393,16 @@ loop = asyncio.get_event_loop()
 loop.create_task(Cancellable(foo, 42)())  # Note () syntax.
 ```
 
-The coro receives a task number as its initial arg, followed by any user args.
-It should take the following form:
-
-```python
-async def foo(task_no, arg):
-    try:
-        await sleep(1)  # Main body of task
-    except StopTask:
-        await Cancellable.stopped(task_no)
-    finally:
-        Cancellable.end(task_no)
-```
-
 Constructor mandatory args:  
  * `task` A coro passed by name i.e. not using function call syntax.
-Constructor optional args:  
+Constructor optional positional args:  
  * Any further positional args are passed to the coro.
+Constructor optional keyword arg:
+ * `group` Integer or string. Default 0. See note below.
 
 Class methods:  
- * `cancel_all` Asynchronous. No args. Cancel all instances. Await completion.
+ * `cancel_all` Asynchronous. Optional arg `group` default 0. Cancel all
+ instances in the specified group and await completion. See note below.
  The named coro will receive a `CancelError` exception the next time it is
  scheduled. The coro should trap this and quit ASAP. The `cancel_all` method
  will terminate when all `Cancellable` instances have handled the `StopTask`
@@ -357,6 +415,14 @@ Class methods:
 Bound method:
  * `__call__` This returns the coro and is used to schedule the task using the
  event loop `create_task()` method.
+
+**groups**
+
+`Cancellable` tasks may be assigned to groups, identified by a user supplied
+integer or string. By default tasks are assigned to group 0. The `cancel_all`
+class method cancels all tasks in the specified group. The 0 default ensures
+that this facility can be ignored if not required, with `cancel_all` cancelling
+all `Cancellable` tasks.
 
 ## 3.8 ExitGate (obsolete)
 
