@@ -509,7 +509,15 @@ async def cant50(task_no, num):
         num += 1
         await sleep(1)
 
+@cancellable
+async def cant51(task_no, num):
+    num += 1
+    await sleep(1)
+    return num
+
 async def run_cancel_test5():
+    res = await Cancellable(cant51, 41)
+    print('Result: ', res)
     loop = asyncio.get_event_loop()
     loop.create_task(Cancellable(cant50, 42)())
     await sleep(7.5)
@@ -517,7 +525,8 @@ async def run_cancel_test5():
     print('Done')
 
 def cancel_test5():
-    printexp('''42
+    printexp('''Result:  42
+42
 43
 44
 45

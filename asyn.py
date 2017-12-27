@@ -354,7 +354,8 @@ def cancellable(f):
         g = f(*args)
         task_no = args[0]
         try:
-            yield from g
+            res = await g
+            return res
         except StopTask:
             await Cancellable.stopped(task_no)
         finally:
