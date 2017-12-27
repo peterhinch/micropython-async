@@ -372,25 +372,25 @@ async def comms():  # Perform some communications task
         # with known state on next pass.
 ```
 
-`Cancellable` tasks have the following structure. They receive an initial arg
-which is the class-assigned task number followed by any user-defined args:
+`Cancellable` tasks are declared with the `cancellable` decorator. They receive
+an initial arg which is the class-assigned task number followed by any
+user-defined args:
 
 ```python
-async def foo(task_no, arg):
-    try:
-        await sleep(1)  # Main body of task
-    except StopTask:
-        await Cancellable.stopped(task_no)  # Rapid completion
-    finally:
-        Cancellable.end(task_no)
+@cancellable
+async def print_nums(task_no, num):
+    while True:
+        print(num)
+        num += 1
+        await sleep(1)  # asyn.sleep() allows fast response to exception
 ```
 
 `Cancellable` tasks may be awaited or placed on the event loop:
 
 ```python
-await Cancellable(foo, 5)  # single arg to foo.
+await Cancellable(print_nums, 5)  # single arg to print_nums.
 loop = asyncio.get_event_loop()
-loop.create_task(Cancellable(foo, 42)())  # Note () syntax.
+loop.create_task(Cancellable(print_nums, 42)())  # Note () syntax.
 ```
 
 Constructor mandatory args:  
@@ -423,6 +423,21 @@ integer or string. By default tasks are assigned to group 0. The `cancel_all`
 class method cancels all tasks in the specified group. The 0 default ensures
 that this facility can be ignored if not required, with `cancel_all` cancelling
 all `Cancellable` tasks.
+
+**Custom cleanup**
+
+A task created with the `cancellable` decorator can intercept the `StopTask`
+exception to perform custom cleanup operations. This may be done as below:
+
+```python
+@cancellable
+async def foo(task_no, arg):
+    try:
+        await sleep(1)  # Main body of task
+    except StopTask:
+        # perform custom cleanup
+        raise  # Propagate exception
+```
 
 ## 3.8 ExitGate (obsolete)
 

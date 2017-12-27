@@ -35,7 +35,7 @@ try:
 except ImportError:
     from asyn import Lock
 
-from asyn import Event, Semaphore, BoundedSemaphore, Barrier, NamedTask, StopTask, Cancellable, sleep
+from asyn import Event, Semaphore, BoundedSemaphore, Barrier, NamedTask, StopTask, Cancellable, sleep, cancellable
 
 def print_tests():
     st = '''Available functions:
@@ -49,6 +49,7 @@ cancel_test1()  Basic task cancellation
 cancel_test2()  Use of Barrier to synchronise task cancellation
 cancel_test3()  Test of cancellation of task which has already run to completion
 cancel_test4()  Test of Cancellable class
+cancel_test5()  Simple example of a cancellable task
 Recommended to issue ctrl-D after running each test.
 '''
     print(st)
@@ -417,28 +418,27 @@ tasks were cancelled
 
 # Cancellable coros must trap the StopTask. They are passed the
 # task_no automatically
+
+@cancellable
 async def cant40(task_no):
-    try:
-        while True:
+    while True:
+        try:
             await sleep(1)
             print('Task cant40 no. {} running.'.format(task_no))
-    except StopTask:
-        await Cancellable.stopped(task_no)
-        print('Task cant40 no. {} was cancelled'.format(task_no))
-    finally:
-        Cancellable.end(task_no)
+        except StopTask:
+            print('Task cant40 no. {} was cancelled'.format(task_no))
+            raise
 
+@cancellable
 async def cant41(task_no, arg=0):
     try:
         await sleep(1)
         print('Task cant41 no. {} running, arg {}.'.format(task_no, arg))
     except StopTask:
-        await Cancellable.stopped(task_no)
         print('Task cant41 no. {} was cancelled.'.format(task_no))
+        raise
     else:
         print('Task cant41 no. {} ended.'.format(task_no))
-    finally:
-        Cancellable.end(task_no)
 
 async def cant42(task_no):
     while True:
@@ -446,14 +446,13 @@ async def cant42(task_no):
         await sleep(1.2)
 
 # Test await syntax and throwing exception to subtask
+@cancellable
 async def chained(task_no):
     try:
         await cant42(task_no)
     except StopTask:
-        await Cancellable.stopped(task_no)
         print('Task chained no. {} was cancelled'.format(task_no))
-    finally:
-        Cancellable.end(task_no)
+        raise
 
 async def run_cancel_test4():
     await Cancellable(cant41, 5)
@@ -501,3 +500,32 @@ Group 1 tasks were cancelled
 ''', 6)
     loop = asyncio.get_event_loop()
     loop.run_until_complete(run_cancel_test4())
+
+# cancel_test5 A minimal example
+@cancellable
+async def cant50(task_no, num):
+    while True:
+        print(num)
+        num += 1
+        await sleep(1)
+
+async def run_cancel_test5():
+    loop = asyncio.get_event_loop()
+    loop.create_task(Cancellable(cant50, 42)())
+    await sleep(7.5)
+    await Cancellable.cancel_all()
+    print('Done')
+
+def cancel_test5():
+    printexp('''42
+43
+44
+45
+46
+47
+48
+49
+Done
+''', 7.5)
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(run_cancel_test5())

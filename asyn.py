@@ -347,6 +347,20 @@ class Cancellable():
 
     __iter__ = __await__
 
+# @cancellable
+
+def cancellable(f):
+    def new_gen(*args):
+        g = f(*args)
+        task_no = args[0]
+        try:
+            yield from g
+        except StopTask:
+            await Cancellable.stopped(task_no)
+        finally:
+            Cancellable.end(task_no)
+    return new_gen
+
 # ExitGate is ***obsolete*** since uasyncio now supports task cancellation.
 
 class ExitGate():
