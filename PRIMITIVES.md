@@ -27,6 +27,7 @@ changed and may change further.
 
 The following modules are provided:
  * `asyn.py` The main library.
+ * `asyn_demos.py` Minimal "get started" demo programs.
  * `asyntest.py` Test/demo programs for the library.
 
 These modules support CPython 3.5 and MicroPython on Unix and microcontroller
@@ -265,24 +266,35 @@ latency.
 
 The asynchronous `sleep` function takes two args:  
  * `t` Time in seconds. May be integer or float.
- * `granularity` Integer >= 0, units ms. Default 100. Defines the maximum
+ * `granularity` Integer >= 0, units ms. Default 100ms. Defines the maximum
  latency. Small values reduce latency at cost of increased scheduler workload.
 
-This repetaedly issues `uasyncio.sleep_ms(t)` where t <= `granularity`.
+This repeatedly issues `uasyncio.sleep_ms(t)` where t <= `granularity`.
 
 ### 3.6.2 NamedTask
 
 A `NamedTask` instance is associated with a user-defined name such that the
 name may outlive the task: a coro may end but the class enables its state to be
-checked. It may be cancelled with no need to verify that it is still running.
-These usage examples assume a user coro `foo` taking two integer arguments.
+checked.
 
-Instantiation with name 'my foo' can take either of these forms:
+A `NamedTask` task is defined with the `namedtask` decorator. When scheduled it
+will receive an initial arg which is the user-assigned name followed by any
+user-defined args:
+
+```python
+@namedtask
+async def foo(name, arg1, arg2):
+    await asyn.sleep(1)
+    print('Task foo has ended.', name, arg1, arg2)
+```
+
+The `NamedTask` constructor takes the name, the coro, plus any user args. The
+resultant instance can be scheduled in the usual ways:
 
 ```python
 await NamedTask('my foo', foo, 1, 2)  # Pause until complete or killed
 loop = asyncio.get_event_loop()  # Or schedule and continue:
-loop.create_task(NamedTask('my foo', foo, 1, 2)())  # Note () syntax.
+loop.create_task(NamedTask('my nums', foo, 10, 11)())  # Note () syntax.
 ```
 
 Cancellation is performed with
@@ -291,22 +303,10 @@ Cancellation is performed with
 NamedTask.cancel('my foo')
 ```
 
-NamedTask tasks should have the following general form:
+When cancelling a task there is no need to check if the task is still running:
+if it has already completed, cancellation will have no effect.
 
-```python
-async def foo(name, arg1, arg2):  # Receives its name as 1st arg. User args optional.
-    try:
-        await asyncio.sleep(1)  # Main body of code
-        print('Task foo has ended.', arg1, arg2)
-    except StopTask:  # Optional cleanup code here
-        print('Task foo was cancelled')
-    finally:  # Tell the NamedTask class that task has ended
-        await NamedTask.end(name)  # Finishes "immediately"
-```
-
-The `NamedTask` class is an awaitable class.
-
-Constructor.  
+NamedTask Constructor.  
 Mandatory args:  
  * `name` Names may be any valid dictionary index. A `ValueError` will be
  raised if the name already exists. If multiple instances of a coro are to run
@@ -316,7 +316,7 @@ Optional positional args:
  * Any further positional args are passed to the coro.  
 Optional keyword only arg:  
  * `barrier` A `Barrier` instance may be passed if the cancelling task needs to
- wait for confirmation of successful cancllation.
+ wait for confirmation of successful cancellation.
 
 Class methods:  
  * `cancel` Synchronous. Arg: a coro name.
@@ -338,9 +338,10 @@ Bound method:
  event loop `create_task()` method.
 
 **Latency and Barrier objects**  
-Consider the latency discussed at the start of section 3.6. A `NamedTask` has
-no mechanism to determine if a cancelled task has been scheduled and has acted
-on the `StopTask` exception. Consequently calling `is_running()` on a recently
+Consider the latency discussed at the start of section 3.6: cancellation raises
+an exception which will be handled when the coro is next scheduled. There is no
+mechanism to determine if a cancelled task has been scheduled and has acted on
+the `StopTask` exception. Consequently calling `is_running()` on a recently
 cancelled task may return `False` even though `uasyncio` will run the task for
 one final time.
 
@@ -349,7 +350,25 @@ performing cancellation can pause until a set of cancelled tasks have
 terminated. The `Barrier` is constructed with the number of dependent tasks
 plus one (the task which is to wait on it). It is passed to the constructor of
 each dependent task and the cancelling task waits on it after cancelling all
-dependent tasks. See examples in `asyntest.py`.
+dependent tasks. Note that the tasks being cancelled terminate immediately.
+
+See examples in `asyntest.py`.
+
+**Custom cleanup**
+
+A task created with the `@namedtask` decorator can intercept the `StopTask`
+exception if necessary. This might be done for cleanup or to return a
+'cancelled' status.
+
+```python
+@namedtask
+async def foo(name):
+    try:
+        await asyncio.sleep(1)  # User code here
+        return True
+    except StopTask:
+        return False
+```
 
 ## 3.6.3 Cancellable
 
@@ -369,7 +388,7 @@ async def comms():  # Perform some communications task
         except CommsError:
             await Cancellable.cancel_all()
         # All sub-tasks are now known to be stopped. They can be re-started
-        # with known state on next pass.
+        # with known initial state on next pass.
 ```
 
 `Cancellable` tasks are declared with the `cancellable` decorator. They receive
@@ -391,6 +410,13 @@ async def print_nums(task_no, num):
 await Cancellable(print_nums, 5)  # single arg to print_nums.
 loop = asyncio.get_event_loop()
 loop.create_task(Cancellable(print_nums, 42)())  # Note () syntax.
+```
+
+The following will cancel any tasks still running, pausing until cancellation
+is complete:
+
+```python
+await Cancellable.cancel_all()
 ```
 
 Constructor mandatory args:  
@@ -437,6 +463,23 @@ async def foo(task_no, arg):
     except StopTask:
         # perform custom cleanup
         raise  # Propagate exception
+```
+
+Where full control is required a cancellable task should be written without the
+decorator. The following example returns `True` if it ends normally or `False`
+if cancelled.
+
+```python
+async def cant41(task_no, arg=0):
+    try:
+        await sleep(1)
+    except StopTask:
+        await Cancellable.stopped(task_no)
+        return False
+    else:
+        return True
+    finally:
+        Cancellable.end(task_no)
 ```
 
 ## 3.8 ExitGate (obsolete)

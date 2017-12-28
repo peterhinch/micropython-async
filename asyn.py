@@ -268,7 +268,7 @@ class NamedTask():
         return name in cls.tasks
 
     @classmethod
-    async def end(cls, name):  # If task ends normally, remove it
+    async def end(cls, name):  # On completion remove it
         if name in cls.tasks:
             barrier = cls.tasks[name][1]
             if barrier is not None:
@@ -289,6 +289,19 @@ class NamedTask():
         return (yield from self.task)
 
     __iter__ = __await__
+
+# @namedtask
+
+def namedtask(f):
+    def new_gen(*args):
+        g = f(*args)
+        name = args[0]
+        try:
+            res = await g
+            return res
+        finally:
+            await NamedTask.end(name)
+    return new_gen
 
 # Anonymous cancellable tasks. These are members of a group which is identified
 # by a user supplied name/number (default 0). Class method cancel_all() cancels
