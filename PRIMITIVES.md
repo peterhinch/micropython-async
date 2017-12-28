@@ -30,15 +30,15 @@ The following modules are provided:
  * `asyn_demos.py` Minimal "get started" demo programs.
  * `asyntest.py` Test/demo programs for the library.
 
-These modules support CPython 3.5 and MicroPython on Unix and microcontroller
-targets. The library is for use only with asyncio. They are `micro` in design
-and are presented as simple, concise examples of asyncio code. They are not
-thread safe. Hence they are incompatible with the `_thread` module and with
-interrupt handlers.
+Import the test or demo module for a list of available tests.
 
-# 3. asyn.py
+# 3. Module asyn.py
 
-## 3.1 launch
+The primitives are intended for use only with `uasyncio`. They are `micro` in
+design. They are not thread safe and hence are incompatible with the `_thread`
+module and with interrupt handlers.
+
+## 3.1 Function launch
 
 This function accepts a function or coro as an argument, along with a tuple of
 args. If the function is a callback it is executed with the supplied argumets.
@@ -50,16 +50,20 @@ args:
  * `tup_args` Optional. A tuple of arguments, default `()`. The args are
  upacked when provided to the function.
 
-## 3.2 Lock
+## 3.2 Class Lock
 
-This has now been superceded by the more efficient official version. See the
-[test program](https://github.com/micropython/micropython-lib/blob/master/uasyncio.synchro/example_lock.py).
-For an example of how to use the preferred official version see [this](./TUTORIAL.md#31-lock).
+This has now been superseded by the more efficient official version.
 
-I have retained this version  in `asyn.py` merely as an example of uasyncio
-coding. The remainder of this section applies to this version.
+At time of writing (18th Dec 2017) the official `Lock` class is not complete.
+If a coro is subject to a [timeout](./TUTORIAL.md#44-coroutines-with-timeouts)
+and the timeout is triggered while it is waiting on a lock, the timeout will be
+ineffective. It will not receive the `TimeoutError` until it has acquired the
+lock.
 
-This guarantees unique access to a shared resource. The preferred way to use it
+The implementation in `asyn.py` avoids this limitation but at the cost of lower
+efficiency. The remainder of this section describes this version.
+
+A lock guarantees unique access to a shared resource. The preferred way to use it
 is via an asynchronous context manager. In the following code sample a `Lock`
 instance `lock` has been created and is passed to all coros wishing to access
 the shared resource. Each coro issues the following:
@@ -71,8 +75,11 @@ async def bar(lock):
 ```
 
 While the coro `bar` is accessing the resource, other coros will pause at the
-`async with lock` statement until the context manager in `bar()` is
-complete.
+`async with lock` statement until the context manager in `bar()` is complete.
+
+Note that MicroPython has a bug in its implementation of asynchronous context
+managers: a `return` statement should not be issued in the `async with` block.
+See note at end of [this section](./TUTORIAL.md#43-asynchronous-context-managers).
 
 ### 3.2.1 Definition
 
@@ -86,7 +93,7 @@ Methods:
  * `acquire` No args. Coro which pauses until the lock has been acquired. Use
  by executing `await lock.acquire()`.
 
-## 3.3 Event
+## 3.3 Class Event
 
 This provides a way for one or more coros to pause until another one flags them
 to continue. An `Event` object is instantiated and passed to all coros using
@@ -146,7 +153,7 @@ Synchronous Methods:
 The optional data value may be used to compensate for the latency in awaiting
 the event by passing `loop.time()`.
 
-## 3.4 Barrier
+## 3.4 Class Barrier
 
 This enables multiple coros to rendezvous at a particular point. For example
 producer and consumer coros can synchronise at a point where the producer has
@@ -201,7 +208,7 @@ async def foo(n):
 Note that `await barrier(nowait = True)` should not be issued in a looping
 construct.
 
-## 3.5 Semaphore
+## 3.5 Class Semaphore
 
 A semaphore limits the number of coros which can access a resource. It can be
 used to limit the number of instances of a particular coro which can run
@@ -231,7 +238,7 @@ There is a difference between a `Semaphore` and a `Lock`. A `Lock`
 instance is owned by the coro which locked it: only that coro can release it. A
 `Semaphore` can be released by any coro which acquired it.
 
-### 3.5.1 BoundedSemaphore
+### 3.5.1 Class BoundedSemaphore
 
 This works identically to the `Semaphore` class except that if the `release`
 method causes the access counter to exceed its initial value, a `ValueError`
@@ -259,7 +266,7 @@ objects by means of the `Barrier` class. This is detailed below.
 For cases where cancellation latency is of concern `asyn.py` offers a `sleep`
 function which can reduce this.
 
-### 3.6.1 sleep
+### 3.6.1 Function sleep()
 
 Pause for a period as per `uasyncio.sleep` but with reduced exception handling
 latency.
@@ -271,7 +278,7 @@ The asynchronous `sleep` function takes two args:
 
 This repeatedly issues `uasyncio.sleep_ms(t)` where t <= `granularity`.
 
-### 3.6.2 NamedTask
+### 3.6.2 Class NamedTask
 
 A `NamedTask` instance is associated with a user-defined name such that the
 name may outlive the task: a coro may end but the class enables its state to be
@@ -312,9 +319,11 @@ Mandatory args:
  raised if the name already exists. If multiple instances of a coro are to run
  concurrently, each should be assigned a different name.
  * `task` A coro passed by name i.e. not using function call syntax.
-Optional positional args:  
+
+ Optional positional args:  
  * Any further positional args are passed to the coro.  
-Optional keyword only arg:  
+
+ Optional keyword only arg:  
  * `barrier` A `Barrier` instance may be passed if the cancelling task needs to
  wait for confirmation of successful cancellation.
 
@@ -352,7 +361,7 @@ plus one (the task which is to wait on it). It is passed to the constructor of
 each dependent task and the cancelling task waits on it after cancelling all
 dependent tasks. Note that the tasks being cancelled terminate immediately.
 
-See examples in `asyntest.py`.
+See examples in `asyntest.py` e.g. `cancel_test2()`.
 
 **Custom cleanup**
 
@@ -370,7 +379,7 @@ async def foo(name):
         return False
 ```
 
-## 3.6.3 Cancellable
+## 3.6.3 Class Cancellable
 
 The class is aimed at a specific use case where a "teardown" task is required
 to cancel a group of other tasks, pausing until all have actually terminated.
@@ -421,9 +430,11 @@ await Cancellable.cancel_all()
 
 Constructor mandatory args:  
  * `task` A coro passed by name i.e. not using function call syntax.
+
 Constructor optional positional args:  
  * Any further positional args are passed to the coro.
-Constructor optional keyword arg:
+
+ Constructor optional keyword arg:  
  * `group` Integer or string. Default 0. See note below.
 
 Class methods:  
@@ -470,7 +481,7 @@ decorator. The following example returns `True` if it ends normally or `False`
 if cancelled.
 
 ```python
-async def cant41(task_no, arg=0):
+async def bar(task_no):
     try:
         await sleep(1)
     except StopTask:
@@ -482,13 +493,8 @@ async def cant41(task_no, arg=0):
         Cancellable.end(task_no)
 ```
 
-## 3.8 ExitGate (obsolete)
+#### ExitGate (obsolete)
 
 This was a nasty hack to fake task cancellation at a time when uasyncio did not
 support it. The code remains in the module to avoid breaking existing
 applications but it will be removed.
-
-# 4 asyntest.py
-
-This provides various test/demo programs. Issue `import asyntest` to see a list
-of available tests.
