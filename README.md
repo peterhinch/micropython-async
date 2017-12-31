@@ -3,7 +3,8 @@
 This GitHub repository consists of the following parts:
  * [Asynchronous device drivers](./DRIVERS.md). A module providing drivers for
  devices such as switches and pushbuttons.
- * [Synchronisation primitives](./PRIMITIVES.md).
+ * [Synchronisation primitives](./PRIMITIVES.md). Provides commonly used
+ synchronisation primitives plus an API for task cancellation and monitoring.
  * [A tutorial](./TUTORIAL.md) An introductory tutorial on asynchronous
  programming and the use of the uasyncio library is offered. This is a work in
  progress, not least because uasyncio is not yet complete.

@@ -1,9 +1,9 @@
 # asyn.py 'micro' synchronisation primitives for uasyncio
 # Test/demo programs asyntest.py, barrier_test.py
-# Provides Lock, Event, Barrier, Semaphore, BoundedSemaphore and NamedTask
-# classes, also sleep coro.
+# Provides Lock, Event, Barrier, Semaphore, BoundedSemaphore, NamedTask
+# and Cancellable classes, also sleep coro.
 # Uses low_priority where available and appropriate.
-# Updated 18th Dec 2017 for uasyncio.core V1.6
+# Updated 31 Dec 2017 for uasyncio.core V1.6 and to provide task cancellation.
 
 # The MIT License (MIT)
 #
@@ -226,6 +226,13 @@ class BoundedSemaphore(Semaphore):
 class StopTask(Exception):
     pass
 
+class TaskId():
+    def __init__(self, taskid):
+        self.taskid = taskid
+
+    def __call__(self):
+        return self.taskid
+
 # Sleep coro breaks up a sleep into shorter intervals to ensure a rapid
 # response to StopTask exceptions
 async def sleep(t, granularity=100):  # 100ms default
@@ -278,7 +285,7 @@ class NamedTask():
     def __init__(self, name, gf, *args, barrier=None):
         if name in self.tasks:
             raise ValueError('Task name "{}" already exists.'.format(name))
-        task = gf(name, *args)
+        task = gf(TaskId(name), *args)
         self.tasks[name] = [task, barrier]
         self.task = task
 
@@ -295,10 +302,14 @@ class NamedTask():
 def namedtask(f):
     def new_gen(*args):
         g = f(*args)
-        name = args[0]
+        # Task ID is args[1] if a bound method (else args[0])
+        idx = 0 if isinstance(args[0], TaskId) else 1
+        name = args[idx]()
         try:
             res = await g
             return res
+        except StopTask:
+            pass
         finally:
             await NamedTask.end(name)
     return new_gen
@@ -345,7 +356,7 @@ class Cancellable():
             await Cancellable.barrier(nowait=True)
 
     def __init__(self, gf, *args, group=0):
-        task = gf(Cancellable.task_no, *args)
+        task = gf(TaskId(Cancellable.task_no), *args)
         if task in self.tasks:
             raise ValueError('Task already exists.')
         self.tasks[Cancellable.task_no] = [task, group]
@@ -365,7 +376,9 @@ class Cancellable():
 def cancellable(f):
     def new_gen(*args):
         g = f(*args)
-        task_no = args[0]
+        # Task ID is args[1] if a bound method (else args[0])
+        idx = 0 if isinstance(args[0], TaskId) else 1
+        task_no = args[idx]()
         try:
             res = await g
             return res
@@ -374,6 +387,7 @@ def cancellable(f):
         finally:
             Cancellable.end(task_no)
     return new_gen
+
 
 # ExitGate is ***obsolete*** since uasyncio now supports task cancellation.
 

@@ -1,4 +1,11 @@
-# 1. Synchronisation Primitives
+# 1. The asyn.py library
+
+This provides five simple synchronisation primitives, together with an API for
+task monitoring and cancellation.
+
+###### [Main README](./README.md)
+
+## 1.1 Synchronisation Primitives
 
 There is often a need to provide synchronisation between coros. A common
 example is to avoid what are known as "race conditions" where multiple coros
@@ -18,8 +25,14 @@ arrival (with other coros getting scheduled for the duration). The `Queue`
 guarantees that items are removed in the order in which they were received. As
 this is a part of the uasyncio library its use is described in the [tutorial](./TUTORIAL.md).
 
-**NOTE** The support for task cancellation is under development. The API has
-changed and may change further.
+## 1.2 Task control and monitoring
+
+`uasyncio` does not implement the `Task` and `Future` classes of `asyncio`.
+Instead it uses a 'micro' lightweight means of task cancellation. The `asyn.py`
+module provides an API to simplify its use and to check on the running status
+of coroutines which are subject to cancellation.
+
+**NOTE** The task cancellation API has changed. Hopefully it is now stable.
 
 ###### [Main README](./README.md)
 
@@ -27,12 +40,13 @@ changed and may change further.
 
 The following modules are provided:
  * `asyn.py` The main library.
- * `asyn_demos.py` Minimal "get started" demo programs.
- * `asyntest.py` Test/demo programs for the library.
+ * `asyntest.py` Test/demo programs for the primitives.
+ * `asyn_demos.py` Minimal "get started" task cancellation demos.
+ * `cantest.py` Task cancellation tests.
 
 Import the test or demo module for a list of available tests.
 
-# 3. Module asyn.py
+# 3. Synchronisation Primitives
 
 The primitives are intended for use only with `uasyncio`. They are `micro` in
 design. They are not thread safe and hence are incompatible with the `_thread`
@@ -244,7 +258,7 @@ This works identically to the `Semaphore` class except that if the `release`
 method causes the access counter to exceed its initial value, a `ValueError`
 is raised.
 
-## 3.6 Task Cancellation
+# 4. Task Cancellation
 
 In `uasyncio` task cancellation is achieved by throwing an exception to the
 coro to be cancelled. Cancellation occurs when it is next scheduled. If a coro
@@ -257,8 +271,8 @@ Cancellation is supported by two classes, `NamedTask` and `Cancellable`. The
 enabling it to be cancelled and its status checked.
 
 The `Cancellable` class allows the creation of named groups of anonymous tasks
-which may be cancelled as a group. Crucially this awaits confirmation of
-completion of cancellation of all tasks in the group.
+which may be cancelled as a group. Crucially this awaits actual completion of
+cancellation of all tasks in the group.
 
 It is also possible to determine completion of cancellation of `NamedTask`
 objects by means of the `Barrier` class. This is detailed below.
@@ -266,7 +280,7 @@ objects by means of the `Barrier` class. This is detailed below.
 For cases where cancellation latency is of concern `asyn.py` offers a `sleep`
 function which can reduce this.
 
-### 3.6.1 Function sleep()
+## 4.1 Function sleep()
 
 Pause for a period as per `uasyncio.sleep` but with reduced exception handling
 latency.
@@ -278,21 +292,21 @@ The asynchronous `sleep` function takes two args:
 
 This repeatedly issues `uasyncio.sleep_ms(t)` where t <= `granularity`.
 
-### 3.6.2 Class NamedTask
+## 4.2 Class NamedTask
 
 A `NamedTask` instance is associated with a user-defined name such that the
 name may outlive the task: a coro may end but the class enables its state to be
 checked.
 
 A `NamedTask` task is defined with the `namedtask` decorator. When scheduled it
-will receive an initial arg which is the user-assigned name followed by any
-user-defined args:
+will receive an initial arg which is a `TaskId` instance followed by any
+user-defined args. The `TaskId` instance is usually ignored.
 
 ```python
 @namedtask
-async def foo(name, arg1, arg2):
+async def foo(task_id, arg1, arg2):
     await asyn.sleep(1)
-    print('Task foo has ended.', name, arg1, arg2)
+    print('Task foo has ended.', arg1, arg2)
 ```
 
 The `NamedTask` constructor takes the name, the coro, plus any user args. The
@@ -346,7 +360,8 @@ Bound method:
  * `__call__` This returns the coro and is used to schedule the task using the
  event loop `create_task()` method.
 
-**Latency and Barrier objects**  
+### 4.2.1 Latency and Barrier objects
+
 Consider the latency discussed at the start of section 3.6: cancellation raises
 an exception which will be handled when the coro is next scheduled. There is no
 mechanism to determine if a cancelled task has been scheduled and has acted on
@@ -363,7 +378,7 @@ dependent tasks. Note that the tasks being cancelled terminate immediately.
 
 See examples in `asyntest.py` e.g. `cancel_test2()`.
 
-**Custom cleanup**
+### 4.2.2 Custom cleanup
 
 A task created with the `@namedtask` decorator can intercept the `StopTask`
 exception if necessary. This might be done for cleanup or to return a
@@ -371,7 +386,7 @@ exception if necessary. This might be done for cleanup or to return a
 
 ```python
 @namedtask
-async def foo(name):
+async def foo(_):
     try:
         await asyncio.sleep(1)  # User code here
         return True
@@ -379,9 +394,9 @@ async def foo(name):
         return False
 ```
 
-## 3.6.3 Class Cancellable
+## 4.3 Class Cancellable
 
-The class is aimed at a specific use case where a "teardown" task is required
+This class is aimed at a specific use case where a "teardown" task is required
 to cancel a group of other tasks, pausing until all have actually terminated.
 `Cancellable` instances are anonymous coros which are members of a named group.
 They are capable of being cancelled as a group. Similar functionality can be
@@ -400,13 +415,14 @@ async def comms():  # Perform some communications task
         # with known initial state on next pass.
 ```
 
-`Cancellable` tasks are declared with the `cancellable` decorator. They receive
-an initial arg which is the class-assigned task number followed by any
-user-defined args:
+A `Cancellable` task is declared with the `cancellable` decorator. When
+scheduled it will receive an initial arg which is a `TaskId` instance followed
+by any user-defined args. The `TaskId` instance can be ignored unless custom
+cleanup is required (see below).
 
 ```python
 @cancellable
-async def print_nums(task_no, num):
+async def print_nums(task_id, num):
     while True:
         print(num)
         num += 1
@@ -435,11 +451,11 @@ Constructor optional positional args:
  * Any further positional args are passed to the coro.
 
  Constructor optional keyword arg:  
- * `group` Integer or string. Default 0. See note below.
+ * `group` Integer or string. Default 0. See 4.3.1.
 
 Class methods:  
  * `cancel_all` Asynchronous. Optional arg `group` default 0. Cancel all
- instances in the specified group and await completion. See note below.
+ instances in the specified group and await completion. See 4.3.1.
  The named coro will receive a `CancelError` exception the next time it is
  scheduled. The coro should trap this and quit ASAP. The `cancel_all` method
  will terminate when all `Cancellable` instances have handled the `StopTask`
@@ -453,7 +469,7 @@ Bound method:
  * `__call__` This returns the coro and is used to schedule the task using the
  event loop `create_task()` method.
 
-**groups**
+### 4.3.1 Groups
 
 `Cancellable` tasks may be assigned to groups, identified by a user supplied
 integer or string. By default tasks are assigned to group 0. The `cancel_all`
@@ -461,19 +477,19 @@ class method cancels all tasks in the specified group. The 0 default ensures
 that this facility can be ignored if not required, with `cancel_all` cancelling
 all `Cancellable` tasks.
 
-**Custom cleanup**
+### 4.3.2 Custom cleanup
 
 A task created with the `cancellable` decorator can intercept the `StopTask`
 exception to perform custom cleanup operations. This may be done as below:
 
 ```python
 @cancellable
-async def foo(task_no, arg):
+async def foo(task_id, arg):
     try:
         await sleep(1)  # Main body of task
     except StopTask:
         # perform custom cleanup
-        raise  # Propagate exception
+        raise  # Propagate exception to closure
 ```
 
 Where full control is required a cancellable task should be written without the
@@ -481,7 +497,8 @@ decorator. The following example returns `True` if it ends normally or `False`
 if cancelled.
 
 ```python
-async def bar(task_no):
+async def bar(task_id):
+    task_no = task_id()  # Retrieve task no. from TaskId instance
     try:
         await sleep(1)
     except StopTask:

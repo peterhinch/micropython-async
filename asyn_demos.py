@@ -26,23 +26,30 @@
 import uasyncio as asyncio
 import asyn
 
-print('''Minimal demo programs of uasyncio task cancellation.
+def print_tests():
+    st = '''Minimal demo programs of uasyncio task cancellation.
 Issue ctrl-D to soft reset the board between test runs.
 Available demos:
-cancel_test()  Demo of Cancellable tasks
-named_test()  Demo of NamedTask
-''')
+cancel_test()  Demo of Cancellable tasks.
+named_test()  Demo of NamedTask.
+method_test() Cancellable and NamedTask coros as bound methods.
+'''
+    print('\x1b[32m')
+    print(st)
+    print('\x1b[39m')
+
+print_tests()
 
 # Cancellable task minimal example
 @asyn.cancellable
-async def print_nums(task_no, num):
+async def print_nums(_, num):
     while True:
         print(num)
         num += 1
         await asyn.sleep(1)
 
 @asyn.cancellable
-async def add_one(task_no, num):
+async def add_one(_, num):
     num += 1
     await asyn.sleep(1)
     return num
@@ -63,14 +70,14 @@ def cancel_test():
 # NamedTask minimal example
 
 @asyn.namedtask
-async def print_nums_named(name, num):
+async def print_nums_named(_, num):
     while True:
         print(num)
         num += 1
         await asyn.sleep(1)
 
 @asyn.namedtask
-async def add_one_named(task_no, num):
+async def add_one_named(_, num):
     num += 1
     await asyn.sleep(1)
     return num
@@ -87,3 +94,37 @@ async def run_named_test(loop):
 def named_test():
     loop = asyncio.get_event_loop()
     loop.run_until_complete(run_named_test(loop))
+
+# Tasks as bound methods
+
+class CanDemo():
+    async def start(self, loop):
+        loop.create_task(asyn.Cancellable(self.foo, 1)())  # 3 instances in default group 0
+        loop.create_task(asyn.Cancellable(self.foo, 2)())
+        loop.create_task(asyn.Cancellable(self.foo, 3)())
+        loop.create_task(asyn.NamedTask('my bar', self.bar, 4)())
+        print('bar running status is', asyn.NamedTask.is_running('my bar'))
+        await asyncio.sleep(4.5)
+        asyn.NamedTask.cancel('my bar')
+        print('bar instance scheduled for cancellation.')
+        await asyn.Cancellable.cancel_all()
+        print('foo instances have been cancelled.')
+        print('bar running status is', asyn.NamedTask.is_running('my bar'))
+        print('Done')
+
+    @asyn.cancellable
+    async def foo(self, _, arg):
+        while True:
+            await asyn.sleep(1)
+            print('foo running, arg', arg)
+
+    @asyn.namedtask
+    async def bar(self, _, arg):
+        while True:
+            await asyn.sleep(1)
+            print('bar running, arg', arg)
+
+def method_test():
+    cantest = CanDemo()
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(cantest.start(loop))
