@@ -16,9 +16,11 @@ guides to this may be found online.
 
 # Installing uasyncio on bare metal
 
-The simplest way is to use the upip utility running under the Unix build.
-Install this (optionally in a Linux virtual machine). Create a temporary
-directory e.g. `~/syn` and issue the following commands:
+The simplest approach is to use the upip utility. This involves installing the
+Unix build of MicroPython, see the instructions
+[here](https://github.com/micropython/micropython). Install this (optionally in
+a Linux virtual machine) and ensure that **micropython** is on your path.
+Create a temporary directory e.g. `~/syn` and issue the following commands:
 
 ```
 micropython -m upip install -p ~/syn micropython-uasyncio
