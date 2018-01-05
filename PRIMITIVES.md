@@ -316,10 +316,11 @@ Note to users of releases prior to 31st Dec 2017: this API has changed. It
 should now be stable.
 
 In `uasyncio` task cancellation is achieved by throwing an exception to the
-coro to be cancelled. Cancellation occurs when it is next scheduled. If a coro
-issues `await uasyncio.sleep(secs)` or `uasyncio.sleep_ms(ms)` scheduling will
-not occur until the time has elapsed. This introduces latency into cancellation
-which matters in certain use-cases.
+coro to be cancelled in a special way: cancellation is deferred until the coro
+is next scheduled. This mechanism works with nested coros. However there is a
+limitation. If a coro issues `await uasyncio.sleep(secs)` or
+`uasyncio.sleep_ms(ms)` scheduling will not occur until the time has elapsed.
+This introduces latency into cancellation which matters in some use-cases.
 
 Cancellation is supported by two classes, `Cancellable` and `NamedTask`. The
 `Cancellable` class allows the creation of named groups of anonymous tasks
@@ -327,10 +328,9 @@ which may be cancelled as a group. Crucially this awaits actual completion of
 cancellation of all tasks in the group.
 
 The `NamedTask` class enables a task to be associated with a user supplied
-name, enabling it to be cancelled and its status checked. This offers a higher
-degree of control than afforded by the `Cancellable` class, however
-cancellation does not await confirmation of completion. This may be achieved by
-means of the `Barrier` class. This is detailed below.
+name, enabling it to be cancelled and its status checked. Cancellation does not
+await confirmation of completion. This may be achieved by means of a `Barrier`
+instance although the normal approach is to use a `Cancellable` task.
 
 For cases where cancellation latency is of concern `asyn.py` offers a `sleep`
 function which can reduce this.
@@ -341,19 +341,19 @@ Pause for a period as per `uasyncio.sleep` but with reduced exception handling
 latency.
 
 The asynchronous `sleep` function takes two args:  
- * `t` Time in seconds. May be integer or float.
- * `granularity` Integer >= 0, units ms. Default 100ms. Defines the maximum
- latency. Small values reduce latency at cost of increased scheduler workload.
+ * `t` Mandatory. Time in seconds. May be integer or float.
+ * `granularity` Optional. Integer >= 0, units ms. Default 100ms. Defines the
+ maximum latency. Small values reduce latency at cost of increased scheduler
+ workload.
 
 This repeatedly issues `uasyncio.sleep_ms(t)` where t <= `granularity`.
 
 ## 4.2 Class Cancellable
 
-This class is aimed at a common use case where a "teardown" task is required to
-cancel one or more other tasks, pausing until all have actually terminated.
-`Cancellable` instances are anonymous coros which are members of a named group.
-They are capable of being cancelled as a group. A typical use-case might take
-this form:
+This class provides for cancellation of one or more tasks where it is necesary
+to await confirmation that cancellation is complete. `Cancellable` instances
+are anonymous coros which are members of a named group. They are capable of
+being cancelled as a group. A typical use-case might take this form:
 
 ```python
 async def comms():  # Perform some communications task
@@ -546,6 +546,11 @@ the `StopTask` exception. Consequently calling `is_running()` on a recently
 cancelled task may return `False` even though `uasyncio` will run the task for
 one final time.
 
+Confirmation of cancellation may be achieved by means of a `Barrier` object,
+however practical use-cases for this are few - if confirmation is required the
+normal approach is to use `Cancellable` tasks, if necessary in groups having a
+single member. However the approach is described below.
+
 If a `Barrier` instance is passed to the `NamedTask` constructor, a task
 performing cancellation can pause until a set of cancelled tasks have
 terminated. The `Barrier` is constructed with the number of dependent tasks
@@ -553,7 +558,7 @@ plus one (the task which is to wait on it). It is passed to the constructor of
 each dependent task and the cancelling task waits on it after cancelling all
 dependent tasks. Note that the tasks being cancelled terminate immediately.
 
-See examples in `asyntest.py` e.g. `cancel_test2()`.
+See examples in `cantest.py` e.g. `cancel_test2()`.
 
 ### 4.3.2 Custom cleanup
 
