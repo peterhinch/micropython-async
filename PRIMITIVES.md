@@ -367,7 +367,7 @@ async def comms():  # Perform some communications task
         # with known initial state on next pass.
 ```
 
-A `Cancellable` task is declared with the `cancellable` decorator. When
+A `Cancellable` task is declared with the `@cancellable` decorator. When
 scheduled it will receive an initial arg which is a `TaskId` instance followed
 by any user-defined args. The `TaskId` instance can be ignored unless custom
 cleanup is required (see below).
@@ -403,15 +403,18 @@ Constructor optional positional args:
  * Any further positional args are passed to the coro.
 
  Constructor optional keyword arg:  
- * `group` Integer or string. Default 0. See 4.3.1.
+ * `group` Integer or string. Default 0. See Groups below.
 
 Class methods:  
- * `cancel_all` Asynchronous. Optional arg `group` default 0. Cancel all
- instances in the specified group and await completion. See 4.3.1.
- The named coro will receive a `CancelError` exception the next time it is
- scheduled. The coro should trap this and quit ASAP. The `cancel_all` method
- will terminate when all `Cancellable` instances have handled the `StopTask`
- exception (or terminated naturally before `cancel_all` was launched).
+ * `cancel_all` Asynchronous. Optional arg `group` default 0.  
+ Cancel all instances in the specified group and await completion. See Groups
+ below.  
+ The `cancel_all` method will complete when all `Cancellable` instances have
+ been cancelled or terminated naturally before `cancel_all` was launched.  
+ Each coro will receive a `CancelError` exception when it is next scheduled.
+ The coro should trap this, await the `stopped` method and quit. If the coro
+ quits for any reason it should call the `end` method. The `@cancellable`
+ decorator handles the above housekeeping.
  * `end` Synchronous. Arg: The coro task number. Informs the class that a
  `Cancellable` instance has ended, either normally or by cancellation.
  * `stopped` Asynchronous. Arg: The coro task number. Informs the class that a
@@ -470,13 +473,12 @@ A `NamedTask` instance is associated with a user-defined name such that the
 name may outlive the task: a coro may end but the class enables its state to be
 checked.
 
-A `NamedTask` task is defined with the `namedtask` decorator. When scheduled it
-will receive an initial arg which is a `TaskId` instance followed by any
-user-defined args. The `TaskId` instance is usually ignored.
+A `NamedTask` task is defined with the `@namedtask` decorator. When scheduled it
+will receive an initial arg which is the name followed by any user-defined args.
 
 ```python
 @namedtask
-async def foo(task_id, arg1, arg2):
+async def foo(name, arg1, arg2):
     await asyn.sleep(1)
     print('Task foo has ended.', arg1, arg2)
 ```
@@ -501,9 +503,9 @@ if it has already completed, cancellation will have no effect.
 
 NamedTask Constructor.  
 Mandatory args:  
- * `name` Names may be any valid dictionary index. A `ValueError` will be
- raised if the name already exists. If multiple instances of a coro are to run
- concurrently, each should be assigned a different name.
+ * `name` Names may be any immutable type e.g. integer or string. A
+ `ValueError` will be raised if the name already exists. If multiple instances
+ of a coro are to run concurrently, each should be assigned a different name.
  * `task` A coro passed by name i.e. not using function call syntax.
 
  Optional positional args:  
@@ -514,19 +516,22 @@ Mandatory args:
  wait for confirmation of successful cancellation.
 
 Class methods:  
- * `cancel` Synchronous. Arg: a coro name.
+ * `cancel` Synchronous. Arg: a coro name.  
  The named coro will receive a `CancelError` exception the next time it is
- scheduled. The coro should trap this and quit ASAP. `cancel` will return
- `True` if the coro was cancelled. It will return `False` if the coro has
- already ended or been cancelled.
+ scheduled. The coro should trap this, ensure the `end` bound coro is launched
+ and return. The `@namedtask` decorator handles this, ensuring `end` is called
+ under all circumstances.  
+ `cancel` will return `True` if the coro was cancelled. It will return `False`
+ if the coro has already ended or been cancelled.
  * `is_running` Synchronous. Arg: A coro name. Returns `True` if coro is queued
- for scheduling, `False` if has ended or been scheduled for cancellation. See
- note below.
+ for scheduling, `False` if it has ended or been scheduled for cancellation.
+ See note in 4.3.1 below.
  * `end` Asynchronous. Arg: A coro name. Run by the `NamedTask` instance to
  inform the class that the instance has ended. Completes quickly.
  * `pend_throw` Synchronous. Args: 1. A coro name 2. An exception passed by
  exception class name (not an instance). The named coro will receive an
- instance of the exception the next time it is scheduled.
+ instance of the exception the next time it is scheduled. This method should be
+ regarded as **experimental** - its use is discouraged.
 
 Bound method:
  * `__call__` This returns the coro and is used to schedule the task using the
