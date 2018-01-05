@@ -5,6 +5,50 @@ task monitoring and cancellation.
 
 ###### [Main README](./README.md)
 
+# Contents
+
+ 1. [The asyn.py library](./PRIMITIVES.md#1-the-asyn.py-library)
+
+  1.1 [Synchronisation Primitives](./PRIMITIVES.md#11-synchronisation-primitives)
+
+  1.2 [Task control and monitoring](./PRIMITIVES.md#12-task-control-and-monitoring)
+
+ 2. [Modules](./PRIMITIVES.md#2-modules)
+ 
+ 3 [Synchronisation Primitives](./PRIMITIVES.md#3-synchronisation-primitives)
+
+  3.1 [Function launch](./PRIMITIVES.md#31-function-launch)
+
+  3.2 [Class Lock](./PRIMITIVES.md#32-class-lock)
+
+   3.2.1 [Definition](./PRIMITIVES.md#321-definition)
+
+  3.3 [Class Event](./PRIMITIVES.md#33-class-event)
+
+   3.3.1 [Definition](./PRIMITIVES.md#331-definition)
+
+  3.4 [Class Barrier](./PRIMITIVES.md#34-class-barrier)
+
+  3.5 [Class Semaphore](./PRIMITIVES.md#35-class-semaphore)
+
+   3.5.1 [Class BoundedSemaphore](./PRIMITIVES.md#351-class-boundedsemaphore)
+  
+ 4. [Task Cancellation](./PRIMITIVES.md#4-task-cancellation)
+
+  4.1 [Coro sleep](./PRIMITIVES.md#41-coro-sleep)
+
+  4.2 [Class Cancellable](./PRIMITIVES.md#42-class-cancellable)
+
+   4.2.1 [Groups](./PRIMITIVES.md#421-groups)
+
+   4.2.2 [Custom cleanup](./PRIMITIVES.md#422-custom-cleanup)
+
+  4.3 [Class NamedTask](./PRIMITIVES.md#43-class-namedtask)
+
+   4.3.1 [Latency and Barrier objects](./PRIMITIVES.md#431-latency-and-barrier-objects)
+
+   4.3.2 [Custom cleanup](./PRIMITIVES.md#432-custom-cleanup)
+
 ## 1.1 Synchronisation Primitives
 
 There is often a need to provide synchronisation between coros. A common
@@ -25,16 +69,14 @@ arrival (with other coros getting scheduled for the duration). The `Queue`
 guarantees that items are removed in the order in which they were received. As
 this is a part of the uasyncio library its use is described in the [tutorial](./TUTORIAL.md).
 
+###### [Contents](./PRIMITIVES.md#contents)
+
 ## 1.2 Task control and monitoring
 
 `uasyncio` does not implement the `Task` and `Future` classes of `asyncio`.
 Instead it uses a 'micro' lightweight means of task cancellation. The `asyn.py`
 module provides an API to simplify its use and to check on the running status
 of coroutines which are subject to cancellation.
-
-**NOTE** The task cancellation API has changed. Hopefully it is now stable.
-
-###### [Main README](./README.md)
 
 # 2. Modules
 
@@ -45,6 +87,8 @@ The following modules are provided:
  * `cantest.py` Task cancellation tests.
 
 Import the test or demo module for a list of available tests.
+
+###### [Contents](./PRIMITIVES.md#contents)
 
 # 3. Synchronisation Primitives
 
@@ -107,6 +151,8 @@ Methods:
  * `acquire` No args. Coro which pauses until the lock has been acquired. Use
  by executing `await lock.acquire()`.
 
+###### [Contents](./PRIMITIVES.md#contents)
+
 ## 3.3 Class Event
 
 This provides a way for one or more coros to pause until another one flags them
@@ -167,6 +213,8 @@ Synchronous Methods:
 The optional data value may be used to compensate for the latency in awaiting
 the event by passing `loop.time()`.
 
+###### [Contents](./PRIMITIVES.md#contents)
+
 ## 3.4 Class Barrier
 
 This enables multiple coros to rendezvous at a particular point. For example
@@ -222,6 +270,8 @@ async def foo(n):
 Note that `await barrier(nowait = True)` should not be issued in a looping
 construct.
 
+###### [Contents](./PRIMITIVES.md#contents)
+
 ## 3.5 Class Semaphore
 
 A semaphore limits the number of coros which can access a resource. It can be
@@ -258,7 +308,12 @@ This works identically to the `Semaphore` class except that if the `release`
 method causes the access counter to exceed its initial value, a `ValueError`
 is raised.
 
+###### [Contents](./PRIMITIVES.md#contents)
+
 # 4. Task Cancellation
+
+Note to users of releases prior to 31st Dec 2017: this API has changed. It
+should now be stable.
 
 In `uasyncio` task cancellation is achieved by throwing an exception to the
 coro to be cancelled. Cancellation occurs when it is next scheduled. If a coro
@@ -407,6 +462,8 @@ async def bar(task_id):
         Cancellable.end(task_no)
 ```
 
+###### [Contents](./PRIMITIVES.md#contents)
+
 ## 4.3 Class NamedTask
 
 A `NamedTask` instance is associated with a user-defined name such that the
@@ -508,6 +565,8 @@ async def foo(_):
     except StopTask:
         return False
 ```
+
+###### [Contents](./PRIMITIVES.md#contents)
 
 #### ExitGate (obsolete)
 

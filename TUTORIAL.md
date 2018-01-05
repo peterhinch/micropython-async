@@ -128,7 +128,7 @@ pitfalls associated with truly asynchronous threads of execution. For those new
 to asynchronous programming there is an introduction
 [here](./TUTORIAL.md#7-notes-for-beginners).
 
-###### [Jump to Contents](./TUTORIAL.md#contents)
+###### [Contents](./TUTORIAL.md#contents)
 
 ## 1.1 Modules
 
@@ -181,14 +181,14 @@ results by accessing Pyboard hardware.
 The `benchmarks` directory contains scripts to test and characterise the
 uasyncio scheduler. See [this doc](./FASTPOLL.md).
 
-###### [Jump to Contents](./TUTORIAL.md#contents)
+###### [Contents](./TUTORIAL.md#contents)
 
 # 2. uasyncio
 
 The asyncio concept is of cooperative multi-tasking based on coroutines,
 referred in this document as coros or tasks.
 
-###### [Jump to Contents](./TUTORIAL.md#contents)
+###### [Contents](./TUTORIAL.md#contents)
 
 ## 2.1 Program structure: the event loop
 
@@ -227,7 +227,7 @@ The default of 42 is likely to be adequate for most purposes. If a coro needs
 to call an event loop method, calling `asyncio.get_event_loop()` (without
 args) will efficiently return it.
 
-###### [Jump to Contents](./TUTORIAL.md#contents)
+###### [Contents](./TUTORIAL.md#contents)
 
 ## 2.2 Coroutines (coros)
 
@@ -254,7 +254,7 @@ coros being scheduled for the duration. A delay of 0 causes any pending coros
 to be scheduled in round-robin fashion before the following line is run. See
 the `roundrobin.py` example.
 
-###### [Jump to Contents](./TUTORIAL.md#contents)
+###### [Contents](./TUTORIAL.md#contents)
 
 ### 2.2.1 Queueing a coro for scheduling
 
@@ -271,7 +271,7 @@ the `roundrobin.py` example.
 The above are compatible with CPython. Additional uasyncio methods are
 discussed in 2.2.3 below.
 
-###### [Jump to Contents](./TUTORIAL.md#contents)
+###### [Contents](./TUTORIAL.md#contents)
 
 ### 2.2.2 Running a callback function
 
@@ -296,7 +296,7 @@ loop.call_later_ms(50, foo, 5) # Schedule after 50ms.
 loop.run_forever()
 ```
 
-###### [Jump to Contents](./TUTORIAL.md#contents)
+###### [Contents](./TUTORIAL.md#contents)
 
 ### 2.2.3 Notes
 
@@ -309,7 +309,7 @@ result = await my_coro()
 
 Coros may be bound methods. A coro must contain at least one `await` statement.
 
-###### [Jump to Contents](./TUTORIAL.md#contents)
+###### [Contents](./TUTORIAL.md#contents)
 
 ## 2.3 Delays
 
@@ -334,7 +334,7 @@ Very precise delays may be issued by using the `utime` functions `sleep_ms`
 and `sleep_us`. These are best suited for short delays as the scheduler will
 be unable to schedule other coros while the delay is in progress.
 
-###### [Jump to Contents](./TUTORIAL.md#contents)
+###### [Contents](./TUTORIAL.md#contents)
 
 # 3 Synchronisation
 
@@ -362,7 +362,7 @@ until the consumer is ready to access the data.
 The following provides a brief overview of the primitives. Full documentation
 may be found [here](./PRIMITIVES.md).
 
-###### [Jump to Contents](./TUTORIAL.md#contents)
+###### [Contents](./TUTORIAL.md#contents)
 
 ## 3.1 Lock
 
@@ -409,7 +409,7 @@ lock. The same observation applies to task cancellation.
 The module `asyn.py` offers a `Lock` class which works in these situations. It
 is significantly less efficient than the official class.
 
-###### [Jump to Contents](./TUTORIAL.md#contents)
+###### [Contents](./TUTORIAL.md#contents)
 
 ## 3.2 Event
 
@@ -457,7 +457,7 @@ An Event can also provide a means of communication between an interrupt handler
 and a coro. The handler services the hardware and sets an event which is tested
 in slow time by the coro.
 
-###### [Jump to Contents](./TUTORIAL.md#contents)
+###### [Contents](./TUTORIAL.md#contents)
 
 ### 3.2.1 The event's value
 
@@ -468,7 +468,7 @@ is for the coro setting the event to issue `event.set(loop.time())`. Any coro
 waiting on the event can determine the latency incurred, for example to perform
 compensation for this.
 
-###### [Jump to Contents](./TUTORIAL.md#contents)
+###### [Contents](./TUTORIAL.md#contents)
 
 ## 3.3 Barrier
 
@@ -501,7 +501,7 @@ multiple instances of `report` print their result and pause until the other
 instances are also complete and waiting on `barrier`. At that point the
 callback runs. On its completion the coros resume.
 
-###### [Jump to Contents](./TUTORIAL.md#contents)
+###### [Contents](./TUTORIAL.md#contents)
 
 ## 3.4 Semaphore
 
@@ -519,7 +519,7 @@ async def foo(sema):
 ```
 An example is the `semaphore_test` function in `asyntest.py`.
 
-###### [Jump to Contents](./TUTORIAL.md#contents)
+###### [Contents](./TUTORIAL.md#contents)
 
 ### 3.4.1 BoundedSemaphore
 
@@ -527,7 +527,7 @@ This works identically to the `Semaphore` class except that if the `release`
 method causes the access counter to exceed its initial value, a `ValueError`
 is raised.
 
-###### [Jump to Contents](./TUTORIAL.md#contents)
+###### [Contents](./TUTORIAL.md#contents)
 
 ## 3.5 Queue
 
@@ -562,7 +562,7 @@ size of queues may be limited and the status may be interrogated. The behaviour
 on empty status and (where size is limited) the behaviour on full status may be
 controlled. Documentation of this is in the code.
 
-###### [Jump to Contents](./TUTORIAL.md#contents)
+###### [Contents](./TUTORIAL.md#contents)
 
 ## 3.6 Task cancellation
 
@@ -600,7 +600,7 @@ async def foo():
     print('Done')
 ```
 
-###### [Jump to Contents](./TUTORIAL.md#contents)
+###### [Contents](./TUTORIAL.md#contents)
 
 # 4 Designing classes for asyncio
 
@@ -610,7 +610,7 @@ driver is waiting for the hardware. For example a task awaiting data arriving
 on a UART or a user pressing a button should allow other coros to be scheduled
 until the event occurs..
 
-###### [Jump to Contents](./TUTORIAL.md#contents)
+###### [Contents](./TUTORIAL.md#contents)
 
 ## 4.1 Awaitable classes
 
@@ -645,7 +645,7 @@ between CPython and MicroPython.
 
 Example code may be found in the `Event` and `Barrier` classes in asyn.py.
 
-###### [Jump to Contents](./TUTORIAL.md#contents)
+###### [Contents](./TUTORIAL.md#contents)
 
 ## 4.2 Asynchronous iterators
 
@@ -692,7 +692,7 @@ async def run():
         print(x)
 ```
 
-###### [Jump to Contents](./TUTORIAL.md#contents)
+###### [Contents](./TUTORIAL.md#contents)
 
 ## 4.3 Asynchronous context managers
 
@@ -731,7 +731,7 @@ is not called. The solution is to design the code so that in all cases it runs
 to completion. The error appears to be in [PEP492](https://www.python.org/dev/peps/pep-0492/).
 See [this issue](https://github.com/micropython/micropython/issues/3153).
 
-###### [Jump to Contents](./TUTORIAL.md#contents)
+###### [Contents](./TUTORIAL.md#contents)
 
 ## 4.4 Coroutines with timeouts
 
@@ -771,7 +771,7 @@ response to the `TimeoutError` will correspondingly be delayed.
 If this matters to the application, create a long delay by awaiting a short one
 in a loop. The coro `asyn.sleep` [supports this](./PRIMITIVES.md#41-coro-sleep).
 
-###### [Jump to Contents](./TUTORIAL.md#contents)
+###### [Contents](./TUTORIAL.md#contents)
 
 # 5 Device driver examples
 
@@ -810,7 +810,7 @@ for this may be calculated as above.
 [This document](./FASTPOLL.md) describes an experimental version of uasyncio
 which offers a means of reducing this latency for critical tasks.
 
-###### [Jump to Contents](./TUTORIAL.md#contents)
+###### [Contents](./TUTORIAL.md#contents)
 
 ## 5.1 The IORead Mechanism
 
@@ -846,7 +846,7 @@ The mechanism works because the device driver (written in C) implements the
 following methods: `ioctl`, `read`, `write`, `readline` and `close`. See
 section 5.3 for further discussion.
 
-###### [Jump to Contents](./TUTORIAL.md#contents)
+###### [Contents](./TUTORIAL.md#contents)
 
 ## 5.2 Using a coro to poll hardware
 
@@ -928,7 +928,7 @@ loop = asyncio.get_event_loop()
 loop.run_until_complete(run())
 ```
 
-###### [Jump to Contents](./TUTORIAL.md#contents)
+###### [Contents](./TUTORIAL.md#contents)
 
 ## 5.3 Using IORead to poll hardware
 
@@ -943,7 +943,7 @@ drivers written in Python has not been implemented, and the final comment to
 [this](https://github.com/micropython/micropython/issues/2664) issue suggests
 that it may never be done. So streaming device drivers must be written in C.
 
-###### [Jump to Contents](./TUTORIAL.md#contents)
+###### [Contents](./TUTORIAL.md#contents)
 
 ## 5.4 A complete example: aremote.py
 
@@ -960,7 +960,7 @@ before calling a user-specified callback.
 Passing the time to the `Event` instance enables the coro to compensate for
 any asyncio latency when setting its delay period.
 
-###### [Jump to Contents](./TUTORIAL.md#contents)
+###### [Contents](./TUTORIAL.md#contents)
 
 # 6 Hints and tips
 
@@ -984,13 +984,16 @@ yield  # Reschedule current coro in round-robin fashion.
 yield 100  # Pause 100ms - equivalent to above
 ```
 
-Issuing `yield` or `yield 100` is faster than the equivalent `await` statements.
+Issuing `yield` or `yield 100` is slightly faster than the equivalent `await`
+statements.
+
+**Exceptions**
 
 Where an exception occurs in a coro, it should be trapped either in that coro
-or in a paused coro further up the calling chain. This is to ensure that the
-scheduler continues to run.
+or in a paused coro further up the calling chain. This ensures that the
+exception is not propagated to the scheduler, ensuring it continues to run.
 
-###### [Jump to Contents](./TUTORIAL.md#contents)
+###### [Contents](./TUTORIAL.md#contents)
 
 ## 6.1 Program hangs
 
@@ -999,7 +1002,7 @@ hang the entire system. When developing it is useful to have a coro which
 periodically toggles an onboard LED. This provides confirmtion that the
 scheduler is running.
 
-###### [Jump to Contents](./TUTORIAL.md#contents)
+###### [Contents](./TUTORIAL.md#contents)
 
 ## 6.2 uasyncio retains state
 
@@ -1007,7 +1010,7 @@ When running programs using `uasyncio` at the REPL, issue a soft reset
 (ctrl-D) between runs. This is because `uasyncio` retains state between runs
 which can lead to confusing behaviour.
 
-###### [Jump to Contents](./TUTORIAL.md#contents)
+###### [Contents](./TUTORIAL.md#contents)
 
 ## 6.3 Garbage Collection
 
@@ -1022,7 +1025,7 @@ This assumes `import gc` has been issued. The purpose of this is discussed
 [here](http://docs.micropython.org/en/latest/pyboard/reference/constrained.html)
 in the section on the heap.
 
-###### [Jump to Contents](./TUTORIAL.md#contents)
+###### [Contents](./TUTORIAL.md#contents)
 
 ## 6.4 Testing
 
@@ -1070,6 +1073,8 @@ the outer loop:
 It is perhaps worth noting that this error would not have been apparent had
 data been sent to the UART at a slow rate rather than via a loopback test.
 
+###### [Contents](./TUTORIAL.md#contents)
+
 ## 6.5 A common error
 
 If a function or method is defined with `async def` and subsequently called as
@@ -1104,7 +1109,7 @@ z = (foo(),)
 
 I find it useful as-is but improvements are always welcome.
 
-###### [Jump to Contents](./TUTORIAL.md#contents)
+###### [Contents](./TUTORIAL.md#contents)
 
 # 7 Notes for beginners
 
@@ -1112,7 +1117,7 @@ These notes are intended for those unfamiliar with asynchronous code or unsure
 of the relative merits of asyncio and the _thread module (i.e. cooperative vs
 pre-emptive scheduling).
 
-###### [Jump to Contents](./TUTORIAL.md#contents)
+###### [Contents](./TUTORIAL.md#contents)
 
 ## 7.1 Why Scheduling?
 
@@ -1159,7 +1164,7 @@ linear code, in threaded code the solution is trivial. The coroutine blocks,
 but while it does so it periodically yields execution. Hence the rest of the
 system continues to run.
 
-###### [Jump to Contents](./TUTORIAL.md#contents)
+###### [Contents](./TUTORIAL.md#contents)
 
 ## 7.2 Why cooperative rather than pre-emptive?
 
@@ -1205,7 +1210,7 @@ and soft interrupts, either of which can occur at any point in your code.
 An eloquent discussion of the merits of cooperative multi-tasking may be found
 [in threads are bad](https://glyph.twistedmatrix.com/2014/02/unyielding.html).
 
-###### [Jump to Contents](./TUTORIAL.md#contents)
+###### [Contents](./TUTORIAL.md#contents)
 
 ## 7.3 Communication
 
@@ -1217,7 +1222,7 @@ Alternatively a mutable object may be passed as a coro argument.
 Pre-emptive systems mandate specialist classes to achieve "thread safe"
 communications; in a cooperative system these are seldom required.
 
-###### [Jump to Contents](./TUTORIAL.md#contents)
+###### [Contents](./TUTORIAL.md#contents)
 
 ## 7.4 Polling
 
@@ -1227,7 +1232,7 @@ can also be used in conjunction with interrupt handlers: the interrupt handler
 services the hardware and sets a flag. A coro polls the flag: if it's set it
 handles the data and clears the flag.
 
-###### [Jump to Contents](./TUTORIAL.md#contents)
+###### [Contents](./TUTORIAL.md#contents)
 
 # 8 Modifying uasyncio
 
