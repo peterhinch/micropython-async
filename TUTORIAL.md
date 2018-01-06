@@ -366,7 +366,7 @@ may be found [here](./PRIMITIVES.md).
 
 ## 3.1 Lock
 
-This describes the use of the official `Lock` primitive.
+This describes the use of the official `Lock` primitive. [Full details.](./PRIMITIVES.md#32-class-lock)
 
 This guarantees unique access to a shared resource. In the following code
 sample a `Lock` instance `lock` has been created and is passed to all coros
@@ -416,7 +416,7 @@ is significantly less efficient than the official class.
 This provides a way for one or more coros to pause until another flags them to
 continue. An `Event` object is instantiated and made accessible to all coros
 using it. Coros waiting on the event issue `await event` whereupon execution
-pauses until another issues `event.set()`.
+pauses until another issues `event.set()`. [Full details.](./PRIMITIVES.md#33-class-event)
 
 This presents a problem if `event.set()` is issued in a looping construct; the
 code must wait until the event has been accessed by all waiting coros before
@@ -476,7 +476,7 @@ This enables multiple coros to rendezvous at a particular point. For example
 producer and consumer coros can synchronise at a point where the producer has
 data available and the consumer is ready to use it. At that point in time the
 `Barrier` can optionally run a callback before releasing the barrier and
-allowing all waiting coros to continue.
+allowing all waiting coros to continue. [Full details.](./PRIMITIVES.md#34-class-barrier)
 
 The callback can be a function or a coro. In most applications a function is
 likely to be used: this can be guaranteed to run to completion before the
@@ -509,6 +509,7 @@ A semaphore limits the number of coros which can access a resource. It can be
 used to limit the number of instances of a particular coro which can run
 concurrently. It performs this using an access counter which is initialised by
 the constructor and decremented each time a coro acquires the semaphore.
+[Full details.](./PRIMITIVES.md#35-class-semaphore)
 
 The easiest way to use it is with a context manager:
 
@@ -525,7 +526,7 @@ An example is the `semaphore_test` function in `asyntest.py`.
 
 This works identically to the `Semaphore` class except that if the `release`
 method causes the access counter to exceed its initial value, a `ValueError`
-is raised.
+is raised. [Full details.](./PRIMITIVES.md#351-class-boundedsemaphore)
 
 ###### [Contents](./TUTORIAL.md#contents)
 
