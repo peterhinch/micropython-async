@@ -180,6 +180,13 @@ class Barrier():
         self._down = down
         self._count = self._participants if down else 0
 
+    def busy(self):
+        if self._down:
+            done = self._count == self._participants
+        else:
+            done = self._count == 0
+        return not done
+
     def _at_limit(self):  # Has count reached up or down limit?
         limit = 0 if self._down else self._participants
         return self._count == limit
@@ -223,8 +230,7 @@ class BoundedSemaphore(Semaphore):
 
 # Task Cancellation
 
-class StopTask(Exception):
-    pass
+StopTask = asyncio.CancelledError  # More descriptive name
 
 class TaskId():
     def __init__(self, taskid):
@@ -247,6 +253,90 @@ async def sleep(t, granularity=100):  # 100ms default
             await asyncio.sleep_ms(granularity)
         await asyncio.sleep_ms(rem)
 
+# Anonymous cancellable tasks. These are members of a group which is identified
+# by a user supplied name/number (default 0). Class method cancel_all() cancels
+# all tasks in a group and awaits confirmation (signalled by a task awaiting
+# the stopped() class method). A task ending normally removes itself from the
+# tasks dict by issuing the class method end().
+
+class Cancellable():
+    task_no = 0  # Generated task ID, index of tasks dict
+    tasks = {}  # Value is [coro, group, barrier] indexed by task_id
+
+    @classmethod
+    def _cancel(cls, task_no):
+        task = cls.tasks[task_no][0]
+        asyncio.cancel(task)
+
+    @classmethod
+    async def cancel_all(cls, group=0, nowait=False):
+        tokill = cls._get_task_nos(group)
+        barrier = Barrier(len(tokill) + 1)  # Include this task
+        for task_no in tokill:
+            cls.tasks[task_no][2] = barrier
+            cls._cancel(task_no)
+        await barrier(nowait=nowait)
+
+    @classmethod
+    def is_running(cls, group=0):
+        tasks = cls._get_task_nos(group)
+        if tasks is []:
+            return False
+        for task_no in tasks:
+            barrier = Cancellable.tasks[task_no][2]
+            if barrier.busy():
+                return True
+        return False
+
+    @classmethod
+    def _get_task_nos(cls, group):
+        return [task_no for task_no in cls.tasks if cls.tasks[task_no][1] == group]
+
+    @classmethod
+    def end(cls, task_no):
+        if task_no in cls.tasks:
+            del cls.tasks[task_no]
+
+    @classmethod
+    async def stopped(cls, task_no):
+        if task_no in cls.tasks:
+            barrier = Cancellable.tasks[task_no][2]
+            await barrier(nowait=True)
+            del cls.tasks[task_no]
+
+    def __init__(self, gf, *args, group=0):
+        task = gf(TaskId(Cancellable.task_no), *args)
+        if task in self.tasks:
+            raise ValueError('Task already exists.')
+        self.tasks[Cancellable.task_no] = [task, group, None]
+        Cancellable.task_no += 1
+        self.task = task
+
+    def __call__(self):
+        return self.task
+
+    def __await__(self):
+        return (yield from self.task)
+
+    __iter__ = __await__
+
+# @cancellable
+
+def cancellable(f):
+    def new_gen(*args):
+        g = f(*args)
+        # Task ID is args[1] if a bound method (else args[0])
+        idx = 0 if isinstance(args[0], TaskId) else 1
+        task_no = args[idx]()
+        try:
+            res = await g
+            return res
+        except StopTask:
+            await Cancellable.stopped(task_no)
+        finally:
+            Cancellable.end(task_no)
+    return new_gen
+
 # The NamedTask class enables a coro to be identified by a user defined name.
 # It maintains a dict of [coroutine instance, barrier] indexed by name.
 
@@ -254,19 +344,9 @@ class NamedTask():
     tasks = {}
     @classmethod
     def cancel(cls, name):
-        return cls.pend_throw(name, StopTask)
-
-    @classmethod
-    def pend_throw(cls, taskname, ClsException):
-        if taskname in cls.tasks:
-            # pend_throw() does nothing if the task does not exist
-            # (because it has terminated).
-            # Enable throwing arbitrary exceptions
-            loop = asyncio.get_event_loop()
-            task = cls.tasks[taskname][0]  # coro
-            prev = task.pend_throw(ClsException())  # Instantiate exception
-            if prev is False:
-                loop.call_soon(task)
+        if name in cls.tasks:
+            task = cls.tasks[name][0]  # coro
+            asyncio.cancel(task)
             return True
         return False
 
@@ -313,123 +393,3 @@ def namedtask(f):
         finally:
             await NamedTask.end(name)
     return new_gen
-
-# Anonymous cancellable tasks. These are members of a group which is identified
-# by a user supplied name/number (default 0). Class method cancel_all() cancels
-# all tasks in a group and awaits confirmation (signalled by a task awaiting
-# the stopped() class method). A task ending normally removes itself from the
-# tasks dict by issuing the class method end().
-
-class Cancellable():
-    task_no = 0  # Generated task ID, index of tasks dict
-    tasks = {}  # Value is [coro, group]
-    barrier = None  # Instantiated by the cancel_all method
-
-    @classmethod
-    def _cancel(cls, task_no):
-        # pend_throw() does nothing if the task does not exist
-        # (because it has terminated).
-        task = cls.tasks[task_no][0]
-        prev = task.pend_throw(StopTask())  # Instantiate exception
-        if prev is False:
-            loop = asyncio.get_event_loop()
-            loop.call_soon(task)
-
-    @classmethod
-    async def cancel_all(cls, group=0):
-        tokill = [task_no for task_no in cls.tasks if cls.tasks[task_no][1] == group]
-        cls.barrier = Barrier(len(tokill) + 1)  # Include this task
-        for task_no in tokill:
-            cls._cancel(task_no)
-        await cls.barrier
-        cls.barrier = None  # Make available for GC
-
-    @classmethod
-    def end(cls, task_no):
-        if task_no in cls.tasks:
-            del cls.tasks[task_no]
-
-    @classmethod
-    async def stopped(cls, task_no):
-        if task_no in cls.tasks:
-            del cls.tasks[task_no]
-            await Cancellable.barrier(nowait=True)
-
-    def __init__(self, gf, *args, group=0):
-        task = gf(TaskId(Cancellable.task_no), *args)
-        if task in self.tasks:
-            raise ValueError('Task already exists.')
-        self.tasks[Cancellable.task_no] = [task, group]
-        Cancellable.task_no += 1
-        self.task = task
-
-    def __call__(self):
-        return self.task
-
-    def __await__(self):
-        return (yield from self.task)
-
-    __iter__ = __await__
-
-# @cancellable
-
-def cancellable(f):
-    def new_gen(*args):
-        g = f(*args)
-        # Task ID is args[1] if a bound method (else args[0])
-        idx = 0 if isinstance(args[0], TaskId) else 1
-        task_no = args[idx]()
-        try:
-            res = await g
-            return res
-        except StopTask:
-            await Cancellable.stopped(task_no)
-        finally:
-            Cancellable.end(task_no)
-    return new_gen
-
-
-# ExitGate is ***obsolete*** since uasyncio now supports task cancellation.
-
-class ExitGate():
-    def __init__(self, granularity=100):
-        self._ntasks = 0
-        self._ending = False
-        self._granularity = granularity
-
-    def ending(self):
-        return self._ending
-
-    def __await__(self):
-        self._ending = True
-        while self._ntasks:
-            yield from asyncio.sleep_ms(self._granularity)
-        self._ending = False  # May want to re-use
-
-    __iter__ = __await__
-
-    async def __aenter__(self):
-        self._ntasks += 1
-        await asyncio.sleep_ms(0)
-
-    async def __aexit__(self, *args):
-        self._ntasks -= 1
-        await asyncio.sleep_ms(0)
-
-    # Sleep while checking for premature ending. Return True on normal ending,
-    # False if premature.
-    async def sleep(self, t):
-        t *= 1000  # ms
-        granularity = self._granularity
-        if t <= granularity:
-            await asyncio.sleep_ms(t)
-        else:
-            n, rem = divmod(t, granularity)
-            for _ in range(n):
-                if self._ending:
-                    return False
-                await asyncio.sleep_ms(granularity)
-            if self._ending:
-                return False
-            await asyncio.sleep_ms(rem)
-        return not self._ending

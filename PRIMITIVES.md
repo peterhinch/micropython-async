@@ -1,7 +1,9 @@
 # 1. The asyn.py library
 
 This provides five simple synchronisation primitives, together with an API for
-task monitoring and cancellation.
+task monitoring and cancellation. Task cancellation requires usayncio V 1.7.1
+or higher. At the time of writing (7th Jan 2018) it requires a daily build of
+MicroPython firmware or one built from source.
 
 ###### [Main README](./README.md)
 
@@ -528,10 +530,6 @@ Class methods:
  See note in 4.3.1 below.
  * `end` Asynchronous. Arg: A coro name. Run by the `NamedTask` instance to
  inform the class that the instance has ended. Completes quickly.
- * `pend_throw` Synchronous. Args: 1. A coro name 2. An exception passed by
- exception class name (not an instance). The named coro will receive an
- instance of the exception the next time it is scheduled. This method should be
- regarded as **experimental** - its use is discouraged.
 
 Bound method:
  * `__call__` This returns the coro and is used to schedule the task using the

@@ -198,6 +198,10 @@ class PriorityEventLoop(PollEventLoop):
                     if __debug__ and DEBUG:
                         log.debug("Coroutine finished: %s", cb)
                     continue
+                except CancelledError as e:
+                    if __debug__ and DEBUG:
+                        log.debug("Coroutine cancelled: %s", cb)
+                    continue
 
                 if func is not None:
                     self._schedule_hp(func, cb)
