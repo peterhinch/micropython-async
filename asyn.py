@@ -176,6 +176,13 @@ class Barrier():
 
     __iter__ = __await__
 
+    def trigger(self):  # synchronous version of await-nowait
+        self._update()
+        if self._at_limit():  # All other threads are also at limit
+            if self._func is not None:
+                launch(self._func, self._args)
+            self._reset(not self._down)  # Toggle direction to release others
+
     def _reset(self, down):
         self._down = down
         self._count = self._participants if down else 0
@@ -259,9 +266,13 @@ async def sleep(t, granularity=100):  # 100ms default
 # the stopped() class method). A task ending normally removes itself from the
 # tasks dict by issuing the class method end().
 
+# TODO Get rid of end(). Ensure decorator calls NamedTask.stopped and that that method
+# unconditionally calls Cancellable.stopped. NamedTask instances need to handle their own
+# barrier and that of the base class.
+
 class Cancellable():
     task_no = 0  # Generated task ID, index of tasks dict
-    tasks = {}  # Value is [coro, group, barrier] indexed by task_id
+    tasks = {}  # Value is [coro, group, barrier] indexed by integer task_no
 
     @classmethod
     def _cancel(cls, task_no):
@@ -278,19 +289,25 @@ class Cancellable():
         await barrier(nowait=nowait)
 
     @classmethod
-    def is_running(cls, group=0):
+    def _is_running(cls, group=0):
         tasks = cls._get_task_nos(group)
-        if tasks is []:
+        if tasks == []:
             return False
         for task_no in tasks:
-            barrier = Cancellable.tasks[task_no][2]
+            barrier = cls.tasks[task_no][2]
+            if barrier is None:  # Running, not yet cancelled
+                return True
             if barrier.busy():
                 return True
         return False
 
     @classmethod
-    def _get_task_nos(cls, group):
+    def _get_task_nos(cls, group):  # Return task nos in a group
         return [task_no for task_no in cls.tasks if cls.tasks[task_no][1] == group]
+
+    @classmethod
+    def _get_group(cls, task_no):  # Return group given a task_no
+        return cls.tasks[task_no][1]
 
     @classmethod
     def end(cls, task_no):
@@ -298,10 +315,10 @@ class Cancellable():
             del cls.tasks[task_no]
 
     @classmethod
-    async def stopped(cls, task_no):
+    def stopped(cls, task_no):
         if task_no in cls.tasks:
-            barrier = Cancellable.tasks[task_no][2]
-            await barrier(nowait=True)
+            barrier = cls.tasks[task_no][2]
+            barrier.trigger()
             del cls.tasks[task_no]
 
     def __init__(self, gf, *args, group=0):
@@ -309,6 +326,7 @@ class Cancellable():
         if task in self.tasks:
             raise ValueError('Task already exists.')
         self.tasks[Cancellable.task_no] = [task, group, None]
+        self.task_no = Cancellable.task_no  # For subclass
         Cancellable.task_no += 1
         self.task = task
 
@@ -320,7 +338,8 @@ class Cancellable():
 
     __iter__ = __await__
 
-# @cancellable
+
+# @cancellable decorator
 
 def cancellable(f):
     def new_gen(*args):
@@ -332,64 +351,44 @@ def cancellable(f):
             res = await g
             return res
         except StopTask:
-            await Cancellable.stopped(task_no)
+            Cancellable.stopped(task_no)
         finally:
             Cancellable.end(task_no)
     return new_gen
 
 # The NamedTask class enables a coro to be identified by a user defined name.
-# It maintains a dict of [coroutine instance, barrier] indexed by name.
+# It constrains Cancellable to allow groups of one coro only.
+# It maintains a dict of barriers indexed by name.
+class NamedTask(Cancellable):
+    barriers = {}
 
-class NamedTask():
-    tasks = {}
     @classmethod
-    def cancel(cls, name):
-        if name in cls.tasks:
-            task = cls.tasks[name][0]  # coro
-            asyncio.cancel(task)
+    async def cancel(cls, name, nowait=True):
+        if name in cls.barriers:
+            await cls.cancel_all(group=name, nowait=nowait)
             return True
         return False
 
     @classmethod
     def is_running(cls, name):
-        return name in cls.tasks
+        return cls._is_running(group=name)
 
     @classmethod
-    async def end(cls, name):  # On completion remove it
-        if name in cls.tasks:
-            barrier = cls.tasks[name][1]
+    def end(cls, task_id):  # On completion remove it
+        name = cls._get_group(task_id())  # Convert task_id to task_no
+        if name in cls.barriers:
+            barrier = cls.barriers[name]
             if barrier is not None:
-                await barrier(nowait = True)
-            del cls.tasks[name]
+                barrier.trigger()
+            del cls.barriers[name]
+            Cancellable.end(task_id)
 
     def __init__(self, name, gf, *args, barrier=None):
-        if name in self.tasks:
+        if name in self.barriers:
             raise ValueError('Task name "{}" already exists.'.format(name))
-        task = gf(TaskId(name), *args)
-        self.tasks[name] = [task, barrier]
-        self.task = task
+        super().__init__(gf, *args, group=name)
+        self.barriers[name] = barrier
 
-    def __call__(self):
-        return self.task
-
-    def __await__(self):
-        return (yield from self.task)
-
-    __iter__ = __await__
 
 # @namedtask
-
-def namedtask(f):
-    def new_gen(*args):
-        g = f(*args)
-        # Task ID is args[1] if a bound method (else args[0])
-        idx = 0 if isinstance(args[0], TaskId) else 1
-        name = args[idx]()
-        try:
-            res = await g
-            return res
-        except StopTask:
-            pass
-        finally:
-            await NamedTask.end(name)
-    return new_gen
+namedtask = cancellable  # compatibility with old code

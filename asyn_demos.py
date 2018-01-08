@@ -69,14 +69,14 @@ def cancel_test():
 
 # NamedTask minimal example
 
-@asyn.namedtask
+@asyn.cancellable
 async def print_nums_named(_, num):
     while True:
         print(num)
         num += 1
         await asyn.sleep(1)
 
-@asyn.namedtask
+@asyn.cancellable
 async def add_one_named(_, num):
     num += 1
     await asyn.sleep(1)
@@ -105,10 +105,11 @@ class CanDemo():
         loop.create_task(asyn.NamedTask('my bar', self.bar, 4)())
         print('bar running status is', asyn.NamedTask.is_running('my bar'))
         await asyncio.sleep(4.5)
-        asyn.NamedTask.cancel('my bar')
+        await asyn.NamedTask.cancel('my bar')
         print('bar instance scheduled for cancellation.')
         await asyn.Cancellable.cancel_all()
         print('foo instances have been cancelled.')
+        await asyncio.sleep(0.2)  # Allow for 100ms latency in bar()
         print('bar running status is', asyn.NamedTask.is_running('my bar'))
         print('Done')
 
@@ -118,7 +119,7 @@ class CanDemo():
             await asyn.sleep(1)
             print('foo running, arg', arg)
 
-    @asyn.namedtask
+    @asyn.cancellable
     async def bar(self, _, arg):
         while True:
             await asyn.sleep(1)

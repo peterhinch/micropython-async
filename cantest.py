@@ -53,17 +53,19 @@ def printexp(exp, runtime=0):
 
 # cancel_test1()
 
-@namedtask
-async def foo(name, num):
+@cancellable
+async def foo(task_id, num):
     try:
         await asyncio.sleep(4)
         return num + 42
     except StopTask:
         print('foo was cancelled.')
+        Cancellable.stopped(task_id)
         return -1
 
-def kill(task_name):
-    if NamedTask.cancel(task_name): 
+async def kill(task_name):
+    res = await NamedTask.cancel(task_name)
+    if res: 
         print(task_name, 'will be cancelled when next scheduled')
     else:
         print(task_name, 'was not cancellable.')
@@ -71,8 +73,8 @@ def kill(task_name):
 # Example of a task which cancels another
 async def bar():
     await asyncio.sleep(1)
-    kill('foo')
-    kill('not me')  # Will fail because not yet scheduled
+    await kill('foo')
+    await kill('not me')  # Will fail because not yet scheduled
 
 async def run_cancel_test1():
     loop = asyncio.get_event_loop()
@@ -103,14 +105,15 @@ async def forever(n):
         await asyncio.sleep(7 + n)
         print('Running instance', n)
 
-# Cancellable coros must trap the StopTask. If a barrier is used, coro must
-# pass it whether cancelled or terminates normally.
-@namedtask
-async def rats(name, n):
+# Intercepting the StopTask exception: don't use decorator.
+async def rats(task_id, n):
     try:
         await forever(n)
     except StopTask:
+        NamedTask.stopped(task_id)
         print('Instance', n, 'was cancelled')
+    finally:
+        NamedTask.end(task_id)
 
 async def run_cancel_test2():
     barrier = Barrier(3)
@@ -120,8 +123,8 @@ async def run_cancel_test2():
     print('Running two tasks')
     await asyncio.sleep(10)
     print('About to cancel tasks')
-    NamedTask.cancel('rats_1')  # These will stop when their wait is complete
-    NamedTask.cancel('rats_2')
+    await NamedTask.cancel('rats_1')  # These will stop when their wait is complete
+    await NamedTask.cancel('rats_2')
     await barrier  # So wait for that to occur.
     print('tasks were cancelled')
 
@@ -142,14 +145,16 @@ tasks were cancelled
 # test3()
 # Test of cancelling a task which has already terminated
 
-# Cancellable coros must trap the StopTask
-@namedtask
-async def cant3(name):
+# Intercepting the StopTask exception: don't use decorator.
+async def cant3(task_id):
     try:
         await asyncio.sleep(1)
         print('Task cant3 has ended.')
+        NamedTask.stopped(task_id)
     except StopTask:
         print('Task cant3 was cancelled')
+    finally:
+        NamedTask.end(task_id)
 
 async def run_cancel_test3():
     barrier = Barrier(2)
@@ -159,7 +164,7 @@ async def run_cancel_test3():
     await asyncio.sleep(3)
     print('Task cant3 running status', NamedTask.is_running('cant3'))
     print('About to cancel task')
-    NamedTask.cancel('cant3')
+    await NamedTask.cancel('cant3')
     print('Cancelled')
     print('Task cant3 running status', NamedTask.is_running('cant3'))
     await barrier
@@ -278,7 +283,7 @@ class CanTest():
         loop.create_task(Cancellable(self.foo, 3)())
         loop.create_task(NamedTask('my bar', self.bar, 4)())
         await asyncio.sleep(4.5)
-        NamedTask.cancel('my bar')
+        await NamedTask.cancel('my bar')
         await Cancellable.cancel_all()
         await asyncio.sleep(1)
         print('Done')
@@ -293,7 +298,7 @@ class CanTest():
             print('foo was cancelled')
             raise
 
-    @namedtask
+    @cancellable
     async def bar(self, _, arg):
         try:
             while True:
