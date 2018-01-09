@@ -262,13 +262,10 @@ async def sleep(t, granularity=100):  # 100ms default
 
 # Anonymous cancellable tasks. These are members of a group which is identified
 # by a user supplied name/number (default 0). Class method cancel_all() cancels
-# all tasks in a group and awaits confirmation (signalled by a task awaiting
-# the stopped() class method). A task ending normally removes itself from the
-# tasks dict by issuing the class method end().
+# all tasks in a group and awaits confirmation. Confirmation of ending (whether
+# normally or by cancellation) is signalled by a task calling the _stopped()
+# class method. Handled by the @cancellable decorator.
 
-# TODO Get rid of end(). Ensure decorator calls NamedTask.stopped and that that method
-# unconditionally calls Cancellable.stopped. NamedTask instances need to handle their own
-# barrier and that of the base class.
 
 class Cancellable():
     task_no = 0  # Generated task ID, index of tasks dict
@@ -310,15 +307,11 @@ class Cancellable():
         return cls.tasks[task_no][1]
 
     @classmethod
-    def end(cls, task_no):
-        if task_no in cls.tasks:
-            del cls.tasks[task_no]
-
-    @classmethod
-    def stopped(cls, task_no):
+    def _stopped(cls, task_no):
         if task_no in cls.tasks:
             barrier = cls.tasks[task_no][2]
-            barrier.trigger()
+            if barrier is not None:  # Cancellation in progress
+                barrier.trigger()
             del cls.tasks[task_no]
 
     def __init__(self, gf, *args, group=0):
@@ -346,25 +339,23 @@ def cancellable(f):
         g = f(*args)
         # Task ID is args[1] if a bound method (else args[0])
         idx = 0 if isinstance(args[0], TaskId) else 1
-        task_no = args[idx]()
+        task_id = args[idx]
         try:
             res = await g
             return res
-        except StopTask:
-            Cancellable.stopped(task_no)
         finally:
-            Cancellable.end(task_no)
+            NamedTask._stopped(task_id)
     return new_gen
 
 # The NamedTask class enables a coro to be identified by a user defined name.
 # It constrains Cancellable to allow groups of one coro only.
 # It maintains a dict of barriers indexed by name.
 class NamedTask(Cancellable):
-    barriers = {}
+    instances = {}
 
     @classmethod
     async def cancel(cls, name, nowait=True):
-        if name in cls.barriers:
+        if name in cls.instances:
             await cls.cancel_all(group=name, nowait=nowait)
             return True
         return False
@@ -374,20 +365,22 @@ class NamedTask(Cancellable):
         return cls._is_running(group=name)
 
     @classmethod
-    def end(cls, task_id):  # On completion remove it
+    def _stopped(cls, task_id):  # On completion remove it
         name = cls._get_group(task_id())  # Convert task_id to task_no
-        if name in cls.barriers:
-            barrier = cls.barriers[name]
+        if name in cls.instances:
+            instance = cls.instances[name]
+            barrier = instance.barrier
             if barrier is not None:
                 barrier.trigger()
-            del cls.barriers[name]
-            Cancellable.end(task_id)
+            del cls.instances[name]
+        Cancellable._stopped(task_id())
 
     def __init__(self, name, gf, *args, barrier=None):
-        if name in self.barriers:
+        if name in self.instances:
             raise ValueError('Task name "{}" already exists.'.format(name))
         super().__init__(gf, *args, group=name)
-        self.barriers[name] = barrier
+        self.barrier = barrier
+        self.instances[name] = self
 
 
 # @namedtask

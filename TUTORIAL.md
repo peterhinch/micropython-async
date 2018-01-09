@@ -1,8 +1,7 @@
 # Application of uasyncio to hardware interfaces
 
-This document is a "work in progress" as I learn the content myself. Further
-at the time of writing uasyncio is itself under development. It is likely that
-these notes may contain errors; please report any you discover.
+This document is a "work in progress" as uasyncio is itself under development.
+Please report any errors you discover.
 
 The MicroPython uasyncio library comprises a subset of Python's asyncio library
 designed for use on microcontrollers. As such it has a small RAM footprint and
@@ -13,6 +12,11 @@ for a response from the hardware or for a user interaction.
 
 Another major application area for asyncio is in network programming: many
 guides to this may be found online.
+
+Note that MicroPython is based on Python 3.4 with minimal Python 3.5 additions.
+Except where detailed below, `asyncio` features of versions >3.4 are
+unsupported. As stated above it is a subset. This document identifies supported
+features.
 
 # Installing uasyncio on bare metal
 
@@ -84,7 +88,9 @@ examples below.
   
   4.4 [Coroutines with timeouts](./TUTORIAL.md#44-coroutines-with-timeouts)
 
-  5. [Device driver examples](./TUTORIAL.md#5-device-driver-examples)
+  4.5 [Exceptions](./TUTORIAL.md#45-exceptions)
+
+ 5. [Device driver examples](./TUTORIAL.md#5-device-driver-examples)
 
   5.1 [The IORead mechnaism](./TUTORIAL.md#51-the-ioread-mechanism)
 
@@ -567,16 +573,40 @@ controlled. Documentation of this is in the code.
 
 ## 3.6 Task cancellation
 
-This requires uasyncio.core V1.7 which was released on 16th Dec 2017, with
-firmware of that date or later. The following support classes are provided in
-`asyn.py`.
+This requires `uasyncio` V1.7.1 which was released on 7th Jan 2018, with
+firmware of that date or later.
+
+`uasyncio` now provides a `cancel(coro)` function. This works by throwing an
+exception to the coro in a special way: cancellation is deferred until the coro
+is next scheduled. This mechanism works with nested coros. However there is a
+limitation. If a coro issues `await uasyncio.sleep(secs)` or
+`uasyncio.sleep_ms(ms)` scheduling will not occur until the time has elapsed.
+This introduces latency into cancellation which matters in some use-cases.
+Other potential sources of latency take the form of slow code. `uasyncio` has
+no mechanism for verifying when cancellation has actually occurred. The `asyn`
+library provides solutions via the following classes:
 
  1. `Cancellable` This allows one or more tasks to be assigned to a group. A
  coro can cancel all tasks in the group, pausing until this has been acheived.
  Documentation may be found [here](./PRIMITIVES.md#42-class-cancellable).
  2. `NamedTask` This enables a coro to be associated with a user-defined name.
- The running status of named coros may be checked and they may individually be
- cancelled. Documentation may be found [here](./PRIMITIVES.md#43-class-namedtask).
+ The running status of named coros may be checked. For advanced usage more
+ complex groupings of tasks can be created. Documentation may be found
+ [here](./PRIMITIVES.md#43-class-namedtask).
+
+A typical use-case is as follows:
+
+```python
+async def comms():  # Perform some communications task
+    while True:
+        await initialise_link()
+        try:
+            await do_communications()  # Launches Cancellable tasks
+        except CommsError:
+            await Cancellable.cancel_all()
+        # All sub-tasks are now known to be stopped. They can be re-started
+        # with known initial state on next pass.
+```
 
 Examples of the usage of these classes may be found in `asyn_demos.py`. For an
 illustration of the mechanism a cancellable task is defined as below:
@@ -771,6 +801,18 @@ response to the `TimeoutError` will correspondingly be delayed.
 
 If this matters to the application, create a long delay by awaiting a short one
 in a loop. The coro `asyn.sleep` [supports this](./PRIMITIVES.md#41-coro-sleep).
+
+## 4.5 Exceptions
+
+Where an exception occurs in a coro, it should be trapped either in that coro
+or in a coro which is awaiting its completion. This ensures that the exception
+is not propagated to the scheduler. If this occurred it would stop running,
+passing the exception to the code which started the scheduler.
+
+Using `throw` to throw an exception to a coro is unwise. It subverts the design
+of `uasyncio` by forcing the coro to run, and possibly terminate, when it is
+still queued for execution. I haven't entirely thought through the implications
+of this, but it's a thoroughly bad idea.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
@@ -971,10 +1013,7 @@ In MicroPython coroutines are generators. This is not the case in CPython.
 Issuing `yield` in a coro will provoke a syntax error in CPython, whereas in
 MicroPython it has the same effect as `await asyncio.sleep(0)`. The surest way
 to write error free code is to use CPython conventions and assume that coros
-are not generators. In some cases using the knowledge that coros are generators
-can be dangerous. For example using `throw` to throw an exception to a coro is
-a bad idea because it forces the coro to run, and possibly terminate, when it
-is still queued for execution.
+are not generators.
 
 The following will work. If you use them, be prepared to test your code against
 each uasyncio release because the behaviour is not necessarily guaranteed.
@@ -987,12 +1026,6 @@ yield 100  # Pause 100ms - equivalent to above
 
 Issuing `yield` or `yield 100` is slightly faster than the equivalent `await`
 statements.
-
-**Exceptions**
-
-Where an exception occurs in a coro, it should be trapped either in that coro
-or in a paused coro further up the calling chain. This ensures that the
-exception is not propagated to the scheduler, ensuring it continues to run.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
