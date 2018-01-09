@@ -25,6 +25,7 @@
 
 import uasyncio as asyncio
 import asyn
+import utime as time
 
 def print_tests():
     st = '''Available functions:
@@ -33,6 +34,7 @@ test2()  Use of Barrier to synchronise NamedTask cancellation. Demo of latency.
 test3()  Cancellation of a NamedTask which has run to completion.
 test4()  Test of Cancellable class.
 test5()  Cancellable and NamedTask instances as bound methods.
+test6()  Test of NamedTask.is_running() and awaiting NamedTask cancellation.
 Recommended to issue ctrl-D after running each test.
 '''
     print('\x1b[32m')
@@ -327,3 +329,96 @@ Done
     cantest = CanTest()
     loop = asyncio.get_event_loop()
     loop.run_until_complete(cantest.start(loop))
+
+# test 6: test NamedTask.is_running()
+@asyn.cancellable
+async def cant60(task_id, name):
+    task_no = task_id()
+    print('Task cant60 no. {} name \"{}\" running.'.format(task_no, name))
+    try:
+        for _ in range(5):
+            await asyncio.sleep(2)  # 2 secs latency.
+    except asyn.StopTask:
+        print('Task cant60 no. {} name \"{}\" was cancelled.'.format(task_no, name))
+        return
+    else:
+        print('Task cant60 no. {} name \"{}\" ended.'.format(task_no, name))
+
+@asyn.cancellable
+async def cant61(task_id):
+    try:
+        while True:
+            for name in ('complete', 'cancel me'):
+                res = asyn.NamedTask.is_running(name)
+                print('Task \"{}\" running: {}'.format(name, res))
+            await asyncio.sleep(1)
+    except asyn.StopTask:
+        print('Task cant61 cancelled.')
+
+async def run_cancel_test6(loop):
+    for name in ('complete', 'cancel me'):
+        loop.create_task(asyn.NamedTask(name, cant60, name)())
+    loop.create_task(asyn.Cancellable(cant61)())
+    await asyncio.sleep(4.5)
+    print('Cancelling task \"{}\". 1.5 secs latency.'.format(name))
+    await asyn.NamedTask.cancel(name)
+    await asyncio.sleep(7)
+    name = 'cancel wait'
+    loop.create_task(asyn.NamedTask(name, cant60, name)())
+    await asyncio.sleep(0.5)
+    print('Cancelling task \"{}\". 1.5 secs latency.'.format(name))
+    t = time.ticks_ms()
+    await asyn.NamedTask.cancel('cancel wait', nowait=False)
+    print('Was cancelled in {} ms'.format(time.ticks_diff(time.ticks_ms(), t)))
+    print('Cancelling cant61')
+    await asyn.Cancellable.cancel_all()
+    print('Done')
+
+
+def test6():
+    printexp('''Task cant60 no. 0 name "complete" running.
+Task cant60 no. 1 name "cancel me" running.
+Task "complete" running: True
+Task "cancel me" running: True
+Task "complete" running: True
+Task "cancel me" running: True
+Task "complete" running: True
+Task "cancel me" running: True
+Task "complete" running: True
+Task "cancel me" running: True
+Task "complete" running: True
+Task "cancel me" running: True
+Cancelling task "cancel me". 1.5 secs latency.
+Task "complete" running: True
+Task "cancel me" running: True
+Task cant60 no. 1 name "cancel me" was cancelled.
+Task "complete" running: True
+Task "cancel me" running: False
+Task "complete" running: True
+Task "cancel me" running: False
+Task "complete" running: True
+Task "cancel me" running: False
+Task "complete" running: True
+Task "cancel me" running: False
+Task cant60 no. 0 name "complete" ended.
+Task "complete" running: False
+Task "cancel me" running: False
+Task "complete" running: False
+Task "cancel me" running: False
+Task cant60 no. 3 name "cancel wait" running.
+Cancelling task "cancel wait". 1.5 secs latency.
+Task "complete" running: False
+Task "cancel me" running: False
+Task "complete" running: False
+Task "cancel me" running: False
+Task cant60 no. 3 name "cancel wait" was cancelled.
+Was cancelled in 1503 ms
+Cancelling cant61
+Task cant61 cancelled.
+Done
+
+
+[Duration of cancel wait may vary depending on platform 1500 <= range <= 1600ms]
+''', 14)
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(run_cancel_test6(loop))

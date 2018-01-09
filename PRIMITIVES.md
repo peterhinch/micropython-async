@@ -88,9 +88,10 @@ The following modules are provided:
  * `asyn.py` The main library.
  * `asyntest.py` Test/demo programs for the primitives.
  * `asyn_demos.py` Minimal "get started" task cancellation demos.
- * `cantest.py` Task cancellation tests.
+ * `cantest.py` Task cancellation tests. Examples of intercepting `StopTask`.
+ Intended to verify the library against future `uasyncio` changes.
 
-Import the test or demo module for a list of available tests.
+Import `asyn_demos.py` or `cantest.py` for a list of available tests.
 
 ###### [Contents](./PRIMITIVES.md#contents)
 
