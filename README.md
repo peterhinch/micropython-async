@@ -1,13 +1,13 @@
 # Use of MicroPython uasyncio library
 
 This GitHub repository consists of the following parts:
+ * [A tutorial](./TUTORIAL.md) An introductory tutorial on asynchronous
+ programming and the use of the uasyncio library is offered. This is a work in
+ progress, not least because uasyncio is not yet complete.
  * [Asynchronous device drivers](./DRIVERS.md). A module providing drivers for
  devices such as switches and pushbuttons.
  * [Synchronisation primitives](./PRIMITIVES.md). Provides commonly used
  synchronisation primitives plus an API for task cancellation and monitoring.
- * [A tutorial](./TUTORIAL.md) An introductory tutorial on asynchronous
- programming and the use of the uasyncio library is offered. This is a work in
- progress, not least because uasyncio is not yet complete.
  * [A driver for an IR remote control](./nec_ir/README.md) This is intended as
  an example of an asynchronous device driver. It decodes signals received from
  infra red remote controls using the popular NEC protocol.
@@ -21,9 +21,9 @@ This GitHub repository consists of the following parts:
 
 # Installation of uasyncio
 
-Firstly install the latest version of ``micropython-uasyncio``. To use queues,
-also install the ``micropython-uasyncio.queues`` module. A ``Lock``
-synchronisation primitive is provided by ``micropython-uasyncio.synchro``.
+Firstly install the latest version of `micropython-uasyncio`. To use queues,
+also install the `micropython-uasyncio.queues` module. A `Lock` synchronisation
+primitive is provided by `micropython-uasyncio.synchro`.
 
 Instructions on installing library modules may be found [here](https://github.com/micropython/micropython-lib).
 
@@ -33,26 +33,33 @@ targets.
 
 # Current development state
 
-For those familiar with asyncio under CPython 3.5, uasyncio supports the
-following Python 3.5 features:
+The MicroPython language is based on CPython 3.4. The `uasyncio` library
+supports a subset of the CPython 3.4 `asyncio` library with some V3.5
+extensions. In addition there are nonstandard extensions to optimise services
+such as millisecond level timing and task cancellation. Its design focus is on
+high performance and scheduling is performed without RAM allocation.
 
- * ``async def`` and ``await`` syntax.
- * Awaitable classes (using ``__iter__`` rather than ``__await__``).
+The `uasyncio` library supports the following Python 3.5 features:
+
+ * `async def` and `await` syntax.
+ * Awaitable classes (using `__iter__` rather than `__await__`).
  * Asynchronous context managers.
  * Asynchronous iterators.
- * Event loop methods ``call_soon`` and ``call_later``.
- * uasyncio ``sleep(seconds)``.
+ * Event loop methods `call_soon` and `call_later`.
+ * `sleep(seconds)`.
 
 It supports millisecond level timing with the following:
 
- * Event loop method ``call_later_ms``
- * uasyncio ``sleep_ms(time)``
+ * Event loop method `call_later_ms`
+ * uasyncio `sleep_ms(time)`
 
-As of `uasyncio.core` V1.6 (16th Dec 2017) it supports coroutine timeouts and
-cancellation. This is done via a "micro" implementation rather than by
-supporting objects of type ``Future`` and ``Task``. Routines to run
-concurrently are defined as coroutines instantiated with ``async def`` and
-yield execution with ``await <awaitable>``.
+As of `uasyncio.core` V1.7.1 (7th Jan 2018) it supports coroutine timeouts and
+cancellation.
+
+ * `wait_for(coro, t_secs)` runs `coro` with a timeout.
+ * `cancel(coro)` tags `coro` for cancellation when it is next scheduled.
+
+Classes `Task` and `Future` are not supported.
 
 ## Asynchronous I/O
 
@@ -61,13 +68,13 @@ devices whose drivers support streaming, such as the UART.
 
 ## Time values
 
-For timing asyncio uses floating point values of seconds. The uasyncio ``sleep``
+For timing asyncio uses floating point values of seconds. The `uasyncio.sleep`
 method accepts floats (including sub-second values) or integers. Note that in
 MicroPython the use of floats implies RAM allocation which incurs a performance
-penalty. The design of uasyncio enables allocation-free scheduling. In
+penalty. The design of `uasyncio` enables allocation-free scheduling. In
 applications where performance is an issue, integers should be used and the
 millisecond level functions (with integer arguments) employed where necessary.
 
-The ``loop.time`` method returns an integer number of milliseconds whereas
-CPython returns a floating point number of seconds. ``call_at`` follows the
+The `loop.time` method returns an integer number of milliseconds whereas
+CPython returns a floating point number of seconds. `call_at` follows the
 same convention.

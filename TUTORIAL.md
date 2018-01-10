@@ -20,21 +20,38 @@ features.
 
 # Installing uasyncio on bare metal
 
-The simplest approach is to use the upip utility. This involves installing the
-Unix build of MicroPython, see the instructions
-[here](https://github.com/micropython/micropython). Install this (optionally in
-a Linux virtual machine) and ensure that **micropython** is on your path.
-Create a temporary directory e.g. `~/syn` and issue the following commands:
+MicroPython libraries are located on [PyPi](https://pypi.python.org/pypi).
+Libraries to be installed are:
+
+ * micropython-uasyncio
+ * micropython-uasyncio.queues
+ * micropython-uasyncio.synchro
+
+The `queues` and `synchro` modules are optional, but are required to run all
+the examples below.
+
+The oficial approach is to use the `upip` utility as described
+[here](https://github.com/micropython/micropython-lib). Network enabled
+hardware has this included in the firmware so it can be run locally. This is
+the preferred approach.
+
+On non-networked hardware there are two options. One is to use `upip` under a
+Linux real or virtual machine. This involves installing and building the Unix
+version of MicroPython, using `upip` to install to a directory on the PC, and
+then copying the library to the target.
+
+The need for Linux and the Unix build may be avoided by using
+[micropip.py](https://github.com/peterhinch/micropython-samples/tree/master/micropip).
+This runs under Python 3.2 or above. Create a temporary directory on your PC
+and install to that. Then copy the contents of the temporary direcory to the
+device. The following assume Linux and a temporary directory named `~/syn` -
+adapt to suit your OS. The first option requires that `micropip.py` has
+executable permission.
 
 ```
-micropython -m upip install -p ~/syn micropython-uasyncio
-micropython -m upip install -p ~/syn micropython-uasyncio.queues
-micropython -m upip install -p ~/syn micropython-uasyncio.synchro
+$ ./micropip.py install -p ~/syn micropython-uasyncio
+$ python3 -m micropip.py install -p ~/syn micropython-uasyncio
 ```
-
-Then copy the contents of the temporary direcory to the device. Note that the
-`queues` and `synchro` modules are optional, but are required to run all the
-examples below.
 
 ###### [Main README](./README.md)
 
@@ -138,7 +155,7 @@ to asynchronous programming there is an introduction
 
 ## 1.1 Modules
 
-The following modules are provided.
+The following modules are provided which may be copied to the target hardware.
 
 **Libraries**
 

@@ -148,20 +148,13 @@ class Barrier():
         self._func = func
         self._args = args
         self._reset(True)
-        self._nowait = False
 
     def __await__(self):
-        nowait = self._nowait  # Deal with arg
-        self._nowait = False
-
         self._update()
         if self._at_limit():  # All other threads are also at limit
             if self._func is not None:
                 launch(self._func, self._args)
             self._reset(not self._down)  # Toggle direction to release others
-            return
-
-        if nowait:  # Updated count, not at limit, so all done
             return
 
         direction = self._down
@@ -170,13 +163,9 @@ class Barrier():
                 return
             yield from after(0)
 
-    def __call__(self, nowait=False):  # Enable await barrier(nowait = True)
-        self._nowait = nowait
-        return self
-
     __iter__ = __await__
 
-    def trigger(self):  # synchronous version of await-nowait
+    def trigger(self):
         self._update()
         if self._at_limit():  # All other threads are also at limit
             if self._func is not None:
@@ -283,7 +272,10 @@ class Cancellable():
         for task_no in tokill:
             cls.tasks[task_no][2] = barrier
             cls._cancel(task_no)
-        await barrier(nowait=nowait)
+        if nowait:
+            barrier.trigger()
+        else:
+            await barrier
 
     @classmethod
     def _is_running(cls, group=0):

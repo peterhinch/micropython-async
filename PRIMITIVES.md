@@ -230,50 +230,37 @@ allowing all waiting coros to continue.
 
 Constructor.  
 Mandatory arg:  
-`participants` The number of coros which will wait on the barrier.  
+`participants` The number of coros which will use the barrier.  
 Optional args:  
 `func` Callback to run. Default `None`.  
 `args` Tuple of args for the callback. Default `()`.
 
-The callback can be a function or a coro. In most applications a function is
-likely to be used: this can be guaranteed to run to completion beore the
-barrier is released.
+Public synchronous methods:  
+ * `busy` No args. Returns `True` if at least one coro is waiting on the
+ barrier, or if at least one non-waiting coro has not triggered it.
+ * `trigger` No args. The barrier records that the coro has passed the critical
+ point. Returns "immediately".
 
-The `Barrier` has no properties or methods for user access. Participant
-coros issue `await my_barrier` whereupon execution pauses until all other
-participants are also waiting on it. At this point any callback will run and
-then each participant will re-commence execution. See `barrier_test` and
-`semaphore_test` in asyntest.py for example usage.
+The callback can be a function or a coro. In most applications a function will
+be used as this can be guaranteed to run to completion beore the barrier is
+released.
+
+Participant coros issue `await my_barrier` whereupon execution pauses until all
+other participants are also waiting on it. At this point any callback will run
+and then each participant will re-commence execution. See `barrier_test` and
+`semaphore_test` in `asyntest.py` for example usage.
 
 A special case of `Barrier` usage is where some coros are allowed to pass the
 barrier, registering the fact that they have done so. At least one coro must
-wait on the barrier. It will continue execution when all non-waiting coros have
-passed the barrier, and all other waiting coros have reached it. This can be of
-use when cancelling coros. A coro which cancels others might wait until all
-cancelled coros have passed the barrier as they quit.
+wait on the barrier. That coro will pause until all non-waiting coros have
+passed the barrier, and all waiting coros have reached it. At that point all
+waiting coros will resume. A non-waiting coro issues `barrier.trigger()` to
+indicate that is has passed the critical point.
 
-```python
-barrier = Barrier(3)  # 3 tasks share the barrier
-
-    # This coro does the cancelling and waits until it is complete.
-async def bar():
-    # Cancel two tasks
-    await barrier
-    # Now they have both terminated
-
-    # This coro is capable of being cancelled.
-async def foo(n):
-    # Cancellable coros must trap the CancelError
-    try:
-        await forever(n)  # Error propagates up from forever()
-    except CancelError:
-        print('Instance', n, 'was cancelled')
-    finally:
-        await barrier(nowait = True)  # Quit immediately
-```
-
-Note that `await barrier(nowait = True)` should not be issued in a looping
-construct.
+This mechanism is used in the `Cancellable` and `NamedTask` classes to register
+the fact that a coro has responded to cancellation. Using a non-waiting barrier
+in a looping construct carries a fairly obvious hazard and is normally to be
+avoided.
 
 ###### [Contents](./PRIMITIVES.md#contents)
 
@@ -324,23 +311,22 @@ This has been under active development. Existing users please see
 exception to the coro in a special way: cancellation is deferred until the coro
 is next scheduled. This mechanism works with nested coros. However there is a
 limitation. If a coro issues `await uasyncio.sleep(secs)` or
-`uasyncio.sleep_ms(ms)` scheduling will not occur until the time has elapsed.
-This introduces latency into cancellation which matters in some use-cases.
-There are other potential sources of latency in the form of slow code. 
+`await uasyncio.sleep_ms(ms)` scheduling will not occur until the time has
+elapsed. This introduces latency into cancellation which matters in some
+use-cases. Other potential sources of latency take the form of slow code. 
 `uasyncio` has no mechanism for verifying when cancellation has actually
-occurred. This library provides solutions.
+occurred. The `asyn.py` library provides solutions in the form of two classes.
 
-Cancellation is supported by two classes, `Cancellable` and `NamedTask`. The
-`Cancellable` class allows the creation of named groups of anonymous tasks
-which may be cancelled as a group. This awaits completion of cancellation of
-all tasks in the group.
+These are `Cancellable` and `NamedTask`. The `Cancellable` class allows the
+creation of named groups of tasks which may be cancelled as a group; this
+awaits completion of cancellation of all tasks in the group.
 
 The `NamedTask` class enables a task to be associated with a user supplied
 name, enabling it to be cancelled and its status checked. Cancellation
 optionally awaits confirmation of completion.
 
 For cases where cancellation latency is of concern `asyn.py` offers a `sleep`
-function which provides a delay which reduces latency.
+function which provides a delay with reduced latency.
 
 ## 4.1 Coro sleep
 
@@ -410,7 +396,8 @@ Constructor optional positional args:
  * Any further positional args are passed to the coro.
 
 Constructor optional keyword arg:  
- * `group` Integer or string. Default 0. See Groups below.
+ * `group` Any Python object, typically integer or string. Default 0. See
+ Groups below.
 
 Public class method:  
  * `cancel_all` Asynchronous.  
@@ -430,13 +417,16 @@ Public bound method:
  * `__call__` This returns the coro and is used to schedule the task using the
  event loop `create_task()` method using function call syntax.
 
+The `StopTask` exception is an alias for `usayncio.CancelledError`. In my view
+the name is more descriptive of its function.
+
 ### 4.2.1 Groups
 
 `Cancellable` tasks may be assigned to groups, identified by a user supplied
-integer or string. By default tasks are assigned to group 0. The `cancel_all`
-class method cancels all tasks in the specified group. The 0 default ensures
-that this facility can be ignored if not required, with `cancel_all` cancelling
-all `Cancellable` tasks.
+Python object, typically an integer or string. By default tasks are assigned to
+group 0. The `cancel_all` class method cancels all tasks in the specified
+group. The 0 default ensures that this facility can be ignored if not required,
+with `cancel_all` cancelling all `Cancellable` tasks.
 
 ### 4.2.2 Custom cleanup
 
@@ -509,9 +499,10 @@ if it has already completed, cancellation will have no effect.
 
 NamedTask Constructor.  
 Mandatory args:  
- * `name` Names may be any immutable type e.g. integer or string. A
- `ValueError` will be raised if the name already exists. If multiple instances
- of a coro are to run concurrently, each should be assigned a different name.
+ * `name` Names may be any immutable type capable of being a dictionary index
+ e.g. integer or string. A `ValueError` will be raised if the name is already
+ assigned by a running coro. If multiple instances of a coro are to run
+ concurrently, each should be assigned a different name.
  * `task` A coro passed by name i.e. not using function call syntax.
 
  Optional positional args:  
@@ -521,16 +512,16 @@ Mandatory args:
  * `barrier` A `Barrier` instance may be passed. See below.
 
 Public class methods:  
- * `cancel` Asynchronous. **[API change: was synchronous]**  
+ * `cancel` Asynchronous.  
  Mandatory arg: a coro name.  
  Optional boolean arg `nowait` default `True`  
  By default it will return soon. If `nowait` is `False` it will pause until the
- coro has completed cancellation.
+ coro has completed cancellation.  
  The named coro will receive a `StopTask` exception the next time it is
  scheduled. If the `@namedtask` decorator is used this is transparent to the
- user but the exception may be trapped for custom cleanup (see below).
+ user but the exception may be trapped for custom cleanup (see below).  
  `cancel` will return `True` if the coro was cancelled. It will return `False`
- if the coro has already ended or been cancelled.
+ if the coro has already ended or been cancelled.  
  * `is_running` Synchronous. Arg: A coro name. Returns `True` if coro is queued
  for scheduling, `False` if it has ended or been cancelled.
 
@@ -542,9 +533,9 @@ Public bound method:
 
 It is possible to get confirmation of cancellation of an arbitrary set of
 `NamedTask` instances by instantiating a `Barrier` and passing it to the
-constructor of each member. Practical use-cases for this are few - the normal
-approach is to use a group of `Cancellable` tasks. The approach is described
-below.
+constructor of each member. This enables more complex synchronisation cases
+than the normal method of using a group of `Cancellable` tasks. The approach is
+described below.
 
 If a `Barrier` instance is passed to the `NamedTask` constructor, a task
 performing cancellation can pause until a set of cancelled tasks have
