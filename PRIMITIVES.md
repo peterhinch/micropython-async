@@ -395,9 +395,10 @@ Constructor mandatory args:
 Constructor optional positional args:  
  * Any further positional args are passed to the coro.
 
-Constructor optional keyword arg:  
+Constructor optional keyword args:  
  * `group` Any Python object, typically integer or string. Default 0. See
  Groups below.
+ * Further keyword args are passed to the coro.
 
 Public class method:  
  * `cancel_all` Asynchronous.  
@@ -508,8 +509,9 @@ Mandatory args:
  Optional positional args:  
  * Any further positional args are passed to the coro.  
 
- Optional keyword only arg:  
+ Optional keyword only args:  
  * `barrier` A `Barrier` instance may be passed. See below.
+ * Further keyword args are passed to the coro.
 
 Public class methods:  
  * `cancel` Asynchronous.  

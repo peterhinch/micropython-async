@@ -216,7 +216,8 @@ async def cant42(task_no):
 
 # Test await syntax and throwing exception to subtask
 @asyn.cancellable
-async def chained(task_id):
+async def chained(task_id, x, y, *, red, blue):
+    print('Args:', x, y, red, blue)  # Test args and kwargs
     task_no = task_id()
     try:
         await cant42(task_no)
@@ -229,7 +230,7 @@ async def run_cancel_test4():
     loop.create_task(asyn.Cancellable(cant40)())  # 3 instances in default group 0
     loop.create_task(asyn.Cancellable(cant40)())
     loop.create_task(asyn.Cancellable(cant40)())
-    loop.create_task(asyn.Cancellable(chained, group=1)())
+    loop.create_task(asyn.Cancellable(chained, 1, 2, red=3, blue=4, group=1)())
     loop.create_task(asyn.Cancellable(cant41)())  # Runs to completion
     print('Running tasks')
     await asyncio.sleep(3)
@@ -246,6 +247,7 @@ def test4():
     printexp('''Task cant41 no. 0 running, arg 5.
 Task cant41 no. 0 ended.
 Running tasks
+Args: 1 2 3 4
 Task cant42 no. 4 running
 Task cant40 no. 1 running.
 Task cant40 no. 2 running.
@@ -278,7 +280,7 @@ class CanTest():
         loop.create_task(asyn.Cancellable(self.foo, 1)())  # 3 instances in default group 0
         loop.create_task(asyn.Cancellable(self.foo, 2)())
         loop.create_task(asyn.Cancellable(self.foo, 3)())
-        loop.create_task(asyn.NamedTask('my bar', self.bar, 4)())
+        loop.create_task(asyn.NamedTask('my bar', self.bar, 4, y=42)())
         await asyncio.sleep(4.5)
         await asyn.NamedTask.cancel('my bar')
         await asyn.Cancellable.cancel_all()
@@ -295,11 +297,11 @@ class CanTest():
             print('foo was cancelled')
 
     @asyn.cancellable
-    async def bar(self, _, arg):
+    async def bar(self, _, arg, *, x=1, y=2):
         try:
             while True:
                 await asyn.sleep(1)
-                print('bar running, arg', arg)
+                print('bar running, arg', arg, x, y)
         except asyn.StopTask:
             print('bar was cancelled')
 
@@ -307,19 +309,19 @@ def test5():
     printexp('''foo running, arg 1
 foo running, arg 2
 foo running, arg 3
-bar running, arg 4
+bar running, arg 4 1 42
 foo running, arg 1
 foo running, arg 2
 foo running, arg 3
-bar running, arg 4
+bar running, arg 4 1 42
 foo running, arg 1
 foo running, arg 2
 foo running, arg 3
-bar running, arg 4
+bar running, arg 4 1 42
 foo running, arg 1
 foo running, arg 2
 foo running, arg 3
-bar running, arg 4
+bar running, arg 4 1 42
 foo was cancelled
 foo was cancelled
 foo was cancelled

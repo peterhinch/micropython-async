@@ -306,8 +306,8 @@ class Cancellable():
                 barrier.trigger()
             del cls.tasks[task_no]
 
-    def __init__(self, gf, *args, group=0):
-        task = gf(TaskId(Cancellable.task_no), *args)
+    def __init__(self, gf, *args, group=0, **kwargs):
+        task = gf(TaskId(Cancellable.task_no), *args, **kwargs)
         if task in self.tasks:
             raise ValueError('Task already exists.')
         self.tasks[Cancellable.task_no] = [task, group, None]
@@ -327,8 +327,8 @@ class Cancellable():
 # @cancellable decorator
 
 def cancellable(f):
-    def new_gen(*args):
-        g = f(*args)
+    def new_gen(*args, **kwargs):
+        g = f(*args, **kwargs)
         # Task ID is args[1] if a bound method (else args[0])
         idx = 0 if isinstance(args[0], TaskId) else 1
         task_id = args[idx]
@@ -367,10 +367,10 @@ class NamedTask(Cancellable):
             del cls.instances[name]
         Cancellable._stopped(task_id())
 
-    def __init__(self, name, gf, *args, barrier=None):
+    def __init__(self, name, gf, *args, barrier=None, **kwargs):
         if name in self.instances:
             raise ValueError('Task name "{}" already exists.'.format(name))
-        super().__init__(gf, *args, group=name)
+        super().__init__(gf, *args, group=name, **kwargs)
         self.barrier = barrier
         self.instances[name] = self
 
