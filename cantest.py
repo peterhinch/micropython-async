@@ -56,7 +56,7 @@ def printexp(exp, runtime=0):
 # cancel_test1()
 
 @asyn.cancellable
-async def foo(task_id, num):
+async def foo(num):
     try:
         await asyncio.sleep(4)
     except asyn.StopTask:
@@ -109,7 +109,7 @@ async def forever(n):
 
 # Intercepting the StopTask exception.
 @asyn.cancellable
-async def rats(task_id, n):
+async def rats(n):
     try:
         await forever(n)
     except asyn.StopTask:
@@ -147,7 +147,7 @@ tasks were cancelled
 
 # Intercepting the StopTask exception.
 @asyn.cancellable
-async def cant3(task_id):
+async def cant3():
     try:
         await asyncio.sleep(1)
         print('Task cant3 has ended.')
@@ -187,51 +187,48 @@ tasks were cancelled
 # task_id automatically
 
 @asyn.cancellable
-async def cant40(task_id):
-    task_no = task_id()
+async def cant40(num):
     while True:
         try:
             await asyn.sleep(1)
-            print('Task cant40 no. {} running.'.format(task_no))
+            print('Task cant40 no. {} running.'.format(num))
         except asyn.StopTask:
-            print('Task cant40 no. {} was cancelled'.format(task_no))
+            print('Task cant40 no. {} was cancelled'.format(num))
             return
 
 @asyn.cancellable
-async def cant41(task_id, arg=0):
-    task_no = task_id()
+async def cant41(num, arg=0):
     try:
         await asyn.sleep(1)
-        print('Task cant41 no. {} running, arg {}.'.format(task_no, arg))
+        print('Task cant41 no. {} running, arg {}.'.format(num, arg))
     except asyn.StopTask:
-        print('Task cant41 no. {} was cancelled.'.format(task_no))
+        print('Task cant41 no. {} was cancelled.'.format(num))
         return
     else:
-        print('Task cant41 no. {} ended.'.format(task_no))
+        print('Task cant41 no. {} ended.'.format(num))
 
-async def cant42(task_no):
+async def cant42(num):
     while True:
-        print('Task cant42 no. {} running'.format(task_no))
+        print('Task cant42 no. {} running'.format(num))
         await asyn.sleep(1.2)
 
 # Test await syntax and throwing exception to subtask
 @asyn.cancellable
-async def chained(task_id, x, y, *, red, blue):
+async def chained(num, x, y, *, red, blue):
     print('Args:', x, y, red, blue)  # Test args and kwargs
-    task_no = task_id()
     try:
-        await cant42(task_no)
+        await cant42(num)
     except asyn.StopTask:
-        print('Task chained no. {} was cancelled'.format(task_no))
+        print('Task chained no. {} was cancelled'.format(num))
 
 async def run_cancel_test4():
-    await asyn.Cancellable(cant41, 5)
+    await asyn.Cancellable(cant41, 0)
     loop = asyncio.get_event_loop()
-    loop.create_task(asyn.Cancellable(cant40)())  # 3 instances in default group 0
-    loop.create_task(asyn.Cancellable(cant40)())
-    loop.create_task(asyn.Cancellable(cant40)())
-    loop.create_task(asyn.Cancellable(chained, 1, 2, red=3, blue=4, group=1)())
-    loop.create_task(asyn.Cancellable(cant41)())  # Runs to completion
+    loop.create_task(asyn.Cancellable(cant40, 1)())  # 3 instances in default group 0
+    loop.create_task(asyn.Cancellable(cant40, 2)())
+    loop.create_task(asyn.Cancellable(cant40, 3)())
+    loop.create_task(asyn.Cancellable(chained, 4, 1, 2, red=3, blue=4, group=1)())
+    loop.create_task(asyn.Cancellable(cant41, 5)())  # Runs to completion
     print('Running tasks')
     await asyncio.sleep(3)
     print('About to cancel group 0 tasks')
@@ -288,7 +285,7 @@ class CanTest():
         print('Done')
 
     @asyn.cancellable
-    async def foo(self, _, arg):
+    async def foo(self, arg):
         try:
             while True:
                 await asyn.sleep(1)
@@ -297,7 +294,7 @@ class CanTest():
             print('foo was cancelled')
 
     @asyn.cancellable
-    async def bar(self, _, arg, *, x=1, y=2):
+    async def bar(self, arg, *, x=1, y=2):
         try:
             while True:
                 await asyn.sleep(1)
@@ -334,20 +331,19 @@ Done
 
 # test 6: test NamedTask.is_running()
 @asyn.cancellable
-async def cant60(task_id, name):
-    task_no = task_id()
-    print('Task cant60 no. {} name \"{}\" running.'.format(task_no, name))
+async def cant60(name):
+    print('Task cant60 name \"{}\" running.'.format(name))
     try:
         for _ in range(5):
             await asyncio.sleep(2)  # 2 secs latency.
     except asyn.StopTask:
-        print('Task cant60 no. {} name \"{}\" was cancelled.'.format(task_no, name))
+        print('Task cant60 name \"{}\" was cancelled.'.format(name))
         return
     else:
-        print('Task cant60 no. {} name \"{}\" ended.'.format(task_no, name))
+        print('Task cant60 name \"{}\" ended.'.format(name))
 
 @asyn.cancellable
-async def cant61(task_id):
+async def cant61():
     try:
         while True:
             for name in ('complete', 'cancel me'):
@@ -378,8 +374,8 @@ async def run_cancel_test6(loop):
 
 
 def test6():
-    printexp('''Task cant60 no. 0 name "complete" running.
-Task cant60 no. 1 name "cancel me" running.
+    printexp('''Task cant60 name "complete" running.
+Task cant60 name "cancel me" running.
 Task "complete" running: True
 Task "cancel me" running: True
 Task "complete" running: True
@@ -393,7 +389,7 @@ Task "cancel me" running: True
 Cancelling task "cancel me". 1.5 secs latency.
 Task "complete" running: True
 Task "cancel me" running: True
-Task cant60 no. 1 name "cancel me" was cancelled.
+Task cant60 name "cancel me" was cancelled.
 Task "complete" running: True
 Task "cancel me" running: False
 Task "complete" running: True
@@ -402,18 +398,18 @@ Task "complete" running: True
 Task "cancel me" running: False
 Task "complete" running: True
 Task "cancel me" running: False
-Task cant60 no. 0 name "complete" ended.
+Task cant60 name "complete" ended.
 Task "complete" running: False
 Task "cancel me" running: False
 Task "complete" running: False
 Task "cancel me" running: False
-Task cant60 no. 3 name "cancel wait" running.
+Task cant60 name "cancel wait" running.
 Cancelling task "cancel wait". 1.5 secs latency.
 Task "complete" running: False
 Task "cancel me" running: False
 Task "complete" running: False
 Task "cancel me" running: False
-Task cant60 no. 3 name "cancel wait" was cancelled.
+Task cant60 name "cancel wait" was cancelled.
 Was cancelled in 1503 ms
 Cancelling cant61
 Task cant61 cancelled.

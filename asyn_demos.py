@@ -42,14 +42,14 @@ print_tests()
 
 # Cancellable task minimal example
 @asyn.cancellable
-async def print_nums(_, num):
+async def print_nums(num):
     while True:
         print(num)
         num += 1
         await asyn.sleep(1)
 
 @asyn.cancellable
-async def add_one(_, num):
+async def add_one(num):
     num += 1
     await asyn.sleep(1)
     return num
@@ -70,14 +70,14 @@ def cancel_test():
 # NamedTask minimal example
 
 @asyn.cancellable
-async def print_nums_named(_, num):
+async def print_nums_named(num):
     while True:
         print(num)
         num += 1
         await asyn.sleep(1)
 
 @asyn.cancellable
-async def add_one_named(_, num):
+async def add_one_named(num):
     num += 1
     await asyn.sleep(1)
     return num
@@ -114,13 +114,13 @@ class CanDemo():
         print('Done')
 
     @asyn.cancellable
-    async def foo(self, _, arg):
+    async def foo(self, arg):
         while True:
             await asyn.sleep(1)
             print('foo running, arg', arg)
 
     @asyn.cancellable
-    async def bar(self, _, arg):
+    async def bar(self, arg):
         while True:
             await asyn.sleep(1)
             print('bar running, arg', arg)

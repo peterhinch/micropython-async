@@ -328,10 +328,13 @@ class Cancellable():
 
 def cancellable(f):
     def new_gen(*args, **kwargs):
-        g = f(*args, **kwargs)
-        # Task ID is args[1] if a bound method (else args[0])
-        idx = 0 if isinstance(args[0], TaskId) else 1
-        task_id = args[idx]
+        if isinstance(args[0], TaskId):  # Not a bound method
+            task_id = args[0]
+            g = f(*args[1:], **kwargs)
+        else:  # Task ID is args[1] if a bound method
+            task_id = args[1]
+            args = (args[0],) + args[2:]
+            g = f(*args, **kwargs)
         try:
             res = await g
             return res
