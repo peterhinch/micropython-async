@@ -34,7 +34,15 @@ MicroPython firmware or one built from source.
   3.5 [Class Semaphore](./PRIMITIVES.md#35-class-semaphore)
 
    3.5.1 [Class BoundedSemaphore](./PRIMITIVES.md#351-class-boundedsemaphore)
-  
+
+  3.6 [Class Condition](./PRIMITIVES.md#36-class-condition)
+
+   3.6.1 [Definition](./PRIMITIVES.md#361-definition)
+
+  3.7 [Class Gather](./PRIMITIVES.md#37-class-gather)
+
+   3.7.1 [Definition](./PRIMITIVES.md#371-definition)
+
  4. [Task Cancellation](./PRIMITIVES.md#4-task-cancellation)
 
   4.1 [Coro sleep](./PRIMITIVES.md#41-coro-sleep)
@@ -299,6 +307,104 @@ instance is owned by the coro which locked it: only that coro can release it. A
 This works identically to the `Semaphore` class except that if the `release`
 method causes the access counter to exceed its initial value, a `ValueError`
 is raised.
+
+###### [Contents](./PRIMITIVES.md#contents)
+
+## 3.6 Class Condition
+
+A `Condition` instance enables controlled access to a shared resource. In
+typical applications a number of tasks wait for the resource to be available.
+Once this occurs access can be controlled both by the number of tasks and by
+means of a `Lock`.
+
+A task waiting on a `Condition` instance will pause until another task issues
+`condition.notify(n)` or `condition.notify_all()`. If the number of tasks
+waiting on the condition exceeds `n`, only `n` tasks will resume. A `Condition`
+instance has a `Lock` as a member. A task will only resume when it has acquired
+the lock. User code may release the lock as required by the application logic.
+
+Typical use of the class is in a synchronous context manager:
+
+```python
+    with await cond:
+        cond.notify(2)  # Notify 2 tasks
+```
+
+```python
+    with await cond:
+        await cond.wait()
+        # Has been notified and has access to the locked resource
+    # Resource has been unocked by context manager
+```
+### 3.6.1 Definition
+
+Constructor: Optional arg `lock=None`. A `Lock` instance may be specified,
+otherwise the `Condition` instantiates its own.
+
+Synchronous methods:  
+ * `locked` No args. Returns the state of the `Lock` instance.
+ * `release` No args. Release the `Lock`. A `RuntimeError` will occur if the
+ `Lock` is not locked.
+ * `notify` Arg `n=1`. Notify `n` tasks. The `Lock` must be acquired before
+ issuing `notify` otherwise a `RuntimeError` will occur.
+ * `notify_all` No args. Notify all tasks. The `Lock` must be acquired before
+ issuing `notify_all` otherwise a `RuntimeError` will occur.
+
+Asynchronous methods:  
+ * `acquire` No args. Pause until the `Lock` is acquired.
+ * `wait` No args. Await notification and the `Lock`. The `Lock` must be
+ acquired before issuing `wait` otherwise a `RuntimeError` will occur. The
+ sequence is as follows:  
+ The `Lock` is released.  
+ The task pauses until another task issues `notify`.  
+ It continues to pause until the `Lock` has been re-acquired when execution
+ resumes.
+ * `wait_for` Arg: `predicate` a callback returning a `bool`. The task pauses
+ until a notification is received and an immediate test of `predicate()`
+ returns `True`.
+
+###### [Contents](./PRIMITIVES.md#contents)
+
+## 3.7 Class Gather
+
+This aims to replicate some of the functionality of `asyncio.gather` in a
+'micro' form. The user creates a list of `Gatherable` tasks and then awaits a
+`Gather` object. When the last task to complete terminates, this will return a
+list of results returned by the tasks. Timeouts may be assigned to individual
+tasks.
+
+```python
+async def bar(x, y, rats):  # Example coro: note arg passing
+    await asyncio.sleep(1)
+    return x * y * rats
+
+gatherables = [asyn.Gatherable(foo, n) for n in range(4)]
+gatherables.append(asyn.Gatherable(bar, 7, 8, rats=77))
+gatherables.append(asyn.Gatherable(rats, 0, timeout=5))
+res = await asyn.Gather(gatherables)
+```
+
+The result `res` is a 6 element list containing the result of each of the 6
+coros. These are ordered by the position of the coro in the `gatherables` list.
+This is as per `asyncio.gather()`.
+
+See `asyntest.py` function `gather_test()`.
+
+### 3.7.1 Definition
+
+The `Gatherable` class has no user methods. The constructor takes a coro by
+name followed by any positional or keyword arguments for the coro. If an arg
+`timeout` is provided it should have an integer or float value: this is taken
+to be the timeout for the coro in seconds.
+
+The `Gather` class has no user methods. The constructor takes one mandatory
+arg: a list of `Gatherable` instances.
+
+`Gather` instances are awaitable. An `await` on an instance will terminate when
+the last member task completes or times out. It returns a list whose length
+matches the length of the list of `Gatherable` instances. Each element contains
+the return value of the corresponding `Gatherable` instance. Each return value
+may be of any type.
 
 ###### [Contents](./PRIMITIVES.md#contents)
 

@@ -3,7 +3,7 @@
 
 # The MIT License (MIT)
 #
-# Copyright (c) 2017 Peter Hinch
+# Copyright (c) 2017-2018 Peter Hinch
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -30,20 +30,18 @@ try:
     import uasyncio as asyncio
 except ImportError:
     import asyncio
-try:
-    from uasyncio.synchro import Lock
-except ImportError:
-    from asyn import Lock
 
-from asyn import Event, Semaphore, BoundedSemaphore, Barrier
+import asyn
 
 def print_tests():
     st = '''Available functions:
-print_tests()  Print this list
-ack_test()  Test event acknowledge
-event_test(lp=True)  Test Event and Lock objects. If lp use low priority mechanism
-barrier_test()  Test the Barrier class
-semaphore_test(bounded=False) Test Semaphore or BoundedSemaphore
+print_tests()  Print this list.
+ack_test()  Test event acknowledge.
+event_test(lp=True)  Test Event and Lock objects. If lp use low priority mechanism.
+barrier_test()  Test the Barrier class.
+semaphore_test(bounded=False)  Test Semaphore or BoundedSemaphore.
+condition_test()  Test the Condition class.
+gather_test()  Test the  Gather class
 
 Recommended to issue ctrl-D after running each test.
 '''
@@ -73,9 +71,9 @@ async def event_wait(event, ack_event, n):
 
 async def run_ack():
     loop = asyncio.get_event_loop()
-    event = Event()
-    ack1 = Event()
-    ack2 = Event()
+    event = asyn.Event()
+    ack1 = asyn.Event()
+    ack2 = asyn.Event()
     count = 0
     while True:
         loop.create_task(event_wait(event, ack1, 1))
@@ -148,12 +146,12 @@ async def eventwait(event):
 async def run_event_test(lp):
     print('Test Lock class')
     loop = asyncio.get_event_loop()
-    lock = Lock()
+    lock = asyn.Lock()
     loop.create_task(run_lock(1, lock))
     loop.create_task(run_lock(2, lock))
     loop.create_task(run_lock(3, lock))
     print('Test Event class')
-    event = Event(lp)
+    event = asyn.Event(lp)
     print('got here')
     loop.create_task(eventset(event))
     print('gh1')
@@ -205,7 +203,7 @@ def barrier_test():
 3 3 3 Synch
 4 4 4 Synch
 ''')
-    barrier = Barrier(3, callback, ('Synch',))
+    barrier = asyn.Barrier(3, callback, ('Synch',))
     loop = asyncio.get_event_loop()
     for _ in range(3):
         loop.create_task(report(barrier))
@@ -218,18 +216,19 @@ async def run_sema(n, sema, barrier):
     print('run_sema {} trying to access semaphore'.format(n))
     async with sema:
         print('run_sema {} acquired semaphore'.format(n))
-        await asyncio.sleep(1)  # Delay to demo other coros waiting for sema
+        # Delay demonstrates other coros waiting for semaphore
+        await asyncio.sleep(1 + n/10)  # n/10 ensures deterministic printout
     print('run_sema {} has released semaphore'.format(n))
-    await barrier
+    barrier.trigger()
 
 async def run_sema_test(bounded):
     num_coros = 5
     loop = asyncio.get_event_loop()
-    barrier = Barrier(num_coros + 1)
+    barrier = asyn.Barrier(num_coros + 1)
     if bounded:
-        semaphore = BoundedSemaphore(3)
+        semaphore = asyn.BoundedSemaphore(3)
     else:
-        semaphore = Semaphore(3)
+        semaphore = asyn.Semaphore(3)
     for n in range(num_coros):
         loop.create_task(run_sema(n, semaphore, barrier))
     await barrier  # Quit when all coros complete
@@ -248,13 +247,13 @@ run_sema 2 trying to access semaphore
 run_sema 2 acquired semaphore
 run_sema 3 trying to access semaphore
 run_sema 4 trying to access semaphore
-run_sema 3 acquired semaphore
 run_sema 0 has released semaphore
 run_sema 4 acquired semaphore
 run_sema 1 has released semaphore
+run_sema 3 acquired semaphore
 run_sema 2 has released semaphore
-run_sema 3 has released semaphore
 run_sema 4 has released semaphore
+run_sema 3 has released semaphore
 Bounded semaphore exception test OK
 
 Exact sequence of acquisition may vary when 3 and 4 compete for semaphore.'''
@@ -267,10 +266,10 @@ run_sema 2 trying to access semaphore
 run_sema 2 acquired semaphore
 run_sema 3 trying to access semaphore
 run_sema 4 trying to access semaphore
-run_sema 3 acquired semaphore
 run_sema 0 has released semaphore
-run_sema 4 acquired semaphore
+run_sema 3 acquired semaphore
 run_sema 1 has released semaphore
+run_sema 4 acquired semaphore
 run_sema 2 has released semaphore
 run_sema 3 has released semaphore
 run_sema 4 has released semaphore
@@ -279,3 +278,131 @@ Exact sequence of acquisition may vary when 3 and 4 compete for semaphore.'''
     printexp(exp, 3)
     loop = asyncio.get_event_loop()
     loop.run_until_complete(run_sema_test(bounded))
+
+# ************ Condition test ************
+
+cond = asyn.Condition()
+tim = 0
+
+@asyn.cancellable
+async def cond01():
+    while True:
+        await asyncio.sleep(2)
+        with await cond:
+            cond.notify(2)  # Notify 2 tasks
+
+async def cond02(n, barrier):
+    with await cond:
+        print('cond02', n, 'Awaiting notification.')
+        await cond.wait()
+        print('cond02', n, 'triggered. tim =', tim)
+        barrier.trigger()
+
+@asyn.cancellable
+async def cond03():  # Maintain a count of seconds
+    global tim
+    await asyncio.sleep(0.5)
+    while True:
+        await asyncio.sleep(1)
+        tim += 1
+
+def predicate():
+    return tim >= 12
+
+async def cond04(n, barrier):
+    with await cond:
+        print('cond04', n, 'Awaiting notification and predicate.')
+        await cond.wait_for(predicate)
+        print('cond04', n, 'triggered. tim =', tim)
+        barrier.trigger()
+
+async def cond_go(loop):
+    ntasks = 7
+    barrier = asyn.Barrier(ntasks + 1)
+    loop.create_task(asyn.Cancellable(cond01)())
+    loop.create_task(asyn.Cancellable(cond03)())
+    for n in range(ntasks):
+        loop.create_task(cond02(n, barrier))
+    await barrier  # All instances of cond02 have completed
+    # Test wait_for
+    barrier = asyn.Barrier(2)
+    loop.create_task(cond04(99, barrier))
+    await barrier
+    # cancel continuously running coros.
+    await asyn.Cancellable.cancel_all()
+    print('Done.')
+
+def condition_test():
+    printexp('''cond02 0 Awaiting notification.
+cond02 1 Awaiting notification.
+cond02 2 Awaiting notification.
+cond02 3 Awaiting notification.
+cond02 4 Awaiting notification.
+cond02 5 Awaiting notification.
+cond02 6 Awaiting notification.
+cond02 5 triggered. tim = 1
+cond02 6 triggered. tim = 1
+cond02 3 triggered. tim = 3
+cond02 4 triggered. tim = 3
+cond02 1 triggered. tim = 5
+cond02 2 triggered. tim = 5
+cond02 0 triggered. tim = 7
+cond04 99 Awaiting notification and predicate.
+cond04 99 triggered. tim = 13
+Done.
+''', 16)
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(cond_go(loop))
+
+# ************ Gather test ************
+
+# Task with one positional arg. Demonstrate that result order depends on
+# original list order not termination order.
+async def gath01(n):
+    print('gath01', n, 'started')
+    await asyncio.sleep(3 - n/10)
+    print('gath01', n, 'done')
+    return n
+
+# Takes kwarg. This is last to terminate.
+async def gath02(x, y, rats):
+    print('gath02 started')
+    await asyncio.sleep(7)
+    print('gath02 done')
+    return x * y, rats
+
+# Only quits on timeout
+async def gath03(n):
+    print('gath03 started')
+    try:
+        while True:
+            await asyncio.sleep(1)
+            n += 1
+    except asyncio.TimeoutError:
+        print('gath03 timeout')
+        return n
+
+async def gath_go():
+    gatherables = [asyn.Gatherable(gath01, n) for n in range(4)]
+    gatherables.append(asyn.Gatherable(gath02, 7, 8, rats=77))
+    gatherables.append(asyn.Gatherable(gath03, 0, timeout=5))
+    res = await asyn.Gather(gatherables)
+    print(res)
+
+def gather_test():
+    printexp('''gath01 0 started
+gath01 1 started
+gath01 2 started
+gath01 3 started
+gath02 started
+gath03 started
+gath01 3 done
+gath01 2 done
+gath01 1 done
+gath01 0 done
+gath03 timeout
+gath02 done
+[0, 1, 2, 3, (56, 77), 4]
+''', 7)
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(gath_go())

@@ -1,7 +1,7 @@
 # asyn.py 'micro' synchronisation primitives for uasyncio
 # Test/demo programs asyntest.py, barrier_test.py
-# Provides Lock, Event, Barrier, Semaphore, BoundedSemaphore, NamedTask
-# and Cancellable classes, also sleep coro.
+# Provides Lock, Event, Barrier, Semaphore, BoundedSemaphore, Condition,
+# NamedTask and Cancellable classes, also sleep coro.
 # Uses low_priority where available and appropriate.
 # Updated 31 Dec 2017 for uasyncio.core V1.6 and to provide task cancellation.
 
@@ -78,6 +78,7 @@ class Lock():
 
     async def __aenter__(self):
         await self.acquire()
+        return self
 
     async def __aexit__(self, *args):
         self.release()
@@ -200,6 +201,7 @@ class Semaphore():
 
     async def __aenter__(self):
         await self.acquire()
+        return self
 
     async def __aexit__(self, *args):
         self.release()
@@ -318,7 +320,7 @@ class Cancellable():
     def __call__(self):
         return self.task
 
-    def __await__(self):
+    def __await__(self):  # Return any value returned by task.
         return (yield from self.task)
 
     __iter__ = __await__
@@ -380,3 +382,95 @@ class NamedTask(Cancellable):
 
 # @namedtask
 namedtask = cancellable  # compatibility with old code
+
+# Condition class
+
+class Condition():
+    def __init__(self, lock=None):
+        self.lock = Lock() if lock is None else lock
+        self.events = []
+
+    async def acquire(self):
+        await self.lock.acquire()
+
+# enable this syntax:
+# with await condition [as cond]:
+    def __await__(self):
+        yield from self.lock.acquire()
+        return self
+
+    __iter__ = __await__
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        self.lock.release()
+
+    def locked(self):
+        return self.lock.locked()
+
+    def release(self):
+        self.lock.release()  # Will raise RuntimeError if not locked
+
+    def notify(self, n=1):  # Caller controls lock
+        if not self.lock.locked():
+            raise RuntimeError('Condition notify with lock not acquired.')
+        for _ in range(min(n, len(self.events))):
+            ev = self.events.pop()
+            ev.set()
+
+    def notify_all(self):
+        self.notify(len(self.events))
+
+    async def wait(self):
+        if not self.lock.locked():
+            raise RuntimeError('Condition wait with lock not acquired.')
+        ev = Event()
+        self.events.append(ev)
+        self.lock.release()
+        await ev
+        await self.lock.acquire()
+        assert ev not in self.events, 'condition wait assertion fail'
+        return True  # CPython compatibility
+
+    async def wait_for(self, predicate):
+        result = predicate()
+        while not result:
+            await self.wait()
+            result = predicate()
+        return result
+
+# Provide functionality similar to asyncio.gather()
+
+class Gather():
+    def __init__(self, gatherables):
+        ncoros = len(gatherables)
+        self.barrier = Barrier(ncoros + 1)
+        self.results = [None] * ncoros
+        loop = asyncio.get_event_loop()
+        for n, gatherable in enumerate(gatherables):
+            loop.create_task(self.wrap(gatherable, n)())
+
+    def __iter__(self):
+        yield from self.barrier.__await__()
+        return self.results
+
+    def wrap(self, gatherable, idx):
+        async def wrapped():
+            coro, args, kwargs = gatherable()
+            try:
+                tim = kwargs.pop('timeout')
+            except KeyError:
+                self.results[idx] = await coro(*args, **kwargs)
+            else:
+                self.results[idx] = await asyncio.wait_for(coro(*args, **kwargs), tim)
+            self.barrier.trigger()
+        return wrapped
+
+class Gatherable():
+    def __init__(self, coro, *args, **kwargs):
+        self.arguments = coro, args, kwargs
+
+    def __call__(self):
+        return self.arguments

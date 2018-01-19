@@ -61,6 +61,17 @@ cancellation.
 
 Classes `Task` and `Future` are not supported.
 
+## Synchronisation Primitives and Task Cancellation
+
+The library `asyn.py` provides 'micro' implementations of the `asyncio`
+[synchronisation primitives](https://docs.python.org/3/library/asyncio-sync.html).
+Because `uasyncio` does not support `Task` and `Future` classes `asyncio`
+features such as `wait` and `gather` are unavailable. A `Barrier` class enables
+coroutines to be similarly synchronised. Coroutine cancellation is performed in
+a special efficient manner in `uasyncio`. The `asyn` library enhances this by
+facilitating options to pause until cancellation is complete and to check the
+status of individual coroutines.
+
 ## Asynchronous I/O
 
 At the time of writing this was under development. Asynchronous I/O works with

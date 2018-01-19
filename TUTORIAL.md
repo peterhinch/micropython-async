@@ -99,10 +99,14 @@ $ python3 -m micropip.py install -p ~/syn micropython-uasyncio
 
   4.1 [Awaitable classes](./TUTORIAL.md#41-awaitable-classes)
 
+   4.1.1 [Use in context managers](./TUTORIAL.md#411-use-in-context-managers)
+
+   4.1.2 [Awaiting a coro](./TUTORIAL.md#412-awaiting-a-coro)
+
   4.2 [Asynchronous iterators](./TUTORIAL.md#42-asynchronous-iterators)
 
   4.3 [Asynchronous context managers](./TUTORIAL.md#43-asynchronous-context-managers)
-  
+
   4.4 [Coroutines with timeouts](./TUTORIAL.md#44-coroutines-with-timeouts)
 
   4.5 [Exceptions](./TUTORIAL.md#45-exceptions)
@@ -430,7 +434,8 @@ ineffective. It will not receive the `TimeoutError` until it has acquired the
 lock. The same observation applies to task cancellation.
 
 The module `asyn.py` offers a `Lock` class which works in these situations. It
-is significantly less efficient than the official class.
+is significantly less efficient than the official class but supports additional
+interfaces as per the CPython version including context manager usage.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
@@ -495,11 +500,14 @@ compensation for this.
 
 ## 3.3 Barrier
 
-This enables multiple coros to rendezvous at a particular point. For example
-producer and consumer coros can synchronise at a point where the producer has
-data available and the consumer is ready to use it. At that point in time the
-`Barrier` can optionally run a callback before releasing the barrier and
-allowing all waiting coros to continue. [Full details.](./PRIMITIVES.md#34-class-barrier)
+This has two uses. Firstly it can cause a coro to pause until one or more other
+coros have terminated.
+
+Secondly it enables multiple coros to rendezvous at a particular point. For
+example producer and consumer coros can synchronise at a point where the
+producer has data available and the consumer is ready to use it. At that point
+in time the `Barrier` can run an optional callback before the barrier is
+released and all waiting coros can continue. [Full details.](./PRIMITIVES.md#34-class-barrier)
 
 The callback can be a function or a coro. In most applications a function is
 likely to be used: this can be guaranteed to run to completion before the
@@ -674,14 +682,15 @@ class Foo():
         for n in range(5):
             print('__await__ called')
             yield from asyncio.sleep(1) # Other coros get scheduled here
+        return 42
 
     __iter__ = __await__  # See note below
 
 async def bar():
     foo = Foo()  # Foo is an awaitable class
     print('waiting for foo')
-    await foo
-    print('done')
+    res = await foo  # Retrieve result
+    print('done', res)
 
 loop = asyncio.get_event_loop()
 loop.run_until_complete(bar())
@@ -689,9 +698,75 @@ loop.run_until_complete(bar())
 
 Currently MicroPython doesn't support `__await__` (issue #2678) and
 `__iter__` must be used. The line `__iter__ = __await__` enables portability
-between CPython and MicroPython.
+between CPython and MicroPython. Example code may be found in the `Event`,
+`Barrier`, `Cancellable` and `Condition` classes in asyn.py.
 
-Example code may be found in the `Event` and `Barrier` classes in asyn.py.
+### 4.1.1 Use in context managers
+
+Awaitable objects can be used in synchronous or asynchronous CM's by providing
+the necessary special methods. The syntax is:
+
+```python
+with await awaitable as a:  # The 'as' clause is optional
+    # code omitted
+async with awaitable as a:  # Asynchronous CM (see below)
+    # do something
+```
+
+To achieve this the `__await__` generator should return `self`. This is passed
+to any variable in an `as` clause and also enables the special methods to work.
+See `asyn.Condition` and `asyntest.condition_test`, where the `Condition` class
+is awaitable and may be used in a synchronous CM.
+
+###### [Contents](./TUTORIAL.md#contents)
+
+### 4.1.2 Awaiting a coro
+
+The Python language requires that `__await__` is a generator function. In
+MicroPython generators and coroutines are identical, so the solution is to use
+`yield from coro(args)`.
+
+This tutorial aims to offer code portable to CPython 3.5 or above. In CPython
+coroutines and generators are distinct. CPython coros have an `__await__`
+special method which retrieves a generator. This is portable:
+
+```python
+up = False  # Running under MicroPython?
+try:
+    import uasyncio as asyncio
+    up = True  # Or can use sys.implementation.name
+except ImportError:
+    import asyncio
+
+async def times_two(n):  # Coro to await
+    await asyncio.sleep(1)
+    return 2 * n
+
+class Foo():
+    def __await__(self):
+        res = 1
+        for n in range(5):
+            print('__await__ called')
+            if up:  # MicroPython
+                res = yield from times_two(res)
+            else:  # CPython
+                res = yield from times_two(res).__await__()
+        return res
+
+    __iter__ = __await__
+
+async def bar():
+    foo = Foo()  # foo is awaitable
+    print('waiting for foo')
+    res = await foo  # Retrieve value
+    print('done', res)
+
+loop = asyncio.get_event_loop()
+loop.run_until_complete(bar())
+```
+
+Note that, in `__await__`, `yield from asyncio.sleep(1)` is allowed by CPython.
+I haven't yet established how this is achieved.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
@@ -761,17 +836,21 @@ async def bar(lock):
 As with normal context managers an exit method is guaranteed to be called when
 the context manager terminates, whether normally or via an exception. To
 achieve this the special methods `__aenter__` and `__aexit__` must be
-defined, both being coros waiting on an `awaitable` object. This example comes
-from the `Lock` class:
+defined, both being coros waiting on a coro or `awaitable` object. This example
+comes from the `Lock` class:
 
 ```python
     async def __aenter__(self):
         await self.acquire()  # a coro defined with async def
+        return self
 
     async def __aexit__(self, *args):
         self.release()  # A conventional method
         await asyncio.sleep_ms(0)
 ```
+
+If the `async with` has an `as variable` clause the variable receives the
+value returned by `__aenter__`.
 
 Note there is currently a bug in the implementation whereby if an explicit
 `return` is issued within an `async with` block, the `__aexit__` method
