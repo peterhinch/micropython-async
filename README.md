@@ -84,7 +84,7 @@ same convention.
 
 # 4. The asyn.py library
 
-This library [docs](./PRIMITIVES.md) provides 'micro' implementations of the
+This library ([docs](./PRIMITIVES.md)) provides 'micro' implementations of the
 `asyncio` synchronisation primitives.
 [CPython docs](https://docs.python.org/3/library/asyncio-sync.html)
 
