@@ -1,4 +1,4 @@
-# Use of MicroPython uasyncio library
+# 1. The MicroPython uasyncio library
 
 This GitHub repository consists of the following parts:
  * [A tutorial](./TUTORIAL.md) An introductory tutorial on asynchronous
@@ -19,19 +19,22 @@ This GitHub repository consists of the following parts:
  boards to communicate without using a UART. Primarily intended to enable a
  a Pyboard-like device to achieve bidirectional communication with an ESP8266.
 
-# Installation of uasyncio
+# 2. Installation of uasyncio
 
 Firstly install the latest version of `micropython-uasyncio`. To use queues,
 also install the `micropython-uasyncio.queues` module. A `Lock` synchronisation
 primitive is provided by `micropython-uasyncio.synchro`.
 
-Instructions on installing library modules may be found [here](https://github.com/micropython/micropython-lib).
+Instructions on installing library modules may be found
+[here](https://github.com/micropython/micropython-lib).
 
-On networked hardware, upip may be run locally. The [tutorial](./TUTORIAL.md#installing-uasyncio-on-bare-metal)
-has instructions for a method of installation on non-networked baremetal
-targets.
+On networked hardware, upip may be run locally. The
+[tutorial](./TUTORIAL.md#installing-uasyncio-on-bare-metal) has instructions
+for methods of installation on non-networked baremetal targets.
 
-# Current development state
+# 3. uasyncio development state
+
+These notes are intended for users familiar with `asyncio` under CPython.
 
 The MicroPython language is based on CPython 3.4. The `uasyncio` library
 supports a subset of the CPython 3.4 `asyncio` library with some V3.5
@@ -61,23 +64,12 @@ cancellation.
 
 Classes `Task` and `Future` are not supported.
 
-## Synchronisation Primitives and Task Cancellation
+## 3.1 Asynchronous I/O
 
-The library `asyn.py` provides 'micro' implementations of the `asyncio`
-[synchronisation primitives](https://docs.python.org/3/library/asyncio-sync.html).
-Because `uasyncio` does not support `Task` and `Future` classes `asyncio`
-features such as `wait` and `gather` are unavailable. A `Barrier` class enables
-coroutines to be similarly synchronised. Coroutine cancellation is performed in
-a special efficient manner in `uasyncio`. The `asyn` library enhances this by
-facilitating options to pause until cancellation is complete and to check the
-status of individual coroutines.
+Asynchronous I/O works with devices whose drivers support streaming, such as
+UARTs.
 
-## Asynchronous I/O
-
-At the time of writing this was under development. Asynchronous I/O works with
-devices whose drivers support streaming, such as the UART.
-
-## Time values
+## 3.2 Time values
 
 For timing asyncio uses floating point values of seconds. The `uasyncio.sleep`
 method accepts floats (including sub-second values) or integers. Note that in
@@ -89,3 +81,17 @@ millisecond level functions (with integer arguments) employed where necessary.
 The `loop.time` method returns an integer number of milliseconds whereas
 CPython returns a floating point number of seconds. `call_at` follows the
 same convention.
+
+# 4. The asyn.py library
+
+This library provides 'micro' implementations of the `asyncio` synchronisation
+primitives [CPython docs](https://docs.python.org/3/library/asyncio-sync.html).
+
+It also supports a `Barrier` class to facilitate coroutine synchronisation.
+
+Coroutine cancellation is performed in an efficient manner in `uasyncio`. The
+`asyn` library enhances this by enabling the cancelling coro to pause until
+cancellation is complete and to check the 'running' status of individual
+coroutines.
+
+A lightweight implementation of `asyncio.gather` is provided.
