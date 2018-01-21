@@ -95,6 +95,8 @@ $ python3 -m micropip.py install -p ~/syn micropython-uasyncio
 
   3.6 [Task cancellation](./TUTORIAL.md#36-task-cancellation)
 
+  3.7 [Other synchronisation primitives](./TUTORIAL.md#37-other-synchronisation-primitives)
+
  4. [Designing classes for asyncio](./TUTORIAL.md#4-designing-classes-for-asyncio)
 
   4.1 [Awaitable classes](./TUTORIAL.md#41-awaitable-classes)
@@ -393,7 +395,7 @@ may be found [here](./PRIMITIVES.md).
 
 ## 3.1 Lock
 
-This describes the use of the official `Lock` primitive. [Full details.](./PRIMITIVES.md#32-class-lock)
+This describes the use of the official `Lock` primitive.
 
 This guarantees unique access to a shared resource. In the following code
 sample a `Lock` instance `lock` has been created and is passed to all coros
@@ -433,9 +435,10 @@ and the timeout is triggered while it is waiting on a lock, the timeout will be
 ineffective. It will not receive the `TimeoutError` until it has acquired the
 lock. The same observation applies to task cancellation.
 
-The module `asyn.py` offers a `Lock` class which works in these situations. It
-is significantly less efficient than the official class but supports additional
-interfaces as per the CPython version including context manager usage.
+The module `asyn.py` offers a `Lock` class which works in these situations
+[Full details.](./PRIMITIVES.md#32-class-lock). It is significantly less
+efficient than the official class but supports additional interfaces as per the
+CPython version including context manager usage.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
@@ -655,6 +658,22 @@ async def foo():
     await asyn.Cancellable.cancel_all()
     print('Done')
 ```
+
+###### [Contents](./TUTORIAL.md#contents)
+
+## 3.7 Other synchronisation primitives
+
+The `asyn.py` library provides 'micro' implementations of CPython capabilities,
+namely the [Condition class](./PRIMITIVES.md#36-class-condition) and the
+[gather](./PRIMITIVES.md#37-class-gather) method.
+
+The `Condition` class enables a coro to notify other coros which are waiting on
+a locked resource. Once notified they will access the resource and release the
+lock in turn. The notifying coro can limit the number of coros to be notified.
+
+The CPython `gather` method enables a list of coros to be launched. When the
+last has completed a list of results is returned. This 'micro' implementation
+uses different syntax. Timeouts may be applied to any of the coros.
 
 ###### [Contents](./TUTORIAL.md#contents)
 

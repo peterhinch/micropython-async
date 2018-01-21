@@ -1,9 +1,12 @@
 # 1. The asyn.py library
 
-This provides five simple synchronisation primitives, together with an API for
+This provides some simple synchronisation primitives, together with an API for
 task monitoring and cancellation. Task cancellation requires usayncio V 1.7.1
 or higher. At the time of writing (7th Jan 2018) it requires a daily build of
 MicroPython firmware or one built from source.
+
+The library is too large to run on the ESP8266 except as frozen bytecode. An
+obvious workround is to produce a version with unused primitives removed.
 
 ###### [Main README](./README.md)
 
@@ -395,7 +398,9 @@ See `asyntest.py` function `gather_test()`.
 The `Gatherable` class has no user methods. The constructor takes a coro by
 name followed by any positional or keyword arguments for the coro. If an arg
 `timeout` is provided it should have an integer or float value: this is taken
-to be the timeout for the coro in seconds.
+to be the timeout for the coro in seconds. Note that timeout is subject to the
+latency discussed in [Coroutines with timeouts](./TUTORIAL.md#44-coroutines-with-timeouts).
+A way to reduce this is to use `asyn.sleep()` in such coros.
 
 The `Gather` class has no user methods. The constructor takes one mandatory
 arg: a list of `Gatherable` instances.
