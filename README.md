@@ -84,14 +84,15 @@ same convention.
 
 # 4. The asyn.py library
 
-This library provides 'micro' implementations of the `asyncio` synchronisation
-primitives [CPython docs](https://docs.python.org/3/library/asyncio-sync.html).
+This library [docs](./PRIMITIVES.md) provides 'micro' implementations of the
+`asyncio` synchronisation primitives.
+[CPython docs](https://docs.python.org/3/library/asyncio-sync.html)
 
 It also supports a `Barrier` class to facilitate coroutine synchronisation.
 
 Coroutine cancellation is performed in an efficient manner in `uasyncio`. The
-`asyn` library enhances this by enabling the cancelling coro to pause until
-cancellation is complete and to check the 'running' status of individual
-coroutines.
+`asyn` library uses this, further enabling the cancelling coro to pause until
+cancellation is complete. It also provides a means of checking the 'running'
+status of individual coroutines.
 
 A lightweight implementation of `asyncio.gather` is provided.
