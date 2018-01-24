@@ -374,7 +374,8 @@ program and discussed in [the docs](./DRIVERS.md). Another hazard is the "deadly
 embrace" where two coros each wait on the other's completion.
 
 In simple applications communication may be achieved with global flags. A more
-elegant approach is to use synchronisation primitives. The module `asyn.py`
+elegant approach is to use synchronisation primitives. The module
+[asyn.py](https://github.com/peterhinch/micropython-async/blob/master/asyn.py)
 offers "micro" implementations of `Event`, `Barrier` and `Semaphore`
 primitives. These are for use only with asyncio. They are not thread safe and
 should not be used with the `_thread` module. A `Lock` primitive is provided
@@ -446,8 +447,15 @@ CPython version including context manager usage.
 
 This provides a way for one or more coros to pause until another flags them to
 continue. An `Event` object is instantiated and made accessible to all coros
-using it. Coros waiting on the event issue `await event` whereupon execution
-pauses until another issues `event.set()`. [Full details.](./PRIMITIVES.md#33-class-event)
+using it:
+
+```python
+import asyn
+event = asyn.Event()
+```
+
+Coros waiting on the event issue `await event` whereupon execution pauses until
+another issues `event.set()`. [Full details.](./PRIMITIVES.md#33-class-event)
 
 This presents a problem if `event.set()` is issued in a looping construct; the
 code must wait until the event has been accessed by all waiting coros before
@@ -520,10 +528,12 @@ An example is the `barrier_test` function in `asyntest.py`. In the code
 fragment from that program:
 
 ```python
+import asyn
+
 def callback(text):
     print(text)
 
-barrier = Barrier(3, callback, ('Synch',))
+barrier = asyn.Barrier(3, callback, ('Synch',))
 
 async def report():
     for i in range(5):
@@ -548,6 +558,8 @@ the constructor and decremented each time a coro acquires the semaphore.
 The easiest way to use it is with a context manager:
 
 ```python
+import asyn
+sema = asyn.Semaphore(3)
 async def foo(sema):
     async with sema:
         # Limited access here
