@@ -10,30 +10,30 @@ events.
 
 # 2. Modules
 
- 1. ``aledflash.py`` Flashes the four Pyboard LED's asynchronously for 10s. The
+ 1. `aledflash.py` Flashes the four Pyboard LED's asynchronously for 10s. The
  simplest uasyncio demo. Import it to run.
- 2. ``aswitch.py`` This provides classes for interfacing switches and
- pushbuttons and also a software retriggerable delay object. Pushbuttons are a
+ 2. `aswitch.py` This provides classes for interfacing switches and pushbuttons
+ and also a software retriggerable delay object. Pushbuttons are a
  generalisation of switches providing logical rather than physical status along
  with double-clicked and long pressed events.
- 3. ``asyn.py`` Provides synchronisation primitives. Required by ``aswitch.py``.
- 4. ``astests.py`` Test/demonstration programs for ``aswitch.py``.
+ 3. `asyn.py` Provides synchronisation primitives. Required by `aswitch.py`.
+ 4. `astests.py` Test/demonstration programs for `aswitch.py`.
 
 # 3. Module aswitch.py
 
 This module provides the following classes:
 
- * ``Switch`` This supports debouncing a normally open switch connected between
+ * `Switch` This supports debouncing a normally open switch connected between
  a pin and ground. Can run callbacks or schedule coros on contact closure
  and/or opening.
- * ``Pushbutton`` A generalisation of ``Switch`` to support normally open or
+ * `Pushbutton` A generalisation of `Switch` to support normally open or
  normally closed switches connected to ground or 3V3. Can run callbacks or
  schedule coros on double-click or long press events.
- * ``Delay_ms`` A class providing a retriggerable delay measured in ms. Can be
+ * `Delay_ms` A class providing a retriggerable delay measured in ms. Can be
  used to run a callback or to schedule a coro. Its state can be tested by any
  coro.
  
-The module ``astests.py`` provides examples of usage.
+The module `astests.py` provides examples of usage.
 
 ## 3.1 Switch class
 
@@ -46,31 +46,31 @@ these functions.
 
 Constructor argument (mandatory):
 
- 1. ``pin`` The initialised Pin instance.
+ 1. `pin` The initialised Pin instance.
  
 Methods:
 
- 1. ``close_func`` Args: ``func`` (mandatory) a function to run on contact
- closure. ``args`` a tuple of arguments for the function (default ``()``)
- 2. ``open_func`` Args: ``func`` (mandatory) a function to run on contact open.
- ``args`` a tuple of arguments for the function (default ``()``)
- 3. ``__call__`` Call syntax e.g. ``myswitch()`` returns the physical debounced
- state of the switch i.e. 0 if grounded, 1 if connected to ``3V3``.
+ 1. `close_func` Args: `func` (mandatory) a function to run on contact
+ closure. `args` a tuple of arguments for the function (default `()`)
+ 2. `open_func` Args: `func` (mandatory) a function to run on contact open.
+ `args` a tuple of arguments for the function (default `()`)
+ 3. `__call__` Call syntax e.g. `myswitch()` returns the physical debounced
+ state of the switch i.e. 0 if grounded, 1 if connected to `3V3`.
 
 Methods 1 and 2 should be called before starting the scheduler.
 
 Class attribute:
- 1. ``debounce_ms`` Debounce time in ms. Default 50.
+ 1. `debounce_ms` Debounce time in ms. Default 50.
 
 ## 3.2 Pushbutton class
 
-This can support normally open or normally closed switches, connected to ``gnd``
-(with a pullup) or to ``3V3`` (with a pull-down). The ``Pin`` object should be
+This can support normally open or normally closed switches, connected to `gnd`
+(with a pullup) or to `3V3` (with a pull-down). The `Pin` object should be
 initialised appropriately. The assumption is that on initialisation the button
 is not pressed.
 
 The Pushbutton class uses logical rather than physical state: a button's state
-is considered ``True`` if pressed, otherwise ``False`` regardless of its
+is considered `True` if pressed, otherwise `False` regardless of its
 physical implementation.
 
 Functions may be specified to run on button press, release, double click or
@@ -79,61 +79,68 @@ scheduled for execution and will run asynchronously.
 
 Constructor argument (mandatory):
 
- 1. ``pin`` The initialised Pin instance.
+ 1. `pin` The initialised Pin instance.
 
 Methods:
 
- 1. ``press_func`` Args: ``func`` (mandatory) a function to run on button push.
- ``args`` a tuple of arguments for the function (default ``()``).
- 2. ``release_func`` Args: ``func`` (mandatory) a function to run on button
- release. ``args`` a tuple of arguments for the function (default ``()``).
- 3. ``long_func`` Args: ``func`` (mandatory) a function to run on long button
- push. ``args`` a tuple of arguments for the function (default ``()``).
- 4. ``double_func`` Args: ``func`` (mandatory) a function to run on double
- push. ``args`` a tuple of arguments for the function (default ``()``).
- 5. ``__call__`` Call syntax e.g. ``mybutton()`` Returns the logical debounced
- state of the button (``True`` corresponds to pressed).
- 6. ``rawstate()`` Returns the logical instantaneous state of the button. There
+ 1. `press_func` Args: `func` (mandatory) a function to run on button push.
+ `args` a tuple of arguments for the function (default `()`).
+ 2. `release_func` Args: `func` (mandatory) a function to run on button
+ release. `args` a tuple of arguments for the function (default `()`).
+ 3. `long_func` Args: `func` (mandatory) a function to run on long button
+ push. `args` a tuple of arguments for the function (default `()`).
+ 4. `double_func` Args: `func` (mandatory) a function to run on double
+ push. `args` a tuple of arguments for the function (default `()`).
+ 5. `__call__` Call syntax e.g. `mybutton()` Returns the logical debounced
+ state of the button (`True` corresponds to pressed).
+ 6. `rawstate()` Returns the logical instantaneous state of the button. There
  is probably no reason to use this.
 
 Methods 1 - 4 should be called before starting the scheduler.
 
 Class attributes:
- 1. ``debounce_ms`` Debounce time in ms. Default 50.
- 2. ``long_press_ms`` Threshold time in ms for a long press. Default 1000.
- 3. ``double_click_ms`` Threshold time in ms for a double click. Default 400.
+ 1. `debounce_ms` Debounce time in ms. Default 50.
+ 2. `long_press_ms` Threshold time in ms for a long press. Default 1000.
+ 3. `double_click_ms` Threshold time in ms for a double click. Default 400.
 
 ## 3.3 Delay_ms class
 
 This implements the software equivalent of a retriggerable monostable or a
-watchdog timer. It has a boolean ``running`` state. When instantiated it does
-nothing, with ``running`` ``False`` until triggered, when ``running`` becomes
-``True``. A timer is then initiated. This can be prevented from timing out by
-triggering it again (with a new timeout duration). So long as it is triggered
-before the time specified in the preceeding trigger it will never time out.
+watchdog timer. It has an internal boolean `running` state. When instantiated
+the `Delay_ms` instance does nothing, with `running` `False` until triggered.
+Then `running` becomes `True` and a timer is initiated. This can be prevented
+from timing out by triggering it again (with a new timeout duration). So long
+as it is triggered before the time specified in the preceeding trigger it will
+never time out.
 
-If it does time out the ``running`` state will revert to ``False``. This can be
-interrogated by the object's ``running()`` method. In addition a function can
+If it does time out the `running` state will revert to `False`. This can be
+interrogated by the object's `running()` method. In addition a function can
 be specified to the constructor. This will execute when a timeout occurs. The
 function can be a callback or a coroutine; in the latter case it will be
 scheduled for execution and will run asynchronously.
 
 Constructor arguments (defaults in brackets):
 
- 1. ``func`` The function to call on timeout (default ``None``).
- 2. ``args`` A tuple of arguments for the function (default ``()``).
+ 1. `func` The function to call on timeout (default `None`).
+ 2. `args` A tuple of arguments for the function (default `()`).
+ 3. `can_alloc` Boolean, default `True`. See below.
 
 Methods:
 
- 1. ``trigger`` mandatory argument ``duration``. A timeout will occur after
- ``duration`` ms unless retriggered.
- 2. ``stop`` No argument. Cancels the timeout, setting the ``running`` status
- ``False``. The timer can be restarted by issuing ``trigger`` again.
- 3. ``running`` No argument. Returns the running status of the object.
+ 1. `trigger` mandatory argument `duration`. A timeout will occur after
+ `duration` ms unless retriggered.
+ 2. `stop` No argument. Cancels the timeout, setting the `running` status
+ `False`. The timer can be restarted by issuing `trigger` again.
+ 3. `running` No argument. Returns the running status of the object.
+
+If the `trigger` method is to be called from an interrupt service routine the
+`can_alloc` constructor arg should be `False`. This causes the delay object
+to use a slightly less efficient mode which avoids RAM allocation when
+`trigger` runs.
 
 # 4. Module astests.py
 
-This provides demonstration/test functions for the ``Switch`` and ``Pushbutton``
+This provides demonstration/test functions for the `Switch` and `Pushbutton`
 classes. They assume a switch or button wired between pin X1 and gnd. Tests may
 be terminated by grounding X2.
 

@@ -139,13 +139,17 @@ $ python3 -m micropip.py install -p ~/syn micropython-uasyncio
 
  7. [Notes for beginners](./TUTORIAL.md#7-notes-for-beginners)
 
-  7.1 [Why Scheduling?](./TUTORIAL.md#71-why-scheduling)
+  7.1 [Event loops](./TUTORIAL.md#71-event-loops)
 
-  7.2 [Why cooperative rather than pre-emptive?](./TUTORIAL.md#72-why-cooperative-rather-than-pre-emptive)
+  7.2 [The uasyncio approach](./TUTORIAL.md#72-the-uasyncio-approach)
 
-  7.3 [Communication](./TUTORIAL.md#73-communication)
+  7.3 [Scheduling in uasyncio](./TUTORIAL.md#73-scheduling-in-uasyncio)
 
-  7.4 [Polling](./TUTORIAL.md#74-polling)
+  7.4 [Why cooperative rather than pre-emptive?](./TUTORIAL.md#74-why-cooperative-rather-than-pre-emptive)
+
+  7.5 [Communication](./TUTORIAL.md#75-communication)
+
+  7.6 [Polling](./TUTORIAL.md#76-polling)
 
  8. [Modifying uasyncio](./TUTORIAL.md#8-modifying-uasyncio)
 
@@ -1280,7 +1284,177 @@ pre-emptive scheduling).
 
 ###### [Contents](./TUTORIAL.md#contents)
 
-## 7.1 Why Scheduling?
+## 7.1 The problem: event loops
+
+A typical firmware application runs continuously and is required to respond to
+external events. These might include a voltage change on an ADC, the arrival of
+a hard interrupt, a character arriving on a UART, or data being available on a
+socket. These events occur asynchronously and the code must be able to respond
+regardless of the order in which they occur. Further the application may be
+required to perform time-dependent tasks such as flashing LED's.
+
+The obvious way to do this is with an event loop. The following is not
+practical code but serves to illustrate the general form of an event loop.
+
+```python
+def event_loop():
+    led_1_time = 0
+    led_2_time = 0
+    switch_state = switch.state()
+    while True:
+        time_now = utime.time()
+        if time_now >= led_1_time:
+            led1.toggle()
+            led_1_time = time_now + led_1_period
+        if time_now >= led_2_time:
+            led2.toggle()
+            led_2_time = time_now + led_2_period
+        # Handle other LED's
+
+        if switch.value() != switch_state:
+            switch_state = switch.value()
+            # do something
+        if uart.any():
+            # handle UART input
+```
+
+This works for simple examples but event loops rapidly become unweildy as the
+number of events increases. They also violate the principles of object oriented
+programming by lumping much of the program logic in one place rather than
+associating code with the object being controlled. It would be good to be able
+to design a class for an LED capable of flashing which could then be put in a
+module and imported. An OOP approach to flashing an LED might look like this:
+
+```python
+import pyb
+class LED_flashable():
+    def __init__(self, led_no):
+        self.led = pyb.LED(led_no)
+
+    def flash(self, period):
+        while True:
+            self.led.toggle()
+            pyb.delay(period)
+```
+
+Evidently this won't work. If you call the `flash` method the LED will flash,
+but the application as a whole will do nothing else, and there is no way to
+stop the flashing.
+
+A cooperative scheduler such as `uasyncio` enables classes such as this to be
+created.
+
+## 7.2 The uasyncio approach
+
+The following class provides for an LED which can be turned on and off, and
+which can also be made to flash at an arbitrary rate. A `LED_async` instance
+has a `run` method which can be considered to run continuously. The LED's
+behaviour can be controlled by methods `on()`, `off()` and `flash(secs)`.
+
+```python
+class LED_async():
+    def __init__(self, led_no):
+        self.led = pyb.LED(led_no)
+        self.rate = 0
+        loop = asyncio.get_event_loop()
+        loop.create_task(self.run())
+
+    async def run(self):
+        while True:
+            if self.rate <= 0:
+                await asyncio.sleep_ms(200)
+            else:
+                self.led.toggle()
+                await asyncio.sleep_ms(int(500 / self.rate))
+
+    def flash(self, rate):
+        self.rate = rate
+
+    def on(self):
+        self.led.on()
+        self.rate = 0
+
+    def off(self):
+        self.led.off()
+        self.rate = 0
+```
+
+Note that `on()`, `off()` and `flash()` are conventional synchronous methods.
+They change the behaviour of the LED but return immediately. The flashing
+occurs "in the background". This is explained in detail in the next section.
+
+The class conforms with the OOP principle of keeping the logic associated with
+the device within the class. Further, the way `uasyncio` works ensures that
+while the LED is flashing the application can respond to other events. The
+example below flashes the four Pyboard LED's at different rates while also
+responding to the USR button.
+
+```python
+import pyb
+import uasyncio as asyncio
+
+class LED_async():
+    def __init__(self, led_no):
+        self.led = pyb.LED(led_no)
+        self.rate = 0
+        loop = asyncio.get_event_loop()
+        loop.create_task(self.run())
+
+    async def run(self):
+        while True:
+            if self.rate <= 0:
+                await asyncio.sleep_ms(200)
+            else:
+                self.led.toggle()
+                await asyncio.sleep_ms(int(500 / self.rate))
+
+    def flash(self, rate):
+        self.rate = rate
+
+    def on(self):
+        self.led.on()
+        self.rate = 0
+
+    def off(self):
+        self.led.off()
+        self.rate = 0
+
+async def killer():
+    sw = pyb.Switch()
+    while not sw.value():
+        await asyncio.sleep_ms(100)
+
+leds = [LED_async(n) for n in range(1, 4)]
+for n, led in enumerate(leds):
+    led.flash(0.7 + n/4)
+loop = asyncio.get_event_loop()
+loop.run_until_complete(killer())
+```
+
+Note that the logic associated with the switch is in a single function separate
+from the LED functionality.
+
+## 7.3 Scheduling in uasyncio
+
+Python 3.5 (and MicroPython) supports the notion of an asynchronous function,
+also known as a coroutine (coro) or task. Such a function should include at
+least one `await` statement.
+
+```python
+async def hello():
+    for _ in range(10):
+        print('Hello world.')
+        await asyncio.sleep(1)
+```
+
+This function prints the message ten times at one second intervals. While the
+function is paused pending the time delay asyncio will schedule other tasks,
+providing an illusion of concurrency.
+
+
+
+The calls to `await asyncio.sleep_ms()` are crucial. When one of these occurs
+the code pauses for the specified period. XXXXXX
 
 Using a scheduler doesn't enable anything that can't be done with conventional
 code. But it does make the solution of certain types of problem simpler to code
@@ -1327,7 +1501,7 @@ system continues to run.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
-## 7.2 Why cooperative rather than pre-emptive?
+## 7.4 Why cooperative rather than pre-emptive?
 
 The initial reaction of beginners to the idea of cooperative multi-tasking is
 often one of disappointment. Surely pre-emptive is better? Why should I have to
@@ -1373,7 +1547,7 @@ An eloquent discussion of the merits of cooperative multi-tasking may be found
 
 ###### [Contents](./TUTORIAL.md#contents)
 
-## 7.3 Communication
+## 7.5 Communication
 
 In non-trivial applications coroutines need to communicate. Conventional Python
 techniques can be employed. These include the use of global variables or
@@ -1385,7 +1559,7 @@ communications; in a cooperative system these are seldom required.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
-## 7.4 Polling
+## 7.6 Polling
 
 Some hardware devices such as the Pyboard accelerometer don't support
 interrupts, and therefore must be polled (i.e. checked periodically). Polling

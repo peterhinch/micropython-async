@@ -38,36 +38,55 @@ from asyn import launch
 
 
 class Delay_ms(object):
-    def __init__(self, func=None, args=()):
+    def __init__(self, func=None, args=(), can_alloc=True):
         self.func = func
         self.args = args
-        self._running = False
+        self.can_alloc = can_alloc
+        self.tstop = None  # Not running
+        self.loop = asyncio.get_event_loop()
+        if not can_alloc:
+            self.loop.create_task(self._run())
+
+    async def _run(self):
+        while True:
+            if self.tstop is None:  # Not running
+                await asyncio.sleep_ms(0)
+            else:
+                twait = time.ticks_diff(self.tstop, time.ticks_ms())
+                while twait > 0:
+                    # Must loop here: might be retriggered
+                    await asyncio.sleep_ms(twait)
+                    # stop() might be called during wait
+                    if self.tstop is None:
+                        break
+                    twait = time.ticks_diff(self.tstop, time.ticks_ms())
+                if self.tstop is not None and self.func is not None:
+                    launch(self.func, self.args)  # Execute callback
+                self.tstop = None  # Not running
 
     def stop(self):
-        self._running = False
+        self.tstop = None
 
     def trigger(self, duration):  # Update end time
-        loop = asyncio.get_event_loop()
-        self.tstop = time.ticks_add(loop.time(), duration)
-        if not self._running:
+        if self.can_alloc and self.tstop is None:
+            self.tstop = time.ticks_add(time.ticks_ms(), duration)
             # Start a task which stops the delay after its period has elapsed
-            loop.create_task(self.killer())
-            self._running = True
+            self.loop.create_task(self.killer())
+        self.tstop = time.ticks_add(time.ticks_ms(), duration)
 
     def running(self):
-        return self._running
+        return self.tstop is not None
 
     async def killer(self):
-        loop = asyncio.get_event_loop()
-        twait = time.ticks_diff(self.tstop, loop.time())
-        while twait > 0 and self._running:  # Return if stop() called during wait
-            # Must loop here: might be retriggered
+        twait = time.ticks_diff(self.tstop, time.ticks_ms())
+        while twait > 0:  # Must loop here: might be retriggered
             await asyncio.sleep_ms(twait)
-            twait = time.ticks_diff(self.tstop, loop.time())
-        if self._running and self.func is not None:
-            launch(self.func, self.args)  # Execute callback
-        self._running = False
-
+            if self.tstop is None:
+                break  # Return if stop() called during wait
+            twait = time.ticks_diff(self.tstop, time.ticks_ms())
+        if self.tstop is not None and self.func is not None:
+            launch(self.func, self.args)  # Timed out: execute callback
+        self.tstop = None  # Not running
 
 class Switch(object):
     debounce_ms = 50
