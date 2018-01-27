@@ -52,17 +52,7 @@ class Delay_ms(object):
             if self.tstop is None:  # Not running
                 await asyncio.sleep_ms(0)
             else:
-                twait = time.ticks_diff(self.tstop, time.ticks_ms())
-                while twait > 0:
-                    # Must loop here: might be retriggered
-                    await asyncio.sleep_ms(twait)
-                    # stop() might be called during wait
-                    if self.tstop is None:
-                        break
-                    twait = time.ticks_diff(self.tstop, time.ticks_ms())
-                if self.tstop is not None and self.func is not None:
-                    launch(self.func, self.args)  # Execute callback
-                self.tstop = None  # Not running
+                await self.killer()
 
     def stop(self):
         self.tstop = None
