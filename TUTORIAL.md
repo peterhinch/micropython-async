@@ -1464,8 +1464,9 @@ execution passes to the task at the top of the queue. The queue is designed so
 that even if the specified sleep is zero other due tasks will run before the
 current one is resumed. This is "fair round-robin" scheduling. It is common
 practice to issue `await asyncio.sleep(0)` in loops to ensure a task doesn't
-hog execution. The following shows a busy-wait loop which monopolises the CPU
-preventing other coros from running:
+hog execution. The following shows a busy-wait loop which waits for another
+task to set the global `flag`. Alas it monopolises the CPU preventing other
+coros from running:
 
 ```python
 async def bad_code():
@@ -1477,7 +1478,7 @@ async def bad_code():
 ```
 
 The problem here is that while the `flag` is `False` the loop never yields to
-the scheduler so no other task will get to run. The fix is:
+the scheduler so no other task will get to run. The correct approach is:
 
 ```python
 async def good_code():
