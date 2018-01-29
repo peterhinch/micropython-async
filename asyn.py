@@ -227,8 +227,10 @@ class BoundedSemaphore(Semaphore):
             raise ValueError('Semaphore released more than acquired')
 
 # Task Cancellation
-
-StopTask = asyncio.CancelledError  # More descriptive name
+try:
+    StopTask = asyncio.CancelledError  # More descriptive name
+except AttributeError:
+    raise OSError('asyn.py requires uasyncio V1.7.1 or above.')
 
 class TaskId():
     def __init__(self, taskid):

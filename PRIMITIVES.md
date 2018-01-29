@@ -74,8 +74,8 @@ embrace" where two coros wait on the other's completion.
 
 In simple applications these are often addressed with global flags. A more
 elegant approach is to use synchronisation primitives. The module `asyn.py`
-offers "micro" implementations of `Lock`, `Event`, `Barrier` and `Semaphore`
-primitives.
+offers "micro" implementations of `Lock`, `Event`, `Barrier`, `Semaphore` and
+`Condition` primitives, and a lightweight implementation of `asyncio.gather`.
 
 Another synchronisation issue arises with producer and consumer coros. The
 producer generates data which the consumer uses. Asyncio provides the `Queue`
@@ -221,7 +221,7 @@ Constructor: takes one optional boolean argument, defaulting False.
 
 Synchronous Methods:
  * `set` Initiates the event. Optional arg `data`: may be of any type,
- sets the event's value. Default `None`.
+ sets the event's value. Default `None`. May be called in an interrupt context.
  * `clear` No args. Clears the event, sets the value to `None`.
  * `is_set` No args. Returns `True` if the event is set.
  * `value` No args. Returns the value passed to `set`.

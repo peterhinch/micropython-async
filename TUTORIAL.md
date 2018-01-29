@@ -1,21 +1,23 @@
 # Application of uasyncio to hardware interfaces
 
-This document is a "work in progress" as uasyncio is itself under development.
-Please report any errors you discover.
+Most of this document assumes some familiarity with asynchronous programming.
+For those new to it an introduction may be found
+[here](./TUTORIAL.md#7-notes-for-beginners).
 
-The MicroPython uasyncio library comprises a subset of Python's asyncio library
-designed for use on microcontrollers. As such it has a small RAM footprint and
-fast context switching with zero RAM allocation. This document describes its
-use with a focus on interfacing hardware devices. The aim is to design drivers
-in such a way that the application continues to run while the driver is waiting
-for a response from the hardware or for a user interaction.
+The MicroPython `uasyncio` library comprises a subset of Python's `asyncio`
+library. It is designed for use on microcontrollers. As such it has a small RAM
+footprint and fast context switching with zero RAM allocation. This document
+describes its use with a focus on interfacing hardware devices. The aim is to
+design drivers in such a way that the application continues to run while the
+driver is awaiting a response from the hardware. The application remains
+responsive to events and to user interaction.
 
 Another major application area for asyncio is in network programming: many
 guides to this may be found online.
 
 Note that MicroPython is based on Python 3.4 with minimal Python 3.5 additions.
 Except where detailed below, `asyncio` features of versions >3.4 are
-unsupported. As stated above it is a subset. This document identifies supported
+unsupported. As stated above it is a subset; this document identifies supported
 features.
 
 # Installing uasyncio on bare metal
@@ -58,13 +60,13 @@ $ python3 -m micropip.py install -p ~/syn micropython-uasyncio
 # Contents
 
  1. [Cooperative scheduling](./TUTORIAL.md#1-cooperative-scheduling)
-  
+
    1.1 [Modules](./TUTORIAL.md#11-modules)
 
  2. [uasyncio](./TUTORIAL.md#2-uasyncio)
 
   2.1 [Program structure: the event loop](./TUTORIAL.md#21-program-structure-the-event-loop)
-  
+
   2.2 [Coroutines (coros)](./TUTORIAL.md#22-coroutines-coros)
 
    2.2.1 [Queueing a coro for scheduling](./TUTORIAL.md#221-queueing-a-coro-for-scheduling)
@@ -139,17 +141,19 @@ $ python3 -m micropip.py install -p ~/syn micropython-uasyncio
 
  7. [Notes for beginners](./TUTORIAL.md#7-notes-for-beginners)
 
-  7.1 [Event loops](./TUTORIAL.md#71-event-loops)
+  7.1 [Problem 1: event loops](./TUTORIAL.md#71-problem-1:-event-loops)
 
-  7.2 [The uasyncio approach](./TUTORIAL.md#72-the-uasyncio-approach)
+  7.2 [Problem 2: blocking methods](./TUTORIAL.md#7-problem-2:-blocking-methods)
 
-  7.3 [Scheduling in uasyncio](./TUTORIAL.md#73-scheduling-in-uasyncio)
+  7.3 [The uasyncio approach](./TUTORIAL.md#73-the-uasyncio-approach)
 
-  7.4 [Why cooperative rather than pre-emptive?](./TUTORIAL.md#74-why-cooperative-rather-than-pre-emptive)
+  7.4 [Scheduling in uasyncio](./TUTORIAL.md#74-scheduling-in-uasyncio)
 
-  7.5 [Communication](./TUTORIAL.md#75-communication)
+  7.5 [Why cooperative rather than pre-emptive?](./TUTORIAL.md#75-why-cooperative-rather-than-pre-emptive)
 
-  7.6 [Polling](./TUTORIAL.md#76-polling)
+  7.6 [Communication](./TUTORIAL.md#76-communication)
+
+  7.7 [Polling](./TUTORIAL.md#77-polling)
 
  8. [Modifying uasyncio](./TUTORIAL.md#8-modifying-uasyncio)
 
@@ -157,9 +161,7 @@ $ python3 -m micropip.py install -p ~/syn micropython-uasyncio
 
 The technique of cooperative multi-tasking is widely used in embedded systems.
 It offers lower overheads than pre-emptive scheduling and avoids many of the
-pitfalls associated with truly asynchronous threads of execution. For those new
-to asynchronous programming there is an introduction
-[here](./TUTORIAL.md#7-notes-for-beginners).
+pitfalls associated with truly asynchronous threads of execution.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
@@ -219,7 +221,7 @@ uasyncio scheduler. See [this doc](./FASTPOLL.md).
 # 2. uasyncio
 
 The asyncio concept is of cooperative multi-tasking based on coroutines,
-referred in this document as coros or tasks.
+referred to in this document as coros or tasks.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
@@ -380,10 +382,11 @@ embrace" where two coros each wait on the other's completion.
 In simple applications communication may be achieved with global flags. A more
 elegant approach is to use synchronisation primitives. The module
 [asyn.py](https://github.com/peterhinch/micropython-async/blob/master/asyn.py)
-offers "micro" implementations of `Event`, `Barrier` and `Semaphore`
-primitives. These are for use only with asyncio. They are not thread safe and
-should not be used with the `_thread` module. A `Lock` primitive is provided
-but is now largely superseded by an official implementation.
+offers "micro" implementations of `Event`, `Barrier`, `Semaphore` and
+`Condition` primitives. These are for use only with asyncio. They are not
+thread safe and should not be used with the `_thread` module or from an
+interrupt handler except where mentioned. A `Lock` primitive is provided which
+is partially superseded by an official implementation.
 
 Another synchronisation issue arises with producer and consumer coros. The
 producer generates data which the consumer uses. Asyncio provides the `Queue`
@@ -507,9 +510,9 @@ in slow time by the coro.
 The `event.set()` method can accept an optional data value of any type. A
 coro waiting on the event can retrieve it by means of `event.value()`. Note
 that `event.clear()` will set the value to `None`. A typical use for this
-is for the coro setting the event to issue `event.set(loop.time())`. Any coro
-waiting on the event can determine the latency incurred, for example to perform
-compensation for this.
+is for the coro setting the event to issue `event.set(utime.ticks_ms())`. Any
+coro waiting on the event can determine the latency incurred, for example to
+perform compensation for this.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
@@ -1278,13 +1281,18 @@ I find it useful as-is but improvements are always welcome.
 
 # 7 Notes for beginners
 
-These notes are intended for those unfamiliar with asynchronous code or unsure
-of the relative merits of asyncio and the _thread module (i.e. cooperative vs
-pre-emptive scheduling).
+These notes are intended for those new to asynchronous code. They start by
+outlining the problems which schedulers seek to solve, and give an overview of
+the `uasyncio` approach to a solution.
+
+[Section 7.5](./TUTORIAL.md#75-why-cooperative-rather-than-pre-emptive)
+discusses the relative merits of `uasyncio` and the `_thread` module and why
+you may prefer use cooperative (`uasyncio`) over pre-emptive (`_thread`)
+scheduling.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
-## 7.1 The problem: event loops
+## 7.1 Problem 1: event loops
 
 A typical firmware application runs continuously and is required to respond to
 external events. These might include a voltage change on an ADC, the arrival of
@@ -1300,16 +1308,16 @@ practical code but serves to illustrate the general form of an event loop.
 def event_loop():
     led_1_time = 0
     led_2_time = 0
-    switch_state = switch.state()
+    switch_state = switch.state()  # Current state of a switch
     while True:
         time_now = utime.time()
-        if time_now >= led_1_time:
+        if time_now >= led_1_time:  # Flash LED #1
             led1.toggle()
             led_1_time = time_now + led_1_period
-        if time_now >= led_2_time:
+        if time_now >= led_2_time:  # Flash LED #2
             led2.toggle()
             led_2_time = time_now + led_2_period
-        # Handle other LED's
+        # Handle LEDs 3 upwards
 
         if switch.value() != switch_state:
             switch_state = switch.value()
@@ -1321,9 +1329,9 @@ def event_loop():
 This works for simple examples but event loops rapidly become unweildy as the
 number of events increases. They also violate the principles of object oriented
 programming by lumping much of the program logic in one place rather than
-associating code with the object being controlled. It would be good to be able
-to design a class for an LED capable of flashing which could then be put in a
-module and imported. An OOP approach to flashing an LED might look like this:
+associating code with the object being controlled. We want to design a class
+for an LED capable of flashing which could be put in a module and imported. An
+OOP approach to flashing an LED might look like this:
 
 ```python
 import pyb
@@ -1334,17 +1342,28 @@ class LED_flashable():
     def flash(self, period):
         while True:
             self.led.toggle()
-            pyb.delay(period)
+            # somehow wait for period but allow other
+            # things to happen at the same time
 ```
-
-Evidently this won't work. If you call the `flash` method the LED will flash,
-but the application as a whole will do nothing else, and there is no way to
-stop the flashing.
 
 A cooperative scheduler such as `uasyncio` enables classes such as this to be
 created.
 
-## 7.2 The uasyncio approach
+###### [Contents](./TUTORIAL.md#contents)
+
+## 7.2 Problem 2: blocking methods
+
+Assume you need to read a number of bytes from a socket. If you call
+`socket.read(n)` with a default blocking socket it will "block" (i.e. fail to
+return) until `n` bytes have been received. During this period the application
+will be unresponsive to other events.
+
+With `uasyncio` and a non-blocking socket you can write an asynchronous read
+method. The task requiring the data will (necessarily) block until it is
+received but during that period other tasks will be scheduled enabling the
+application to remain responsive.
+
+## 7.3 The uasyncio approach
 
 The following class provides for an LED which can be turned on and off, and
 which can also be made to flash at an arbitrary rate. A `LED_async` instance
@@ -1352,6 +1371,9 @@ has a `run` method which can be considered to run continuously. The LED's
 behaviour can be controlled by methods `on()`, `off()` and `flash(secs)`.
 
 ```python
+import pyb
+import uasyncio as asyncio
+
 class LED_async():
     def __init__(self, led_no):
         self.led = pyb.LED(led_no)
@@ -1387,37 +1409,12 @@ The class conforms with the OOP principle of keeping the logic associated with
 the device within the class. Further, the way `uasyncio` works ensures that
 while the LED is flashing the application can respond to other events. The
 example below flashes the four Pyboard LED's at different rates while also
-responding to the USR button.
+responding to the USR button which terminates the program.
 
 ```python
 import pyb
 import uasyncio as asyncio
-
-class LED_async():
-    def __init__(self, led_no):
-        self.led = pyb.LED(led_no)
-        self.rate = 0
-        loop = asyncio.get_event_loop()
-        loop.create_task(self.run())
-
-    async def run(self):
-        while True:
-            if self.rate <= 0:
-                await asyncio.sleep_ms(200)
-            else:
-                self.led.toggle()
-                await asyncio.sleep_ms(int(500 / self.rate))
-
-    def flash(self, rate):
-        self.rate = rate
-
-    def on(self):
-        self.led.on()
-        self.rate = 0
-
-    def off(self):
-        self.led.off()
-        self.rate = 0
+from led_async import LED_async  # Class as listed above
 
 async def killer():
     sw = pyb.Switch()
@@ -1431,14 +1428,24 @@ loop = asyncio.get_event_loop()
 loop.run_until_complete(killer())
 ```
 
-Note that the logic associated with the switch is in a single function separate
-from the LED functionality.
+In contrast to the event loop example the logic associated with the switch is
+in a function separate from the LED functionality. Note the code used to start
+the scheduler:
 
-## 7.3 Scheduling in uasyncio
+```python
+loop = asyncio.get_event_loop()
+loop.run_until_complete(killer())  # Execution passes to coroutines.
+ # It only continues here once killer() terminates, when the
+ # scheduler has stopped.
+```
 
-Python 3.5 (and MicroPython) supports the notion of an asynchronous function,
-also known as a coroutine (coro) or task. Such a function should include at
-least one `await` statement.
+###### [Contents](./TUTORIAL.md#contents)
+
+## 7.4 Scheduling in uasyncio
+
+Python 3.5 and MicroPython support the notion of an asynchronous function,
+also known as a coroutine (coro) or task. A coro must include at least one
+`await` statement.
 
 ```python
 async def hello():
@@ -1451,57 +1458,49 @@ This function prints the message ten times at one second intervals. While the
 function is paused pending the time delay asyncio will schedule other tasks,
 providing an illusion of concurrency.
 
-
-
-The calls to `await asyncio.sleep_ms()` are crucial. When one of these occurs
-the code pauses for the specified period. XXXXXX
-
-Using a scheduler doesn't enable anything that can't be done with conventional
-code. But it does make the solution of certain types of problem simpler to code
-and easier to read and maintain.
-
-It facilitates a style of programming based on the concept of routines offering
-the illusion of running concurrently. They do this by periodically passing
-control to the scheduler which will allow another routine waiting for execution
-to run - until it in turn yields control. This can simplify the process of
-interacting with physical devices. Consider the task of reading 12
-push-buttons. Mechanical switches such as buttons suffer from contact bounce.
-This means that several rapidly repeating transitions can occur when the button
-is pushed or released.
-
-A simple way to overcome this is as follows. On receipt of the first transition
-perform any programmed action. Then wait (typically 50ms) and read the state
-of the button. By then the bouncing will be over and its state can be stored to
-detect future transitions. Doing this in linear code for 12 buttons can get
-messy. If you extend this to support long press or double-click events the code
-will get positively convoluted. Using asyncio with the `aswitch.py` module we
-can write:
+When a coro issues `await asyncio.sleep_ms()` or `await asyncio.sleep()` the
+current task pauses: it is placed on a queue which is ordered on time due, and
+execution passes to the task at the top of the queue. The queue is designed so
+that even if the specified sleep is zero other due tasks will run before the
+current one is resumed. This is "fair round-robin" scheduling. It is common
+practice to issue `await asyncio.sleep(0)` in loops to ensure a task doesn't
+hog execution. The following shows a busy-wait loop which monopolises the CPU
+preventing other coros from running:
 
 ```python
-async def cb(button_no):  # user code omitted. This runs when
-                    # button pressed, with the button number passed
-
-buttons = ('X1', 'X2', 'X3', 'X4', 'X5', 'X6', 'X7', 'X8', 'X9', 'X10', 'X11', 'X12')
-for button_no, button in enumerate(buttons):
-    pb = Pushbutton(Pin(button, Pin.IN, Pin.PULL_UP)
-    pb.press_coro(cb, (button_no,))
+async def bad_code():
+    global flag
+    while not flag:
+        pass
+    flag = False
+    # code omitted
 ```
 
-The `Pushbutton` class hides the detail, but for each button a coroutine is
-created which polls the `Pin` object and performs the debouncing. It can also
-start user supplied coroutines on button release events, long presses and
-double clicks. The code in `aswitch.py` achieves this using asyncio.
+The problem here is that while the `flag` is `False` the loop never yields to
+the scheduler so no other task will get to run. The fix is:
 
-Scheduling also solves the problem of blocking. If a routine needs to wait for
-a physical event to occur before it can continue it is said to be blocked. You
-may not want the entire system to be blocked. While this can be solved in
-linear code, in threaded code the solution is trivial. The coroutine blocks,
-but while it does so it periodically yields execution. Hence the rest of the
-system continues to run.
+```python
+async def good_code():
+    global flag
+    while not flag:
+        await asyncio.sleep(0)
+    flag = False
+    # code omitted
+```
+
+For the same reason it's bad practice to issue delays like `utime.sleep(1)`
+because that will lock out other tasks for 1s; use `await asyncio.sleep(1)`.
+Note that the delays implied by `uasyncio` methods `sleep` and  `sleep_ms` can
+overrun the specified time. This is because while the delay is in progress
+other tasks will run. When the delay period completes, execution will not
+resume until the running task issues `await` or terminates. A well-behaved coro
+will always issue `await` at regular intervals. Where a precise delay is
+required, especially one below a few ms, it may be neccessary to use
+`utime.sleep_us(us)`.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
-## 7.4 Why cooperative rather than pre-emptive?
+## 7.5 Why cooperative rather than pre-emptive?
 
 The initial reaction of beginners to the idea of cooperative multi-tasking is
 often one of disappointment. Surely pre-emptive is better? Why should I have to
@@ -1542,12 +1541,12 @@ complete control until it issues `await asyncio.sleep(0)`.
 Bear in mind that interrupt handlers are pre-emptive. This applies to both hard
 and soft interrupts, either of which can occur at any point in your code.
 
-An eloquent discussion of the merits of cooperative multi-tasking may be found
+An eloquent discussion of the evils of threading may be found
 [in threads are bad](https://glyph.twistedmatrix.com/2014/02/unyielding.html).
 
 ###### [Contents](./TUTORIAL.md#contents)
 
-## 7.5 Communication
+## 7.6 Communication
 
 In non-trivial applications coroutines need to communicate. Conventional Python
 techniques can be employed. These include the use of global variables or
@@ -1559,13 +1558,13 @@ communications; in a cooperative system these are seldom required.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
-## 7.6 Polling
+## 7.7 Polling
 
 Some hardware devices such as the Pyboard accelerometer don't support
 interrupts, and therefore must be polled (i.e. checked periodically). Polling
 can also be used in conjunction with interrupt handlers: the interrupt handler
 services the hardware and sets a flag. A coro polls the flag: if it's set it
-handles the data and clears the flag.
+handles the data and clears the flag. A better approach is to use an `Event`.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
