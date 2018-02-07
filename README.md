@@ -19,18 +19,19 @@ This GitHub repository consists of the following parts:
  boards to communicate without using a UART. Primarily intended to enable a
  a Pyboard-like device to achieve bidirectional communication with an ESP8266.
 
-# 2. Installation of uasyncio
+# 2. Version and installation of uasyncio
 
-Firstly install the latest version of `micropython-uasyncio`. To use queues,
-also install the `micropython-uasyncio.queues` module. A `Lock` synchronisation
-primitive is provided by `micropython-uasyncio.synchro`.
+This has become more involved owing to the development of Paul Sokolovsky's
+fork. At the time of writing this fork supports `uasyncio` version 2.0, which
+requires the build of firmware from his repository. The version on PyPI is
+V2.0.
 
-Instructions on installing library modules may be found
-[here](https://github.com/micropython/micropython-lib).
+Until the situation becomes clearer I plan to support the official firmware.
+Hence these docs, code samples etc. are based on `uasyncio.core` V1.7.1 which
+is in [micropython-lib](https://github.com/micropython/micropython-lib).
 
-On networked hardware, upip may be run locally. The
-[tutorial](./TUTORIAL.md#installing-uasyncio-on-bare-metal) has instructions
-for methods of installation on non-networked baremetal targets.
+See [tutorial](./TUTORIAL.md#installing-uasyncio-on-bare-metal) for
+installation instructions.
 
 # 3. uasyncio development state
 
