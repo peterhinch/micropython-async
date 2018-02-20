@@ -32,9 +32,9 @@ The aim is to create a `uasyncio` directory on the device's filesystem
 containing the following files:
 
 [`__init__.py`](https://github.com/micropython/micropython-lib/blob/master/uasyncio/uasyncio/__init__.py)  
-[core.py](https://github.com/micropython/micropython-lib/blob/master/uasyncio.core/uasyncio/core.py)  
-[queues.py](https://github.com/micropython/micropython-lib/blob/master/uasyncio.queues/uasyncio/queues.py)  
-[synchro.py](https://github.com/micropython/micropython-lib/blob/master/uasyncio.synchro/uasyncio/synchro.py)
+[`core.py`](https://github.com/micropython/micropython-lib/blob/master/uasyncio.core/uasyncio/core.py)  
+[`queues.py`](https://github.com/micropython/micropython-lib/blob/master/uasyncio.queues/uasyncio/queues.py)  
+[`synchro.py`](https://github.com/micropython/micropython-lib/blob/master/uasyncio.synchro/uasyncio/synchro.py)
 
 These modules may be frozen as bytecode in the usual way, by placing the above
 `uasyncio` directory in the port's `modules` directory and rebuilding.
