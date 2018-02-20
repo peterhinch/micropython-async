@@ -108,6 +108,10 @@ These modules may be frozen as bytecode in the usual way, by placing the above
   5.3 [Using IORead to poll hardware](./TUTORIAL.md#53-using-ioread-to-poll-hardware)
 
   5.4 [A complete example: aremote.py](./TUTORIAL.md#54-a-complete-example-aremotepy)
+  A driver for an IR remote control receiver.
+
+  5.5 [Driver for HTU21D](./TUTORIAL.md#55-htu21d-environment-sensor) A
+  temperature and humidity sensor.
 
  6. [Hints and tips](./TUTORIAL.md#6-hints-and-tips)
 
@@ -1122,6 +1126,18 @@ Passing the time to the `Event` instance enables the coro to compensate for
 any asyncio latency when setting its delay period.
 
 ###### [Contents](./TUTORIAL.md#contents)
+
+## 5.5 HTU21D environment sensor
+
+This chip provides accurate measurements of temperature and humidity. The
+driver is documented [here](./htu21d/README.md). It has a continuously running
+task which updates `temperature` and `humidity` bound variables which may be
+accessed "instantly".
+
+The chip takes on the order of 120ms to acquire both data items. The driver
+works asynchronously by triggering the acquisition and using
+`await asyncio.sleep(t)` prior to reading the data. This allows other coros to
+run while acquisition is in progress.
 
 # 6 Hints and tips
 
