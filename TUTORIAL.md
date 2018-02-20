@@ -127,6 +127,8 @@ These modules may be frozen as bytecode in the usual way, by placing the above
 
   6.6 [A common hard to find error](./TUTORIAL.md#66-a-common-error)
 
+  6.7 [Socket programming](./TUTORIAL.md#6-socket-programming)
+
  7. [Notes for beginners](./TUTORIAL.md#7-notes-for-beginners)
 
   7.1 [Problem 1: event loops](./TUTORIAL.md#71-problem-1:-event-loops)
@@ -1276,6 +1278,23 @@ z = (foo(),)
 ```
 
 I find it useful as-is but improvements are always welcome.
+
+## 6.7 Socket programming
+
+The use of nonblocking sockets requires some attention to detail. If a
+nonblocking read is performed, because of server latency, there is no guarantee
+that all (or any) of the requested data is returned. Likewise writes may not
+proceed to completion.
+
+Hence asynchronous read and write methods need to iteratively perform the
+nonblocking operation until the required data has been read or written. In
+practice a timeout is likely to be required to cope with server outages.
+
+A further complication is that, at the time of writing, the ESP32 port has
+issues which require rather unpleasant hacks for error-free operation.
+
+The file `sock_nonblock.py` illustrates the sort of techniques required. It is
+not a working demo, and solutions are likely to be application dependent.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
