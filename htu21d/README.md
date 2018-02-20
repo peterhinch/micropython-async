@@ -11,7 +11,7 @@ slowly. The driver maintains its `temperature` and `humidity` bound variables
 as a non-blocking background task. Consequently reading the values is
 effectively instantaneous.
 
-###### [Main README](./README.md)
+###### [Main README](../README.md)
 
 # Files
 
