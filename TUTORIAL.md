@@ -127,7 +127,7 @@ These modules may be frozen as bytecode in the usual way, by placing the above
 
   6.6 [A common hard to find error](./TUTORIAL.md#66-a-common-error)
 
-  6.7 [Socket programming](./TUTORIAL.md#6-socket-programming)
+  6.7 [Socket programming](./TUTORIAL.md#67-socket-programming)
 
  7. [Notes for beginners](./TUTORIAL.md#7-notes-for-beginners)
 
