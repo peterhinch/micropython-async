@@ -1,7 +1,10 @@
-# Portable, asynchronous micropython driver for HTU21D temp/humidity I2C sensor
+# htu21d_mc.py Portable, asynchronous micropython driver for HTU21D temp/humidity I2C sensor
 # https://www.sparkfun.com/products/12064 I2C   3.3v
 # https://raw.githubusercontent.com/randymxj/Adafruit-Raspberry-Pi-Python-Code/master/Adafruit_HTU21D/Adafruit_HTU21D.py
 # Based on https://github.com/manitou48/pyboard/blob/master/htu21d.py
+
+# Author: Peter Hinch
+# Copyright Peter Hinch 2018 Released under the MIT license
 
 import machine
 import ustruct

@@ -1,5 +1,8 @@
 # htu_test.py Demo program for portable asynchronous HTU21D driver
 
+# Author: Peter Hinch
+# Copyright Peter Hinch 2018 Released under the MIT license
+
 import uasyncio as asyncio
 from machine import Pin, I2C
 import htu21d_mc
