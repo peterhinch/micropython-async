@@ -31,7 +31,7 @@ which is incompatible with that fimware so `upip` cannot be used.
 The aim is to create a `uasyncio` directory on the device's filesystem
 containing the following files:
 
-[__init__.py](https://github.com/micropython/micropython-lib/blob/master/uasyncio/uasyncio/__init__.py)  
+[`__init__.py`](https://github.com/micropython/micropython-lib/blob/master/uasyncio/uasyncio/__init__.py)  
 [core.py](https://github.com/micropython/micropython-lib/blob/master/uasyncio.core/uasyncio/core.py)  
 [queues.py](https://github.com/micropython/micropython-lib/blob/master/uasyncio.queues/uasyncio/queues.py)  
 [synchro.py](https://github.com/micropython/micropython-lib/blob/master/uasyncio.synchro/uasyncio/synchro.py)
