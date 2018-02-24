@@ -6,7 +6,7 @@ with improved millisecond-level timing accuracy and reduced scheduling latency.
 
 V0.2 Dec 2017. A single module designed to work with the official `uasyncio`
 library. This requires uasyncio.core V1.7 which was released on 16th Dec 2017,
-with firmware of that date or later.
+with firmware of that date or later. It does not yet support `uasyncio` V2.0.
 
 **API CHANGES**
 The API has been changed to simplify the code and to improve consistency.

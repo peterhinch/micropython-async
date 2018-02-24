@@ -3,12 +3,11 @@
 A breakout board is available from
 [Sparkfun](https://www.sparkfun.com/products/12064).
 
-This driver was derived from the Pyboard specific driver
+This driver was derived from the synchronous Pyboard-specific driver
 [here](https://github.com/manitou48/pyboard/blob/master/htu21d.py). It is
 designed to be multi-platform and uses `uasyncio` to achieve asynchronous (non-
-blocking) operation. In most applications temperature and humidity values vary
-slowly. The driver maintains its `temperature` and `humidity` bound variables
-as a non-blocking background task. Consequently reading the values is
+blocking) operation. The driver maintains `temperature` and `humidity` bound
+variables as a non-blocking background task. Consequently reading the values is
 effectively instantaneous.
 
 ###### [Main README](../README.md)
@@ -45,3 +44,7 @@ async def show_values():
         print(fstr.format(htu.temperature, htu.humidity))
         await asyncio.sleep(5)
 ```
+
+Thermal inertia of the chip packaging means that there is a lag between the
+occurrence of a temperature change and the availability of accurate readings.
+There is therefore little practical benefit in reducing the `read_delay`.

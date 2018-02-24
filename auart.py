@@ -3,10 +3,7 @@
 # Copyright Peter Hinch 2017 Released under the MIT license
 # Link X1 and X2 to test.
 
-try:
-    import asyncio_priority as asyncio
-except ImportError:
-    import uasyncio as asyncio
+import uasyncio as asyncio
 from pyb import UART
 uart = UART(4, 9600)
 
