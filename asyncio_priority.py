@@ -46,7 +46,7 @@ class PriorityEventLoop(PollEventLoop):
         tim = time.ticks_diff(t, tnow)
         to_run = self._max_overdue_ms > 0 and tim < -self._max_overdue_ms
         if not to_run:  # No overdue LP task.
-            if len(self.runq):
+            if len(self.runq):  # zero delay tasks go straight to runq
                 return False
             to_run = tim <= 0  # True if LP task is due
             if to_run and self.waitq:  # Set False if a normal tasks is due.
@@ -199,11 +199,11 @@ class PriorityEventLoop(PollEventLoop):
                 # need to feed anything to the next invocation of coroutine.
                 # If that changes, need to pass that value below.
                 if low_priority:
-                    self.call_after_ms(delay, cb)
+                    self.call_after_ms(delay, cb)  # Put on lpq
                 elif delay:
-                    self.call_later_ms(delay, cb)
+                    self.call_later_ms(delay, cb)  # waitq
                 else:
-                    self.call_soon(cb)
+                    self.call_soon(cb)  # runq
 
             # Wait until next waitq task or I/O availability
             delay = 0

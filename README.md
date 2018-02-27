@@ -18,22 +18,25 @@ This GitHub repository consists of the following parts:
  mechanism. With suitable application design this improves the rate at which
  devices can be polled and improves the accuracy of time delays. Also provides
  for low priority tasks which are only scheduled when normal tasks are paused.
- NOTE: this currently supports uasyncio V1.7.1.
+ NOTE: this requires uasyncio V2.0.
  * [Communication between devices](./syncom_as/README.md) Enables MicroPython
  boards to communicate without using a UART. Primarily intended to enable a
  a Pyboard-like device to achieve bidirectional communication with an ESP8266.
 
 # 2. Version and installation of uasyncio
 
-This has become more involved owing to the development of Paul Sokolovsky's
-fork. At the time of writing his fork supports `uasyncio` version 2.0. The
-version on PyPI is also V2.0.
+The documentation and code in this repository are based on `uasyncio` version
+2.0, which is the version on PyPi. This requires firmware dated 22nd Feb 2018
+or later.
 
-The version in [micropython-lib](https://github.com/micropython/micropython-lib)
-is version 1.7.1.
+Version 2.0 brings only one API change over V1.7.1, namely the arguments to
+`get_event_loop()`. Unless using the priority version all test programs and
+code samples use default args so will work under either version. The priority
+version requires the later version and firmware.
 
-With the exception of the priority version all docs and code samples should be
-compatible with both versions. Testing has been done under V1.7.1.
+[Paul Sokolovsky's library](https://github.com/pfalcon/micropython-lib) has the
+latest `uasyncio` code. At the time of writing (Feb 27th 2018) the version in
+[micropython-lib](https://github.com/micropython/micropython-lib) is 1.7.1.
 
 See [tutorial](./TUTORIAL.md#installing-uasyncio-on-bare-metal) for
 installation instructions.

@@ -56,7 +56,8 @@ $ python3 -m micropip.py install -p ~/syn micropython-uasyncio
 ```
 
 The `uasyncio` modules may be frozen as bytecode in the usual way, by placing
-the `uasyncio` directory in the port's `modules` directory and rebuilding.
+the `uasyncio` and `collections` directories in the port's `modules` directory
+and rebuilding.
 
 ###### [Main README](./README.md)
 
@@ -454,7 +455,7 @@ ineffective. It will not receive the `TimeoutError` until it has acquired the
 lock. The same observation applies to task cancellation.
 
 The module `asyn.py` offers a `Lock` class which works in these situations
-[Full details.](./PRIMITIVES.md#32-class-lock). It is significantly less
+[full details](./PRIMITIVES.md#32-class-lock). It is significantly less
 efficient than the official class but supports additional interfaces as per the
 CPython version including context manager usage.
 
@@ -630,8 +631,7 @@ controlled. Documentation of this is in the code.
 
 ## 3.6 Task cancellation
 
-This requires `uasyncio` V1.7.1 which was released on 7th Jan 2018, with
-firmware of that date or later.
+This requires `uasyncio` V1.7.1 or later, with suitably recent firmware.
 
 `uasyncio` now provides a `cancel(coro)` function. This works by throwing an
 exception to the coro in a special way: cancellation is deferred until the coro

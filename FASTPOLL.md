@@ -4,15 +4,13 @@ This document describes a "priority" version of uasyncio. Its purpose is to
 provide a simple priority mechanism to facilitate the design of applications
 with improved millisecond-level timing accuracy and reduced scheduling latency.
 
-V0.2 Dec 2017. A single module designed to work with the official `uasyncio`
-library. This requires uasyncio.core V1.7 which was released on 16th Dec 2017,
-with firmware of that date or later. It does not yet support `uasyncio` V2.0.
+V0.3 Feb 2018. A single module designed to work with the official `uasyncio`
+library. This requires `uasyncio` V2.0 which requires firmware dated
+22nd Feb 2018 or later.
 
 **API CHANGES**
-The API has been changed to simplify the code and to improve consistency.
- 1. `call_after_ms` Args have changed to match other methods.
- 2. `get_event_loop` now only takes two args - setting the maximum overdue time
- must be done via the `max_overdue_ms` method.
+V2.0 of `uasyncio` changed the arguments to `get_event_loop` so this version
+has corresponding changes. See [section 3](./FASTPOLL.md#3-a-solution).
 
 ###### [Main README](./README.md)
 
@@ -20,7 +18,7 @@ The API has been changed to simplify the code and to improve consistency.
 
  1. [Installation](./FASTPOLL.md#1-installation)
 
-  1.1 [Benchmarks](./FASTPOLL.md#11-benchmarks)
+  1.1 [Benchmarks](./FASTPOLL.md#11-benchmarks) Benchmark and demo programs.
 
  2. [Rationale](./FASTPOLL.md#2-rationale)
 
@@ -51,13 +49,15 @@ The API has been changed to simplify the code and to improve consistency.
 # 1. Installation
 
 Install and test uasyncio on the target hardware. Copy `asyncio_priority.py`
-to the target.
+to the target. Users of previous versions should update any of the benchmark
+programs which are to be run.
 
 In MicroPython 1.9 `uasyncio` was implemented as a frozen module on the
-ESP8266. The `asyncio_priority.py` module may be put in the filesystem or
-compiled as frozen bytecode. See [ESP Platforms](./FASTPOLL.md#6-esp-platforms)
-for general comments on the suitability of ESP platforms for systems requiring
-fast response.
+ESP8266. This version is not compatible with `asyncio_priority.py`. Given the
+limited resources of the ESP8266 `uasyncio` and `uasyncio_priority` should be
+implemented as frozen bytecode. See
+[ESP Platforms](./FASTPOLL.md#6-esp-platforms) for general comments on the
+suitability of ESP platforms for systems requiring fast response.
 
 ## 1.1 Benchmarks
 
@@ -65,15 +65,18 @@ The benchmarks directory contains files demonstrating the performance gains
 offered by prioritisation. They also offer illustrations of the use of these
 features. Documentation is in the code.
 
- * latency.py Shows the effect on latency with and without low priority usage.
- * timing.py Shows the effect on timing with and without low priority usage.
- * rate.py Shows the frequency with which the official uasyncio schedules
- minimal coroutines (coros).
- * rate_p.py As above, but measures the overhead of the priority extension.
- * call_lp.py Demos low priority callbacks.
- * overdue.py Demo of maximum overdue feature.
- * priority.py Demo of high priority coro.
- * priority_test.py Cancellation of low priority coros.
+ * `benchmarks/latency.py` Shows the effect on latency with and without low
+ priority usage.
+ * `benchmarks/timing.py` Shows the effect on timing with and without low
+ priority usage.
+ * ``benchmarks/rate.py` Shows the frequency with which the official uasyncio
+ schedules minimal coroutines (coros).
+ * `benchmarks/rate_p.py` As above, but measures the overhead of the priority
+ extension.
+ * `benchmarks/call_lp.py` Demos low priority callbacks.
+ * `benchmarks/overdue.py` Demo of maximum overdue feature.
+ * `benchmarks/priority.py` Demo of high priority coro.
+ * `priority_test.py` Cancellation of low priority coros.
 
 With the exceptions of call_lp and priority.py, benchmarks can be run against
 the official and priority versions of usayncio.
