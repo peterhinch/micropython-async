@@ -152,9 +152,7 @@ async def run_event_test(lp):
     loop.create_task(run_lock(3, lock))
     print('Test Event class')
     event = asyn.Event(lp)
-    print('got here')
     loop.create_task(eventset(event))
-    print('gh1')
     await eventwait(event)  # run_event_test runs fast until this point
     print('Event status {}'.format('Incorrect' if event.is_set() else 'OK'))
     print('Tasks complete')
@@ -162,14 +160,12 @@ async def run_event_test(lp):
 def event_test(lp=True):  # Option to use low priority scheduling
     printexp('''Test Lock class
 Test Event class
-got here
-gh1
 waiting for event
 run_lock 1 waiting for lock
+run_lock 1 acquired lock
 run_lock 2 waiting for lock
 run_lock 3 waiting for lock
 Waiting 5 secs before setting event
-run_lock 1 acquired lock
 run_lock 1 released lock
 run_lock 2 acquired lock
 run_lock 2 released lock

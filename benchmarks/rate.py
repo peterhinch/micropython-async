@@ -1,10 +1,9 @@
-# rate.py Benchmark for uasyncio. Author Peter Hinch April 2017.
+# rate.py Benchmark for uasyncio. Author Peter Hinch Feb 2018.
 # Benchmark uasyncio round-robin scheduling performance
 # This measures the rate at which uasyncio can schedule a minimal coro which
 # mereley increments a global.
 
-# Outcome: minimal coros are scheduled at an interval of ~208us, independent of
-# the number of instances.
+# Outcome: minimal coros are scheduled at an interval of ~150us
 
 import uasyncio as asyncio
 
@@ -40,7 +39,8 @@ async def test():
         iterations[n] = count
     done = True
 
-loop = asyncio.get_event_loop(max(num_coros) + 2)
+ntasks = max(num_coros) + 2
+loop = asyncio.get_event_loop(ntasks, ntasks)
 loop.create_task(test())
 loop.run_until_complete(report())
 

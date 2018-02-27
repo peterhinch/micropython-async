@@ -102,14 +102,14 @@ def test(use_priority=True):
     else:
         ntasks = max(num_coros) + 10 #4
         if use_priority:
-            loop = asyncio.get_event_loop(ntasks, ntasks)
+            loop = asyncio.get_event_loop(ntasks, ntasks, ntasks)
             after = asyncio.after
             after_ms = asyncio.after_ms
         else:
             lp_version = False
             after = asyncio.sleep
             after_ms = asyncio.sleep_ms
-            loop = asyncio.get_event_loop(ntasks)
+            loop = asyncio.get_event_loop(ntasks, ntasks)
         s = 'Testing latency of priority task with coros blocking for {}ms.'
         print(s.format(processing_delay))
         if lp_version:

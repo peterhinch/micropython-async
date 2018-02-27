@@ -4,8 +4,8 @@
 
 # Result on Pyboard with print('Foo', n) commented out
 # executions/second:
-# Using yield: 3187
-# Using sleep_ms(0) 2238
+# Using yield: 4249
+# Using sleep_ms(0) 2750
 # Note using yield in a coro is "unofficial" and may not
 # work in future uasyncio revisions.
 

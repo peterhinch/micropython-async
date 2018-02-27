@@ -238,10 +238,11 @@ priority, one with higher and one with lower priority than standard. It
 provides a replacement for `uasyncio.get_event_loop()` enabling the queue
 sizes to be set.
 
-`aysncio_priority.get_event_loop(len, lpqlen)`  
+`aysncio_priority.get_event_loop(runq_len, waitq_len, lpqlen)`  
 Arguments:  
- 1. `len` Length of normal queue. Default 42 tasks.
- 2. `lpqlen` Length of low priority queue. Default 42.
+ 1. `runq_len` Length of normal queue. Default 16 tasks.
+ 2. `waitq_len` Length of wait queue. Default 16.
+ 3. `lpqlen` Length of low priority queue. Default 16.
 
 The low priority solution is based on the notion of "after" implying a time
 delay which can be expected to be less precise than the asyncio standard calls.
@@ -348,12 +349,11 @@ priority tasks which are pending execution.
 A simple demo of this is `benchmarks/call_lp.py`. Documentation is in the
 code.
 
-`call_after_ms(delay, callback, args=())` Call with low priority. Positional
+`call_after_ms(delay, callback, *args)` Call with low priority. Positional
 args:  
  1. `delay` Integer. Minimum delay in millisecs before callback runs.
  2. `callback` The callback to run.
- 3. `args` Optional tuple or other iterable with positional args for the
- callback.
+ 3. `*args` Optional positional args for the callback.
 
 ###### [Jump to Contents](./FASTPOLL.md#contents)
 

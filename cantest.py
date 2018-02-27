@@ -222,7 +222,7 @@ async def chained(num, x, y, *, red, blue):
         print('Task chained no. {} was cancelled'.format(num))
 
 async def run_cancel_test4():
-    await asyn.Cancellable(cant41, 0)
+    await asyn.Cancellable(cant41, 0, 5)
     loop = asyncio.get_event_loop()
     loop.create_task(asyn.Cancellable(cant40, 1)())  # 3 instances in default group 0
     loop.create_task(asyn.Cancellable(cant40, 2)())
