@@ -38,35 +38,14 @@ class PriorityEventLoop(PollEventLoop):
         self.lpq = utimeq.utimeq(lpqlen)
         self.hp_tasks = []
 
-    # Schedule a single low priority task if one is ready or overdue.
-    # The most overdue task is scheduled even if normal tasks are pending.
-    # The most due task is scheduled only if no normal tasks are pending.
-    def schedule_lp_task(self, cur_task, tnow):
-        t = self.lpq.peektime()
-        tim = time.ticks_diff(t, tnow)
-        to_run = self._max_overdue_ms > 0 and tim < -self._max_overdue_ms
-        if not to_run:  # No overdue LP task.
-            if len(self.runq):  # zero delay tasks go straight to runq
-                return False
-            to_run = tim <= 0  # True if LP task is due
-            if to_run and self.waitq:  # Set False if a normal tasks is due.
-                t = self.waitq.peektime()
-                to_run = time.ticks_diff(t, tnow) > 0 # No normal task is ready
-        if to_run:
-            self.lpq.pop(cur_task)
-            self.call_soon(cur_task[1], *cur_task[2])
-            return True
-        return False
-
     def max_overdue_ms(self, t=None):
         if t is not None:
-            self._max_overdue_ms = t
+            self._max_overdue_ms = int(t)
         return self._max_overdue_ms
 
     # Low priority versions of call_later() call_later_ms() and call_at_()
     def call_after_ms(self, delay, callback, *args):
         self.call_at_lp_(time.ticks_add(self.time(), delay), callback, *args)
-
 
     def call_after(self, delay, callback, *args):
         self.call_at_lp_(time.ticks_add(self.time(), int(delay * 1000)), callback, *args)
@@ -85,23 +64,41 @@ class PriorityEventLoop(PollEventLoop):
         else:
             self.hp_tasks.append([func, callback, args])
 
+# Low priority (LP) scheduling.
+# Schedule a single low priority task if one is ready or overdue.
+# The most overdue task is scheduled even if normal tasks are pending.
+# The most due task is scheduled only if no normal tasks are pending.
+
     def run_forever(self):
         cur_task = [0, 0, 0]
         while True:
             tnow = self.time()
-            # Schedule a LP task if no normal task is ready
-            l = len(self.lpq)
-            if (l and not self.schedule_lp_task(cur_task, tnow)) or l == 0:
-                # Expire entries in waitq and move them to runq
-                while self.waitq:
-                    t = self.waitq.peektime()
-                    delay = time.ticks_diff(t, tnow)
-                    if delay > 0:
-                        break
-                    self.waitq.pop(cur_task)
-                    if __debug__ and DEBUG:
-                        log.debug("Moving from waitq to runq: %s", cur_task[1])
+            if self.lpq:
+                # Schedule a LP task if overdue or if no normal task is ready
+                to_run = False  # Assume no LP task is to run
+                t = self.lpq.peektime()
+                tim = time.ticks_diff(t, tnow)
+                to_run = self._max_overdue_ms > 0 and tim < -self._max_overdue_ms
+                if not (to_run or self.runq):  # No overdue LP task or task on runq
+                    # zero delay tasks go straight to runq. So don't schedule LP if runq
+                    to_run = tim <= 0  # True if LP task is due
+                    if to_run and self.waitq:  # Set False if normal tasks due.
+                        t = self.waitq.peektime()
+                        to_run = time.ticks_diff(t, tnow) > 0 # No normal task is ready
+                if to_run:
+                    self.lpq.pop(cur_task)
                     self.call_soon(cur_task[1], *cur_task[2])
+
+            # Expire entries in waitq and move them to runq
+            while self.waitq:
+                t = self.waitq.peektime()
+                delay = time.ticks_diff(t, tnow)
+                if delay > 0:
+                    break
+                self.waitq.pop(cur_task)
+                if __debug__ and DEBUG:
+                    log.debug("Moving from waitq to runq: %s", cur_task[1])
+                self.call_soon(cur_task[1], *cur_task[2])
 
             # Process runq
             l = len(self.runq)
