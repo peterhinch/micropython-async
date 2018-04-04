@@ -107,7 +107,7 @@ class Switch(object):
             if state != self.switchstate:
                 # State has changed: act on it now.
                 self.switchstate = state
-                if state == 0 and self.close_func:
+                if state == 0 and self._close_func:
                     launch(self._close_func, self._close_args)
                 elif state == 1 and self._open_func:
                     launch(self._open_func, self._open_args)
