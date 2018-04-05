@@ -123,6 +123,8 @@ and rebuilding.
 
   5.1 [The IORead mechnaism](./TUTORIAL.md#51-the-ioread-mechanism)
 
+   5.1.1 [A UART driver example](./TUTORIAL.md#511-a-uart-driver-example)
+
   5.2 [Using a coro to poll hardware](./TUTORIAL.md#52-using-a-coro-to-poll-hardware)
 
   5.3 [Using IORead to poll hardware](./TUTORIAL.md#53-using-ioread-to-poll-hardware)
@@ -211,6 +213,9 @@ results by accessing Pyboard hardware.
  8. `aqtest.py` Demo of uasyncio `Queue` class.
  9. `aremote.py` Example device driver for NEC protocol IR remote control.
  10. `auart.py` Demo of streaming I/O via a Pyboard UART.
+ 11. `auart_hd.py` Use of the Pyboard UART to communicate with a device using a
+ half-duplex protocol. Suits devices such as those using the 'AT' modem command
+ set.
 
 **Test Programs**
 
@@ -1032,6 +1037,28 @@ The supporting code may be found in `__init__.py` in the uasyncio library.
 The mechanism works because the device driver (written in C) implements the
 following methods: `ioctl`, `read`, `write`, `readline` and `close`. See
 section 5.3 for further discussion.
+
+### 5.1.1 A UART driver example
+
+The program `auart_hd.py` illustrates a method of communicating with a half
+duplex device such as one responding to the modem 'AT' command set. Half duplex
+means that the device never sends unsolicited data: its transmissions are
+always in response to a command from the master.
+
+The device is emulated, enabling the test to be run on a Pyboard with two wire
+links.
+
+The (highly simplified) emulated device responds to any command by sending four
+lines of data with a pause between each, to simulate slow processing.
+
+The master sends a command, but does not know in advance how many lines of data
+will be returned. It starts a retriggerable timer, which is retriggered each
+time a line is received. When the timer times out it is assumed that the device
+has completed transmission, and a list of received lines is returned.
+
+The case of device failure is also demonstrated. This is done by omitting the
+transmission before awaiting a response. After the timeout an empty list is
+returned. See the code comments for more details.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
