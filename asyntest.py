@@ -303,7 +303,7 @@ async def cond03():  # Maintain a count of seconds
         tim += 1
 
 def predicate():
-    return tim >= 12
+    return tim >= 8 # 12
 
 async def cond04(n, barrier):
     with await cond:
@@ -344,9 +344,9 @@ cond02 1 triggered. tim = 5
 cond02 2 triggered. tim = 5
 cond02 0 triggered. tim = 7
 cond04 99 Awaiting notification and predicate.
-cond04 99 triggered. tim = 13
+cond04 99 triggered. tim = 9
 Done.
-''', 16)
+''', 13)
     loop = asyncio.get_event_loop()
     loop.run_until_complete(cond_go(loop))
 
