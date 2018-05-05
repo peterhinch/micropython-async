@@ -963,6 +963,46 @@ of `uasyncio` by forcing the coro to run, and possibly terminate, when it is
 still queued for execution. I haven't entirely thought through the implications
 of this, but it's a thoroughly bad idea.
 
+There is a "gotcha" illustrated by this code sample. If allowed to run to
+completion it works as expected.
+
+```python
+import uasyncio as asyncio
+async def foo():
+    await asyncio.sleep(3)
+    print('About to throw exception.')
+    1/0
+
+async def bar():
+    try:
+        await foo()
+    except ZeroDivisionError:
+        print('foo was interrupted by zero division')  # Happens
+        raise  # Force shutdown to run by propagating to loop.
+    except KeyboardInterrupt:
+        print('foo was interrupted by ctrl-c')  # NEVER HAPPENS
+        raise
+
+async def shutdown():
+    print('Shutdown is running.')  # Happens in both cases
+    await asyncio.sleep(1)
+    print('done')
+
+loop = asyncio.get_event_loop()
+try:
+    loop.run_until_complete(bar())
+except ZeroDivisionError:
+    loop.run_until_complete(shutdown())
+except KeyboardInterrupt:
+    print('Keyboard interrupt at loop level.')
+    loop.run_until_complete(shutdown())
+```
+
+However issuing a keyboard interrupt causes the exception to go to the event
+loop. This is because `uasyncio.sleep` causes execution to be transferred to
+the event loop. Consequently applications requiring cleanup code in response to
+a keyboard interrupt should trap the exception at the event loop level.
+
 ###### [Contents](./TUTORIAL.md#contents)
 
 # 5 Device driver examples
