@@ -13,6 +13,11 @@ This GitHub repository consists of the following parts:
  * [A driver for the HTU21D](./htu21d/README.md) temperature and humidity
  sensor. This is intended to be portable across platforms and is another
  example of an asynchronous device driver.
+ * [A driver for character LCD displays](./HD44780/README.md). A simple
+ asynchronous interface to displays based on the Hitachi HD44780 chip.
+ * [A driver for GPS modules](./gps/README.md) Runs a background task to read
+ and decode NMEA sentences, providing constantly updated position, course,
+ altitude and time/date information.
  * [A modified uasyncio](./FASTPOLL.md) This incorporates a simple priority
  mechanism. With suitable application design this improves the rate at which
  devices can be polled and improves the accuracy of time delays. Also provides
