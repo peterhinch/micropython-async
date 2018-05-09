@@ -233,7 +233,7 @@ class AS_GPS(object):
         if utc_string:  # Possible timestamp found
             self.timestamp[0] = int(utc_string[0:2]) + self.local_offset  # h
             self.timestamp[1] = int(utc_string[2:4])  # mins
-            self.timestamp[2] = float(utc_string[4:])  # secs
+            self.timestamp[2] = int(utc_string[4:])  # secs
 
     ########################################
     # Sentence Parsers
@@ -593,7 +593,7 @@ class AS_GPS(object):
         return sform.format(speed, 'km/h')
 
     def time(self):
-        return '{:02d}:{:02d}:{:02.3f}'.format(*self.timestamp)
+        return '{:02d}:{:02d}:{:02d}'.format(*self.timestamp)
 
     def date_string(self, formatting=MDY):
         day, month, year = self.date

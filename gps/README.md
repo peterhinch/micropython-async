@@ -189,7 +189,7 @@ gps = as_GPS.AS_GPS(sreader, fix_cb=callback, cb_mask= as_GPS.RMC | as_GPS.VTG)
  `as_GPS.DMY` returns 'DD/MM/YY'.  
  `as_GPS.LONG` returns a string of form 'January 1st, 2014'.
 
- * `time` No args. Returns the current time in form 'hh:mm:ss.sss'.
+ * `time` No args. Returns the current time in form 'hh:mm:ss'.
 
 ## 2.3 Public coroutines
 
@@ -266,7 +266,7 @@ The following are counts since instantiation.
 
 As received from most recent GPS message.
 
- * `timestamp` [hrs, mins, secs] e.g. [12, 15, 3.23]
+ * `timestamp` [hrs, mins, secs] e.g. [12, 15, 3]. Values are integers.
  * `date` [day, month, year] e.g. [23, 3, 18]
  * `local_offset` Local time offset in hrs as specified to constructor.
 
