@@ -13,31 +13,16 @@
 #
 # Author : Matt Hawkins
 # Site   : http://www.raspberrypi-spy.co.uk
-# 
-# Date   : 26/07/2012
 
 from machine import Pin
 import utime as time
 import uasyncio as asyncio
 
-# **************************************************** LCD DRIVER ***************************************************
+# ********************************** GLOBAL CONSTANTS: TARGET BOARD PIN NUMBERS *************************************
 
-"""
-Pin correspondence of default pinlist. This is supplied as an example
-Name LCD connector Board
-Rs    4   1 red    Y1
-E     6   2        Y2
-D7   14   3        Y3
-D6   13   4        Y4
-D5   12   5        Y5
-D4   11   6        Y6
-"""
+# Supply board pin numbers as a tuple in order Rs, E, D4, D5, D6, D7
 
-# *********************************** GLOBAL CONSTANTS: MICROPYTHON PIN NUMBERS *************************************
-
-# Supply as board pin numbers as a tuple Rs, E, D4, D5, D6, D7
-
-PINLIST = ('Y1','Y2','Y6','Y5','Y4','Y3')
+PINLIST = ('Y1','Y2','Y6','Y5','Y4','Y3')  # As used in testing.
 
 # **************************************************** LCD CLASS ****************************************************
 # Initstring:
@@ -121,5 +106,3 @@ class LCD(object):                              # LCD objects appear as read/wri
                         await asyncio.sleep_ms(0)  # Reshedule ASAP
                     self.dirty[row] = False
             await asyncio.sleep_ms(20)          # Give other coros a look-in
-
-
