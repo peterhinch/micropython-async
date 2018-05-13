@@ -35,8 +35,9 @@ This takes the following positional args:
 ## 4.2 Display updates
 
 The class has no public properties or methods. The display is represented as an
-array of strings indexed by row. The row contents is replaced in its entirety.
-This is illustrated by the test program:
+array of strings indexed by row. The row contents is replaced in its entirety,
+replacing all previous contents regardless of length. This is illustrated by
+the test program:
 
 ```python
 import uasyncio as asyncio
@@ -70,7 +71,8 @@ method.
 
 For example this function formats a string such that it is left-padded with
 spaces to a given column and right-padded to the specified width (typically the
-width of the display). This ensures previous contents are overwritten.
+width of the display). Right padding is not necessary but is included to
+illustrate how right-justified formatting can be achieved:
 
 ```python
 def print_at(st, col, width=16):
