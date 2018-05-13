@@ -14,12 +14,30 @@ sentences on startup. An optional read-write driver is provided for
 MTK3329/MTK3339 chips as used on the above board. This enables the device
 configuration to be altered.
 
+###### [Main README](../README.md)
+
 ## 1.1 Overview
 
 The `AS_GPS` object runs a coroutine which receives GPS NMEA sentences from the
 UART and parses them as they arrive. Valid sentences cause local bound
 variables to be updated. These can be accessed at any time with minimal latency
 to access data such as position, altitude, course, speed, time and date.
+
+### 1.1.1 Wiring
+
+These notes are for the Adafruit Ultimate GPS Breakout. It may be run from 3.3V
+or 5V. If running the Pyboard from USB it may be wired as follows:
+
+| GPS |  Pyboard   |
+|:---:|:----------:|
+| Vin | V+ or 3V3  |
+| Gnd | Gnd        |
+| Tx  | X2 (U4 rx) |
+| Rx  | X1 (U4 tx) |
+
+This is based on UART 4 as used in the test programs; any UART may be used. The
+X1-Rx connection is only necessary if using the read/write driver to alter the
+GPS device operation.
 
 ## 1.2 Basic Usage
 
@@ -315,6 +333,15 @@ packets to GPS modules based on the MTK3329/MTK3339 chip. These include:
 
  * `as_rwGPS.py` Supports the `GPS` class. This subclass of `AS_GPS` enables
  writing a limited subset of the MTK commands used on many popular devices.
+ * `ast_pbrw.py` Test script which changes various attributes. This will pause
+ until a fix has been achieved. After that changes are made for about 1 minute,
+ then it runs indefinitely reporting data at the REPL and on the LEDs. It may
+ be interrupted with `ctrl-c` when the default baudrate will be restored.  
+ LED's:
+ * Red: Toggles each time a GPS update occurs.
+ * Green: ON if GPS data is being received, OFF if no data received for >10s.
+ * Yellow: Toggles each 4s if navigation updates are being received.
+ * Blue: Toggles each 4s if time updates are being received.
 
 ## 3.2 Constructor
 
@@ -352,7 +379,8 @@ The args presented to the fix callback are as described in
  * `baudrate` Arg: baudrate. Must be 4800, 9600, 14400, 19200, 38400, 57600 or
  115200. See below.
  * `update_interval` Arg: interval in ms. Default 1000. Must be between 100 and
- 10000.
+ 10000. If the rate is to be increased see
+ [notes on timing](./README.md#6-notes-on-timing).
  * `enable` Determine the frequency with which each sentence type is sent. A
  value of 0 disables a sentence, a value of 1 causes it to be sent with each
  received position fix. A value of N causes it to be sent once every N fixes.  
@@ -409,6 +437,8 @@ in the event that the program terminates due to an exception or otherwise.
 
 Particular care needs to be used if a backup battery is employed as the GPS
 will then remember its baudrate over a power cycle.
+
+See also [notes on timing](./README.md#6-notes-on-timing).
 
 ## 3.4 Public bound variables
 
@@ -471,6 +501,19 @@ the leading '$' character removed.
 
 It should return `True` if the sentence was successfully parsed, otherwise
 `False`.
+
+# 6. Notes on timing
+
+At the default baudrate of 9600 I measured a time of 400ms when a set of GPSV
+messages came in. This time could be longer depending on data. So if an update
+rate higher than the default 1 second is to be used, either the baudrate must
+be increased or the satellite information messages should be disabled.
+
+The PPS signal (not used by this driver) on the MTK3339 occurs only when a fix
+has been achieved. The leading edge always occurs before a set of messages are
+output. So, if the leading edge is to be used for precise timing, 1s should be
+added to the `timestamp` value (beware of possible rollover into minutes and
+hours).
 
 [MicroPython]:https://micropython.org/
 [frozen module]:https://learn.adafruit.com/micropython-basics-loading-modules/frozen-modules

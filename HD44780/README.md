@@ -3,6 +3,8 @@
 This driver is for displays based on the Hitachi HD44780 driver: these are
 widely available, typically in 16 character x 2 rows format.
 
+###### [Main README](../README.md)
+
 # 2. Files
 
  * `alcd.py` Driver, includes connection details.
