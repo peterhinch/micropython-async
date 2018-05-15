@@ -231,9 +231,14 @@ class AS_GPS(object):
     # Set timestamp. If time/date not present retain last reading (if any).
     def _set_timestamp(self, utc_string):
         if utc_string:  # Possible timestamp found
-            self.timestamp[0] = int(utc_string[0:2]) + self.local_offset  # h
-            self.timestamp[1] = int(utc_string[2:4])  # mins
-            self.timestamp[2] = int(utc_string[4:])  # secs
+            try:
+                self.timestamp[0] = int(utc_string[0:2]) + self.local_offset  # h
+                self.timestamp[1] = int(utc_string[2:4])  # mins
+                self.timestamp[2] = int(utc_string[4:])  # secs
+                return True
+            except ValueError:
+                pass
+        return False
 
     ########################################
     # Sentence Parsers
