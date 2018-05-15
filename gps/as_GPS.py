@@ -234,7 +234,9 @@ class AS_GPS(object):
             try:
                 self.timestamp[0] = int(utc_string[0:2]) + self.local_offset  # h
                 self.timestamp[1] = int(utc_string[2:4])  # mins
-                self.timestamp[2] = int(utc_string[4:])  # secs
+                # secs TODO spec states 2 chars but getting decimal: perhaps this
+                # should be  float after all.
+                self.timestamp[2] = int(utc_string[4:6])  # secs
                 return True
             except ValueError:
                 pass
