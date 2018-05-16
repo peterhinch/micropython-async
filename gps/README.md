@@ -28,16 +28,18 @@ to access data such as position, altitude, course, speed, time and date.
 These notes are for the Adafruit Ultimate GPS Breakout. It may be run from 3.3V
 or 5V. If running the Pyboard from USB it may be wired as follows:
 
-| GPS |  Pyboard   |
-|:---:|:----------:|
-| Vin | V+ or 3V3  |
-| Gnd | Gnd        |
-| Tx  | X2 (U4 rx) |
-| Rx  | X1 (U4 tx) |
+| GPS |  Pyboard   | Optional |
+|:---:|:----------:|:--------:|
+| Vin | V+ or 3V3  |          |
+| Gnd | Gnd        |          |
+| PPS | X3         |    Y     |
+| Tx  | X2 (U4 rx) |    Y     |
+| Rx  | X1 (U4 tx) |          |
 
 This is based on UART 4 as used in the test programs; any UART may be used. The
 X1-Rx connection is only necessary if using the read/write driver to alter the
-GPS device operation.
+GPS device operation. The PPS connection is required only if using the device
+for precise timing (`as_GPS_time.py`). Any pin may be used.
 
 ## 1.2 Basic Usage
 
@@ -284,7 +286,8 @@ The following are counts since instantiation.
 
 As received from most recent GPS message.
 
- * `timestamp` [hrs, mins, secs] e.g. [12, 15, 3]. Values are integers.
+ * `timestamp` [hrs, mins, secs] e.g. [12, 15, 3.0]. Values are integers except
+ for secs which is a float (perhaps dependent on GPS hardware).
  * `date` [day, month, year] e.g. [23, 3, 18]
  * `local_offset` Local time offset in hrs as specified to constructor.
 
@@ -343,7 +346,7 @@ packets to GPS modules based on the MTK3329/MTK3339 chip. These include:
  * Yellow: Toggles each 4s if navigation updates are being received.
  * Blue: Toggles each 4s if time updates are being received.
 
-## 3.2 Constructor
+## 3.2 GPS class Constructor
 
 This takes two mandatory positional args:
  * `sreader` This is a `StreamReader` instance associated with the UART.
@@ -380,7 +383,7 @@ The args presented to the fix callback are as described in
  115200. See below.
  * `update_interval` Arg: interval in ms. Default 1000. Must be between 100 and
  10000. If the rate is to be increased see
- [notes on timing](./README.md#6-notes-on-timing).
+ [notes on timing](./README.md#7-notes-on-timing).
  * `enable` Determine the frequency with which each sentence type is sent. A
  value of 0 disables a sentence, a value of 1 causes it to be sent with each
  received position fix. A value of N causes it to be sent once every N fixes.  
@@ -438,7 +441,7 @@ in the event that the program terminates due to an exception or otherwise.
 Particular care needs to be used if a backup battery is employed as the GPS
 will then remember its baudrate over a power cycle.
 
-See also [notes on timing](./README.md#6-notes-on-timing).
+See also [notes on timing](./README.md#7-notes-on-timing).
 
 ## 3.4 Public bound variables
 
@@ -467,7 +470,55 @@ with
 Other `PMTK` messages are passed to the optional message callback as described
 [in section 3.2](./README.md#32-constructor).
 
-# 4. Supported Sentences
+# 4. Using GPS for accurate timing
+
+Many GPS chips (e.g. MTK3339) provide a PPS signal which is a pulse occurring
+at 1s intervals whose leading edge is a highly accurate time reference. It may
+be used to set and to calibrate the Pyboard realtime clock (RTC).
+
+## 4.1 Files
+
+ * `as_GPS_time.py` Supports the `GPS_Timer` class.
+
+## 4.2 GPS_Timer class Constructor
+
+This takes the following arguments:
+ * `gps` An instance of the `AS_GPS` (read-only) or `GPS` (read/write) classes.
+ * `pps_pin` An initialised input `Pin` instance for the PPS signal.
+
+## 4.3 Public methods
+
+With the exception of `delta` these return immediately. Times are derived from
+the GPS PPS signal. These functions should not be called until a valid
+time/date message and PPS signal have occurred: await the `ready` coroutine
+prior to first use. These functions do not check this for themselves to ensure
+fast return.
+
+ * `get_secs` No args. Returns a float: the period past midnight in seconds.
+ * `get_t_split` No args. Returns time of day tuple of form
+ (hrs: int, mins: int, secs: float).
+ * `set_rtc` No args. Sets the Pyboard RTC to GPS time.
+ * `delta` No args. Returns no. of μs RTC leads GPS. This method blocks for up
+ to a second.
+
+## 4.4 Public coroutines
+
+ * `ready` No args. Pauses until  a valid time/date message and PPS signal have
+ occurred.
+ * `calibrate` Arg: integer, no. of minutes to run default 5. Calibrates the
+ Pyboard RTC and returns the  calibration factor for it.
+
+Achieving an accurate calibration factor takes time but does enable the Pyboard
+RTC to achieve timepiece quality results. Note that calibration is lost on
+power down: solutions are either to use an RTC backup battery or to store the
+calibration factor in a file and re-apply it on startup.
+
+The coroutine calculates the calibration factor at 10 second intervals and will
+return early if three consecutive identical calibration factors are calculated.
+Note that, because of the need for precise timing, this coroutine blocks at
+intervals for periods of up to one second.
+
+# 5. Supported Sentences
 
  * GPRMC  GP indicates NMEA sentence
  * GLRMC  GL indicates GLONASS (Russian system)
@@ -485,7 +536,7 @@ Other `PMTK` messages are passed to the optional message callback as described
  * GPGSV
  * GLGSV
 
-# 5. Subclassing
+# 6. Subclassing
 
 If support for further sentence types is required the `AS_GPS` class may be
 subclassed. If a correctly formed sentence with a valid checksum is received,
@@ -502,7 +553,7 @@ the leading '$' character removed.
 It should return `True` if the sentence was successfully parsed, otherwise
 `False`.
 
-# 6. Notes on timing
+# 7. Notes on timing
 
 At the default baudrate of 9600 I measured a time of 400ms when a set of GPSV
 messages came in. This time could be longer depending on data. So if an update
