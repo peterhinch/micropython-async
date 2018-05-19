@@ -91,7 +91,8 @@ async def date(gps):
         blue.toggle()
         print('***** DATE AND TIME *****')
         print('Data is Valid:', hex(gps._valid))
-        print('UTC Timestamp:', gps.timestamp)
+        print('UTC Time:', gps.utc)
+        print('Local time:', gps.local_time)
         print('Date:', gps.date_string(as_GPS.LONG))
         print()
 
@@ -136,8 +137,8 @@ async def gps_test():
     swriter = asyncio.StreamWriter(uart, {})
     timer = aswitch.Delay_ms(timeout)
     sentence_count = 0
-    gps = as_rwGPS.GPS(sreader, swriter, fix_cb=callback, fix_cb_args=(timer,),
-                       msg_cb = message_cb)
+    gps = as_rwGPS.GPS(sreader, swriter, local_offset=1, fix_cb=callback,
+                       fix_cb_args=(timer,),  msg_cb = message_cb)
     await asyncio.sleep(2)
     await gps.command(as_rwGPS.DEFAULT_SENTENCES)
     print('Set sentence frequencies to default')

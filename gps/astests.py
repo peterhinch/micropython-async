@@ -53,7 +53,7 @@ def run_tests():
             print('Parsed a', sentence, 'Sentence')
             print('Longitude:', my_gps.longitude())
             print('Latitude', my_gps.latitude())
-            print('UTC Timestamp:', my_gps.timestamp)
+            print('UTC Timestamp:', my_gps.utc)
             print('Speed:', my_gps.speed())
             print('Date Stamp:', my_gps.date)
             print('Course', my_gps.course)
@@ -71,7 +71,7 @@ def run_tests():
             print('Parsed a', sentence, 'Sentence')
             print('Longitude:', my_gps.longitude())
             print('Latitude', my_gps.latitude())
-            print('UTC Timestamp:', my_gps.timestamp)
+            print('UTC Timestamp:', my_gps.utc)
             print('Data is Valid:', bool(my_gps._valid & 2))
         print('')
 
@@ -99,7 +99,7 @@ def run_tests():
             print('Parsed a', sentence, 'Sentence')
             print('Longitude', my_gps.longitude())
             print('Latitude', my_gps.latitude())
-            print('UTC Timestamp:', my_gps.timestamp)
+            print('UTC Timestamp:', my_gps.utc)
             print('Altitude:', my_gps.altitude)
             print('Height Above Geoid:', my_gps.geoid_height)
             print('Horizontal Dilution of Precision:', my_gps.hdop)
@@ -165,16 +165,6 @@ def run_tests():
     print('Sentences Parsed:', my_gps.parsed_sentences)
     print('Unsupported sentences:', my_gps.unsupported_sentences)
     print('CRC_Fails:', my_gps.crc_fails)
-
-import unittest
-
-class TestMicroPyGPS(unittest.TestCase):
-
-    def test_smoke(self):
-        try:
-            run_tests()
-        except:
-            self.fail("smoke test raised exception")
 
 if __name__ == "__main__":
     run_tests()

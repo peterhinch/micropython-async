@@ -73,7 +73,8 @@ async def date(gps):
         await gps.data_received(date=True)
         print('***** DATE AND TIME *****')
         print('Data is Valid:', gps._valid)
-        print('UTC Timestamp:', gps.timestamp)
+        print('UTC time:', gps.utc)
+        print('Local time:', gps.local_time)
         print('Date:', gps.date_string(as_GPS.LONG))
         print()
 
@@ -85,7 +86,7 @@ async def gps_test():
     sreader = asyncio.StreamReader(uart)
     timer = aswitch.Delay_ms(timeout)
     sentence_count = 0
-    gps = as_GPS.AS_GPS(sreader, fix_cb=callback, fix_cb_args=(timer,))
+    gps = as_GPS.AS_GPS(sreader, local_offset=1, fix_cb=callback, fix_cb_args=(timer,))
     loop = asyncio.get_event_loop()
     print('awaiting first fix')
     loop.create_task(sat_test(gps))

@@ -14,6 +14,10 @@ sentences on startup. An optional read-write driver is provided for
 MTK3329/MTK3339 chips as used on the above board. This enables the device
 configuration to be altered.
 
+A further driver, for the Pyboard and other boards based on STM processors,
+provides for using the GPS device for precision timing. The chip's RTC may be
+precisely set and calibrated using the PPS signal from the GPS chip.
+
 ###### [Main README](../README.md)
 
 ## 1.1 Overview
@@ -26,7 +30,8 @@ to access data such as position, altitude, course, speed, time and date.
 ### 1.1.1 Wiring
 
 These notes are for the Adafruit Ultimate GPS Breakout. It may be run from 3.3V
-or 5V. If running the Pyboard from USB it may be wired as follows:
+or 5V. If running the Pyboard from USB, GPS Vin may be wired to Pyboard V+. If
+the Pyboard is run from a voltage >5V the Pyboard 3V3 pin should be used.
 
 | GPS |  Pyboard   | Optional |
 |:---:|:----------:|:--------:|
@@ -37,9 +42,9 @@ or 5V. If running the Pyboard from USB it may be wired as follows:
 | Rx  | X1 (U4 tx) |          |
 
 This is based on UART 4 as used in the test programs; any UART may be used. The
-X1-Rx connection is only necessary if using the read/write driver to alter the
-GPS device operation. The PPS connection is required only if using the device
-for precise timing (`as_GPS_time.py`). Any pin may be used.
+UART Tx-GPS Rx connection is only necessary if using the read/write driver. The
+PPS connection is required only if using the device for precise timing
+(`as_tGPS.py`). Any pin may be used.
 
 ## 1.2 Basic Usage
 
@@ -81,7 +86,8 @@ The following are relevant to the default read-only driver.
  `uasyncio`.
 
 Additional files relevant to the read/write driver are listed
-[here](./README.md#31-files).
+[here](./README.md#31-files). Files for the timing driver are listed
+[here](./README.md#41-files).
 
 ## 1.4 Installation
 
@@ -94,7 +100,9 @@ Adafruit [Ultimate GPS Breakout] module. If memory errors are encountered on
 resource constrained devices install as a [frozen module].
 
 For the [read/write driver](./README.md#3-the-gps-class-read/write-driver) the
-file `as_rwGPS.py` must also be installed.
+file `as_rwGPS.py` must also be installed. For the
+[timing driver](./README.md#4-using-gps-for-accurate-timing) `as_tGPS.py`
+should also be copied across.
 
 ### 1.4.2 Python 3.5 or later
 
@@ -128,8 +136,7 @@ Optional positional args:
  Default `RMC`: the callback will occur on RMC messages only (see below).
  * `fix_cb_args` A tuple of args for the callback (default `()`).
 
-Notes:  
-`local_offset` does not affect the date value.  
+Note:  
 If `sreader` is `None` a special test mode is engaged (see `astests.py`).
 
 ### 2.1.1 The fix callback
@@ -284,12 +291,18 @@ The following are counts since instantiation.
 
 ### 2.4.3 Date and time
 
-As received from most recent GPS message.
-
- * `timestamp` [hrs, mins, secs] e.g. [12, 15, 3.0]. Values are integers except
- for secs which is a float (perhaps dependent on GPS hardware).
- * `date` [day, month, year] e.g. [23, 3, 18]
+ * `utc` [hrs: int, mins: int, secs: float] UTC time e.g. [23, 3, 58.0]. Note
+ that some GPS hardware may only provide integer seconds. The MTK3339 chip
+ provides a float.
+ * `local_time` [hrs: int, mins: int, secs: float] Local time.
+ * `date` [day: int, month: int, year: int] e.g. [23, 3, 18]
  * `local_offset` Local time offset in hrs as specified to constructor.
+
+The `utc` bound variable updates on receipt of RMC, GLL or GGA messages.
+
+The `date` and `local_time` variables are updated when an RMC message is
+received. A local time offset will result in date changes where the time
+offset causes the local time to pass midnight.
 
 ### 2.4.4 Satellite data
 
@@ -478,45 +491,47 @@ be used to set and to calibrate the Pyboard realtime clock (RTC).
 
 ## 4.1 Files
 
- * `as_GPS_time.py` Supports the `GPS_Timer` class.
+ * `as_tGPS.py` The library. Supports the `GPS_Timer` class.
+ * `as_GPS_time.py` Test scripts for above.
 
 ## 4.2 GPS_Timer class Constructor
 
 This takes the following arguments:
  * `gps` An instance of the `AS_GPS` (read-only) or `GPS` (read/write) classes.
  * `pps_pin` An initialised input `Pin` instance for the PPS signal.
+ * `led` Default `None`. If an `LED` instance is passed, this will toggle each
+ time a PPS interrupt is handled.
 
 ## 4.3 Public methods
 
-With the exception of `delta` these return immediately. Times are derived from
-the GPS PPS signal. These functions should not be called until a valid
-time/date message and PPS signal have occurred: await the `ready` coroutine
-prior to first use. These functions do not check this for themselves to ensure
-fast return.
+These return immediately. Times are derived from the GPS PPS signal. These
+functions should not be called until a valid time/date message and PPS signal
+have occurred: await the `ready` coroutine prior to first use.
 
  * `get_secs` No args. Returns a float: the period past midnight in seconds.
  * `get_t_split` No args. Returns time of day tuple of form
  (hrs: int, mins: int, secs: float).
- * `set_rtc` No args. Sets the Pyboard RTC to GPS time.
- * `delta` No args. Returns no. of μs RTC leads GPS. This method blocks for up
- to a second.
 
 ## 4.4 Public coroutines
 
  * `ready` No args. Pauses until  a valid time/date message and PPS signal have
  occurred.
+ * `set_rtc` No args. Sets the Pyboard RTC to GPS time. Coro pauses for up to
+ 1s as it waits for a PPS pulse.
+ * `delta` No args. Returns no. of μs RTC leads GPS. Coro pauses for up to 1s.
  * `calibrate` Arg: integer, no. of minutes to run default 5. Calibrates the
- Pyboard RTC and returns the  calibration factor for it.
+ Pyboard RTC and returns the calibration factor for it. This coroutine sets the
+ RTC (with any existing calibration removed) and measures its drift with
+ respect to the GPS time. This measurement becomes more precise as time passes.
+ It calculates a calibration value at 10s intervals and prints progress
+ information. When the calculated calibration factor is repeatable within 1
+ digit (or the spcified time has elapsed) it terminates. Typical run times are
+ on the order of two miutes.
 
 Achieving an accurate calibration factor takes time but does enable the Pyboard
 RTC to achieve timepiece quality results. Note that calibration is lost on
 power down: solutions are either to use an RTC backup battery or to store the
-calibration factor in a file and re-apply it on startup.
-
-The coroutine calculates the calibration factor at 10 second intervals and will
-return early if three consecutive identical calibration factors are calculated.
-Note that, because of the need for precise timing, this coroutine blocks at
-intervals for periods of up to one second.
+calibration factor in a file (or in code) and re-apply it on startup.
 
 # 5. Supported Sentences
 

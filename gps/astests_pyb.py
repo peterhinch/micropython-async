@@ -14,7 +14,7 @@ from machine import UART
 import uasyncio as asyncio
 
 def callback(gps, _, arg):
-    print('Fix callback. Time:', gps.timestamp, arg)
+    print('Fix callback. Time:', gps.utc, arg)
 
 async def run_tests():
     uart = UART(4, 9600, read_buf_len=200)
@@ -58,7 +58,7 @@ async def run_tests():
         await my_gps.data_received(position=True)
         print('Longitude:', my_gps.longitude())
         print('Latitude', my_gps.latitude())
-        print('UTC Timestamp:', my_gps.timestamp)
+        print('UTC Time:', my_gps.utc)
         print('Speed:', my_gps.speed())
         print('Date Stamp:', my_gps.date)
         print('Course', my_gps.course)
@@ -72,7 +72,7 @@ async def run_tests():
         await my_gps.data_received(position=True)
         print('Longitude:', my_gps.longitude())
         print('Latitude', my_gps.latitude())
-        print('UTC Timestamp:', my_gps.timestamp)
+        print('UTC Time:', my_gps.utc)
         print('Data is Valid:', my_gps._valid)
         print('')
 
@@ -92,7 +92,7 @@ async def run_tests():
         await my_gps.data_received(position=True)
         print('Longitude', my_gps.longitude())
         print('Latitude', my_gps.latitude())
-        print('UTC Timestamp:', my_gps.timestamp)
+        print('UTC Time:', my_gps.utc)
 #        print('Fix Status:', my_gps.fix_stat)
         print('Altitude:', my_gps.altitude)
         print('Height Above Geoid:', my_gps.geoid_height)

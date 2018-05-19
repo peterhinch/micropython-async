@@ -8,6 +8,9 @@
 # Copyright (c) 2018 Peter Hinch
 # Released under the MIT License (MIT) - see LICENSE file
 
+# astests.py runs under CPython but not MicroPython because mktime is missing
+# from Unix build of utime
+
 try:
     import uasyncio as asyncio
 except ImportError:
@@ -45,6 +48,7 @@ ALTITUDE = const(GGA)
 DATE = const(RMC)
 COURSE = const(RMC | VTG)
 
+
 class AS_GPS(object):
     _SENTENCE_LIMIT = 76  # Max sentence length (based on GGA sentence)
     _NO_FIX = 1
@@ -53,6 +57,25 @@ class AS_GPS(object):
     _MONTHS = ('January', 'February', 'March', 'April', 'May',
                 'June', 'July', 'August', 'September', 'October',
                 'November', 'December')
+
+    # Return day of week from date. Pyboard RTC format: 1-7 for Monday through Sunday.
+    # https://stackoverflow.com/questions/9847213/how-do-i-get-the-day-of-week-given-a-date-in-python?noredirect=1&lq=1
+    # Adapted for Python 3 and Pyboard RTC format.
+    @staticmethod
+    def _week_day(year, month, day):
+        offset = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334]
+        aux = year - 1700 - (1 if month <= 2 else 0)
+        # day_of_week for 1700/1/1 = 5, Friday
+        day_of_week  = 5
+        # partial sum of days betweem current date and 1700/1/1
+        day_of_week += (aux + (1 if month <= 2 else 0)) * 365
+        # leap year correction
+        day_of_week += aux // 4 - aux // 100 + (aux + 100) // 400
+        # sum monthly and day offsets
+        day_of_week += offset[month - 1] + (day - 1)
+        day_of_week %= 7
+        day_of_week = day_of_week if day_of_week else 7
+        return day_of_week
 
     # 8-bit xor of characters between "$" and "*"
     @staticmethod
@@ -74,17 +97,21 @@ class AS_GPS(object):
         self.cb_mask = cb_mask
         self._fix_cb_args = fix_cb_args
 
-        # Import utime or time for fix time handling
+        # CPython compatibility. Import utime or time for fix time handling.
         try:
             import utime
             self._get_time = utime.ticks_ms
             self._time_diff = utime.ticks_diff
+            self._localtime = utime.localtime
+            self._mktime = utime.mktime
         except ImportError:
             # Otherwise default to time module for non-embedded implementations
             # Should still support millisecond resolution.
             import time
             self._get_time = time.time
             self._time_diff = lambda start, end: 1000 * (start - end)
+            self._localtime = time.localtime
+            self._mktime = time.mktime
 
         # Key: currently supported NMEA sentences. Value: parse method.
         self.supported_sentences = {'GPRMC': self._gprmc, 'GLRMC': self._gprmc,
@@ -112,8 +139,9 @@ class AS_GPS(object):
         # Data From Sentences
         # Time. Ignore http://www.gpsinformation.org/dale/nmea.htm, hardware
         # returns a float.
-        self.timestamp = [0, 0, 0.0]  # [h, m, s]
-        self.date = [0, 0, 0]  # [d, m, y]
+        self.utc = [0, 0, 0.0]  # [h: int, m: int, s: float]
+        self.local_time = [0, 0, 0.0]  # [h: int, m: int, s: float]
+        self.date = [0, 0, 0]  # [dd: int, mm: int, yy: int]
         self.local_offset = local_offset  # hrs
 
         # Position/Motion
@@ -232,15 +260,46 @@ class AS_GPS(object):
 
     # Set timestamp. If time/date not present retain last reading (if any).
     def _set_timestamp(self, utc_string):
-        if utc_string:  # Possible timestamp found
-            try:
-                self.timestamp[0] = int(utc_string[0:2]) + self.local_offset  # h
-                self.timestamp[1] = int(utc_string[2:4])  # mins
-                self.timestamp[2] = float(utc_string[4:])  # secs from chip is a float
-                return True
-            except ValueError:
-                pass
-        return False
+        if not utc_string:
+            return False
+        # Possible timestamp found
+        try:
+            self.utc[0] = int(utc_string[0:2])  # h
+            self.utc[1] = int(utc_string[2:4])  # mins
+            self.utc[2] = float(utc_string[4:])  # secs from chip is a float
+            return True
+        except ValueError:
+            return False
+        for idx in range(3):
+            self.local_time[idx] = self.utc[idx]
+        return True
+
+    # A local offset may exist so check for date rollover. Local offsets can
+    # include fractions of an hour but not seconds (AFAIK).
+    def _set_date(self, date_string):
+        if not date_string:
+            return False
+        try:
+            d = int(date_string[0:2])  # day
+            m = int(date_string[2:4])  # month
+            y = int(date_string[4:6]) + 2000  # year
+        except ValueError:  # Bad Date stamp value present
+            return False
+        hrs = self.utc[0]
+        mins = self.utc[1]
+        secs = self.utc[2]
+        wday = self._week_day(y, m, d) - 1
+        t = self._mktime((y, m, d, hrs, mins, int(secs), wday, 0, 0))
+        t += int(3600 * self.local_offset)
+        y, m, d, hrs, mins, *_ = self._localtime(t)  # Preserve float seconds
+        y -= 2000
+        self.local_time[0] = hrs
+        self.local_time[1] = mins
+        self.local_time[2] = secs
+        self.date[0] = d
+        self.date[1] = m
+        self.date[2] = y
+        return True
 
     ########################################
     # Sentence Parsers
@@ -255,20 +314,9 @@ class AS_GPS(object):
     def _gprmc(self, gps_segments):  # Parse RMC sentence
         self._valid &= ~RMC
         # UTC Timestamp.
-        try:
-            self._set_timestamp(gps_segments[1])
-        except ValueError:  # Bad Timestamp value present
-            return False
-
-        # Date stamp
-        try:
-            date_string = gps_segments[9]
-            if date_string:  # Possible date stamp found
-                self.date[0] = int(date_string[0:2])  # day
-                self.date[1] = int(date_string[2:4])  # month
-                self.date[2] = int(date_string[4:6])  # year 18 == 2018
-
-        except ValueError:  # Bad Date stamp value present
+        if not self._set_timestamp(gps_segments[1]):
+            return False # Bad Timestamp value present
+        if not self._set_date(gps_segments[9]):
             return False
 
         # Check Receiver Data Valid Flag
@@ -599,8 +647,9 @@ class AS_GPS(object):
             return sform.format(speed, 'knots')
         return sform.format(speed, 'km/h')
 
-    def time(self):
-        return '{:02d}:{:02d}:{:2.3f}'.format(*self.timestamp)
+    def time(self, local=True):
+        t = self.local_time if local else self.utc
+        return '{:02d}:{:02d}:{:2.3f}'.format(*t)
 
     def date_string(self, formatting=MDY):
         day, month, year = self.date
