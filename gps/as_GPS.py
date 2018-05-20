@@ -649,7 +649,7 @@ class AS_GPS(object):
 
     def time(self, local=True):
         t = self.local_time if local else self.utc
-        return '{:02d}:{:02d}:{:2.3f}'.format(*t)
+        return '{:02d}:{:02d}:{:06.3f}'.format(*t)
 
     def date_string(self, formatting=MDY):
         day, month, year = self.date
