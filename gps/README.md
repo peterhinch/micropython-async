@@ -1,10 +1,11 @@
-** WARNING: Under development and subject to change **
+**NOTE: Under development. API may be subject to change**
 
 # 1. as_GPS
 
 This is an asynchronous device driver for GPS devices which communicate with
 the driver via a UART. GPS NMEA sentence parsing is based on this excellent
-library [micropyGPS].
+library [micropyGPS]. It was adapted for asynchronous use; also to reduce RAM
+use and frequency of allocations and to correctly process local time values.
 
 The driver is designed to be extended by subclassing, for example to support
 additional sentence types. It is compatible with Python 3.5 or later and also
@@ -12,12 +13,13 @@ with [MicroPython]. Testing was performed using a [pyboard] with the Adafruit
 [Ultimate GPS Breakout] board.
 
 Most GPS devices will work with the read-only driver as they emit NMEA
-sentences on startup. An optional read-write driver is provided for
+sentences on startup. The read-only driver is designed for use on resource
+constrained hosts. An optional read-write subclass is provided for
 MTK3329/MTK3339 chips as used on the above board. This enables the device
 configuration to be altered.
 
-A further driver, for the Pyboard and other boards based on STM processors,
-provides for using the GPS device for precision timing. The chip's RTC may be
+Further subclasses, for the Pyboard and other boards based on STM processors,
+provide for using the GPS device for precision timing. The chip's RTC may be
 precisely set and calibrated using the PPS signal from the GPS chip.
 
 ###### [Main README](../README.md)
@@ -78,10 +80,13 @@ The following are relevant to the default read-only driver.
 
  * `as_GPS.py` The library. Supports the `AS_GPS` class for read-only access to
  GPS hardware.
+ * `as_GPS_utils.py` Additional formatted string methods for `AS_GPS`.
  * `ast_pb.py` Test/demo program: assumes a MicroPython hardware device with
  GPS connected to UART 4.
  * `log_kml.py` A simple demo which logs a route travelled to a .kml file which
  may be displayed on Google Earth.
+
+Special tests:  
  * `astests.py` Test with synthetic data. Run on CPython 3.x or MicroPython.
  * `astests_pyb.py` Test with synthetic data on UART. GPS hardware replaced by
  a loopback on UART 4. Requires CPython 3.5 or later or MicroPython and
@@ -95,11 +100,12 @@ Additional files relevant to the read/write driver are listed
 
 ### 1.4.1 Micropython
 
-To install on "bare metal" hardware such as the Pyboard copy the file
-`as_GPS.py` onto the device's filesystem and ensure that `uasyncio` is
-installed. The code has been tested on the Pyboard with `uasyncio` V2 and the
-Adafruit [Ultimate GPS Breakout] module. If memory errors are encountered on
-resource constrained devices install as a [frozen module].
+To install on "bare metal" hardware such as the Pyboard copy the files
+`as_GPS.py` and `as_GPS_utils.py` onto the device's filesystem and ensure that
+`uasyncio` is installed. The code was tested on the Pyboard with `uasyncio` V2
+and the Adafruit [Ultimate GPS Breakout] module. If memory errors are
+encountered on resource constrained devices install each file as a
+[frozen module].
 
 For the [read/write driver](./README.md#3-the-gps-class-read/write-driver) the
 file `as_rwGPS.py` must also be installed. For the
@@ -108,9 +114,9 @@ should also be copied across.
 
 ### 1.4.2 Python 3.5 or later
 
-On platforms with an underlying OS such as the Raspberry Pi ensure that
-`as_GPS.py` (and optionally `as_rwGPS.py`) is on the Python path and that the
-Python version is 3.5 or later.
+On platforms with an underlying OS such as the Raspberry Pi ensure that the
+required driver files are on the Python path and that the Python version is 3.5
+or later.
 
 # 2. The AS_GPS Class read-only driver
 
@@ -124,7 +130,7 @@ Three mechanisms exist for responding to outages.
  * Check the `time_since_fix` method [section 2.2.3](./README.md#223-time-and-date).
  * Pass a `fix_cb` callback to the constructor (see below).
  * Cause a coroutine to pause until an update is received: see
- [section 3.2](./README.md#231-data-validity). This ensures current data.
+ [section 2.3.1](./README.md#231-data-validity). This ensures current data.
 
 ## 2.1 Constructor
 
@@ -138,7 +144,9 @@ Optional positional args:
  Default `RMC`: the callback will occur on RMC messages only (see below).
  * `fix_cb_args` A tuple of args for the callback (default `()`).
 
-Note:  
+Notes:  
+`local_offset` correctly alters the date where time passes the 00.00.00
+boundary.  
 If `sreader` is `None` a special test mode is engaged (see `astests.py`).
 
 ### 2.1.1 The fix callback
@@ -206,20 +214,21 @@ gps = as_GPS.AS_GPS(sreader, fix_cb=callback, cb_mask= as_GPS.RMC | as_GPS.VTG)
  the specified units. Options `as_GPS.KPH`, `as_GPS.MPH`, `as_GPS.KNOT`.
 
  * `compass_direction` No args. Returns current course as a string e.g. 'ESE'
- or 'NW'
+ or 'NW'. Note that this requires the file `as_GPS_utils.py`.
 
 ### 2.2.3 Time and date
 
  * `time_since_fix` No args. Returns time in milliseconds since last valid fix.
+
+ * `time_string` Arg `local` default `True`. Returns the current time in form
+ 'hh:mm:ss.sss'. If `local` is `False` returns UTC time. 
 
  * `date_string` Optional arg `formatting=MDY`. Returns the date as
  a string. Formatting options:  
  `as_GPS.MDY` returns 'MM/DD/YY'.  
  `as_GPS.DMY` returns 'DD/MM/YY'.  
  `as_GPS.LONG` returns a string of form 'January 1st, 2014'.
-
- * `time_string` Arg `local` default `True`. Returns the current time in form
- 'hh:mm:ss.sss'. If `local` is `False` returns UTC time. 
+ Note that this requires the file `as_GPS_utils.py`.
 
 ## 2.3 Public coroutines
 
@@ -280,7 +289,7 @@ The sentence type which updates a value is shown in brackets e.g. (GGA).
  * `geoid_height` Height of geoid (mean sea level) in metres above WGS84
  ellipsoid. (GGA).
  * `magvar` Magnetic variation. Degrees. -ve == West. Current firmware does not
- produce this data and it will always read zero.
+ produce this data: it will always read zero.
 
 ### 2.4.2 Statistics and status
 
@@ -490,18 +499,47 @@ Other `PMTK` messages are passed to the optional message callback as described
 
 Many GPS chips (e.g. MTK3339) provide a PPS signal which is a pulse occurring
 at 1s intervals whose leading edge is a highly accurate time reference. It may
-be used to set and to calibrate the Pyboard realtime clock (RTC).
+be used to set and to calibrate the Pyboard realtime clock (RTC). Note that
+these drivers are for STM based targets only (at least until the `machine`
+library supports an `RTC` class).
 
 ## 4.1 Files
 
- * `as_tGPS.py` The library. Supports the `GPS_Timer` class.
+ * `as_tGPS.py` The library. Provides `GPS_Timer` and `GPS_RWTimer` classes.
  * `as_GPS_time.py` Test scripts for above.
 
-## 4.2 GPS_Timer class Constructor
+## 4.2 GPS_Timer and GPS_RWTimer classes
 
-This takes the following arguments:
- * `gps` An instance of the `AS_GPS` (read-only) or `GPS` (read/write) classes.
+These classes inherit from `AS_GPS` and `GPS` respectively, with read-only and
+read/write access to the GPS hardware. All public methods and bound variables of
+the base classes are supported. Additional functionality is detailed below.
+
+### 4.2.1 GPS_Timer class Constructor
+
+Mandatory positional args:
+ * `sreader` The `StreamReader` instance associated with the UART.
  * `pps_pin` An initialised input `Pin` instance for the PPS signal.
+Optional positional args:
+ * `local_offset` See `AS_GPS` details for these args.
+ * `fix_cb`
+ * `cb_mask`
+ * `fix_cb_args`
+ * `led` Default `None`. If an `LED` instance is passed, this will toggle each
+ time a PPS interrupt is handled.
+
+### 4.2.2 GPS_RWTimer class Constructor
+
+This takes three mandatory positional args:
+ * `sreader` The `StreamReader` instance associated with the UART.
+ * `swriter` The `StreamWriter` instance associated with the UART.
+ * `pps_pin` An initialised input `Pin` instance for the PPS signal.
+Optional positional args:
+ * `local_offset` See `GPS` details.
+ * `fix_cb`
+ * `cb_mask`
+ * `fix_cb_args`
+ * `msg_cb`
+ * `msg_cb_args`
  * `led` Default `None`. If an `LED` instance is passed, this will toggle each
  time a PPS interrupt is handled.
 
@@ -537,6 +575,10 @@ Achieving an accurate calibration factor takes time but does enable the Pyboard
 RTC to achieve timepiece quality results. Note that calibration is lost on
 power down: solutions are either to use an RTC backup battery or to store the
 calibration factor in a file (or in code) and re-apply it on startup.
+
+Crystal oscillator frequency (and hence calibration factor) is temperature
+dependent. For the most accurate possible results allow the Pyboard to reach
+working temperature before calibrating.
 
 # 5. Supported Sentences
 
@@ -580,11 +622,14 @@ messages came in. This time could be longer depending on data. So if an update
 rate higher than the default 1 second is to be used, either the baudrate must
 be increased or the satellite information messages should be disabled.
 
-The PPS signal (not used by this driver) on the MTK3339 occurs only when a fix
-has been achieved. The leading edge always occurs before a set of messages are
-output. So, if the leading edge is to be used for precise timing, 1s should be
-added to the `timestamp` value (beware of possible rollover into minutes and
-hours).
+The PPS signal on the MTK3339 occurs only when a fix has been achieved. The
+leading edge occurs on a 1s boundary with high absolute accuracy. It therefore
+follows that the RMC message carrying the time/date of that second arrives
+after the leading edge (because of processing and UART latency). It is also
+the case that on a second boundary minutes, hours and the date may roll over.
+
+Further, the local_time offset can affect the date. These drivers aim to handle
+these factors.
 
 [MicroPython]:https://micropython.org/
 [frozen module]:https://learn.adafruit.com/micropython-basics-loading-modules/frozen-modules

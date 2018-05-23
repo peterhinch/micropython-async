@@ -52,11 +52,6 @@ COURSE = const(RMC | VTG)
 class AS_GPS(object):
     _SENTENCE_LIMIT = 76  # Max sentence length (based on GGA sentence)
     _NO_FIX = 1
-    _DIRECTIONS = ('N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W',
-                    'WNW', 'NW', 'NNW')
-    _MONTHS = ('January', 'February', 'March', 'April', 'May',
-                'June', 'July', 'August', 'September', 'October',
-                'November', 'December')
 
     # Return day of week from date. Pyboard RTC format: 1-7 for Monday through Sunday.
     # https://stackoverflow.com/questions/9847213/how-do-i-get-the-day-of-week-given-a-date-in-python?noredirect=1&lq=1
@@ -141,7 +136,6 @@ class AS_GPS(object):
         # part is always zero. So treat seconds value as an integer. For
         # precise timing use PPS signal and as_tGPS library.
         self.local_offset = local_offset  # hrs
-        self._rtcbuf = [0]*8  # Buffer for RTC setting
         self.epoch_time = 0  # Integer secs since epoch (Y2K under MicroPython)
 
         # Position/Motion
@@ -257,6 +251,9 @@ class AS_GPS(object):
         self._fix_time = self._get_time()
         return True
 
+    def _dtset(self, _):  # For subclass
+        pass
+
     # A local offset may exist so check for date rollover. Local offsets can
     # include fractions of an hour but not seconds (AFAIK).
     def _set_date_time(self, utc_string, date_string):
@@ -274,16 +271,7 @@ class AS_GPS(object):
         wday = self._week_day(y, m, d)
         t = self._mktime((y, m, d, hrs, mins, int(secs), wday - 1, 0, 0))
         self.epoch_time = t  # This is the fundamental datetime reference.
-        # Need local time for setting Pyboard RTC in interrupt context
-        t += int(3600 * self.local_offset)
-        y, m, d, hrs, mins, secs, *_ = self._localtime(t)
-        self._rtcbuf[0] = y
-        self._rtcbuf[1] = m
-        self._rtcbuf[2] = d
-        self._rtcbuf[3] = wday
-        self._rtcbuf[4] = hrs
-        self._rtcbuf[5] = mins
-        self._rtcbuf[6] = secs
+        self._dtset(wday)  # Subclass may override
         return True
 
     ########################################
@@ -581,13 +569,8 @@ class AS_GPS(object):
         return self._time_diff(self._get_time(), self._fix_time)
 
     def compass_direction(self):  # Return cardinal point as string.
-        # Calculate the offset for a rotated compass
-        if self.course >= 348.75:
-            offset_course = 360 - self.course
-        else:
-            offset_course = self.course + 11.25
-        # Each compass point is separated by 22.5°, divide to find lookup value
-        return self._DIRECTIONS[int(offset_course // 22.5)]
+        from as_GPS_utils import compass_direction
+        return compass_direction(self)
 
     def latitude_string(self, coord_format=DM):
         if coord_format == DD:
@@ -633,7 +616,7 @@ class AS_GPS(object):
 
     @property
     def utc(self):
-        t = self.epoch_time + int(3600 * self.local_offset)
+        t = self.epoch_time
         _, _, _, hrs, mins, secs, *_ = self._localtime(t)
         return hrs, mins, secs
 
@@ -642,26 +625,5 @@ class AS_GPS(object):
         return '{:02d}:{:02d}:{:02d}'.format(hrs, mins, secs)
 
     def date_string(self, formatting=MDY):
-        day, month, year = self.date
-        # Long Format January 1st, 2014
-        if formatting == LONG:
-            dform = '{:s} {:2d}{:s}, 20{:2d}'
-            # Retrieve Month string from private set
-            month = self._MONTHS[month - 1]
-            # Determine Date Suffix
-            if day in (1, 21, 31):
-                suffix = 'st'
-            elif day in (2, 22):
-                suffix = 'nd'
-            elif day == 3:
-                suffix = 'rd'
-            else:
-                suffix = 'th'
-            return dform.format(month, day, suffix, year)
-
-        dform = '{:02d}/{:02d}/{:02d}'
-        if formatting == DMY:
-            return dform.format(day, month, year)
-        elif formatting == MDY:  # Default date format
-            return dform.format(month, day, year)
-        raise ValueError('Unknown date format.')
+        from as_GPS_utils import date_string
+        return date_string(self, formatting)

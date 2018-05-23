@@ -7,7 +7,6 @@
 
 import uasyncio as asyncio
 import pyb
-import as_GPS
 import as_tGPS
 
 print('Available tests:')
@@ -21,9 +20,9 @@ async def setup():
     blue = pyb.LED(4)
     uart = pyb.UART(4, 9600, read_buf_len=200)
     sreader = asyncio.StreamReader(uart)
-    gps = as_GPS.AS_GPS(sreader, local_offset=1, fix_cb=lambda *_: red.toggle())
     pps_pin = pyb.Pin('X3', pyb.Pin.IN)
-    return as_tGPS.GPS_Timer(gps, pps_pin, blue)
+    return as_tGPS.GPS_Timer(sreader, pps_pin, local_offset=1,
+                             fix_cb=lambda *_: red.toggle(), led=blue)
 
 running = True
 
@@ -36,7 +35,7 @@ async def drift_test(gps_tim):
     dstart = await gps_tim.delta()
     while running:
         dt = await gps_tim.delta()
-        print('{}  Delta {}μs'.format(gps_tim.gps.time_string(), dt))
+        print('{}  Delta {}μs'.format(gps_tim.time_string(), dt))
         await asyncio.sleep(10)
     return dt - dstart
 

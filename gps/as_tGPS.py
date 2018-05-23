@@ -1,5 +1,6 @@
 # as_tGPS.py Using GPS for precision timing and for calibrating Pyboard RTC
 # This is STM-specific: requires pyb module.
+# Hence not as RAM-critical as as_GPS
 
 # Copyright (c) 2018 Peter Hinch
 # Released under the MIT License (MIT) - see LICENSE file
@@ -10,6 +11,7 @@ import utime
 import micropython
 import gc
 import as_GPS
+import as_rwGPS
 
 micropython.alloc_emergency_exception_buf(100)
 
@@ -20,25 +22,40 @@ def rtc_secs():
     dt = rtc.datetime()
     return 3600*dt[4] + 60*dt[5] + dt[6] + (255 - dt[7])/256
 
-class GPS_Timer():
-    def __init__(self, gps, pps_pin, led=None):
-        self.gps = gps
+# Constructor for GPS_Timer class
+def gps_ro_t_init(self, sreader, pps_pin, local_offset=0,
+                  fix_cb=lambda *_ : None, cb_mask=as_GPS.RMC, fix_cb_args=(),
+                  led = None):
+    as_GPS.AS_GPS.__init__(self, sreader, local_offset, fix_cb, cb_mask, fix_cb_args)
+    self.setup(pps_pin, led)
+
+# Constructor for GPS_RWTimer class
+def gps_rw_t_init(self, sreader, swriter, pps_pin, local_offset=0,
+                  fix_cb=lambda *_ : None, cb_mask=as_GPS.RMC, fix_cb_args=(),
+                  msg_cb=lambda *_ : None, msg_cb_args=(), led = None):
+    as_rwGPS.GPS.__init__(self, sreader, swriter, local_offset, fix_cb, cb_mask, fix_cb_args,
+                 msg_cb, msg_cb_args)
+    self.setup(pps_pin, led)
+
+class GPS_Tbase():
+    def setup(self, pps_pin, led=None):
         self.led = led
         self.secs = None  # Integer time since midnight at last PPS
         self.acquired = None  # Value of ticks_us at edge of PPS
         self._rtc_set = False  # Set RTC flag
+        self._rtcbuf = [0]*8  # Buffer for RTC setting
         loop = asyncio.get_event_loop()
         loop.create_task(self._start(pps_pin))
 
     async def _start(self, pps_pin):
-        await self.gps.data_received(date=True)
+        await self.data_received(date=True)
         pyb.ExtInt(pps_pin, pyb.ExtInt.IRQ_RISING, pyb.Pin.PULL_NONE, self._isr)
 
     def _isr(self, _):
         acquired = utime.ticks_us()  # Save time of PPS
         # Time in last NMEA sentence was time of last PPS.
         # Reduce to secs since midnight local time.
-        secs = (self.gps.epoch_time + int(3600*self.gps.local_offset)) % 86400
+        secs = (self.epoch_time + int(3600*self.local_offset)) % 86400
         # This PPS is one second later
         secs += 1
         if secs >= 86400:  # Next PPS will deal with rollover
@@ -47,13 +64,26 @@ class GPS_Timer():
         self.acquired = acquired
         if self._rtc_set:
             # Time in last NMEA sentence. Earlier test ensures no rollover.
-            self.gps._rtcbuf[6] = secs % 60
-            rtc.datetime(self.gps._rtcbuf)
+            self._rtcbuf[6] = secs % 60
+            rtc.datetime(self._rtcbuf)
             self._rtc_set = False
         # Could be an outage here, so PPS arrives many secs after last sentence
         # Is this right? Does PPS continue during outage?
         if self.led is not None:
             self.led.toggle()
+
+    # Called when base class updates the epoch_time.
+    # Need local time for setting Pyboard RTC in interrupt context
+    def _dtset(self, wday):
+        t = self.epoch_time + int(3600 * self.local_offset)
+        y, m, d, hrs, mins, secs, *_ = self._localtime(t)
+        self._rtcbuf[0] = y
+        self._rtcbuf[1] = m
+        self._rtcbuf[2] = d
+        self._rtcbuf[3] = wday
+        self._rtcbuf[4] = hrs
+        self._rtcbuf[5] = mins
+        self._rtcbuf[6] = secs
 
     # Subsecs register is read-only. So need to set RTC on PPS leading edge.
     # Set flag and let ISR set the RTC. Pause until done.
@@ -81,18 +111,15 @@ class GPS_Timer():
     # (notionally) would have read at the PPS leading edge.
     async def _await_pps(self):
         t0 = self.acquired
-        while self.acquired == t0:  # Busy-wait on PPS interrupt
-            await asyncio.sleep_ms(0)  # Interrupts here should be OK as ISR stored acquisition time
-        gc.collect()
-        # DISABLING INTS INCREASES UNCERTAINTY. Interferes with ticks_us (proved by test).
-#        istate = pyb.disable_irq()  # But want to accurately time RTC change
+        while self.acquired == t0:  # Busy-wait on PPS interrupt: not time-critical
+            await asyncio.sleep_ms(0)  # because acquisition time stored in ISR.
+        gc.collect()  # Time-critical code follows
         st = rtc.datetime()[7]
         while rtc.datetime()[7] == st:  # Wait for RTC to change (4ms max)
             pass
         dt = utime.ticks_diff(utime.ticks_us(), self.acquired)
         trtc = self._get_rtc_usecs() - dt # Read RTC now and adjust for PPS edge
-        tgps = 1000000 * (self.gps.epoch_time + 3600*self.gps.local_offset + 1)
-#        pyb.enable_irq(istate)  # Have critical timings now
+        tgps = 1000000 * (self.epoch_time + 3600*self.local_offset + 1)
         return trtc, tgps
 
     # Non-realtime calculation of calibration factor. times are in μs
@@ -172,3 +199,6 @@ class GPS_Timer():
         ds, us = divmod(dt, 1000000)
         # If dt > 1e6 can add to secs without risk of rollover: see above.
         return hrs, mins, secs + ds, us
+
+GPS_Timer = type('GPS_Timer', (GPS_Tbase, as_GPS.AS_GPS), {'__init__': gps_ro_t_init})
+GPS_RWTimer = type('GPS_RWTimer', (GPS_Tbase, as_rwGPS.GPS), {'__init__': gps_rw_t_init})
