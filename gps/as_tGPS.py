@@ -5,10 +5,10 @@
 # Released under the MIT License (MIT) - see LICENSE file
 
 import uasyncio as asyncio
-import math
 import pyb
 import utime
 import micropython
+import gc
 import as_GPS
 
 micropython.alloc_emergency_exception_buf(100)
@@ -26,7 +26,7 @@ class GPS_Timer():
         self.led = led
         self.secs = None  # Integer time since midnight at last PPS
         self.acquired = None  # Value of ticks_us at edge of PPS
-        self.rtc_set = None  # Data for setting RTC
+        self._rtc_set = False  # Set RTC flag
         loop = asyncio.get_event_loop()
         loop.create_task(self._start(pps_pin))
 
@@ -35,64 +35,36 @@ class GPS_Timer():
         pyb.ExtInt(pps_pin, pyb.ExtInt.IRQ_RISING, pyb.Pin.PULL_NONE, self._isr)
 
     def _isr(self, _):
-        self.acquired = utime.ticks_us()  # Save time of PPS
-        if self.rtc_set is not None:
-            rtc.datetime(self.rtc_set)
-            self.rtc_set = None
-        # Time in last NMEA sentence
-        t = self.gps.local_time
-        # secs is rounded down to an int: exact time of last PPS.
+        acquired = utime.ticks_us()  # Save time of PPS
+        # Time in last NMEA sentence was time of last PPS.
+        # Reduce to secs since midnight local time.
+        secs = (self.gps.epoch_time + int(3600*self.gps.local_offset)) % 86400
         # This PPS is one second later
-        self.secs = 3600*t[0] + 60*t[1] + int(t[2]) + 1
+        secs += 1
+        if secs >= 86400:  # Next PPS will deal with rollover
+            return
+        self.secs = secs
+        self.acquired = acquired
+        if self._rtc_set:
+            # Time in last NMEA sentence. Earlier test ensures no rollover.
+            self.gps._rtcbuf[6] = secs % 60
+            rtc.datetime(self.gps._rtcbuf)
+            self._rtc_set = False
         # Could be an outage here, so PPS arrives many secs after last sentence
         # Is this right? Does PPS continue during outage?
         if self.led is not None:
             self.led.toggle()
 
-    # Return accurate GPS time in seconds (float) since midnight
-    def get_secs(self):
-        t = self.secs
-        if t != self.secs:  # An interrupt has occurred
-            # Re-read to ensure .acquired is correct. No need to get clever
-            t = self.secs  # here as IRQ's are at only 1Hz
-        return t + utime.ticks_diff(utime.ticks_us(), self.acquired) / 1000000
-
-    # Return GPS time as hrs: int, mins: int, secs: int, fractional_secs: float
-    def _get_hms(self):
-        t = math.modf(self.get_secs())
-        x, secs = divmod(int(t[1]), 60)
-        hrs, mins = divmod(x, 60)
-        return hrs, mins, secs, t[0]
-
-    # Return accurate GPS time of day (hrs <int>, mins <int>, secs<float>)
-    def get_t_split(self):
-        hrs, mins, secs, frac_secs = self._get_hms()
-        return hrs, mins, secs + frac_secs
-
     # Subsecs register is read-only. So need to set RTC on PPS leading edge.
-    # Calculate time of next edge, save the new RTC time, and let ISR update
-    # the RTC.
+    # Set flag and let ISR set the RTC. Pause until done.
     async def set_rtc(self):
-        d, m, y = self.gps.date
-        y += 2000
-        t0 = self.acquired
-        while self.acquired == t0:  # Busy-wait on PPS interrupt
-            await asyncio.sleep_ms(0)
-        hrs, mins, secs = self.gps.local_time
-        secs = int(secs) + 2  # Time of next PPS
-        self.rtc_set = [y, m, d, self.gps._week_day(y, m, d), hrs, mins, secs, 0]
-#        rtc.datetime((y, m, d, self.gps._week_day(y, m, d), hrs, mins, secs, 0))
+        self._rtc_set = True
+        while self._rtc_set:
+            await asyncio.sleep_ms(250)
 
-    # Time from GPS: integer μs since Y2K. Call after awaiting PPS: result is
-    # time when PPS leading edge occurred so fractional secs discarded.
-    def _get_gps_usecs(self):
-        d, m, y = self.gps.date
-        y += 2000
-        hrs, mins, secs, _ = self._get_hms()
-        tim = utime.mktime((y, m, d, hrs, mins, secs, self.gps._week_day(y, m, d) - 1, 0))
-        return tim * 1000000
-
-    # Value of RTC time at current instant. Units μs since Y2K. Tests OK.
+    # Value of RTC time at current instant. This is a notional arbitrary
+    # precision integer in μs since Y2K. Notional because RTC is set to
+    # local time.
     def _get_rtc_usecs(self):
         y, m, d, weekday, hrs, mins, secs, subsecs = rtc.datetime()
         tim = 1000000 * utime.mktime((y, m, d, hrs, mins, secs, weekday - 1, 0))
@@ -101,9 +73,8 @@ class GPS_Timer():
     # Return no. of μs RTC leads GPS. Done by comparing times at the instant of
     # PPS leading edge.
     async def delta(self):
-        rtc_time = await self._await_pps()  # μs since Y2K at time of latest PPS
-        gps_time = self._get_gps_usecs()  # μs since Y2K at previous PPS
-        return rtc_time - gps_time + 1000000  # so add 1s
+        rtc_time, gps_time = await self._await_pps()  # μs since Y2K at time of latest PPS
+        return rtc_time - gps_time
 
     # Pause until PPS interrupt occurs. Then wait for an RTC subsecond change.
     # Read the RTC time in μs since Y2K and adjust to give the time the RTC
@@ -111,13 +82,18 @@ class GPS_Timer():
     async def _await_pps(self):
         t0 = self.acquired
         while self.acquired == t0:  # Busy-wait on PPS interrupt
-            await asyncio.sleep_ms(0)
+            await asyncio.sleep_ms(0)  # Interrupts here should be OK as ISR stored acquisition time
+        gc.collect()
+        # DISABLING INTS INCREASES UNCERTAINTY. Interferes with ticks_us (proved by test).
+#        istate = pyb.disable_irq()  # But want to accurately time RTC change
         st = rtc.datetime()[7]
         while rtc.datetime()[7] == st:  # Wait for RTC to change (4ms max)
             pass
         dt = utime.ticks_diff(utime.ticks_us(), self.acquired)
-        t = self._get_rtc_usecs()  # Read RTC now
-        return t - dt
+        trtc = self._get_rtc_usecs() - dt # Read RTC now and adjust for PPS edge
+        tgps = 1000000 * (self.gps.epoch_time + 3600*self.gps.local_offset + 1)
+#        pyb.enable_irq(istate)  # Have critical timings now
+        return trtc, tgps
 
     # Non-realtime calculation of calibration factor. times are in μs
     def _calculate(self, gps_start, gps_end, rtc_start, rtc_end):
@@ -140,24 +116,16 @@ class GPS_Timer():
         rtc.calibration(0)  # Clear existing RTC calibration
         await self.set_rtc()
         # Wait for PPS, then RTC 1/256 second change. Return the time the RTC
-        # would have measured at instant of PPS (μs since Y2K).
-        rtc_start = await self._await_pps()
-        # GPS start time in μs since Y2K: correct at the time of PPS edge.
-        gps_start = self._get_gps_usecs()
+        # would have measured at instant of PPS (notional μs since Y2K). Also
+        # GPS time at the same instant.
+        rtc_start, gps_start = await self._await_pps()
         for n in range(minutes):
             for _ in range(6):  # Try every 10s
                 await asyncio.sleep(10)
                 # Get RTC time at instant of PPS
-                rtc_end = await self._await_pps()
-                gps_end = self._get_gps_usecs()
+                rtc_end, gps_end = await self._await_pps()
                 cal = self._calculate(gps_start, gps_end, rtc_start, rtc_end)
-                if abs(cal) > 2000:  # Still occasionally occurs
-                    rtc_start = rtc_end
-                    gps_start = gps_end
-                    cal = 0
-                    print('Restarting calibration.')
-                else:
-                    print('Mins {:d} cal factor {:d}'.format(n + 1, cal))
+                print('Mins {:d} cal factor {:d}'.format(n + 1, cal))
                 results[idx] = cal
                 idx += 1
                 idx %= len(results)
@@ -181,3 +149,26 @@ class GPS_Timer():
             print('Pyboard RTC is calibrated. Factor is {:d}.'.format(cal))
         else:
             print('Calibration factor {:d} is out of range.'.format(cal))
+
+    # User interface functions: accurate GPS time.
+    # Return GPS time in ms since midnight (small int on 32 bit h/w).
+    # No allocation.
+    def get_ms(self):
+        state = pyb.disable_irq()
+        t = self.secs
+        acquired = self.acquired
+        pyb.enable_irq(state)
+        return 1000*t + utime.ticks_diff(utime.ticks_us(), acquired) // 1000
+
+    # Return accurate GPS time of day (hrs: int, mins: int, secs: int, μs: int)
+    # The ISR can skip an update of .secs if a day rollover would occur. Next
+    # RMC handles this, so subsequent ISR will see hms = 0, 0, 1 and a value of
+    # .acquired > 1000000.
+    def get_t_split(self):
+        secs, acquired = self.secs, self.acquired  # Single LOC is not interruptable
+        x, secs = divmod(secs, 60)
+        hrs, mins = divmod(x, 60)
+        dt = utime.ticks_diff(utime.ticks_us(), acquired)  # μs to time now
+        ds, us = divmod(dt, 1000000)
+        # If dt > 1e6 can add to secs without risk of rollover: see above.
+        return hrs, mins, secs + ds, us

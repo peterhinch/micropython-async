@@ -62,8 +62,7 @@ class AS_GPS(object):
     # https://stackoverflow.com/questions/9847213/how-do-i-get-the-day-of-week-given-a-date-in-python?noredirect=1&lq=1
     # Adapted for Python 3 and Pyboard RTC format.
     @staticmethod
-    def _week_day(year, month, day):
-        offset = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334]
+    def _week_day(year, month, day, offset = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334]):
         aux = year - 1700 - (1 if month <= 2 else 0)
         # day_of_week for 1700/1/1 = 5, Friday
         day_of_week  = 5
@@ -137,12 +136,13 @@ class AS_GPS(object):
 
         #####################
         # Data From Sentences
-        # Time. Ignore http://www.gpsinformation.org/dale/nmea.htm, hardware
-        # returns a float.
-        self.utc = [0, 0, 0.0]  # [h: int, m: int, s: float]
-        self.local_time = [0, 0, 0.0]  # [h: int, m: int, s: float]
-        self.date = [0, 0, 0]  # [dd: int, mm: int, yy: int]
+        # Time. http://www.gpsinformation.org/dale/nmea.htm indicates seconds
+        # is an integer. However hardware returns a float, but the fractional
+        # part is always zero. So treat seconds value as an integer. For
+        # precise timing use PPS signal and as_tGPS library.
         self.local_offset = local_offset  # hrs
+        self._rtcbuf = [0]*8  # Buffer for RTC setting
+        self.epoch_time = 0  # Integer secs since epoch (Y2K under MicroPython)
 
         # Position/Motion
         self._latitude = [0, 0.0, 'N']  # (°, mins, N/S)
@@ -202,7 +202,6 @@ class AS_GPS(object):
         if not self._crc_check(line, segs[-1]):
             self.crc_fails += 1  # Update statistics
             return None
-
         self.clean_sentences += 1  # Sentence is good but unparsed.
         segs[0] = segs[0][1:]  # discard $
         segs = segs[:-1]  # and checksum
@@ -258,47 +257,33 @@ class AS_GPS(object):
         self._fix_time = self._get_time()
         return True
 
-    # Set timestamp. If time/date not present retain last reading (if any).
-    def _set_timestamp(self, utc_string):
-        if not utc_string:
-            return False
-        # Possible timestamp found
-        try:
-            self.utc[0] = int(utc_string[0:2])  # h
-            self.utc[1] = int(utc_string[2:4])  # mins
-            self.utc[2] = float(utc_string[4:])  # secs from chip is a float
-            return True
-        except ValueError:
-            return False
-        for idx in range(3):
-            self.local_time[idx] = self.utc[idx]
-        return True
-
     # A local offset may exist so check for date rollover. Local offsets can
     # include fractions of an hour but not seconds (AFAIK).
-    def _set_date(self, date_string):
-        if not date_string:
+    def _set_date_time(self, utc_string, date_string):
+        if not date_string or not utc_string:
             return False
         try:
+            hrs = int(utc_string[0:2])  # h
+            mins = int(utc_string[2:4])  # mins
+            secs = int(utc_string[4:6])  # secs from chip is a float but FP is always 0
             d = int(date_string[0:2])  # day
             m = int(date_string[2:4])  # month
             y = int(date_string[4:6]) + 2000  # year
-        except ValueError:  # Bad Date stamp value present
+        except ValueError:  # Bad date or time strings
             return False
-        hrs = self.utc[0]
-        mins = self.utc[1]
-        secs = self.utc[2]
-        wday = self._week_day(y, m, d) - 1
-        t = self._mktime((y, m, d, hrs, mins, int(secs), wday, 0, 0))
+        wday = self._week_day(y, m, d)
+        t = self._mktime((y, m, d, hrs, mins, int(secs), wday - 1, 0, 0))
+        self.epoch_time = t  # This is the fundamental datetime reference.
+        # Need local time for setting Pyboard RTC in interrupt context
         t += int(3600 * self.local_offset)
-        y, m, d, hrs, mins, *_ = self._localtime(t)  # Preserve float seconds
-        y -= 2000
-        self.local_time[0] = hrs
-        self.local_time[1] = mins
-        self.local_time[2] = secs
-        self.date[0] = d
-        self.date[1] = m
-        self.date[2] = y
+        y, m, d, hrs, mins, secs, *_ = self._localtime(t)
+        self._rtcbuf[0] = y
+        self._rtcbuf[1] = m
+        self._rtcbuf[2] = d
+        self._rtcbuf[3] = wday
+        self._rtcbuf[4] = hrs
+        self._rtcbuf[5] = mins
+        self._rtcbuf[6] = secs
         return True
 
     ########################################
@@ -313,10 +298,8 @@ class AS_GPS(object):
 
     def _gprmc(self, gps_segments):  # Parse RMC sentence
         self._valid &= ~RMC
-        # UTC Timestamp.
-        if not self._set_timestamp(gps_segments[1]):
-            return False # Bad Timestamp value present
-        if not self._set_date(gps_segments[9]):
+        # UTC Timestamp and date.
+        if not self._set_date_time(gps_segments[1], gps_segments[9]):
             return False
 
         # Check Receiver Data Valid Flag
@@ -356,12 +339,6 @@ class AS_GPS(object):
 
     def _gpgll(self, gps_segments):  # Parse GLL sentence
         self._valid &= ~GLL
-        # UTC Timestamp.
-        try:
-            self._set_timestamp(gps_segments[5])
-        except ValueError:  # Bad Timestamp value present
-            return False
-
         # Check Receiver Data Valid Flag
         if gps_segments[6] != 'A':  # Invalid. Don't update data
             return True  # Correctly parsed
@@ -391,18 +368,12 @@ class AS_GPS(object):
     def _gpgga(self, gps_segments):  # Parse GGA sentence
         self._valid &= ~GGA
         try:
-            # UTC Timestamp
-            self._set_timestamp(gps_segments[1])
-
             # Number of Satellites in Use
             satellites_in_use = int(gps_segments[7])
-
             # Horizontal Dilution of Precision
             hdop = float(gps_segments[8])
-
             # Get Fix Status
             fix_stat = int(gps_segments[6])
-
         except ValueError:
             return False
 
@@ -647,9 +618,28 @@ class AS_GPS(object):
             return sform.format(speed, 'knots')
         return sform.format(speed, 'km/h')
 
-    def time(self, local=True):
-        t = self.local_time if local else self.utc
-        return '{:02d}:{:02d}:{:06.3f}'.format(*t)
+    # Return local time (hrs: int, mins: int, secs:float)
+    @property
+    def local_time(self):
+        t = self.epoch_time + int(3600 * self.local_offset)
+        _, _, _, hrs, mins, secs, *_ = self._localtime(t)
+        return hrs, mins, secs
+
+    @property
+    def date(self):
+        t = self.epoch_time + int(3600 * self.local_offset)
+        y, m, d, *_ = self._localtime(t)
+        return d, m, y - 2000
+
+    @property
+    def utc(self):
+        t = self.epoch_time + int(3600 * self.local_offset)
+        _, _, _, hrs, mins, secs, *_ = self._localtime(t)
+        return hrs, mins, secs
+
+    def time_string(self, local=True):
+        hrs, mins, secs = self.local_time if local else self.utc
+        return '{:02d}:{:02d}:{:02d}'.format(hrs, mins, secs)
 
     def date_string(self, formatting=MDY):
         day, month, year = self.date

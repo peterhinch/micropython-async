@@ -1,3 +1,5 @@
+** WARNING: Under development and subject to change **
+
 # 1. as_GPS
 
 This is an asynchronous device driver for GPS devices which communicate with
@@ -216,7 +218,8 @@ gps = as_GPS.AS_GPS(sreader, fix_cb=callback, cb_mask= as_GPS.RMC | as_GPS.VTG)
  `as_GPS.DMY` returns 'DD/MM/YY'.  
  `as_GPS.LONG` returns a string of form 'January 1st, 2014'.
 
- * `time` No args. Returns the current time in form 'hh:mm:ss'.
+ * `time_string` Arg `local` default `True`. Returns the current time in form
+ 'hh:mm:ss.sss'. If `local` is `False` returns UTC time. 
 
 ## 2.3 Public coroutines
 
@@ -262,7 +265,7 @@ Note that if the GPS module does not support producing GSV sentences this
 coroutine will pause forever. It can also pause for arbitrary periods if
 satellite reception is blocked, such as in a building.
 
-## 2.4 Public bound variables
+## 2.4 Public bound variables/properties
 
 These are updated whenever a sentence of the relevant type has been correctly
 received from the GPS unit. For crucial navigation data the `time_since_fix`
@@ -291,18 +294,18 @@ The following are counts since instantiation.
 
 ### 2.4.3 Date and time
 
- * `utc` [hrs: int, mins: int, secs: float] UTC time e.g. [23, 3, 58.0]. Note
+ * `utc` [hrs: int, mins: int, secs: int] UTC time e.g. [23, 3, 58]. Note
  that some GPS hardware may only provide integer seconds. The MTK3339 chip
- provides a float.
- * `local_time` [hrs: int, mins: int, secs: float] Local time.
+ provides a float whose value is always an integer.
+ * `local_time` [hrs: int, mins: int, secs: int] Local time.
  * `date` [day: int, month: int, year: int] e.g. [23, 3, 18]
  * `local_offset` Local time offset in hrs as specified to constructor.
 
 The `utc` bound variable updates on receipt of RMC, GLL or GGA messages.
 
 The `date` and `local_time` variables are updated when an RMC message is
-received. A local time offset will result in date changes where the time
-offset causes the local time to pass midnight.
+received. A local time offset will affect the `date` value where the offset
+causes the local time to pass midnight.
 
 ### 2.4.4 Satellite data
 
@@ -504,13 +507,15 @@ This takes the following arguments:
 
 ## 4.3 Public methods
 
-These return immediately. Times are derived from the GPS PPS signal. These
-functions should not be called until a valid time/date message and PPS signal
-have occurred: await the `ready` coroutine prior to first use.
+These return an accurate GPS time of day. As such they return as fast as
+possible without error checking: these functions should not be called until a
+valid time/date message and PPS signal have occurred. Await the `ready`
+coroutine prior to first use. Subsequent calls may occur without restriction.
 
- * `get_secs` No args. Returns a float: the period past midnight in seconds.
+ * `get_ms` No args. Returns an integer: the period past midnight in ms. This
+ method does not allocate and may be called in an interrupt context.
  * `get_t_split` No args. Returns time of day tuple of form
- (hrs: int, mins: int, secs: float).
+ (hrs: int, mins: int, secs: int, μs: int).
 
 ## 4.4 Public coroutines
 

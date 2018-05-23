@@ -156,7 +156,7 @@ def run_tests():
     print('Date (Long Format):', my_gps.date_string(as_GPS.LONG))
     print('Date (Short D/M/Y Format):', my_gps.date_string(as_GPS.DMY))
     print('Date (Short M/D/Y Format):', my_gps.date_string(as_GPS.MDY))
-    print('Time:', my_gps.time())
+    print('Time:', my_gps.time_string())
     print()
 
     print('### Final Results ###')

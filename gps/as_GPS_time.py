@@ -13,6 +13,7 @@ import as_tGPS
 print('Available tests:')
 print('calibrate(minutes=5) Set and calibrate the RTC.')
 print('drift(minutes=5) Repeatedly print the difference between RTC and GPS time.')
+print('time(minutes=1) Print get_ms() and get_t_split values.')
 
 # Setup for tests. Red LED toggles on fix, blue on PPS interrupt.
 async def setup():
@@ -35,7 +36,7 @@ async def drift_test(gps_tim):
     dstart = await gps_tim.delta()
     while running:
         dt = await gps_tim.delta()
-        print('{}  Delta {}μs'.format(gps_tim.gps.time(), dt))
+        print('{}  Delta {}μs'.format(gps_tim.gps.time_string(), dt))
         await asyncio.sleep(10)
     return dt - dstart
 
@@ -58,7 +59,9 @@ async def do_drift(minutes):
     await gps_tim.set_rtc()
     print('Measuring drift.')
     change = await drift_test(gps_tim)
-    print('Rate of change {}μs/hr'.format(int(60 * change/minutes)))
+    ush = int(60 * change/minutes)
+    spa = int(ush * 365 * 24 / 1000000)
+    print('Rate of change {}μs/hr {}secs/year'.format(ush, spa))
 
 def drift(minutes=5):
     global running
@@ -66,3 +69,23 @@ def drift(minutes=5):
     loop = asyncio.get_event_loop()
     loop.create_task(killer(minutes))
     loop.run_until_complete(do_drift(minutes))
+
+# Every 10s print the difference between GPS time and RTC time
+async def do_time(minutes):
+    print('Setting up GPS.')
+    gps_tim = await setup()
+    print('Waiting for time data.')
+    await gps_tim.ready()
+    print('Setting RTC.')
+    await gps_tim.set_rtc()
+    while running:
+        await asyncio.sleep(1)
+        hrs, mins, secs, us = gps_tim.get_t_split()
+        print('{}ms Time: {:02d}:{:02d}:{:02d}:{:06d}'.format(gps_tim.get_ms(), hrs, mins, secs, us))
+
+def time(minutes=1):
+    global running
+    running = True
+    loop = asyncio.get_event_loop()
+    loop.create_task(killer(minutes))
+    loop.run_until_complete(do_time(minutes))
