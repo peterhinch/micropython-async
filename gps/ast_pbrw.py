@@ -27,7 +27,7 @@ def callback(gps, _, timer):
     green.on()
     timer.trigger(10000)  # Outage is declared after 10s
 
-def timeout():
+def cb_timeout():
     global ntimeouts
     green.off()
     ntimeouts += 1
@@ -135,7 +135,7 @@ async def gps_test():
     # read_buf_len is precautionary: code runs reliably without it.
     sreader = asyncio.StreamReader(uart)
     swriter = asyncio.StreamWriter(uart, {})
-    timer = aswitch.Delay_ms(timeout)
+    timer = aswitch.Delay_ms(cb_timeout)
     sentence_count = 0
     gps = as_rwGPS.GPS(sreader, swriter, local_offset=1, fix_cb=callback,
                        fix_cb_args=(timer,),  msg_cb = message_cb)

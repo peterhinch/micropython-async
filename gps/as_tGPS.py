@@ -4,9 +4,16 @@
 
 # Copyright (c) 2018 Peter Hinch
 # Released under the MIT License (MIT) - see LICENSE file
+# TODO Test machine version. Replace LED with callback. Update tests and doc.
 
 import uasyncio as asyncio
-import pyb
+import machine
+try:
+    import pyb
+    on_pyboard = True
+    rtc = pyb.RTC()
+except ImportError:
+    on_pyboard = False
 import utime
 import micropython
 import gc
@@ -15,41 +22,44 @@ import as_rwGPS
 
 micropython.alloc_emergency_exception_buf(100)
 
-rtc = pyb.RTC()
-
 # Convenience function. Return RTC seconds since midnight as float
 def rtc_secs():
+    if not on_pyboard:
+        raise OSError('Only available on STM targets.')
     dt = rtc.datetime()
     return 3600*dt[4] + 60*dt[5] + dt[6] + (255 - dt[7])/256
 
 # Constructor for GPS_Timer class
 def gps_ro_t_init(self, sreader, pps_pin, local_offset=0,
                   fix_cb=lambda *_ : None, cb_mask=as_GPS.RMC, fix_cb_args=(),
-                  led = None):
+                  pps_cb=lambda *_ : None, pps_cb_args=()):
     as_GPS.AS_GPS.__init__(self, sreader, local_offset, fix_cb, cb_mask, fix_cb_args)
-    self.setup(pps_pin, led)
+    self.setup(pps_pin, pps_cb, pps_cb_args)
 
 # Constructor for GPS_RWTimer class
 def gps_rw_t_init(self, sreader, swriter, pps_pin, local_offset=0,
                   fix_cb=lambda *_ : None, cb_mask=as_GPS.RMC, fix_cb_args=(),
-                  msg_cb=lambda *_ : None, msg_cb_args=(), led = None):
+                  msg_cb=lambda *_ : None, msg_cb_args=(),
+                  pps_cb=lambda *_ : None, pps_cb_args=()):
     as_rwGPS.GPS.__init__(self, sreader, swriter, local_offset, fix_cb, cb_mask, fix_cb_args,
                  msg_cb, msg_cb_args)
-    self.setup(pps_pin, led)
+    self.setup(pps_pin, pps_cb, pps_cb_args)
 
 class GPS_Tbase():
-    def setup(self, pps_pin, led=None):
-        self.led = led
+    def setup(self, pps_pin, pps_cb, pps_cb_args):
+        self._pps_cb = pps_cb
+        self._pps_cb_args = pps_cb_args
         self.secs = None  # Integer time since midnight at last PPS
         self.acquired = None  # Value of ticks_us at edge of PPS
         self._rtc_set = False  # Set RTC flag
         self._rtcbuf = [0]*8  # Buffer for RTC setting
+        self._time = [0]*4  # get_t_split() time buffer.
         loop = asyncio.get_event_loop()
         loop.create_task(self._start(pps_pin))
 
     async def _start(self, pps_pin):
         await self.data_received(date=True)
-        pyb.ExtInt(pps_pin, pyb.ExtInt.IRQ_RISING, pyb.Pin.PULL_NONE, self._isr)
+        pps_pin.irq(self._isr, trigger = machine.Pin.IRQ_RISING)
 
     def _isr(self, _):
         acquired = utime.ticks_us()  # Save time of PPS
@@ -69,8 +79,7 @@ class GPS_Tbase():
             self._rtc_set = False
         # Could be an outage here, so PPS arrives many secs after last sentence
         # Is this right? Does PPS continue during outage?
-        if self.led is not None:
-            self.led.toggle()
+        self._pps_cb(self, *self._pps_cb_args)
 
     # Called when base class updates the epoch_time.
     # Need local time for setting Pyboard RTC in interrupt context
@@ -88,6 +97,8 @@ class GPS_Tbase():
     # Subsecs register is read-only. So need to set RTC on PPS leading edge.
     # Set flag and let ISR set the RTC. Pause until done.
     async def set_rtc(self):
+        if not on_pyboard:
+            raise OSError('Only available on STM targets.')
         self._rtc_set = True
         while self._rtc_set:
             await asyncio.sleep_ms(250)
@@ -103,6 +114,8 @@ class GPS_Tbase():
     # Return no. of μs RTC leads GPS. Done by comparing times at the instant of
     # PPS leading edge.
     async def delta(self):
+        if not on_pyboard:
+            raise OSError('Only available on STM targets.')
         rtc_time, gps_time = await self._await_pps()  # μs since Y2K at time of latest PPS
         return rtc_time - gps_time
 
@@ -167,6 +180,8 @@ class GPS_Tbase():
             await asyncio.sleep(1)
 
     async def calibrate(self, minutes=5):
+        if not on_pyboard:
+            raise OSError('Only available on STM targets.')
         print('Waiting for GPS startup.')
         await self.ready()
         print('Waiting up to {} minutes to acquire calibration factor...'.format(minutes))
@@ -181,10 +196,10 @@ class GPS_Tbase():
     # Return GPS time in ms since midnight (small int on 32 bit h/w).
     # No allocation.
     def get_ms(self):
-        state = pyb.disable_irq()
+        state = machine.disable_irq()
         t = self.secs
         acquired = self.acquired
-        pyb.enable_irq(state)
+        machine.enable_irq(state)
         return 1000*t + utime.ticks_diff(utime.ticks_us(), acquired) // 1000
 
     # Return accurate GPS time of day (hrs: int, mins: int, secs: int, μs: int)
@@ -192,13 +207,20 @@ class GPS_Tbase():
     # RMC handles this, so subsequent ISR will see hms = 0, 0, 1 and a value of
     # .acquired > 1000000.
     def get_t_split(self):
-        secs, acquired = self.secs, self.acquired  # Single LOC is not interruptable
+        state = machine.disable_irq()
+        t = self.secs
+        acquired = self.acquired
+        machine.enable_irq(state)
         x, secs = divmod(secs, 60)
         hrs, mins = divmod(x, 60)
         dt = utime.ticks_diff(utime.ticks_us(), acquired)  # μs to time now
         ds, us = divmod(dt, 1000000)
         # If dt > 1e6 can add to secs without risk of rollover: see above.
-        return hrs, mins, secs + ds, us
+        self._time[0] = hrs
+        self._time[1] = mins
+        self._time[2] = secs + ds
+        self._time[3] = us
+        return self._time
 
 GPS_Timer = type('GPS_Timer', (GPS_Tbase, as_GPS.AS_GPS), {'__init__': gps_ro_t_init})
 GPS_RWTimer = type('GPS_RWTimer', (GPS_Tbase, as_rwGPS.GPS), {'__init__': gps_rw_t_init})

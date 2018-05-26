@@ -2,25 +2,47 @@
 
 # 1. as_GPS
 
-This is an asynchronous device driver for GPS devices which communicate with
-the driver via a UART. GPS NMEA sentence parsing is based on this excellent
-library [micropyGPS]. It was adapted for asynchronous use; also to reduce RAM
-use and frequency of allocations and to correctly process local time values.
+This repository offers a suite of asynchronous device drivers for GPS devices
+which communicate with the host via a UART. GPS NMEA sentence parsing is based
+on this excellent library [micropyGPS].
 
-The driver is designed to be extended by subclassing, for example to support
-additional sentence types. It is compatible with Python 3.5 or later and also
-with [MicroPython]. Testing was performed using a [pyboard] with the Adafruit
-[Ultimate GPS Breakout] board.
+## 1.1 Driver characteristics
 
-Most GPS devices will work with the read-only driver as they emit NMEA
-sentences on startup. The read-only driver is designed for use on resource
-constrained hosts. An optional read-write subclass is provided for
-MTK3329/MTK3339 chips as used on the above board. This enables the device
-configuration to be altered.
+ * Asynchronous: UART messaging is handled as a background task allowing the
+ application to perform other tasks such as handling user interaction.
+ * The read-only driver is suitable for resource constrained devices and will
+ work with most GPS devices using a UART for communication.
+ * The read-write driver enables altering the configuration of GPS devices
+ based on the popular MTK3329/MTK3339 chips.
+ * The above drivers are portable between [MicroPython] and Python 3.5 or above.
+ * Timing drivers for [MicroPython] targets based on STM chips (e.g. the [Pyboad])
+ extend the capabilities of the read-only and read-write drivers to provide
+ precision timing. The RTC may be calibrated and set to achieve timepiece-level
+ accuracy.
+ * Drivers may be extended via subclassing, for example to support additional
+ sentence types.
 
-Further subclasses, for the Pyboard and other boards based on STM processors,
-provide for using the GPS device for precision timing. The chip's RTC may be
-precisely set and calibrated using the PPS signal from the GPS chip.
+Testing was performed using a [Pyboard] with the Adafruit
+[Ultimate GPS Breakout] board. Most GPS devices will work with the read-only
+driver as they emit NMEA sentences on startup.
+
+## 1.2 Comparison with [micropyGPS]
+
+NMEA sentence parsing is based on [micropyGPS] but with significant changes.
+
+ * As asynchronous drivers they require `uasyncio` on [MicroPython]. They use
+ asyncio under Python 3.5+.
+ * Sentence parsing is adapted for asynchronous use.
+ * Rollover of local time into the date value enables worldwide use.
+ * RAM allocation is reduced by various techniques: this reduces heap
+ fragmentation, improving application reliability on RAM constrained devices.
+ * Some functionality is devolved to a utility module, reducing RAM usage where
+ these functions are unused.
+ * The read/write driver is a subclass of the read-only driver.
+ * Timing drivers are added offering time measurement with μs resolution and
+ high absolute accuracy. These are implemented by subclassing.
+ * Hooks are provided for user-designed subclassing, for example to parse
+ additional message types.
 
 ###### [Main README](../README.md)
 
@@ -52,10 +74,11 @@ PPS connection is required only if using the device for precise timing
 
 ## 1.2 Basic Usage
 
+If running on a [MicroPython] target the `uasyncio` library must be installed.
+
 In the example below a UART is instantiated and an `AS_GPS` instance created.
 A callback is specified which will run each time a valid fix is acquired.
-The test runs for 60 seconds and therefore assumes that power has been applied
-long enough for the GPS to have started to acquire data.
+The test runs for 60 seconds once data has been received.
 
 ```python
 import uasyncio as asyncio
@@ -66,10 +89,34 @@ def callback(gps, *_):  # Runs for each valid fix
 
 uart = UART(4, 9600)
 sreader = asyncio.StreamReader(uart)  # Create a StreamReader
-my_gps = as_GPS.AS_GPS(sreader, fix_cb=callback)  # Instantiate GPS
+gps = as_GPS.AS_GPS(sreader, fix_cb=callback)  # Instantiate GPS
 
 async def test():
+    print('waiting for GPS data')
+    await gps.data_received(position=True, altitude=True)
     await asyncio.sleep(60)  # Run for one minute
+loop = asyncio.get_event_loop()
+loop.run_until_complete(test())
+```
+
+This example achieves the same thing without using a callback:
+
+```python
+import uasyncio as asyncio
+import as_GPS
+from machine import UART
+
+uart = UART(4, 9600)
+sreader = asyncio.StreamReader(uart)  # Create a StreamReader
+gps = as_GPS.AS_GPS(sreader)  # Instantiate GPS
+
+async def test():
+    print('waiting for GPS data')
+    await gps.data_received(position=True, altitude=True)
+    for _ in range(10):
+        print(gps.latitude(), gps.longitude(), gps.altitude)
+        await asyncio.sleep(2)
+
 loop = asyncio.get_event_loop()
 loop.run_until_complete(test())
 ```
@@ -86,14 +133,12 @@ The following are relevant to the default read-only driver.
  * `log_kml.py` A simple demo which logs a route travelled to a .kml file which
  may be displayed on Google Earth.
 
-Special tests:  
- * `astests.py` Test with synthetic data. Run on CPython 3.x or MicroPython.
- * `astests_pyb.py` Test with synthetic data on UART. GPS hardware replaced by
- a loopback on UART 4. Requires CPython 3.5 or later or MicroPython and
- `uasyncio`.
+On RAM-constrained devices `as_GPS_utils.py` may be omitted in which case the
+`date_string` and `compass_direction` methods will be unavailable.
 
-Additional files relevant to the read/write driver are listed
-[here](./README.md#31-files). Files for the timing driver are listed
+Files for the read/write driver are listed
+[here](./README.md#31-files).  
+Files for the timing driver are listed
 [here](./README.md#41-files).
 
 ## 1.4 Installation
@@ -108,9 +153,12 @@ encountered on resource constrained devices install each file as a
 [frozen module].
 
 For the [read/write driver](./README.md#3-the-gps-class-read/write-driver) the
-file `as_rwGPS.py` must also be installed. For the
-[timing driver](./README.md#4-using-gps-for-accurate-timing) `as_tGPS.py`
-should also be copied across.
+file `as_rwGPS.py` must also be installed. The test/demo `ast_pbrw.py` may
+optionally be installed; this requires `aswitch.py` from the root of this
+repository.  
+For the [timing driver](./README.md#4-using-gps-for-accurate-timing)
+`as_tGPS.py` should also be copied across. The optional test program
+`as_GPS_time.py` requires `asyn.py` from the root of this repository.
 
 ### 1.4.2 Python 3.5 or later
 
@@ -361,6 +409,8 @@ packets to GPS modules based on the MTK3329/MTK3339 chip. These include:
 
  * `as_rwGPS.py` Supports the `GPS` class. This subclass of `AS_GPS` enables
  writing a limited subset of the MTK commands used on many popular devices.
+ * `as_GPS.py` The library containing the base class.
+ * `as_GPS_utils.py` Additional formatted string methods.
  * `ast_pbrw.py` Test script which changes various attributes. This will pause
  until a fix has been achieved. After that changes are made for about 1 minute,
  then it runs indefinitely reporting data at the REPL and on the LEDs. It may
@@ -370,6 +420,32 @@ packets to GPS modules based on the MTK3329/MTK3339 chip. These include:
  * Green: ON if GPS data is being received, OFF if no data received for >10s.
  * Yellow: Toggles each 4s if navigation updates are being received.
  * Blue: Toggles each 4s if time updates are being received.
+
+### 3.1.1 Usage example
+
+This reduces to 2s the interval at which the GPS sends messages:
+
+```python
+import uasyncio as asyncio
+import as_rwGPS
+from machine import UART
+
+uart = UART(4, 9600)
+sreader = asyncio.StreamReader(uart)  # Create a StreamReader
+swriter = asyncio.StreamWriter(uart, {})
+gps = as_rwGPS.GPS(sreader, swriter)  # Instantiate GPS
+
+async def test():
+    print('waiting for GPS data')
+    await gps.data_received(position=True, altitude=True)
+    await gps.update_interval(2000)  # Reduce message rate
+    for _ in range(10):
+        print(gps.latitude(), gps.longitude(), gps.altitude)
+        await asyncio.sleep(2)
+
+loop = asyncio.get_event_loop()
+loop.run_until_complete(test())
+```
 
 ## 3.2 GPS class Constructor
 
@@ -490,7 +566,8 @@ The default `parse` method is redefined. It intercepts the single response to
 `VERSION` and `ENABLE` commands and updates the above bound variables. The
 `ANTENNA` command causes repeated messages to be sent. These update the
 `antenna` bound variable. These "handled" messages call the message callback
-with
+with the `GPS` instance followed by a list of sentence segments followed by any
+args specified in the constructor.
 
 Other `PMTK` messages are passed to the optional message callback as described
 [in section 3.2](./README.md#32-constructor).
@@ -499,14 +576,55 @@ Other `PMTK` messages are passed to the optional message callback as described
 
 Many GPS chips (e.g. MTK3339) provide a PPS signal which is a pulse occurring
 at 1s intervals whose leading edge is a highly accurate time reference. It may
-be used to set and to calibrate the Pyboard realtime clock (RTC). Note that
-these drivers are for STM based targets only (at least until the `machine`
-library supports an `RTC` class).
+be used to set and to calibrate the Pyboard realtime clock (RTC). These drivers
+are for MicroPython only. The RTC functionality is for STM chips (e.g. Pyboard)
+only (at least until the `machine` library supports an `RTC` class).
+
+See [Absolute accuracy](./README.md#45-absolute-accuracy) for a discussion of
+the absolute accuracy provided by this module (believed to be on the order of
++-70μs).
+
+Two classes are provided: `GPS_Timer` for read-only access to the GPS device
+and `GPS_RWTimer` for read/write access.
 
 ## 4.1 Files
 
+ * `as_GPS.py` The library containing the base class.
+ * `as_GPS_utils.py` Additional formatted string methods for `AS_GPS`.
+ * `as_rwGPS.py` Required if using the read/write variant.
  * `as_tGPS.py` The library. Provides `GPS_Timer` and `GPS_RWTimer` classes.
  * `as_GPS_time.py` Test scripts for above.
+
+### 4.1.1 Usage xxample
+
+```python
+import uasyncio as asyncio
+import pyb
+import as_tGPS
+
+async def test():
+    fstr = '{}ms Time: {:02d}:{:02d}:{:02d}:{:06d}'
+    red = pyb.LED(1)
+    blue = pyb.LED(4)
+    uart = pyb.UART(4, 9600, read_buf_len=200)
+    sreader = asyncio.StreamReader(uart)
+    pps_pin = pyb.Pin('X3', pyb.Pin.IN)
+    gps_tim = as_tGPS.GPS_Timer(sreader, pps_pin, local_offset=1,
+                             fix_cb=lambda *_: red.toggle(),
+                             pps_cb=lambda *_: blue.toggle())
+    print('Waiting for signal.')
+    await gps_tim.ready()  # Wait for GPS to get a signal
+    await gps_tim.set_rtc()  # Set RTC from GPS
+    while True:
+        await asyncio.sleep(1)
+        # In a precision app, get the time list without allocation:
+        t = gps_tim.get_t_split()
+        print(fstr.format(gps_tim.get_ms(), t[0], t[1], t[2], t[3]))
+
+loop = asyncio.get_event_loop()
+loop.create_task(test())
+loop.run_forever()
+```
 
 ## 4.2 GPS_Timer and GPS_RWTimer classes
 
@@ -524,8 +642,12 @@ Optional positional args:
  * `fix_cb`
  * `cb_mask`
  * `fix_cb_args`
- * `led` Default `None`. If an `LED` instance is passed, this will toggle each
- time a PPS interrupt is handled.
+ * `pps_cb` Callback runs when a PPS interrupt occurs. The callback runs in an
+ interrupt context so it should return quickly and cannot allocate RAM. Default
+ is a null method. See below for callback args.
+ * `pps_cb_args` Default `()`. A tuple of args for the callback. The callback
+ receives the `GPS_Timer` instance as the first arg, followed by any args in
+ the tuple.
 
 ### 4.2.2 GPS_RWTimer class Constructor
 
@@ -540,36 +662,45 @@ Optional positional args:
  * `fix_cb_args`
  * `msg_cb`
  * `msg_cb_args`
- * `led` Default `None`. If an `LED` instance is passed, this will toggle each
- time a PPS interrupt is handled.
+ * `pps_cb` Callback runs when a PPS interrupt occurs. The callback runs in an
+ interrupt context so it should return quickly and cannot allocate RAM. Default
+ is a null method. See below for callback args.
+ * `pps_cb_args` Default `()`. A tuple of args for the callback. The callback
+ receives the `GPS_Timer` instance as the first arg, followed by any args in
+ the tuple.
 
 ## 4.3 Public methods
 
 These return an accurate GPS time of day. As such they return as fast as
-possible without error checking: these functions should not be called until a
-valid time/date message and PPS signal have occurred. Await the `ready`
-coroutine prior to first use. Subsequent calls may occur without restriction.
+possible. To achieve this they avoid allocation and dispense with error
+checking: these functions should not be called until a valid time/date message
+and PPS signal have occurred. Await the `ready` coroutine prior to first use.
+Subsequent calls may occur without restriction. A usage example is in the time
+demo in `as_GPS_time.py`.
 
- * `get_ms` No args. Returns an integer: the period past midnight in ms. This
- method does not allocate and may be called in an interrupt context.
- * `get_t_split` No args. Returns time of day tuple of form
- (hrs: int, mins: int, secs: int, μs: int).
+ * `get_ms` No args. Returns an integer: the period past midnight in ms.
+ * `get_t_split` No args. Returns time of day in a list of form
+ `[hrs: int, mins: int, secs: int, μs: int]`.
+
+See [Absolute accuracy](./README.md#45-absolute-accuracy) for a discussion of
+the accuracy of these methods.
 
 ## 4.4 Public coroutines
 
  * `ready` No args. Pauses until  a valid time/date message and PPS signal have
  occurred.
- * `set_rtc` No args. Sets the Pyboard RTC to GPS time. Coro pauses for up to
- 1s as it waits for a PPS pulse.
- * `delta` No args. Returns no. of μs RTC leads GPS. Coro pauses for up to 1s.
- * `calibrate` Arg: integer, no. of minutes to run default 5. Calibrates the
- Pyboard RTC and returns the calibration factor for it. This coroutine sets the
- RTC (with any existing calibration removed) and measures its drift with
- respect to the GPS time. This measurement becomes more precise as time passes.
- It calculates a calibration value at 10s intervals and prints progress
- information. When the calculated calibration factor is repeatable within 1
- digit (or the spcified time has elapsed) it terminates. Typical run times are
- on the order of two miutes.
+ * `set_rtc` No args. STM hosts only. Sets the Pyboard RTC to GPS time. Coro
+ pauses for up to 1s as it waits for a PPS pulse.
+ * `delta` No args. STM hosts only. Returns no. of μs RTC leads GPS. Coro
+ pauses for up to 1s.
+ * `calibrate` Arg: integer, no. of minutes to run default 5.  STM hosts only.
+ Calibrates the Pyboard RTC and returns the calibration factor for it. This
+ coroutine sets the RTC (with any existing calibration removed) and measures
+ its drift with respect to the GPS time. This measurement becomes more precise
+ as time passes. It calculates a calibration value at 10s intervals and prints
+ progress information. When the calculated calibration factor is repeatable
+ within one digit (or the spcified time has elapsed) it terminates. Typical run
+ times are on the order of two miutes.
 
 Achieving an accurate calibration factor takes time but does enable the Pyboard
 RTC to achieve timepiece quality results. Note that calibration is lost on
@@ -580,11 +711,52 @@ Crystal oscillator frequency (and hence calibration factor) is temperature
 dependent. For the most accurate possible results allow the Pyboard to reach
 working temperature before calibrating.
 
+## 4.5 Absolute accuracy
+
+The claimed absolute accuracy of the leading edge of the PPS signal is +-10ns.
+In practice this is dwarfed by errors including latency in the MicroPython VM.
+Nevertheless the `get_ms` method can be expected to provide 1 digit (+-1ms)
+accuracy and the `get_t_split` method should provide accuracy on the order of
++-70μs (standard deviation).
+
+Without an atomic clock synchronised to a Tier 1 NTP server this is hard to
+prove. However if the manufacturer's claim of the accuracy of the PPS signal is
+accepted, the errors contributed by MicroPython can be estimated.
+
+The driver interpolates between PPS pulses using `utime.ticks_us()` to provide
+μs precision. The leading edge of PPS triggers an interrupt which records the
+arrival time of PPS in the `acquired` bound variable. The ISR also records, to
+1 second precision, an accurate datetime derived from the previous RMC message.
+The time can therefore be estimated by taking the datetime and adding the
+elapsed time since the time stored in the `acquired` bound variable.
+
+Sources of error are:
+ * Variations in interrupt latency.
+ * Inaccuracy in the `ticks_us` timer.
+ * Latency in the function used to retrieve the time.
+
+The test program `as_GPS_time.py` has a test `usecs` which aims to assess the
+first two. It repeatedly uses `ticks_us` to measure the time between PPS pulses
+over a minute then calculates some simple statistics on the result.
+
+## 4.6 Test/demo program as_GPS_time.py
+
+This comprises the following test functions. Reset the chip with ctrl-d between
+runs.
+ * `time(minutes=1)` Print out GPS time values.
+ * `calibrate(minutes=5)` Determine the calibration factor of the Pyboard RTC.
+ Set it and calibrate it.
+ * `drift(minutes=5)` Monitor the drift between RTC time and GPS time. At the
+ end of the run, print the error in μs/hr and minutes/year.
+ * `usec(minutes=1)` Measure the accuracy of `utime.ticks_us()` against the PPS
+ signal. Print basic statistics at the end of the run. Provides an estimate of
+ the absolute accuracy of the `get_t_split` method.
+
 # 5. Supported Sentences
 
- * GPRMC  GP indicates NMEA sentence
- * GLRMC  GL indicates GLONASS (Russian system)
- * GNRMC  GN GNSS (Global Navigation Satellite System)
+ * GPRMC  GP indicates NMEA sentence (US GPS system).
+ * GLRMC  GL indicates GLONASS (Russian system).
+ * GNRMC  GN GNSS (Global Navigation Satellite System).
  * GPGLL
  * GLGLL
  * GPGGA
@@ -598,14 +770,18 @@ working temperature before calibrating.
  * GPGSV
  * GLGSV
 
-# 6. Subclassing
+# 6 Developer notes
+
+These notes are for those wishing to adapt these drivers.
+
+## 6.1 Subclassing
 
 If support for further sentence types is required the `AS_GPS` class may be
 subclassed. If a correctly formed sentence with a valid checksum is received,
 but is not supported, the `parse` method is called. By default this is a
 `lambda` which ignores args and returns `True`.
 
-An example of this may be found in the `as_rwGPS.py` module.
+An example of overriding this method may be found in the `as_rwGPS.py` module.
 
 A subclass may redefine this to attempt to parse such sentences. The method
 receives an arg `segs` being a list of strings. These are the parts of the
@@ -615,12 +791,25 @@ the leading '$' character removed.
 It should return `True` if the sentence was successfully parsed, otherwise
 `False`.
 
+Where a sentence is successfully parsed, a null `reparse` method is called.
+This may be overridden in a subclass.
+
+## 6.2 Special test programs
+
+These tests allow NMEA parsing to be verified in the absence of GPS hardware  
+
+ * `astests.py` Test with synthetic data. Run on CPython 3.x or MicroPython.
+ * `astests_pyb.py` Test with synthetic data on UART. GPS hardware replaced by
+ a loopback on UART 4. Requires CPython 3.5 or later or MicroPython and
+ `uasyncio`.
+
 # 7. Notes on timing
 
-At the default baudrate of 9600 I measured a time of 400ms when a set of GPSV
-messages came in. This time could be longer depending on data. So if an update
-rate higher than the default 1 second is to be used, either the baudrate must
-be increased or the satellite information messages should be disabled.
+At the default baudrate of 9600 I measured a transmission time of 400ms when a
+set of GPSV messages came in. This time could be longer depending on data. So
+if an update rate higher than the default 1 second is to be used, either the
+baudrate should be increased or satellite information messages should be
+disabled.
 
 The PPS signal on the MTK3339 occurs only when a fix has been achieved. The
 leading edge occurs on a 1s boundary with high absolute accuracy. It therefore
