@@ -741,7 +741,7 @@ Nevertheless the `get_ms` method can be expected to provide 1 digit (+-1ms)
 accuracy and the `get_t_split` method should provide accuracy on the order of
 -5μs +65μs (standard deviation). This is based on a Pyboard running at 168MHz.
 The reasoning behind this is discussed in
-[section 2.5](./README.md#7-notes-on-timing).
+[section 7](./README.md#7-notes-on-timing).
 
 ## 4.6 Test/demo program as_GPS_time.py
 
