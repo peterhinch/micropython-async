@@ -269,7 +269,7 @@ class AS_GPS(object):
         except ValueError:  # Bad date or time strings
             return False
         wday = self._week_day(y, m, d)
-        t = self._mktime((y, m, d, hrs, mins, int(secs), wday - 1, 0, 0))
+        t = int(self._mktime((y, m, d, hrs, mins, int(secs), wday - 1, 0, 0)))
         self.epoch_time = t  # This is the fundamental datetime reference.
         self._dtset(wday)  # Subclass may override
         return True

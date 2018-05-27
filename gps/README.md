@@ -532,8 +532,8 @@ cleared by power cycling the GPS.
 
 ### 3.3.1 Changing baudrate
 
-The if you change the GPS baudrate the UART should be re-initialised
-immediately after the `baudrate` coroutine terminates:
+If you change the GPS baudrate the UART should be re-initialised immediately
+after the `baudrate` coroutine terminates:
 
 ```python
 async def change_status(gps, uart):
@@ -561,21 +561,21 @@ measured in seconds) polls the value, returning it when it changes.
 
  * `version` Initially `None`. A list of version strings.
  * `enabled` Initially `None`. A dictionary of frequencies indexed by message
- type.
- * `antenna` Initially 0. Values:
+ type (see `enable` coroutine above).
+ * `antenna` Initially 0. Values:  
  0 No report received.  
  1 Antenna fault.  
  2 Internal antenna.  
  3 External antenna.  
 
-## 3.5 The parse method
+## 3.5 The parse method (developer note)
 
-The default `parse` method is redefined. It intercepts the single response to
-`VERSION` and `ENABLE` commands and updates the above bound variables. The
-`ANTENNA` command causes repeated messages to be sent. These update the
-`antenna` bound variable. These "handled" messages call the message callback
-with the `GPS` instance followed by a list of sentence segments followed by any
-args specified in the constructor.
+The null `parse` method in the base class is overridden. It intercepts the
+single response to `VERSION` and `ENABLE` commands and updates the above bound
+variables. The `ANTENNA` command causes repeated messages to be sent. These
+update the `antenna` bound variable. These "handled" messages call the message
+callback with the `GPS` instance followed by a list of sentence segments
+followed by any args specified in the constructor.
 
 Other `PMTK` messages are passed to the optional message callback as described
 [in section 3.2](./README.md#32-constructor).
@@ -583,10 +583,14 @@ Other `PMTK` messages are passed to the optional message callback as described
 # 4. Using GPS for accurate timing
 
 Many GPS chips (e.g. MTK3339) provide a PPS signal which is a pulse occurring
-at 1s intervals whose leading edge is a highly accurate time reference. It may
-be used to set and to calibrate the Pyboard realtime clock (RTC). These drivers
-are for MicroPython only. The RTC functionality is for STM chips (e.g. Pyboard)
-only (at least until the `machine` library supports an `RTC` class).
+at 1s intervals whose leading edge is a highly accurate UTC time reference.
+
+This driver uses this pulse to provide accurate subsecond UTC and local time
+values. The driver requires MicroPython because PPS needs a pin interrupt.
+
+On STM platforms such as the Pyboard it may be used to set and to calibrate the
+realtime clock (RTC). This functionality is not currently portable to other
+chips.
 
 See [Absolute accuracy](./README.md#45-absolute-accuracy) for a discussion of
 the absolute accuracy provided by this module (believed to be on the order of
@@ -603,7 +607,7 @@ and `GPS_RWTimer` for read/write access.
  * `as_tGPS.py` The library. Provides `GPS_Timer` and `GPS_RWTimer` classes.
  * `as_GPS_time.py` Test scripts for above.
 
-### 4.1.1 Usage xxample
+### 4.1.1 Usage example
 
 ```python
 import uasyncio as asyncio
@@ -645,8 +649,10 @@ the base classes are supported. Additional functionality is detailed below.
 Mandatory positional args:
  * `sreader` The `StreamReader` instance associated with the UART.
  * `pps_pin` An initialised input `Pin` instance for the PPS signal.
+
 Optional positional args:
- * `local_offset` See `AS_GPS` details for these args.
+ * `local_offset` See [base class](./README.md##21-constructor) for details of
+ these args.
  * `fix_cb`
  * `cb_mask`
  * `fix_cb_args`
@@ -663,8 +669,10 @@ This takes three mandatory positional args:
  * `sreader` The `StreamReader` instance associated with the UART.
  * `swriter` The `StreamWriter` instance associated with the UART.
  * `pps_pin` An initialised input `Pin` instance for the PPS signal.
+
 Optional positional args:
- * `local_offset` See `GPS` details.
+ * `local_offset` See [base class](./README.md##32-gps-class-constructor) for
+ details of these args.
  * `fix_cb`
  * `cb_mask`
  * `fix_cb_args`
@@ -674,7 +682,7 @@ Optional positional args:
  interrupt context so it should return quickly and cannot allocate RAM. Default
  is a null method. See below for callback args.
  * `pps_cb_args` Default `()`. A tuple of args for the callback. The callback
- receives the `GPS_Timer` instance as the first arg, followed by any args in
+ receives the `GPS_RWTimer` instance as the first arg, followed by any args in
  the tuple.
 
 ## 4.3 Public methods
@@ -683,41 +691,47 @@ These return an accurate GPS time of day. As such they return as fast as
 possible. To achieve this they avoid allocation and dispense with error
 checking: these functions should not be called until a valid time/date message
 and PPS signal have occurred. Await the `ready` coroutine prior to first use.
-Subsequent calls may occur without restriction. A usage example is in the time
-demo in `as_GPS_time.py`.
+Subsequent calls may occur without restriction; see usage example above.
 
  * `get_ms` No args. Returns an integer: the period past midnight in ms.
  * `get_t_split` No args. Returns time of day in a list of form
  `[hrs: int, mins: int, secs: int, μs: int]`.
 
+These methods use the MicroPython microsecond timer to interpolate between PPS
+pulses. They do not involve the RTC. Hence they should work on any MicroPython
+target supporting `machine.ticks_us`.
+ 
 See [Absolute accuracy](./README.md#45-absolute-accuracy) for a discussion of
 the accuracy of these methods.
 
 ## 4.4 Public coroutines
 
- * `ready` No args. Pauses until  a valid time/date message and PPS signal have
+All MicroPython targets:  
+ * `ready` No args. Pauses until a valid time/date message and PPS signal have
  occurred.
- * `set_rtc` No args. STM hosts only. Sets the Pyboard RTC to GPS time. Coro
- pauses for up to 1s as it waits for a PPS pulse.
- * `delta` No args. STM hosts only. Returns no. of μs RTC leads GPS. Coro
- pauses for up to 1s.
- * `calibrate` Arg: integer, no. of minutes to run default 5.  STM hosts only.
- Calibrates the Pyboard RTC and returns the calibration factor for it. This
- coroutine sets the RTC (with any existing calibration removed) and measures
- its drift with respect to the GPS time. This measurement becomes more precise
- as time passes. It calculates a calibration value at 10s intervals and prints
- progress information. When the calculated calibration factor is repeatable
- within one digit (or the spcified time has elapsed) it terminates. Typical run
- times are on the order of two miutes.
+
+STM hosts only:  
+ * `set_rtc` No args. Sets the RTC to GPS time. Coroutine pauses for up
+ to 1s as it waits for a PPS pulse.
+ * `delta` No args. Returns no. of μs RTC leads GPS. Coro pauses for up to 1s.
+ * `calibrate` Arg: integer, no. of minutes to run default 5. Calibrates the
+ RTC and returns the calibration factor for it.
+
+The `calibrate` coroutine sets the RTC (with any existing calibration removed)
+and measures its drift with respect to the GPS time. This measurement becomes
+more precise as time passes. It calculates a calibration value at 10s intervals
+and prints progress information. When the calculated calibration factor is
+repeatable within one digit (or the spcified time has elapsed) it terminates.
+Typical run times are on the order of two miutes.
 
 Achieving an accurate calibration factor takes time but does enable the Pyboard
 RTC to achieve timepiece quality results. Note that calibration is lost on
 power down: solutions are either to use an RTC backup battery or to store the
 calibration factor in a file (or in code) and re-apply it on startup.
 
-Crystal oscillator frequency (and hence calibration factor) is temperature
-dependent. For the most accurate possible results allow the Pyboard to reach
-working temperature before calibrating.
+Crystal oscillator frequency has a small temperature dependence; consequently
+the optimum calibration factor has a similar dependence. For best results allow
+the hardware to reach working temperature before calibrating.
 
 ## 4.5 Absolute accuracy
 
@@ -725,11 +739,11 @@ The claimed absolute accuracy of the leading edge of the PPS signal is +-10ns.
 In practice this is dwarfed by errors including latency in the MicroPython VM.
 Nevertheless the `get_ms` method can be expected to provide 1 digit (+-1ms)
 accuracy and the `get_t_split` method should provide accuracy on the order of
-+-70μs (standard deviation).
++-70μs (standard deviation). This is based on a Pyboard running at 168MHz.
 
-Without an atomic clock synchronised to a Tier 1 NTP server this is hard to
-prove. However if the manufacturer's claim of the accuracy of the PPS signal is
-accepted, the errors contributed by MicroPython can be estimated.
+Without an atomic clock synchronised to a Tier 1 NTP server absolute accuracy
+is hard to prove. However if the manufacturer's claim of the accuracy of the
+PPS signal is accepted, the errors contributed by MicroPython can be estimated.
 
 The driver interpolates between PPS pulses using `utime.ticks_us()` to provide
 μs precision. The leading edge of PPS triggers an interrupt which records the
@@ -742,10 +756,12 @@ Sources of error are:
  * Variations in interrupt latency.
  * Inaccuracy in the `ticks_us` timer.
  * Latency in the function used to retrieve the time.
+ * Mean value of the interrupt latency.
 
 The test program `as_GPS_time.py` has a test `usecs` which aims to assess the
 first two. It repeatedly uses `ticks_us` to measure the time between PPS pulses
-over a minute then calculates some simple statistics on the result.
+over a minute then calculates some simple statistics on the result. On targets
+other than a 168MHz Pyboard this offers a way of estimating overheads.
 
 ## 4.6 Test/demo program as_GPS_time.py
 
@@ -758,7 +774,8 @@ runs.
  end of the run, print the error in μs/hr and minutes/year.
  * `usec(minutes=1)` Measure the accuracy of `utime.ticks_us()` against the PPS
  signal. Print basic statistics at the end of the run. Provides an estimate of
- the absolute accuracy of the `get_t_split` method.
+ some limits to the absolute accuracy of the `get_t_split` method as discussed
+ above.
 
 # 5. Supported Sentences
 
@@ -789,22 +806,23 @@ subclassed. If a correctly formed sentence with a valid checksum is received,
 but is not supported, the `parse` method is called. By default this is a
 `lambda` which ignores args and returns `True`.
 
-An example of overriding this method may be found in the `as_rwGPS.py` module.
+A subclass may override `parse` to parse such sentences. An example this may be
+found in the `as_rwGPS.py` module.
 
-A subclass may redefine this to attempt to parse such sentences. The method
-receives an arg `segs` being a list of strings. These are the parts of the
-sentence which were delimited by commas. `segs[0]` is the sentence type with
-the leading '$' character removed.
+The `parse` method receives an arg `segs` being a list of strings. These are
+the parts of the sentence which were delimited by commas. See
+[section 2.5](./README.md#25-subclass-hooks) for details.
 
-It should return `True` if the sentence was successfully parsed, otherwise
-`False`.
+The `parse` method should return `True` if the sentence was successfully
+parsed, otherwise `False`.
 
-Where a sentence is successfully parsed, a null `reparse` method is called.
-This may be overridden in a subclass.
+Where a sentence is successfully parsed by the driver, a null `reparse` method
+is called. It receives the same string list as `parse`. It may be overridden in
+a subclass, possibly to extract further information from the sentence.
 
 ## 6.2 Special test programs
 
-These tests allow NMEA parsing to be verified in the absence of GPS hardware  
+These tests allow NMEA parsing to be verified in the absence of GPS hardware:  
 
  * `astests.py` Test with synthetic data. Run on CPython 3.x or MicroPython.
  * `astests_pyb.py` Test with synthetic data on UART. GPS hardware replaced by
@@ -823,10 +841,17 @@ The PPS signal on the MTK3339 occurs only when a fix has been achieved. The
 leading edge occurs on a 1s boundary with high absolute accuracy. It therefore
 follows that the RMC message carrying the time/date of that second arrives
 after the leading edge (because of processing and UART latency). It is also
-the case that on a second boundary minutes, hours and the date may roll over.
+the case that on a one-second boundary minutes, hours and the date may roll
+over.
 
 Further, the local_time offset can affect the date. These drivers aim to handle
-these factors.
+these factors. They do this by storing the epoch time (as an integer number of
+seconds) as the fundamental time reference. This is updated by the RMC message.
+The `utc`, `date` and `localtime` properties convert this to usable values with
+the latter two using the `local_offset` value to ensure correct results.
+
+A discussion of how the precision timing methods interpolate between epoch
+times may be found here [section 4.5](./README.md##45-absolute-accuracy).
 
 [MicroPython]:https://micropython.org/
 [frozen module]:https://learn.adafruit.com/micropython-basics-loading-modules/frozen-modules
