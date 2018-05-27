@@ -811,11 +811,15 @@ These tests allow NMEA parsing to be verified in the absence of GPS hardware:
 
 # 7. Notes on timing
 
-At the default baudrate of 9600 I measured a transmission time of 400ms when a
-set of GPSV messages came in. This time could be longer depending on data. So
-if an update rate higher than the default 1 second is to be used, either the
-baudrate should be increased or satellite information messages should be
-disabled.
+At the default 1s update rate the GPS hardware emits a PPS pulse followed by a
+set of messages. It then remains silent until the next PPS. At the default
+baudrate of 9600 the UART continued receiving data for 400ms when a set of GPSV
+messages came in. This time could be longer depending on data. So if an update
+rate higher than the default 1 second is to be used, either the baudrate should
+be increased or satellite information messages should be disabled.
+
+The accuracy of the timing drivers may be degraded if a PPS pulse arrives while
+the UART is still receiving. The update rate should be chosen to avoid this.
 
 The PPS signal on the MTK3339 occurs only when a fix has been achieved. The
 leading edge occurs on a 1s boundary with high absolute accuracy. It therefore
@@ -854,26 +858,27 @@ Sources of variable error:
  * Inaccuracy in the `ticks_us` timer (significant over 1 second).
 
 With correct usage when the PPS interrupt occurs the UART will not be receiving
-data (this can affect ISR latency). Consequently, on the Pyboard, variations in
-interrupt latency are small. Using an osciloscope a normal latency of 15μs was
-measured with the `time` test in `as_GPS_time.py` running. The maximum observed
-was 17μs.
+data (this can substantially affect ISR latency variability). Consequently, on
+the Pyboard, variations in interrupt latency are small. Using an osciloscope a
+normal latency of 15μs was measured with the `time` test in `as_GPS_time.py`
+running. The maximum observed was 17μs.
 
 The test program `as_GPS_time.py` has a test `usecs` which aims to assess the
 sources of variable error. Over a period it repeatedly uses `ticks_us` to
 measure the time between PPS pulses. Given that the actual time is effectively
 constant the measurement is of error relative to the expected value of 1s. At
-the end of the measurement period it calculates some simple statistics on the
-results. On targets other than a 168MHz Pyboard this may be run to estimate
+the end of the measurement period the test calculates some simple statistics on
+the results. On targets other than a 168MHz Pyboard this may be run to estimate
 overheads.
 
-Assuming the timing function has a similar latency to the ISR there is likely
-to be a 30μs lag coupled with ~+-35μs (SD) jitter largely caused by inaccuracy
-of `ticks_us` over a 1 second period. Note that I have halved the jitter time
-on the basis that the timing method is called asynchronously to PPS: the
-interval will centre on 0.5s. The assumption is that inaccuracy in the
-`ticks_us` timer measured in μs is proportional to the duration over which it
-is measured.
+The timing method `get_t_split` measures the time when it is called, which it
+records as quickly as possible. Assuming this has a similar latency to the ISR
+there is likely to be a 30μs lag coupled with ~+-35μs (SD) jitter largely
+caused by inaccuracy of `ticks_us` over a 1 second period. Note that I have
+halved the jitter time on the basis that the timing method is called
+asynchronously to PPS: the interval will centre on 0.5s. The assumption is that
+inaccuracy in the `ticks_us` timer measured in μs is proportional to the
+duration over which it is measured.
 
 [MicroPython]:https://micropython.org/
 [frozen module]:https://learn.adafruit.com/micropython-basics-loading-modules/frozen-modules

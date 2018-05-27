@@ -211,7 +211,7 @@ class GPS_Tbase():
         t = self.secs
         acquired = self.acquired
         machine.enable_irq(state)
-        x, secs = divmod(secs, 60)
+        x, secs = divmod(t, 60)
         hrs, mins = divmod(x, 60)
         dt = utime.ticks_diff(utime.ticks_us(), acquired)  # μs to time now
         ds, us = divmod(dt, 1000000)
