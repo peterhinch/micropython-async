@@ -578,7 +578,7 @@ callback with the `GPS` instance followed by a list of sentence segments
 followed by any args specified in the constructor.
 
 Other `PMTK` messages are passed to the optional message callback as described
-[in section 3.2](./README.md#32-constructor).
+[in section 3.2](./README.md#32-gps-class-constructor).
 
 # 4. Using GPS for accurate timing
 
