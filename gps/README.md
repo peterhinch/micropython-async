@@ -651,7 +651,7 @@ Mandatory positional args:
  * `pps_pin` An initialised input `Pin` instance for the PPS signal.
 
 Optional positional args:
- * `local_offset` See [base class](./README.md##21-constructor) for details of
+ * `local_offset` See [base class](./README.md#21-constructor) for details of
  these args.
  * `fix_cb`
  * `cb_mask`
@@ -671,7 +671,7 @@ This takes three mandatory positional args:
  * `pps_pin` An initialised input `Pin` instance for the PPS signal.
 
 Optional positional args:
- * `local_offset` See [base class](./README.md##32-gps-class-constructor) for
+ * `local_offset` See [base class](./README.md#32-gps-class-constructor) for
  details of these args.
  * `fix_cb`
  * `cb_mask`
