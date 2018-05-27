@@ -739,29 +739,9 @@ The claimed absolute accuracy of the leading edge of the PPS signal is +-10ns.
 In practice this is dwarfed by errors including latency in the MicroPython VM.
 Nevertheless the `get_ms` method can be expected to provide 1 digit (+-1ms)
 accuracy and the `get_t_split` method should provide accuracy on the order of
-+-70μs (standard deviation). This is based on a Pyboard running at 168MHz.
-
-Without an atomic clock synchronised to a Tier 1 NTP server absolute accuracy
-is hard to prove. However if the manufacturer's claim of the accuracy of the
-PPS signal is accepted, the errors contributed by MicroPython can be estimated.
-
-The driver interpolates between PPS pulses using `utime.ticks_us()` to provide
-μs precision. The leading edge of PPS triggers an interrupt which records the
-arrival time of PPS in the `acquired` bound variable. The ISR also records, to
-1 second precision, an accurate datetime derived from the previous RMC message.
-The time can therefore be estimated by taking the datetime and adding the
-elapsed time since the time stored in the `acquired` bound variable.
-
-Sources of error are:
- * Variations in interrupt latency.
- * Inaccuracy in the `ticks_us` timer.
- * Latency in the function used to retrieve the time.
- * Mean value of the interrupt latency.
-
-The test program `as_GPS_time.py` has a test `usecs` which aims to assess the
-first two. It repeatedly uses `ticks_us` to measure the time between PPS pulses
-over a minute then calculates some simple statistics on the result. On targets
-other than a 168MHz Pyboard this offers a way of estimating overheads.
+-5μs +65μs (standard deviation). This is based on a Pyboard running at 168MHz.
+The reasoning behind this is discussed in
+[section 2.5](./README.md#7-notes-on-timing).
 
 ## 4.6 Test/demo program as_GPS_time.py
 
@@ -850,8 +830,50 @@ seconds) as the fundamental time reference. This is updated by the RMC message.
 The `utc`, `date` and `localtime` properties convert this to usable values with
 the latter two using the `local_offset` value to ensure correct results.
 
-A discussion of how the precision timing methods interpolate between epoch
-times may be found here [section 4.5](./README.md##45-absolute-accuracy).
+## 7.1 Absolute accuracy
+
+Without an atomic clock synchronised to a Tier 1 NTP server, absolute accuracy
+(Einstein notwithstanding :-)) is hard to prove. However if the manufacturer's
+claim of the accuracy of the PPS signal is accepted, the errors contributed by
+MicroPython can be estimated.
+
+The driver interpolates between PPS pulses using `utime.ticks_us()` to provide
+μs precision. The leading edge of PPS triggers an interrupt which records the
+arrival time of PPS in the `acquired` bound variable. The ISR also records, to
+1 second precision, an accurate datetime derived from the previous RMC message.
+The time can therefore be estimated by taking the datetime and adding the
+elapsed time since the time stored in the `acquired` bound variable. This is
+subject to the following errors:
+
+Sources of fixed lag:  
+ * Latency in the function used to retrieve the time.
+ * Mean value of the interrupt latency.
+
+Sources of variable error:  
+ * Variations in interrupt latency (small on Pyboard).
+ * Inaccuracy in the `ticks_us` timer (significant over 1 second).
+
+With correct usage when the PPS interrupt occurs the UART will not be receiving
+data (this can affect ISR latency). Consequently, on the Pyboard, variations in
+interrupt latency are small. Using an osciloscope a normal latency of 15μs was
+measured with the `time` test in `as_GPS_time.py` running. The maximum observed
+was 17μs.
+
+The test program `as_GPS_time.py` has a test `usecs` which aims to assess the
+sources of variable error. Over a period it repeatedly uses `ticks_us` to
+measure the time between PPS pulses. Given that the actual time is effectively
+constant the measurement is of error relative to the expected value of 1s. At
+the end of the measurement period it calculates some simple statistics on the
+results. On targets other than a 168MHz Pyboard this may be run to estimate
+overheads.
+
+Assuming the timing function has a similar latency to the ISR there is likely
+to be a 30μs lag coupled with ~+-35μs (SD) jitter largely caused by inaccuracy
+of `ticks_us` over a 1 second period. Note that I have halved the jitter time
+on the basis that the timing method is called asynchronously to PPS: the
+interval will centre on 0.5s. The assumption is that inaccuracy in the
+`ticks_us` timer measured in μs is proportional to the duration over which it
+is measured.
 
 [MicroPython]:https://micropython.org/
 [frozen module]:https://learn.adafruit.com/micropython-basics-loading-modules/frozen-modules

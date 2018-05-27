@@ -139,7 +139,7 @@ async def do_usec(terminate):
         tick.clear()
         err = 1000000 - usecs
         count += 1
-        print('Error {:4d}μs {}'.format(err, '(skipped)' if count < 3 else ''))
+        print('Timing discrepancy is {:4d}μs {}'.format(err, '(skipped)' if count < 3 else ''))
         if count < 3:  # Discard 1st two samples from statistics
             continue  # as these can be unrepresentative
         max_us = max(max_us, err)
@@ -148,7 +148,7 @@ async def do_usec(terminate):
         nsamples += 1
     # SD: apply Bessel's correction for infinite population
     sd = int(math.sqrt(sd/(nsamples - 1)))
-    print('Error: {:5d}μs max {:5d}μs min.  Standard deviation {:4d}μs'.format(max_us, min_us, sd))
+    print('Timing discrepancy is: {:5d}μs max {:5d}μs min.  Standard deviation {:4d}μs'.format(max_us, min_us, sd))
 
 def usec(minutes=1):
     terminate = asyn.Event()
