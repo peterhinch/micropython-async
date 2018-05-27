@@ -1,5 +1,3 @@
-**NOTE: Under development. API may be subject to change**
-
 # 1. as_GPS
 
 This repository offers a suite of asynchronous device drivers for GPS devices
@@ -15,10 +13,10 @@ on this excellent library [micropyGPS].
  * The read-write driver enables altering the configuration of GPS devices
  based on the popular MTK3329/MTK3339 chips.
  * The above drivers are portable between [MicroPython] and Python 3.5 or above.
- * Timing drivers for [MicroPython] targets based on STM chips (e.g. the [Pyboad])
- extend the capabilities of the read-only and read-write drivers to provide
- precision timing. The RTC may be calibrated and set to achieve timepiece-level
- accuracy.
+ * Timing drivers for [MicroPython] only extend the capabilities of the
+ read-only and read-write drivers to provide precision μs class GPS timing. On
+ STM-based hosts (e.g. the Pyboard) the RTC may be set from GPS and calibrated
+ to achieve timepiece-level accuracy.
  * Drivers may be extended via subclassing, for example to support additional
  sentence types.
 
@@ -30,17 +28,17 @@ driver as they emit NMEA sentences on startup.
 
 NMEA sentence parsing is based on [micropyGPS] but with significant changes.
 
- * As asynchronous drivers they require `uasyncio` on [MicroPython]. They use
- asyncio under Python 3.5+.
+ * As asynchronous drivers they require `uasyncio` on [MicroPython] or asyncio
+ under Python 3.5+.
  * Sentence parsing is adapted for asynchronous use.
  * Rollover of local time into the date value enables worldwide use.
- * RAM allocation is reduced by various techniques: this reduces heap
- fragmentation, improving application reliability on RAM constrained devices.
+ * RAM allocation is cut by various techniques to lessen heap fragmentation.
+ This improves application reliability on RAM constrained devices.
  * Some functionality is devolved to a utility module, reducing RAM usage where
  these functions are unused.
  * The read/write driver is a subclass of the read-only driver.
  * Timing drivers are added offering time measurement with μs resolution and
- high absolute accuracy. These are implemented by subclassing.
+ high absolute accuracy. These are implemented by subclassing these drivers.
  * Hooks are provided for user-designed subclassing, for example to parse
  additional message types.
 
@@ -152,7 +150,7 @@ and the Adafruit [Ultimate GPS Breakout] module. If memory errors are
 encountered on resource constrained devices install each file as a
 [frozen module].
 
-For the [read/write driver](./README.md#3-the-gps-class-read/write-driver) the
+For the [read/write driver](./README.md#3-the-gps-class-read-write-driver) the
 file `as_rwGPS.py` must also be installed. The test/demo `ast_pbrw.py` may
 optionally be installed; this requires `aswitch.py` from the root of this
 repository.  
@@ -185,7 +183,8 @@ Three mechanisms exist for responding to outages.
 Mandatory positional arg:
  * `sreader` This is a `StreamReader` instance associated with the UART.
 Optional positional args:
- * `local_offset` Local timezone offset in hours realtive to UTC (GMT).
+ * `local_offset` Local timezone offset in hours realtive to UTC (GMT). May be
+ an integer or float.
  * `fix_cb` An optional callback. This runs after a valid message of a chosen
  type has been received and processed.
  * `cb_mask` A bitmask determining which sentences will trigger the callback.
@@ -255,8 +254,8 @@ gps = as_GPS.AS_GPS(sreader, fix_cb=callback, cb_mask= as_GPS.RMC | as_GPS.VTG)
 
 ### 2.2.2 Course
 
- * `speed` Optional arg `unit=KPH`. Returns the current speed in the specified
- units. Options: `as_GPS.KPH`, `as_GPS.MPH`, `as_GPS.KNOT`.
+ * `speed` Optional arg `unit=as_GPS.KPH`. Returns the current speed in the
+ specified units. Options: `as_GPS.KPH`, `as_GPS.MPH`, `as_GPS.KNOT`.
 
  * `speed_string` Optional arg `unit=as_GPS.KPH`. Returns the current speed in
  the specified units. Options `as_GPS.KPH`, `as_GPS.MPH`, `as_GPS.KNOT`.
@@ -268,7 +267,7 @@ gps = as_GPS.AS_GPS(sreader, fix_cb=callback, cb_mask= as_GPS.RMC | as_GPS.VTG)
 
  * `time_since_fix` No args. Returns time in milliseconds since last valid fix.
 
- * `time_string` Arg `local` default `True`. Returns the current time in form
+ * `time_string` Optional arg `local=True`. Returns the current time in form
  'hh:mm:ss.sss'. If `local` is `False` returns UTC time. 
 
  * `date_string` Optional arg `formatting=MDY`. Returns the date as
@@ -284,19 +283,20 @@ gps = as_GPS.AS_GPS(sreader, fix_cb=callback, cb_mask= as_GPS.RMC | as_GPS.VTG)
 
 On startup after a cold start it may take time before valid data is received.
 During and shortly after an outage messages will be absent. To avoid reading
-stale data reception of messages can be checked before accessing data.
+stale data, reception of messages can be checked before accessing data.
 
  * `data_received` Boolean args: `position`, `course`, `date`,  `altitude`.
- All default `False`. The coroutine will pause until valid messages of the
- specified types have been received. For example:
+ All default `False`. The coroutine will pause until at least one valid message
+ of each specified types has been received. This example will pause until new
+ position and altitude messages have been received:
 
 ```python
 while True:
     await my_gps.data_received(position=True, altitude=True)
-    # can now access these data values with confidence
+    # Access these data values now
 ```
 
-No check is provided for satellite data as this is checked by the
+No option is provided for satellite data: this functionality is provided by the
 `get_satellite_data` coroutine.
 
 ### 2.3.2 Satellite Data
@@ -345,24 +345,27 @@ The following are counts since instantiation.
  * `crc_fails` Usually 0 but can occur on baudrate change.
  * `clean_sentences` Number of sentences received without major failures.
  * `parsed_sentences` Sentences successfully parsed.
- * `unsupported_sentences` This is incremented if a sentence is received with a
- valid format and checksum, but is not supported by the class. This value will
- also increment if these are supported in a subclass (see section 5).
+ * `unsupported_sentences` This is incremented if a sentence is received which
+ has a valid format and checksum, but is not supported by the class. This
+ value will also increment if these are supported in a subclass. See
+ [section 6](./README.md#6-developer-notes).
 
 ### 2.4.3 Date and time
 
- * `utc` [hrs: int, mins: int, secs: int] UTC time e.g. [23, 3, 58]. Note
- that some GPS hardware may only provide integer seconds. The MTK3339 chip
- provides a float whose value is always an integer.
- * `local_time` [hrs: int, mins: int, secs: int] Local time.
- * `date` [day: int, month: int, year: int] e.g. [23, 3, 18]
+ * `utc` (property) [hrs: int, mins: int, secs: int] UTC time e.g.
+ [23, 3, 58]. Note the integer seconds value. The MTK3339 chip provides a float
+ buts its value is always an integer. To achieve accurate subsecond timing see
+ [section 4](./README.md#4-using-gps-for-accurate-timing).
+ * `local_time` (property) [hrs: int, mins: int, secs: int] Local time.
+ * `date` (property) [day: int, month: int, year: int] e.g. [23, 3, 18]
  * `local_offset` Local time offset in hrs as specified to constructor.
+ * `epoch_time` Integer. Time since the epoch. Epoch start depends on whether
+ running under MicroPython or Python 3.5+.
 
-The `utc` bound variable updates on receipt of RMC, GLL or GGA messages.
-
-The `date` and `local_time` variables are updated when an RMC message is
-received. A local time offset will affect the `date` value where the offset
-causes the local time to pass midnight.
+The `utc`, `date` and `local_time` properties updates on receipt of RMC
+messages. If a nonzero `local_offset` value is specified the `date` value will
+update when local time passes midnight (local time and date are computed from
+`epoch_time`).
 
 ### 2.4.4 Satellite data
 
@@ -394,28 +397,34 @@ and subsequent characters are stripped from the last. Thus if the string
 was received `reparse` would see  
 `['GPGGA','123519','4807.038','N','01131.000','E','1','08','0.9','545.4','M','46.9','M','','']`
 
-# 3. The GPS class read/write driver
+# 3. The GPS class read-write driver
 
 This is a subclass of `AS_GPS` and supports all its public methods, coroutines
-and bound variables. It provides limited support for sending PMTK command
-packets to GPS modules based on the MTK3329/MTK3339 chip. These include:
+and bound variables. It provides support for sending PMTK command packets to
+GPS modules based on the MTK3329/MTK3339 chip. These include:
 
  * Adafruit Ultimate GPS Breakout
  * Digilent PmodGPS
  * Sparkfun GPS Receiver LS20031
  * 43oh MTK3339 GPS Launchpad Boosterpack
 
+A subset of the PMTK packet types is supported but this may be extended by
+subclassing.
+
 ## 3.1 Files
 
  * `as_rwGPS.py` Supports the `GPS` class. This subclass of `AS_GPS` enables
- writing a limited subset of the MTK commands used on many popular devices.
- * `as_GPS.py` The library containing the base class.
+ writing PMTK packets.
+ * `as_GPS.py` The library containing the `AS_GPS` base class.
  * `as_GPS_utils.py` Additional formatted string methods.
- * `ast_pbrw.py` Test script which changes various attributes. This will pause
- until a fix has been achieved. After that changes are made for about 1 minute,
- then it runs indefinitely reporting data at the REPL and on the LEDs. It may
- be interrupted with `ctrl-c` when the default baudrate will be restored.  
- LED's:
+ * `ast_pbrw.py` Test script which changes various attributes.
+ 
+The test script will pause until a fix has been achieved. After that changes
+are made for about 1 minute, after which it runs indefinitely reporting data at
+the REPL and on the LEDs. It may be interrupted with `ctrl-c` when the default
+baudrate will be restored.  
+
+LED's:
  * Red: Toggles each time a GPS update occurs.
  * Green: ON if GPS data is being received, OFF if no data received for >10s.
  * Yellow: Toggles each 4s if navigation updates are being received.
@@ -452,6 +461,7 @@ loop.run_until_complete(test())
 This takes two mandatory positional args:
  * `sreader` This is a `StreamReader` instance associated with the UART.
  * `swriter` This is a `StreamWriter` instance associated with the UART.
+
 Optional positional args:
  * `local_offset` Local timezone offset in hours realtive to UTC (GMT).
  * `fix_cb` An optional callback which runs each time a valid fix is received.
@@ -469,21 +479,20 @@ If implemented the message callback will receive the following positional args:
 
 In the case of handled messages the list of text strings has length 2. The
 first is 'version', 'enabled' or 'antenna' followed by the value of the
-relevant bound variable e.g. ['antenna', 3].
+relevant bound variable e.g. `['antenna', 3]`.
 
-For unhandled messages text strings are as received, except that element 0 has
-the '$' symbol removed. The last element is the last informational string - the
-checksum has been verified and is not in the list.
+For unhandled messages text strings are as received, processed as per
+[section 2.5](./README.md#25-subclass-hooks).
 
 The args presented to the fix callback are as described in
 [section 2.1](./README.md#21-constructor).
 
 ## 3.3 Public coroutines
 
- * `baudrate` Arg: baudrate. Must be 4800, 9600, 14400, 19200, 38400, 57600 or
- 115200. See below.
- * `update_interval` Arg: interval in ms. Default 1000. Must be between 100 and
- 10000. If the rate is to be increased see
+ * `baudrate` Arg: baudrate. Must be 4800, 9600, 14400, 19200, 38400, 57600
+ or 115200. See below.
+ * `update_interval` Arg: interval in ms. Default 1000. Must be between 100
+ and 10000. If the rate is to be increased see
  [notes on timing](./README.md#7-notes-on-timing).
  * `enable` Determine the frequency with which each sentence type is sent. A
  value of 0 disables a sentence, a value of 1 causes it to be sent with each
@@ -493,27 +502,26 @@ The args presented to the fix callback are as described in
  `gll=0`, `rmc=1`, `vtg=1`, `gga=1`, `gsa=1`, `gsv=5`, `chan=0`. The last
  represents GPS channel status. These values are the factory defaults.
  * `command` Arg: a command from the following set:
-
- * `as_rwGPS.HOT_START` Use all available data in the chip's NV Store.
- * `as_rwGPS.WARM_START` Don't use Ephemeris at re-start.
- * `as_rwGPS.COLD_START` Don't use Time, Position, Almanacs and Ephemeris data
- at re-start.
- * `as_rwGPS.FULL_COLD_START` A 'cold_start', but additionally clear
- system/user configurations at re-start. That is, reset the receiver to the
- factory status.
- * `as_rwGPS.STANDBY` Put into standby mode. Sending any command resumes
- operation.
- * `as_rwGPS.DEFAULT_SENTENCES` Sets all sentence frequencies to factory
- default values as listed under `enable`.
- * `as_rwGPS.VERSION` Causes the GPS to report its firmware version. This will
- appear as the `version` bound variable when the report is received.
- * `as_rwGPS.ENABLE` Causes the GPS to report the enabled status of the various
- message types as set by the `enable` coroutine. This will appear as the
- `enable` bound variable when the report is received.
- * `as_rwGPS.ANTENNA` Causes the GPS to send antenna status messages. The
- status value will appear in the `antenna` bound variable each time a report is
- received.
- * `as_rwGPS.NO_ANTENNA` Turns off antenna messages.
+   * `as_rwGPS.HOT_START` Use all available data in the chip's NV Store.
+   * `as_rwGPS.WARM_START` Don't use Ephemeris at re-start.
+   * `as_rwGPS.COLD_START` Don't use Time, Position, Almanacs and Ephemeris data
+   at re-start.
+   * `as_rwGPS.FULL_COLD_START` A 'cold_start', but additionally clear
+   system/user configurations at re-start. That is, reset the receiver to the
+   factory status.
+   * `as_rwGPS.STANDBY` Put into standby mode. Sending any command resumes
+   operation.
+   * `as_rwGPS.DEFAULT_SENTENCES` Sets all sentence frequencies to factory
+   default values as listed under `enable`.
+   * `as_rwGPS.VERSION` Causes the GPS to report its firmware version. This will
+   appear as the `version` bound variable when the report is received.
+   * `as_rwGPS.ENABLE` Causes the GPS to report the enabled status of the various
+   message types as set by the `enable` coroutine. This will appear as the
+   `enable` bound variable when the report is received.
+   * `as_rwGPS.ANTENNA` Causes the GPS to send antenna status messages. The
+   status value will appear in the `antenna` bound variable each time a report is
+   received.
+   * `as_rwGPS.NO_ANTENNA` Turns off antenna messages.
 
 **Antenna issues** In my testing the antenna functions have issues which
 hopefully will be fixed in later firmware versions. The `NO_ANTENNA` message
