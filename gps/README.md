@@ -699,8 +699,9 @@ Subsequent calls may occur without restriction; see usage example above.
 
 These methods use the MicroPython microsecond timer to interpolate between PPS
 pulses. They do not involve the RTC. Hence they should work on any MicroPython
-target supporting `machine.ticks_us`.
- 
+target supporting `machine.ticks_us`. These methods are currently based on the
+default 1s update rate. If this is increased they may return incorrect values.
+
 See [Absolute accuracy](./README.md#45-absolute-accuracy) for a discussion of
 the accuracy of these methods.
 
