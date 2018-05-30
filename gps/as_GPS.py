@@ -21,6 +21,8 @@ try:
 except ImportError:
     const = lambda x : x
 
+from math import modf
+
 # Angle formats
 DD = const(1)
 DMS = const(2)
@@ -50,6 +52,8 @@ COURSE = const(RMC | VTG)
 
 
 class AS_GPS(object):
+    # Can omit time consuming checks: CRC 6ms Bad char and line length 9ms
+    FULL_CHECK = True
     _SENTENCE_LIMIT = 76  # Max sentence length (based on GGA sentence)
     _NO_FIX = 1
 
@@ -71,7 +75,7 @@ class AS_GPS(object):
         day_of_week = day_of_week if day_of_week else 7
         return day_of_week
 
-    # 8-bit xor of characters between "$" and "*"
+    # 8-bit xor of characters between "$" and "*". Takes 6ms on Pyboard!
     @staticmethod
     def _crc_check(res, ascii_crc):
         try:
@@ -137,6 +141,8 @@ class AS_GPS(object):
         # precise timing use PPS signal and as_tGPS library.
         self.local_offset = local_offset  # hrs
         self.epoch_time = 0  # Integer secs since epoch (Y2K under MicroPython)
+        # Add ms if supplied by device. Only used by timing drivers.
+        self.msecs = 0
 
         # Position/Motion
         self._latitude = [0, 0.0, 'N']  # (°, mins, N/S)
@@ -151,6 +157,7 @@ class AS_GPS(object):
         self._last_sv_sentence = 0  # for GSV parsing
         self._total_sv_sentences = 0
         self._satellite_data = dict()  # for get_satellite_data()
+        self._update_ms = 1000  # Update rate for timing drivers. Default 1 sec.
 
         # GPS Info
         self.satellites_in_view = 0
@@ -182,20 +189,22 @@ class AS_GPS(object):
     # Update takes a line of text
     def _update(self, line):
         line = line.rstrip()
-        try:
-            next(c for c in line if ord(c) < 10 or ord(c) > 126)
-            return None  # Bad character received
-        except StopIteration:
-            pass  # All good
+        if self.FULL_CHECK:  # 9ms on Pyboard
+            try:
+                next(c for c in line if ord(c) < 10 or ord(c) > 126)
+                return None  # Bad character received
+            except StopIteration:
+                pass  # All good
 
-        if len(line) > self._SENTENCE_LIMIT or not '*' in line:
-            return None  # Too long or malformed
+            if len(line) > self._SENTENCE_LIMIT or not '*' in line:
+                return None  # Too long or malformed
 
         a = line.split(',')
         segs = a[:-1] + a[-1].split('*')
-        if not self._crc_check(line, segs[-1]):
-            self.crc_fails += 1  # Update statistics
-            return None
+        if self.FULL_CHECK:  # 6ms on Pyboard
+            if not self._crc_check(line, segs[-1]):
+                self.crc_fails += 1  # Update statistics
+                return None
         self.clean_sentences += 1  # Sentence is good but unparsed.
         segs[0] = segs[0][1:]  # discard $
         segs = segs[:-1]  # and checksum
@@ -261,11 +270,28 @@ class AS_GPS(object):
             return False
         try:
             hrs = int(utc_string[0:2])  # h
+            if hrs > 24 or hrs < 0:
+                return False
             mins = int(utc_string[2:4])  # mins
-            secs = int(utc_string[4:6])  # secs from chip is a float but FP is always 0
+            if mins > 60 or mins < 0:
+                return False
+            # Secs from MTK3339 chip is a float but others may return only 2 chars
+            # for integer secs. If a float keep epoch as integer seconds and store
+            # the fractional part as integer ms (ms since midnight fits 32 bits).
+            fss, fsecs = modf(float(utc_string[4:]))
+            secs = int(fsecs)
+            if secs > 60 or secs < 0:
+                return False
+            self.msecs = int(fss * 1000)
             d = int(date_string[0:2])  # day
+            if d > 31 or d < 1:
+                return False
             m = int(date_string[2:4])  # month
+            if m > 12 or m < 1:
+                return False
             y = int(date_string[4:6]) + 2000  # year
+            if y < 2018 or y > 2030:
+                return False
         except ValueError:  # Bad date or time strings
             return False
         wday = self._week_day(y, m, d)
@@ -284,15 +310,17 @@ class AS_GPS(object):
 # The ._received dict entry is initially set False and is set only if the data
 # was successfully updated. Valid because parsers are synchronous methods.
 
+# Chip sends rubbish RMC messages before first PPS pulse, but these have data
+# valid False
     def _gprmc(self, gps_segments):  # Parse RMC sentence
         self._valid &= ~RMC
-        # UTC Timestamp and date.
-        if not self._set_date_time(gps_segments[1], gps_segments[9]):
-            return False
-
         # Check Receiver Data Valid Flag
         if gps_segments[2] != 'A':
             return True  # Correctly parsed
+
+        # UTC Timestamp and date.
+        if not self._set_date_time(gps_segments[1], gps_segments[9]):
+            return False
 
         # Data from Receiver is Valid/Has Fix. Longitude / Latitude
         if not self._fix(gps_segments, 3, 5):

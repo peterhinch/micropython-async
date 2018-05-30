@@ -14,9 +14,10 @@ on this excellent library [micropyGPS].
  based on the popular MTK3329/MTK3339 chips.
  * The above drivers are portable between [MicroPython] and Python 3.5 or above.
  * Timing drivers for [MicroPython] only extend the capabilities of the
- read-only and read-write drivers to provide precision μs class GPS timing. On
+ read-only and read-write drivers to provide accurate sub-ms GPS timing. On
  STM-based hosts (e.g. the Pyboard) the RTC may be set from GPS and calibrated
  to achieve timepiece-level accuracy.
+ * Can write `.kml` files for displaying journeys on Google Earth.
  * Drivers may be extended via subclassing, for example to support additional
  sentence types.
 
@@ -28,8 +29,8 @@ driver as they emit NMEA sentences on startup.
 
 NMEA sentence parsing is based on [micropyGPS] but with significant changes.
 
- * As asynchronous drivers they require `uasyncio` on [MicroPython] or asyncio
- under Python 3.5+.
+ * As asynchronous drivers they require `uasyncio` on [MicroPython] or
+ `asyncio` under Python 3.5+.
  * Sentence parsing is adapted for asynchronous use.
  * Rollover of local time into the date value enables worldwide use.
  * RAM allocation is cut by various techniques to lessen heap fragmentation.
@@ -359,8 +360,8 @@ The following are counts since instantiation.
  * `local_time` (property) [hrs: int, mins: int, secs: int] Local time.
  * `date` (property) [day: int, month: int, year: int] e.g. [23, 3, 18]
  * `local_offset` Local time offset in hrs as specified to constructor.
- * `epoch_time` Integer. Time since the epoch. Epoch start depends on whether
- running under MicroPython or Python 3.5+.
+ * `epoch_time` Integer. Time in seconds since the epoch. Epoch start depends
+ on whether running under MicroPython (Y2K) or Python 3.5+ (1970 on Unix).
 
 The `utc`, `date` and `local_time` properties updates on receipt of RMC
 messages. If a nonzero `local_offset` value is specified the `date` value will
@@ -532,6 +533,15 @@ cleared by power cycling the GPS.
 
 ### 3.3.1 Changing baudrate
 
+I have experienced failures on a Pyboard V1.1 at baudrates higher than 19200.
+Under investigation.                                                          **TODO UPDATE THIS**
+
+Further, there are problems (at least with my GPS firmware build
+['AXN_2.31_3339_13101700', '5632', 'PA6H', '1.0']) whereby setting baudrates
+only works for certain rates. 19200, 38400 and 115200 work. 4800 sets 115200.
+Importantly 9600 does nothing. This means that the only way to restore the
+default is to perform a `FULL_COLD_START`. The test programs do this.
+
 If you change the GPS baudrate the UART should be re-initialised immediately
 after the `baudrate` coroutine terminates:
 
@@ -605,7 +615,8 @@ and `GPS_RWTimer` for read/write access.
  * `as_GPS_utils.py` Additional formatted string methods for `AS_GPS`.
  * `as_rwGPS.py` Required if using the read/write variant.
  * `as_tGPS.py` The library. Provides `GPS_Timer` and `GPS_RWTimer` classes.
- * `as_GPS_time.py` Test scripts for above.
+ * `as_GPS_time.py` Test scripts for read only driver.
+ * `as_rwGPS_time.py` Test scripts for read/write driver.
 
 ### 4.1.1 Usage example
 
@@ -687,20 +698,21 @@ Optional positional args:
 
 ## 4.3 Public methods
 
-These return an accurate GPS time of day. As such they return as fast as
-possible. To achieve this they avoid allocation and dispense with error
-checking: these functions should not be called until a valid time/date message
-and PPS signal have occurred. Await the `ready` coroutine prior to first use.
-Subsequent calls may occur without restriction; see usage example above.
+The methods that return an accurate GPS time of day run as fast as possible. To
+achieve this they avoid allocation and dispense with error checking: these
+methods should not be called until a valid time/date message and PPS signal
+have occurred. Await the `ready` coroutine prior to first use. Subsequent calls
+may occur without restriction; see usage example above.
+
+These methods use the MicroPython microsecond timer to interpolate between PPS
+pulses. They do not involve the RTC. Hence they should work on any MicroPython
+target supporting `machine.ticks_us`.
 
  * `get_ms` No args. Returns an integer: the period past midnight in ms.
  * `get_t_split` No args. Returns time of day in a list of form
  `[hrs: int, mins: int, secs: int, μs: int]`.
-
-These methods use the MicroPython microsecond timer to interpolate between PPS
-pulses. They do not involve the RTC. Hence they should work on any MicroPython
-target supporting `machine.ticks_us`. These methods are currently based on the
-default 1s update rate. If this is increased they may return incorrect values.
+ * `close` No args. Shuts down the PPS pin interrupt handler. Usage is optional
+ but in test situations avoids the ISR continuing to run after termination.
 
 See [Absolute accuracy](./README.md#45-absolute-accuracy) for a discussion of
 the accuracy of these methods.

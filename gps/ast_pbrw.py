@@ -3,7 +3,7 @@
 # Runs on a Pyboard with GPS data on pin X2.
 # Copyright (c) Peter Hinch 2018
 # Released under the MIT License (MIT) - see LICENSE file
-# Test asynchronous GPS device driver as_pyGPS
+# Test asynchronous GPS device driver as_rwGPS
 
 # LED's:
 # Green indicates data is being received.
@@ -18,6 +18,7 @@ import aswitch
 import as_GPS
 import as_rwGPS
 
+# Avoid multiple baudrates. Tests use 9600 or 19200 only.
 BAUDRATE = 19200
 red, green, yellow, blue = pyb.LED(1), pyb.LED(2), pyb.LED(3), pyb.LED(4)
 ntimeouts = 0
@@ -155,12 +156,15 @@ async def gps_test():
     loop.create_task(change_status(gps, uart))
 
 async def shutdown():
-    # If power was lost in last session can retrieve connectivity in the subsequent
-    # stuck session with ctrl-c
+    # Normally UART is already at BAUDRATE. But if last session didn't restore
+    # factory baudrate we can restore connectivity in the subsequent stuck
+    # session with ctrl-c.
     uart.init(BAUDRATE)
     await asyncio.sleep(1)
-    print('Restoring default baudrate.')
-    await gps.baudrate(9600)
+    await gps.command(as_rwGPS.FULL_COLD_START)
+    print('Factory reset')
+    #print('Restoring default baudrate.')
+    #await gps.baudrate(9600)
 
 loop = asyncio.get_event_loop()
 loop.create_task(gps_test())

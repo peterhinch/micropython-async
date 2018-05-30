@@ -77,6 +77,7 @@ class GPS(as_GPS.AS_GPS):
             raise ValueError('Invalid update interval {:d}ms.'.format(ms))
         sentence = bytearray('$PMTK220,{:d}*00\r\n'.format(ms))
         await self._send(sentence)
+        self._update_ms = ms  # Save for timing driver
 
     async def enable(self, *, gll=0, rmc=1, vtg=1, gga=1, gsa=1, gsv=5, chan=0):
         fstr = '$PMTK314,{:d},{:d},{:d},{:d},{:d},{:d},0,0,0,0,0,0,0,0,0,0,0,0,{:d}*00\r\n'

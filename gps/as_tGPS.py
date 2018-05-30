@@ -47,34 +47,45 @@ def gps_rw_t_init(self, sreader, swriter, pps_pin, local_offset=0,
 
 class GPS_Tbase():
     def setup(self, pps_pin, pps_cb, pps_cb_args):
+        self._pps_pin = pps_pin
         self._pps_cb = pps_cb
         self._pps_cb_args = pps_cb_args
-        self.secs = None  # Integer time since midnight at last PPS
+        self.msecs = None  # Integer time in ms since midnight at last PPS
+        self.t_ms = 0  # ms since midnight
         self.acquired = None  # Value of ticks_us at edge of PPS
         self._rtc_set = False  # Set RTC flag
         self._rtcbuf = [0]*8  # Buffer for RTC setting
         self._time = [0]*4  # get_t_split() time buffer.
         loop = asyncio.get_event_loop()
-        loop.create_task(self._start(pps_pin))
+        loop.create_task(self._start())
 
-    async def _start(self, pps_pin):
+    async def _start(self):
         await self.data_received(date=True)
-        pps_pin.irq(self._isr, trigger = machine.Pin.IRQ_RISING)
+        self._pps_pin.irq(self._isr, trigger = machine.Pin.IRQ_RISING)
 
+    def close(self):
+        self._pps_pin.irq(None)
+
+    # If update rate > 1Hz, when PPS edge occurs the last RMC message will have
+    # a nonzero ms value. Need to set RTC to 1 sec after the last 1 second boundary
     def _isr(self, _):
         acquired = utime.ticks_us()  # Save time of PPS
         # Time in last NMEA sentence was time of last PPS.
-        # Reduce to secs since midnight local time.
-        secs = (self.epoch_time + int(3600*self.local_offset)) % 86400
-        # This PPS is one second later
-        secs += 1
-        if secs >= 86400:  # Next PPS will deal with rollover
+        # Reduce to integer secs since midnight local time.
+        isecs = (self.epoch_time + int(3600*self.local_offset)) % 86400
+        # ms since midnight (28 bits). Add in any ms in RMC data
+        msecs = isecs * 1000 + self.msecs
+        # This PPS is presumed to be one update later
+        msecs += self._update_ms
+        if msecs >= 86400000:  # Next PPS will deal with rollover
             return
-        self.secs = secs
+        self.t_ms = msecs  # Current time in ms past midnight
         self.acquired = acquired
+        # Set RTC if required and if last RMC indicated a 1 second boundary
         if self._rtc_set:
-            # Time in last NMEA sentence. Earlier test ensures no rollover.
-            self._rtcbuf[6] = secs % 60
+            # Time as int(seconds) in last NMEA sentence. Earlier test ensures
+            # no rollover when we add 1.
+            self._rtcbuf[6] = (isecs + 1) % 60
             rtc.datetime(self._rtcbuf)
             self._rtc_set = False
         # Could be an outage here, so PPS arrives many secs after last sentence
@@ -197,21 +208,23 @@ class GPS_Tbase():
     # No allocation.
     def get_ms(self):
         state = machine.disable_irq()
-        t = self.secs
+        t = self.t_ms
         acquired = self.acquired
         machine.enable_irq(state)
-        return 1000*t + utime.ticks_diff(utime.ticks_us(), acquired) // 1000
+        return t + utime.ticks_diff(utime.ticks_us(), acquired) // 1000
 
     # Return accurate GPS time of day (hrs: int, mins: int, secs: int, μs: int)
     # The ISR can skip an update of .secs if a day rollover would occur. Next
-    # RMC handles this, so subsequent ISR will see hms = 0, 0, 1 and a value of
-    # .acquired > 1000000.
+    # RMC handles this, so if updates are at 1s intervals the subsequent ISR
+    # will see hms = 0, 0, 1 and a value of .acquired > 1000000.
+    # Even at the slowest update rate of 10s this can't overflow into minutes.
     def get_t_split(self):
         state = machine.disable_irq()
-        t = self.secs
+        t = self.t_ms
         acquired = self.acquired
         machine.enable_irq(state)
-        x, secs = divmod(t, 60)
+        isecs, ims = divmod(t, 1000)  # Get integer secs and ms
+        x, secs = divmod(isecs, 60)
         hrs, mins = divmod(x, 60)
         dt = utime.ticks_diff(utime.ticks_us(), acquired)  # μs to time now
         ds, us = divmod(dt, 1000000)
@@ -219,7 +232,7 @@ class GPS_Tbase():
         self._time[0] = hrs
         self._time[1] = mins
         self._time[2] = secs + ds
-        self._time[3] = us
+        self._time[3] = us + ims*1000
         return self._time
 
 GPS_Timer = type('GPS_Timer', (GPS_Tbase, as_GPS.AS_GPS), {'__init__': gps_ro_t_init})
