@@ -8,11 +8,15 @@
 
 # Copyright (c) 2018 Peter Hinch
 # Released under the MIT License (MIT) - see LICENSE file
-# Run under CPython 3.x or MicroPython
+# Run under CPython 3.5+ or MicroPython
 
 import as_GPS
+try:
+    import uasyncio as asyncio
+except ImportError:
+    import asyncio
 
-def run_tests():
+async def run():
     sentence_count = 0
 
     test_RMC = ['$GPRMC,081836,A,3751.65,S,14507.36,E,000.0,360.0,130998,011.3,E*62\n',
@@ -46,7 +50,7 @@ def run_tests():
     for sentence in test_RMC:
         my_gps._valid = 0
         sentence_count += 1
-        sentence = my_gps._update(sentence)
+        sentence = await my_gps._update(sentence)
         if sentence is None:
             print('RMC sentence is invalid.')
         else:
@@ -64,7 +68,7 @@ def run_tests():
     for sentence in test_GLL:
         my_gps._valid = 0
         sentence_count += 1
-        sentence = my_gps._update(sentence)
+        sentence = await my_gps._update(sentence)
         if sentence is None:
             print('GLL sentence is invalid.')
         else:
@@ -78,7 +82,7 @@ def run_tests():
     for sentence in test_VTG:
         my_gps._valid = 0
         sentence_count += 1
-        sentence = my_gps._update(sentence)
+        sentence = await my_gps._update(sentence)
         if sentence is None:
             print('VTG sentence is invalid.')
         else:
@@ -92,7 +96,7 @@ def run_tests():
     for sentence in test_GGA:
         my_gps._valid = 0
         sentence_count += 1
-        sentence = my_gps._update(sentence)
+        sentence = await my_gps._update(sentence)
         if sentence is None:
             print('GGA sentence is invalid.')
         else:
@@ -110,7 +114,7 @@ def run_tests():
     for sentence in test_GSA:
         my_gps._valid = 0
         sentence_count += 1
-        sentence = my_gps._update(sentence)
+        sentence = await my_gps._update(sentence)
         if sentence is None:
             print('GSA sentence is invalid.')
         else:
@@ -125,7 +129,7 @@ def run_tests():
     for sentence in test_GSV:
         my_gps._valid = 0
         sentence_count += 1
-        sentence = my_gps._update(sentence)
+        sentence = await my_gps._update(sentence)
         if sentence is None:
             print('GSV sentence is invalid.')
         else:
@@ -165,6 +169,10 @@ def run_tests():
     print('Sentences Parsed:', my_gps.parsed_sentences)
     print('Unsupported sentences:', my_gps.unsupported_sentences)
     print('CRC_Fails:', my_gps.crc_fails)
+
+def run_tests():
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(run())
 
 if __name__ == "__main__":
     run_tests()

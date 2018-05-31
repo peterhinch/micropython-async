@@ -185,37 +185,40 @@ class AS_GPS(object):
             except UnicodeError:  # Garbage: can happen e.g. on baudrate change
                 continue
             loop.create_task(self._update(res))
-            await asyncio.sleep_ms(0)  # Ensure task runs and res is copied
+            await asyncio.sleep(0)  # Ensure task runs and res is copied
 
     # Update takes a line of text
-    def _update(self, line):
-        line = line.rstrip()
+    async def _update(self, line):
+        line = line.rstrip()  # Copy line
         if self.FULL_CHECK:  # 9ms on Pyboard
             try:
                 next(c for c in line if ord(c) < 10 or ord(c) > 126)
-                return None  # Bad character received
+                return  # Bad character received
             except StopIteration:
                 pass  # All good
-            await asyncio.sleep_ms(0)
+            await asyncio.sleep(0)
             if len(line) > self._SENTENCE_LIMIT or not '*' in line:
-                return None  # Too long or malformed
+                return  # Too long or malformed
 
         a = line.split(',')
         segs = a[:-1] + a[-1].split('*')
-        await asyncio.sleep_ms(0)
+        await asyncio.sleep(0)
 
         if self.FULL_CHECK:  # 6ms on Pyboard
             if not self._crc_check(line, segs[-1]):
                 self.crc_fails += 1  # Update statistics
-                return None
-            await asyncio.sleep_ms(0)
+                return
+            await asyncio.sleep(0)
 
         self.clean_sentences += 1  # Sentence is good but unparsed.
         segs[0] = segs[0][1:]  # discard $
         segs = segs[:-1]  # and checksum
         if segs[0] in self.supported_sentences:
-            s_type = self.supported_sentences[segs[0]](segs)  # Parse
-            await asyncio.sleep_ms(0)
+            try:
+                s_type = self.supported_sentences[segs[0]](segs)  # Parse
+            except ValueError:
+                s_type = False
+            await asyncio.sleep(0)
             if isinstance(s_type, int) and (s_type & self.cb_mask):
                 # Successfully parsed, data was valid and mask matches sentence type
                 self._fix_cb(self, s_type, *self._fix_cb_args)  # Run the callback
@@ -240,23 +243,21 @@ class AS_GPS(object):
     # Fix and Time Functions
     ########################################
 
+    # Caller traps ValueError
     def _fix(self, gps_segments, idx_lat, idx_long):
-        try:
-            # Latitude
-            l_string = gps_segments[idx_lat]
-            lat_degs = int(l_string[0:2])
-            lat_mins = float(l_string[2:])
-            lat_hemi = gps_segments[idx_lat + 1]
-            # Longitude
-            l_string = gps_segments[idx_long]
-            lon_degs = int(l_string[0:3])
-            lon_mins = float(l_string[3:])
-            lon_hemi = gps_segments[idx_long + 1]
-        except ValueError:
-            return False
+        # Latitude
+        l_string = gps_segments[idx_lat]
+        lat_degs = int(l_string[0:2])
+        lat_mins = float(l_string[2:])
+        lat_hemi = gps_segments[idx_lat + 1]
+        # Longitude
+        l_string = gps_segments[idx_long]
+        lon_degs = int(l_string[0:3])
+        lon_mins = float(l_string[3:])
+        lon_hemi = gps_segments[idx_long + 1]
 
         if lat_hemi not in 'NS'or lon_hemi not in 'EW':
-            return False
+            raise ValueError
         self._latitude[0] = lat_degs  # In-place to avoid allocation
         self._latitude[1] = lat_mins
         self._latitude[2] = lat_hemi
@@ -264,94 +265,66 @@ class AS_GPS(object):
         self._longitude[1] = lon_mins
         self._longitude[2] = lon_hemi
         self._fix_time = self._get_time()
-        return True
 
     def _dtset(self, _):  # For subclass
         pass
 
     # A local offset may exist so check for date rollover. Local offsets can
     # include fractions of an hour but not seconds (AFAIK).
+    # Caller traps ValueError
     def _set_date_time(self, utc_string, date_string):
         if not date_string or not utc_string:
-            return False
-        try:
-            hrs = int(utc_string[0:2])  # h
-            if hrs > 24 or hrs < 0:
-                return False
-            mins = int(utc_string[2:4])  # mins
-            if mins > 60 or mins < 0:
-                return False
-            # Secs from MTK3339 chip is a float but others may return only 2 chars
-            # for integer secs. If a float keep epoch as integer seconds and store
-            # the fractional part as integer ms (ms since midnight fits 32 bits).
-            fss, fsecs = modf(float(utc_string[4:]))
-            secs = int(fsecs)
-            if secs > 60 or secs < 0:
-                return False
-            self.msecs = int(fss * 1000)
-            d = int(date_string[0:2])  # day
-            if d > 31 or d < 1:
-                return False
-            m = int(date_string[2:4])  # month
-            if m > 12 or m < 1:
-                return False
-            y = int(date_string[4:6]) + 2000  # year
-            if y < 2018 or y > 2030:
-                return False
-        except ValueError:  # Bad date or time strings
-            return False
+            raise ValueError
+        hrs = int(utc_string[0:2])  # h
+        mins = int(utc_string[2:4])  # mins
+        # Secs from MTK3339 chip is a float but others may return only 2 chars
+        # for integer secs. If a float keep epoch as integer seconds and store
+        # the fractional part as integer ms (ms since midnight fits 32 bits).
+        fss, fsecs = modf(float(utc_string[4:]))
+        secs = int(fsecs)
+        self.msecs = int(fss * 1000)
+        d = int(date_string[0:2])  # day
+        m = int(date_string[2:4])  # month
+        y = int(date_string[4:6]) + 2000  # year
         wday = self._week_day(y, m, d)
         t = int(self._mktime((y, m, d, hrs, mins, int(secs), wday - 1, 0, 0)))
         self.epoch_time = t  # This is the fundamental datetime reference.
         self._dtset(wday)  # Subclass may override
-        return True
 
     ########################################
     # Sentence Parsers
     ########################################
 
 # For all parsers:
-# Return value: True if sentence was correctly parsed. This includes cases where
-# data from receiver is correctly formed but reports an invalid state.
-# The ._received dict entry is initially set False and is set only if the data
-# was successfully updated. Valid because parsers are synchronous methods.
+# Initially the ._valid bit for the sentence type is cleared.
+# On error a ValueError is raised: trapped by the caller.
+# On successful parsing the ._valid bit is set.
+# The ._valid mechanism enables the data_received coro to determine what
+# sentence types have been received.
 
-# Chip sends rubbish RMC messages before first PPS pulse, but these have data
-# valid False
+    # Chip sends rubbish RMC messages before first PPS pulse, but these have
+    # data valid set to 'V' (void)
     def _gprmc(self, gps_segments):  # Parse RMC sentence
         self._valid &= ~RMC
-        # Check Receiver Data Valid Flag
+        # Check Receiver Data Valid Flag ('A' active)
         if gps_segments[2] != 'A':
-            return True  # Correctly parsed
+            raise ValueError
 
-        # UTC Timestamp and date.
-        if not self._set_date_time(gps_segments[1], gps_segments[9]):
-            return False
+        # UTC Timestamp and date. Can raise ValueError.
+        self._set_date_time(gps_segments[1], gps_segments[9])
 
         # Data from Receiver is Valid/Has Fix. Longitude / Latitude
-        if not self._fix(gps_segments, 3, 5):
-            return False
-
+        # Can raise ValueError.
+        self._fix(gps_segments, 3, 5)
         # Speed
-        try:
-            spd_knt = float(gps_segments[7])
-        except ValueError:
-            return False
-
+        spd_knt = float(gps_segments[7])
         # Course
-        try:
-            course = float(gps_segments[8])
-        except ValueError:
-            return False
-
+        course = float(gps_segments[8])
         # Add Magnetic Variation if firmware supplies it
         if gps_segments[10]:
-            try:
-                mv = float(gps_segments[10])
-            except ValueError:
-                return False
+            mv = float(gps_segments[10])
             if gps_segments[11] not in ('EW'):
-                return False
+                raise ValueError
             self.magvar = mv if gps_segments[11] == 'E' else -mv
         # Update Object Data
         self._speed = spd_knt
@@ -363,12 +336,10 @@ class AS_GPS(object):
         self._valid &= ~GLL
         # Check Receiver Data Valid Flag
         if gps_segments[6] != 'A':  # Invalid. Don't update data
-            return True  # Correctly parsed
+            raise ValueError
 
         # Data from Receiver is Valid/Has Fix. Longitude / Latitude
-        if not self._fix(gps_segments, 1, 3):
-            return False
-
+        self._fix(gps_segments, 1, 3)
         # Update Last Fix Time
         self._valid |= GLL
         return GLL
@@ -376,12 +347,8 @@ class AS_GPS(object):
     # Chip sends VTG messages with meaningless data before getting a fix.
     def _gpvtg(self, gps_segments):  # Parse VTG sentence
         self._valid &= ~VTG
-        try:
-            course = float(gps_segments[1])
-            spd_knt = float(gps_segments[5])
-        except ValueError:
-            return False
-
+        course = float(gps_segments[1])
+        spd_knt = float(gps_segments[5])
         self._speed = spd_knt
         self.course = course
         self._valid |= VTG
@@ -389,29 +356,20 @@ class AS_GPS(object):
 
     def _gpgga(self, gps_segments):  # Parse GGA sentence
         self._valid &= ~GGA
-        try:
-            # Number of Satellites in Use
-            satellites_in_use = int(gps_segments[7])
-            # Horizontal Dilution of Precision
-            hdop = float(gps_segments[8])
-            # Get Fix Status
-            fix_stat = int(gps_segments[6])
-        except ValueError:
-            return False
+        # Number of Satellites in Use
+        satellites_in_use = int(gps_segments[7])
+        # Horizontal Dilution of Precision
+        hdop = float(gps_segments[8])
+        # Get Fix Status
+        fix_stat = int(gps_segments[6])
 
         # Process Location and Altitude if Fix is GOOD
         if fix_stat:
             # Longitude / Latitude
-            if not self._fix(gps_segments, 2, 4):
-                return False
-
+            self._fix(gps_segments, 2, 4)
             # Altitude / Height Above Geoid
-            try:
-                altitude = float(gps_segments[9])
-                geoid_height = float(gps_segments[11])
-            except ValueError:
-                return False
-
+            altitude = float(gps_segments[9])
+            geoid_height = float(gps_segments[11])
             # Update Object Data
             self.altitude = altitude
             self.geoid_height = geoid_height
@@ -425,33 +383,24 @@ class AS_GPS(object):
     def _gpgsa(self, gps_segments):  # Parse GSA sentence
         self._valid &= ~GSA
         # Fix Type (None,2D or 3D)
-        try:
-            fix_type = int(gps_segments[2])
-        except ValueError:
-            return False
+        fix_type = int(gps_segments[2])
         # Read All (up to 12) Available PRN Satellite Numbers
         sats_used = []
         for sats in range(12):
             sat_number_str = gps_segments[3 + sats]
             if sat_number_str:
-                try:
-                    sat_number = int(sat_number_str)
-                    sats_used.append(sat_number)
-                except ValueError:
-                    return False
+                sat_number = int(sat_number_str)
+                sats_used.append(sat_number)
             else:
                 break
         # PDOP,HDOP,VDOP
-        try:
-            pdop = float(gps_segments[15])
-            hdop = float(gps_segments[16])
-            vdop = float(gps_segments[17])
-        except ValueError:
-            return False
+        pdop = float(gps_segments[15])
+        hdop = float(gps_segments[16])
+        vdop = float(gps_segments[17])
 
         # If Fix is GOOD, update fix timestamp
         if fix_type <= self._NO_FIX:  # Deviation from Michael McCoy's logic. Is this right?
-            return False
+            raise ValueError
         self.satellites_used = sats_used
         self.hdop = hdop
         self.vdop = vdop
@@ -464,12 +413,9 @@ class AS_GPS(object):
         # the no. of the last SV sentence parsed, and data on each satellite
         # present in the sentence.
         self._valid &= ~GSV
-        try:
-            num_sv_sentences = int(gps_segments[1])
-            current_sv_sentence = int(gps_segments[2])
-            sats_in_view = int(gps_segments[3])
-        except ValueError:
-            return False
+        num_sv_sentences = int(gps_segments[1])
+        current_sv_sentence = int(gps_segments[2])
+        sats_in_view = int(gps_segments[3])
 
         # Create a blank dict to store all the satellite data from this sentence in:
         # satellite PRN is key, tuple containing telemetry is value
@@ -488,8 +434,8 @@ class AS_GPS(object):
             if gps_segments[sats]:
                 try:
                     sat_id = int(gps_segments[sats])
-                except (ValueError,IndexError):
-                    return False
+                except IndexError:
+                    raise ValueError  # Abandon
 
                 try:  # elevation can be null (no value) when not tracking
                     elevation = int(gps_segments[sats+1])
@@ -592,9 +538,9 @@ class AS_GPS(object):
     async def get_satellite_data(self):
         self._total_sv_sentences = 0
         while self._total_sv_sentences == 0:
-            await asyncio.sleep_ms(200)
+            await asyncio.sleep(0)
         while self._total_sv_sentences > self._last_sv_sentence:
-            await asyncio.sleep_ms(100)
+            await asyncio.sleep(0)
         return self._satellite_data
 
     def time_since_fix(self):  # ms since last valid fix

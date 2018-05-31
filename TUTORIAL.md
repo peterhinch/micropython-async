@@ -1078,10 +1078,14 @@ The mechanism works because the device driver (written in C) implements the
 following methods: `ioctl`, `read`, `write`, `readline` and `close`. See
 section 5.3 for further discussion.
 
-Applications using the UART should be designed such that all coros minimise
-blocking periods. This is because blocking while the UART is receiving data can
-lead to buffer overflows with consequent loss of data. This can be ameliorated
-by using a larger UART read buffer length or a lower baudrate.
+A UART can receive data at any time. The IORead mechanism checks for pending
+incoming characters whenever the scheduler has control. When a coro is running
+an interrupt service routine buffers incoming characters; these will be removed
+when the coro yields to the scheduler. Consequently UART applications should be
+designed such that all coros minimise blocking periods to avoid buffer
+overflows and data loss. This can be ameliorated by using a larger UART read
+buffer or a lower baudrate. Alternatively hardware flow control will provide a
+solution if the data source supports it.
 
 ### 5.1.1 A UART driver example
 

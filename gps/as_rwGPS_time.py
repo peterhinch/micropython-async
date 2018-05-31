@@ -6,14 +6,12 @@
 # Copyright (c) 2018 Peter Hinch
 # Released under the MIT License (MIT) - see LICENSE file
 
-# NOTE: After running any of these tests the tests in as_GPS_time hang waiting
-# for time data (until GPS is power cycled). This is because resetting the baudrate
-# to 9600 does not work. Setting baudrate to 4800 gave 115200. It seems this
-# chip functionality is dodgy.
+# See README.md notes re setting baudrates. In particular 9600 does not work.
+# So these tests issue a factory reset on completion to restore the baudrate.
+
 # String sent for 9600: $PMTK251,9600*17\r\n
 # Data has (for 38400): $PMTK251,38400*27<CR><LF>
 # Sending: $PMTK251,38400*27\r\n'
-# Issuing a factory reset in shutdown does not fix this.
 
 import uasyncio as asyncio
 import pyb
@@ -27,11 +25,10 @@ import as_rwGPS
 PPS_PIN = pyb.Pin.board.X3
 UART_ID = 4
 
-# Avoid multiple baudrates. Tests use 9600 or 115200 only.
-# *** Baudrate over 19200 causes messages not to be received ***
 BAUDRATE = 57600
 UPDATE_INTERVAL = 100
-READ_BUF_LEN = 200 # test
+READ_BUF_LEN = 200
+
 print('Available tests:')
 print('calibrate(minutes=5) Set and calibrate the RTC.')
 print('drift(minutes=5) Repeatedly print the difference between RTC and GPS time.')

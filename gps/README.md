@@ -1,8 +1,8 @@
 # 1. as_GPS
 
 This repository offers a suite of asynchronous device drivers for GPS devices
-which communicate with the host via a UART. GPS NMEA sentence parsing is based
-on this excellent library [micropyGPS].
+which communicate with the host via a UART. GPS [NMEA-0183] sentence parsing is
+based on this excellent library [micropyGPS].
 
 ## 1.1 Driver characteristics
 
@@ -10,6 +10,7 @@ on this excellent library [micropyGPS].
  application to perform other tasks such as handling user interaction.
  * The read-only driver is suitable for resource constrained devices and will
  work with most GPS devices using a UART for communication.
+ * Can write `.kml` files for displaying journeys on Google Earth.
  * The read-write driver enables altering the configuration of GPS devices
  based on the popular MTK3329/MTK3339 chips.
  * The above drivers are portable between [MicroPython] and Python 3.5 or above.
@@ -17,17 +18,17 @@ on this excellent library [micropyGPS].
  read-only and read-write drivers to provide accurate sub-ms GPS timing. On
  STM-based hosts (e.g. the Pyboard) the RTC may be set from GPS and calibrated
  to achieve timepiece-level accuracy.
- * Can write `.kml` files for displaying journeys on Google Earth.
  * Drivers may be extended via subclassing, for example to support additional
  sentence types.
 
 Testing was performed using a [Pyboard] with the Adafruit
 [Ultimate GPS Breakout] board. Most GPS devices will work with the read-only
-driver as they emit NMEA sentences on startup.
+driver as they emit [NMEA-0183] sentences on startup.
 
 ## 1.2 Comparison with [micropyGPS]
 
-NMEA sentence parsing is based on [micropyGPS] but with significant changes.
+[NMEA-0183] sentence parsing is based on [micropyGPS] but with significant
+changes.
 
  * As asynchronous drivers they require `uasyncio` on [MicroPython] or
  `asyncio` under Python 3.5+.
@@ -47,8 +48,8 @@ NMEA sentence parsing is based on [micropyGPS] but with significant changes.
 
 ## 1.1 Overview
 
-The `AS_GPS` object runs a coroutine which receives GPS NMEA sentences from the
-UART and parses them as they arrive. Valid sentences cause local bound
+The `AS_GPS` object runs a coroutine which receives [NMEA-0183] sentences from
+the UART and parses them as they arrive. Valid sentences cause local bound
 variables to be updated. These can be accessed at any time with minimal latency
 to access data such as position, altitude, course, speed, time and date.
 
@@ -68,8 +69,8 @@ the Pyboard is run from a voltage >5V the Pyboard 3V3 pin should be used.
 
 This is based on UART 4 as used in the test programs; any UART may be used. The
 UART Tx-GPS Rx connection is only necessary if using the read/write driver. The
-PPS connection is required only if using the device for precise timing
-(`as_tGPS.py`). Any pin may be used.
+PPS connection is required only if using the timing driver `as_tGPS.py`. Any
+pin may be used.
 
 ## 1.2 Basic Usage
 
@@ -170,8 +171,7 @@ or later.
 Method calls and access to bound variables are nonblocking and return the most
 current data. This is updated transparently by a coroutine. In situations where
 updates cannot be achieved, for example in buildings or tunnels, values will be
-out of date. Whether this matters and any action to take is application
-dependent.
+out of date. The action to take (if any) is application dependent.
 
 Three mechanisms exist for responding to outages.  
  * Check the `time_since_fix` method [section 2.2.3](./README.md#223-time-and-date).
@@ -193,8 +193,7 @@ Optional positional args:
  * `fix_cb_args` A tuple of args for the callback (default `()`).
 
 Notes:  
-`local_offset` correctly alters the date where time passes the 00.00.00
-boundary.  
+`local_offset` will alter the date when time passes the 00.00.00 boundary.  
 If `sreader` is `None` a special test mode is engaged (see `astests.py`).
 
 ### 2.1.1 The fix callback
@@ -401,8 +400,8 @@ was received `reparse` would see
 ## 2.6 Public class variable
 
  * `FULL_CHECK` Default `True`. If set `False` disables CRC checking and other
- basic checks on received sentences. This is intended for use at high baudrates
- where the time consumed by these checks can be excessive.
+ basic checks on received sentences. If GPS is linked directly to the target
+ (rather than via long cables) these checks are arguably not neccessary.
 
 # 3. The GPS class read-write driver
 
@@ -875,7 +874,7 @@ Sources of fixed lag:
 
 Sources of variable error:  
  * Variations in interrupt latency (small on Pyboard).
- * Inaccuracy in the `ticks_us` timer (significant over 1 second).
+ * Inaccuracy in the `ticks_us` timer (significant over a 1 second interval).
 
 With correct usage when the PPS interrupt occurs the UART will not be receiving
 data (this can substantially affect ISR latency variability). Consequently, on

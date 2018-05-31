@@ -44,8 +44,9 @@ async def killer(end_event, minutes):
 
 # ******** Calibrate and set the Pyboard RTC ********
 async def do_cal(minutes):
-    gps_tim = await setup()
-    await gps_tim.calibrate(minutes)
+    gps = await setup()
+    await gps.calibrate(minutes)
+    gps.close()
 
 def calibrate(minutes=5):
     loop = asyncio.get_event_loop()
@@ -53,29 +54,30 @@ def calibrate(minutes=5):
 
 # ******** Drift test ********
 # Every 10s print the difference between GPS time and RTC time
-async def drift_test(terminate, gps_tim):
-    dstart = await gps_tim.delta()
+async def drift_test(terminate, gps):
+    dstart = await gps.delta()
     while not terminate.is_set():
-        dt = await gps_tim.delta()
-        print('{}  Delta {}μs'.format(gps_tim.time_string(), dt))
+        dt = await gps.delta()
+        print('{}  Delta {}μs'.format(gps.time_string(), dt))
         await asyncio.sleep(10)
     return dt - dstart
 
 async def do_drift(minutes):
     print('Setting up GPS.')
-    gps_tim = await setup()
+    gps = await setup()
     print('Waiting for time data.')
-    await gps_tim.ready()
+    await gps.ready()
     terminate = asyn.Event()
     loop = asyncio.get_event_loop()
     loop.create_task(killer(terminate, minutes))
     print('Setting RTC.')
-    await gps_tim.set_rtc()
+    await gps.set_rtc()
     print('Measuring drift.')
-    change = await drift_test(terminate, gps_tim)
+    change = await drift_test(terminate, gps)
     ush = int(60 * change/minutes)
     spa = int(ush * 365 * 24 / 1000000)
     print('Rate of change {}μs/hr {}secs/year'.format(ush, spa))
+    gps.close()
 
 def drift(minutes=5):
     loop = asyncio.get_event_loop()
@@ -86,19 +88,20 @@ def drift(minutes=5):
 async def do_time(minutes):
     fstr = '{}ms Time: {:02d}:{:02d}:{:02d}:{:06d}'
     print('Setting up GPS.')
-    gps_tim = await setup()
+    gps = await setup()
     print('Waiting for time data.')
-    await gps_tim.ready()
+    await gps.ready()
     print('Setting RTC.')
-    await gps_tim.set_rtc()
+    await gps.set_rtc()
     terminate = asyn.Event()
     loop = asyncio.get_event_loop()
     loop.create_task(killer(terminate, minutes))
     while not terminate.is_set():
         await asyncio.sleep(1)
         # In a precision app, get the time list without allocation:
-        t = gps_tim.get_t_split()
-        print(fstr.format(gps_tim.get_ms(), t[0], t[1], t[2], t[3]))
+        t = gps.get_t_split()
+        print(fstr.format(gps.get_ms(), t[0], t[1], t[2], t[3]))
+    gps.close()
 
 def time(minutes=1):
     loop = asyncio.get_event_loop()
@@ -136,9 +139,9 @@ async def us_setup(tick):
 async def do_usec(minutes):
     tick = asyn.Event()
     print('Setting up GPS.')
-    gps_tim = await us_setup(tick)
+    gps = await us_setup(tick)
     print('Waiting for time data.')
-    await gps_tim.ready()
+    await gps.ready()
     max_us = 0
     min_us = 0
     sd = 0
@@ -163,6 +166,7 @@ async def do_usec(minutes):
     # SD: apply Bessel's correction for infinite population
     sd = int(math.sqrt(sd/(nsamples - 1)))
     print('Timing discrepancy is: {:5d}μs max {:5d}μs min.  Standard deviation {:4d}μs'.format(max_us, min_us, sd))
+    gps.close()
 
 def usec(minutes=1):
     loop = asyncio.get_event_loop()
