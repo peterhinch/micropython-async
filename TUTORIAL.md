@@ -1078,6 +1078,11 @@ The mechanism works because the device driver (written in C) implements the
 following methods: `ioctl`, `read`, `write`, `readline` and `close`. See
 section 5.3 for further discussion.
 
+Applications using the UART should be designed such that all coros minimise
+blocking periods. This is because blocking while the UART is receiving data can
+lead to buffer overflows with consequent loss of data. This can be ameliorated
+by using a larger UART read buffer length or a lower baudrate.
+
 ### 5.1.1 A UART driver example
 
 The program `auart_hd.py` illustrates a method of communicating with a half

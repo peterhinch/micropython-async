@@ -105,10 +105,17 @@ def time(minutes=1):
     loop.run_until_complete(do_time(minutes))
 
 # ******** Measure accracy of μs clock ********
+# At 9600 baud see occasional lag of up to 3ms followed by similar lead.
+# This implies that the ISR is being disabled for that period (~3 chars).
+# SD 584μs typical.
+# Test produces better numbers at 57600 baud (SD 112μs)
+# and better still at 10Hz update rate (SD 34μs). Why??
+# Unsure why. Setting of .FULL_CHECK has no effect (as expected).
+
 # Callback occurs in interrupt context
 us_acquired = None
 def us_cb(my_gps, tick, led):
-    global us_acquired
+    global us_acquired  # Time of previous PPS edge in ticks_us()
     if us_acquired is not None:
         # Trigger event. Pass time between PPS measured by utime.ticks_us()
         tick.set(utime.ticks_diff(my_gps.acquired, us_acquired))

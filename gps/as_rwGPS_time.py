@@ -29,9 +29,9 @@ UART_ID = 4
 
 # Avoid multiple baudrates. Tests use 9600 or 115200 only.
 # *** Baudrate over 19200 causes messages not to be received ***
-BAUDRATE = 19200
-UPDATE_INTERVAL = 200 # 100
-READ_BUF_LEN = 1000 # test
+BAUDRATE = 57600
+UPDATE_INTERVAL = 100
+READ_BUF_LEN = 200 # test
 print('Available tests:')
 print('calibrate(minutes=5) Set and calibrate the RTC.')
 print('drift(minutes=5) Repeatedly print the difference between RTC and GPS time.')
@@ -58,7 +58,7 @@ async def shutdown():
     #gps.close()  # Stop ISR
     #print('Restoring default 1s update rate.')
     #await asyncio.sleep(0.5)
-    #await gps.update_interval(1000)  # 1s update rate **** DO WE NEED TO SET END EVENT? *****
+    #await gps.update_interval(1000)  # 1s update rate 
     #print('Restoring satellite data.')
     #await gps.command(as_rwGPS.DEFAULT_SENTENCES)  # Restore satellite data
 
@@ -73,6 +73,7 @@ async def setup():
     gps = as_tGPS.GPS_RWTimer(sreader, swriter, pps_pin, local_offset=1,
                              fix_cb=lambda *_: red.toggle(),
                              pps_cb=lambda *_: blue.toggle())
+    gps.FULL_CHECK = False
     await asyncio.sleep(2)
     await gps.baudrate(BAUDRATE)
     uart.init(BAUDRATE)
@@ -164,8 +165,12 @@ def time(minutes=1):
         loop.run_until_complete(shutdown())
 
 # ******** Measure accracy of μs clock ********
+# Test produces better numbers at 57600 baud (SD 112μs)
+# and better still at 10Hz update rate (SD 34μs).
+# Unsure why.
+
 # Callback occurs in interrupt context
-us_acquired = None
+us_acquired = None  # Time of previous PPS edge in ticks_us()
 def us_cb(my_gps, tick, led):
     global us_acquired
     if us_acquired is not None:
@@ -185,12 +190,15 @@ async def us_setup(tick):
     gps = as_tGPS.GPS_RWTimer(sreader, swriter, pps_pin, local_offset=1,
                              fix_cb=lambda *_: red.toggle(),
                              pps_cb=us_cb, pps_cb_args=(tick, blue))
+    gps.FULL_CHECK = False
     await asyncio.sleep(2)
     await gps.baudrate(BAUDRATE)
     uart.init(BAUDRATE)
     await asyncio.sleep(1)
     await gps.enable(gsa=0, gsv=0)  # Disable satellite data
     await gps.update_interval(UPDATE_INTERVAL)
+    pstr = 'Baudrate {} update interval {}ms satellite messages disabled.'
+    print(pstr.format(BAUDRATE, UPDATE_INTERVAL))
 
 async def do_usec(minutes):
     global gps

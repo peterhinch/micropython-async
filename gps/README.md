@@ -398,6 +398,12 @@ and subsequent characters are stripped from the last. Thus if the string
 was received `reparse` would see  
 `['GPGGA','123519','4807.038','N','01131.000','E','1','08','0.9','545.4','M','46.9','M','','']`
 
+## 2.6 Public class variable
+
+ * `FULL_CHECK` Default `True`. If set `False` disables CRC checking and other
+ basic checks on received sentences. This is intended for use at high baudrates
+ where the time consumed by these checks can be excessive.
+
 # 3. The GPS class read-write driver
 
 This is a subclass of `AS_GPS` and supports all its public methods, coroutines
@@ -538,9 +544,10 @@ Under investigation.                                                          **
 
 Further, there are problems (at least with my GPS firmware build
 ['AXN_2.31_3339_13101700', '5632', 'PA6H', '1.0']) whereby setting baudrates
-only works for certain rates. 19200, 38400 and 115200 work. 4800 sets 115200.
-Importantly 9600 does nothing. This means that the only way to restore the
-default is to perform a `FULL_COLD_START`. The test programs do this.
+only works for certain rates. 19200, 38400, 57600 and 115200 work. 4800
+sets 115200. Importantly 9600 does nothing. This means that the only way to
+restore the default is to perform a `FULL_COLD_START`. The test programs do
+this.
 
 If you change the GPS baudrate the UART should be re-initialised immediately
 after the `baudrate` coroutine terminates:

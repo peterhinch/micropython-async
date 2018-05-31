@@ -171,20 +171,21 @@ class AS_GPS(object):
         self._valid = 0  # Bitfield of received sentences
         if sreader is not None:  # Running with UART data
             loop = asyncio.get_event_loop()
-            loop.create_task(self._run())
+            loop.create_task(self._run(loop))
 
     ##########################################
     # Data Stream Handler Functions
     ##########################################
 
-    async def _run(self):
+    async def _run(self, loop):
         while True:
             res = await self._sreader.readline()
             try:
                 res = res.decode('utf8')
             except UnicodeError:  # Garbage: can happen e.g. on baudrate change
                 continue
-            self._update(res)
+            loop.create_task(self._update(res))
+            await asyncio.sleep_ms(0)  # Ensure task runs and res is copied
 
     # Update takes a line of text
     def _update(self, line):
@@ -195,21 +196,26 @@ class AS_GPS(object):
                 return None  # Bad character received
             except StopIteration:
                 pass  # All good
-
+            await asyncio.sleep_ms(0)
             if len(line) > self._SENTENCE_LIMIT or not '*' in line:
                 return None  # Too long or malformed
 
         a = line.split(',')
         segs = a[:-1] + a[-1].split('*')
+        await asyncio.sleep_ms(0)
+
         if self.FULL_CHECK:  # 6ms on Pyboard
             if not self._crc_check(line, segs[-1]):
                 self.crc_fails += 1  # Update statistics
                 return None
+            await asyncio.sleep_ms(0)
+
         self.clean_sentences += 1  # Sentence is good but unparsed.
         segs[0] = segs[0][1:]  # discard $
         segs = segs[:-1]  # and checksum
         if segs[0] in self.supported_sentences:
-            s_type = self.supported_sentences[segs[0]](segs)
+            s_type = self.supported_sentences[segs[0]](segs)  # Parse
+            await asyncio.sleep_ms(0)
             if isinstance(s_type, int) and (s_type & self.cb_mask):
                 # Successfully parsed, data was valid and mask matches sentence type
                 self._fix_cb(self, s_type, *self._fix_cb_args)  # Run the callback
