@@ -2,7 +2,7 @@
 
 This GitHub repository consists of the following parts:
  * [A tutorial](./TUTORIAL.md) An introductory tutorial on asynchronous
- programming and the use of the uasyncio library is offered.
+ programming and the use of the uasyncio library (asyncio subset).
  * [Asynchronous device drivers](./DRIVERS.md). A module providing drivers for
  devices such as switches and pushbuttons.
  * [Synchronisation primitives](./PRIMITIVES.md). Provides commonly used
@@ -38,10 +38,6 @@ Version 2.0 brings only one API change over V1.7.1, namely the arguments to
 code samples use default args so will work under either version. The priority
 version requires the later version and firmware.
 
-[Paul Sokolovsky's library](https://github.com/pfalcon/micropython-lib) has the
-latest `uasyncio` code. At the time of writing (Feb 27th 2018) the version in
-[micropython-lib](https://github.com/micropython/micropython-lib) is 1.7.1.
-
 See [tutorial](./TUTORIAL.md#installing-uasyncio-on-bare-metal) for
 installation instructions.
 
@@ -69,8 +65,7 @@ It supports millisecond level timing with the following:
  * Event loop method `call_later_ms`
  * uasyncio `sleep_ms(time)`
 
-As of `uasyncio.core` V1.7.1 (7th Jan 2018) it supports coroutine timeouts and
-cancellation.
+`uasyncio` V2 supports coroutine timeouts and cancellation.
 
  * `wait_for(coro, t_secs)` runs `coro` with a timeout.
  * `cancel(coro)` tags `coro` for cancellation when it is next scheduled.
@@ -79,8 +74,8 @@ Classes `Task` and `Future` are not supported.
 
 ## 3.1 Asynchronous I/O
 
-Asynchronous I/O works with devices whose drivers support streaming, such as
-UARTs.
+Asynchronous I/O (`StreamReader` and `StreamWriter` classes) support devices
+with streaming drivers, such as UARTs and sockets.
 
 ## 3.2 Time values
 
