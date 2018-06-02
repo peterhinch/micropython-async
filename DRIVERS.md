@@ -33,14 +33,16 @@ This module provides the following classes:
  used to run a callback or to schedule a coro. Its state can be tested by any
  coro.
  
-The module `astests.py` provides examples of usage.
+The module `astests.py` provides examples of usage. In the following text the
+term **function** implies a Python `callable`: namely a function, bound method,
+coroutine or bound coroutine interchangeably.
 
 ## 3.1 Switch class
 
 This assumes a normally open switch connected between a pin and ground. The pin
-should be initialised as an input with a pullup. Functions may be specified to
-run on contact closure or opening. Functions can be callbacks or coroutines;
-coroutines will be scheduled for execution and will run asynchronously.
+should be initialised as an input with a pullup. A **function** may be
+specified to run on contact closure or opening; where the **function** is a
+coroutine it will be scheduled for execution and will run asynchronously.
 Debouncing is implicit: contact bounce will not cause spurious execution of
 these functions.
 
@@ -50,10 +52,10 @@ Constructor argument (mandatory):
  
 Methods:
 
- 1. `close_func` Args: `func` (mandatory) a function to run on contact
- closure. `args` a tuple of arguments for the function (default `()`)
- 2. `open_func` Args: `func` (mandatory) a function to run on contact open.
- `args` a tuple of arguments for the function (default `()`)
+ 1. `close_func` Args: `func` (mandatory) a **function** to run on contact
+ closure. `args` a tuple of arguments for the **function** (default `()`)
+ 2. `open_func` Args: `func` (mandatory) a **function** to run on contact open.
+ `args` a tuple of arguments for the **function** (default `()`)
  3. `__call__` Call syntax e.g. `myswitch()` returns the physical debounced
  state of the switch i.e. 0 if grounded, 1 if connected to `3V3`.
 
@@ -61,6 +63,28 @@ Methods 1 and 2 should be called before starting the scheduler.
 
 Class attribute:
  1. `debounce_ms` Debounce time in ms. Default 50.
+
+```python
+from pyb import LED
+from machine import Pin
+import uasyncio as asyncio
+from aswitch import Switch
+
+async def pulse(led, ms):
+    led.on()
+    await asyncio.sleep_ms(ms)
+    led.off()
+
+async def my_app():
+    await asyncio.sleep(60)  # Dummy application code
+
+pin = Pin('X1', Pin.IN, Pin.PULL_UP)  # Hardware: switch to gnd
+red = LED(1)
+sw = Switch(pin)
+sw.close_func(pulse, (red, 1000))  # Note how coro and args are passed
+loop = asyncio.get_event_loop()
+loop.run_until_complete(my_app())  # Run main application code
+```
 
 ## 3.2 Pushbutton class
 
@@ -70,11 +94,11 @@ initialised appropriately. The assumption is that on initialisation the button
 is not pressed.
 
 The Pushbutton class uses logical rather than physical state: a button's state
-is considered `True` if pressed, otherwise `False` regardless of its
-physical implementation.
+is considered `True` if pressed, otherwise `False` regardless of its physical
+implementation.
 
-Functions may be specified to run on button press, release, double click or
-long press events. Functions can be callbacks or coroutines; coroutines will be
+**function** instances may be specified to run on button press, release, double
+click or long press events; where the **function** is a coroutine it will be
 scheduled for execution and will run asynchronously.
 
 Constructor argument (mandatory):
@@ -83,14 +107,14 @@ Constructor argument (mandatory):
 
 Methods:
 
- 1. `press_func` Args: `func` (mandatory) a function to run on button push.
- `args` a tuple of arguments for the function (default `()`).
- 2. `release_func` Args: `func` (mandatory) a function to run on button
- release. `args` a tuple of arguments for the function (default `()`).
- 3. `long_func` Args: `func` (mandatory) a function to run on long button
- push. `args` a tuple of arguments for the function (default `()`).
- 4. `double_func` Args: `func` (mandatory) a function to run on double
- push. `args` a tuple of arguments for the function (default `()`).
+ 1. `press_func` Args: `func` (mandatory) a **function** to run on button push.
+ `args` a tuple of arguments for the **function** (default `()`).
+ 2. `release_func` Args: `func` (mandatory) a **function** to run on button
+ release. `args` a tuple of arguments for the **function** (default `()`).
+ 3. `long_func` Args: `func` (mandatory) a **function** to run on long button
+ push. `args` a tuple of arguments for the **function** (default `()`).
+ 4. `double_func` Args: `func` (mandatory) a **function** to run on double
+ push. `args` a tuple of arguments for the **function** (default `()`).
  5. `__call__` Call syntax e.g. `mybutton()` Returns the logical debounced
  state of the button (`True` corresponds to pressed).
  6. `rawstate()` Returns the logical instantaneous state of the button. There
@@ -103,6 +127,26 @@ Class attributes:
  2. `long_press_ms` Threshold time in ms for a long press. Default 1000.
  3. `double_click_ms` Threshold time in ms for a double click. Default 400.
 
+```python
+from pyb import LED
+from machine import Pin
+import uasyncio as asyncio
+from aswitch import Pushbutton
+
+def toggle(led):
+    led.toggle()
+
+async def my_app():
+    await asyncio.sleep(60)  # Dummy
+
+pin = Pin('X1', Pin.IN, Pin.PULL_UP)  # Pushbutton to gnd
+red = LED(1)
+pb = Pushbutton(pin)
+pb.press_func(toggle, (red,))  # Note how function and args are passed
+loop = asyncio.get_event_loop()
+loop.run_until_complete(my_app())  # Run main application code
+```
+
 ## 3.3 Delay_ms class
 
 This implements the software equivalent of a retriggerable monostable or a
@@ -114,15 +158,15 @@ as it is triggered before the time specified in the preceeding trigger it will
 never time out.
 
 If it does time out the `running` state will revert to `False`. This can be
-interrogated by the object's `running()` method. In addition a function can
-be specified to the constructor. This will execute when a timeout occurs. The
-function can be a callback or a coroutine; in the latter case it will be
-scheduled for execution and will run asynchronously.
+interrogated by the object's `running()` method. In addition a **function** can
+be specified to the constructor. This will execute when a timeout occurs; where
+the **function** is a coroutine it will be scheduled for execution and will run
+asynchronously.
 
 Constructor arguments (defaults in brackets):
 
- 1. `func` The function to call on timeout (default `None`).
- 2. `args` A tuple of arguments for the function (default `()`).
+ 1. `func` The **function** to call on timeout (default `None`).
+ 2. `args` A tuple of arguments for the **function** (default `()`).
  3. `can_alloc` Boolean, default `True`. See below.
 
 Methods:
@@ -137,6 +181,28 @@ If the `trigger` method is to be called from an interrupt service routine the
 `can_alloc` constructor arg should be `False`. This causes the delay object
 to use a slightly less efficient mode which avoids RAM allocation when
 `trigger` runs.
+
+In this example a 3 second timer starts when the button is pressed. If it is
+pressed repeatedly the timeout will not be triggered. If it is not pressed for
+3 seconds the timeout triggers and the LED lights.
+
+```python
+from pyb import LED
+from machine import Pin
+import uasyncio as asyncio
+from aswitch import Pushbutton, Delay_ms
+
+async def my_app():
+    await asyncio.sleep(60)  # Dummy
+
+pin = Pin('X1', Pin.IN, Pin.PULL_UP)  # Pushbutton to gnd
+red = LED(1)
+pb = Pushbutton(pin)
+d = Delay_ms(lambda led: led.on(), (red,))
+pb.press_func(d.trigger, (3000,))  # Note how function and args are passed
+loop = asyncio.get_event_loop()
+loop.run_until_complete(my_app())  # Run main application code
+```
 
 # 4. Module astests.py
 
