@@ -168,11 +168,14 @@ Constructor arguments (defaults in brackets):
  1. `func` The **function** to call on timeout (default `None`).
  2. `args` A tuple of arguments for the **function** (default `()`).
  3. `can_alloc` Boolean, default `True`. See below.
+ 4. `duration` Integer, default 1000ms. The default timer period where no value
+ is passed to the `trigger` method.
 
 Methods:
 
- 1. `trigger` mandatory argument `duration`. A timeout will occur after
- `duration` ms unless retriggered.
+ 1. `trigger` optional argument `duration=0`. A timeout will occur after
+ `duration` ms unless retriggered. If no arg is passed the period will be that
+ of the `duration` passed to the constructor.
  2. `stop` No argument. Cancels the timeout, setting the `running` status
  `False`. The timer can be restarted by issuing `trigger` again.
  3. `running` No argument. Returns the running status of the object.

@@ -94,6 +94,7 @@ class AS_GPS(object):
         self._fix_cb = fix_cb
         self.cb_mask = cb_mask
         self._fix_cb_args = fix_cb_args
+        self.battery = False  # Assume no backup battery
 
         # CPython compatibility. Import utime or time for fix time handling.
         try:
@@ -307,11 +308,15 @@ class AS_GPS(object):
     def _gprmc(self, gps_segments):  # Parse RMC sentence
         self._valid &= ~RMC
         # Check Receiver Data Valid Flag ('A' active)
-        if gps_segments[2] != 'A':
-            raise ValueError
+        if not self.battery:
+            if gps_segments[2] != 'A':
+                raise ValueError
 
         # UTC Timestamp and date. Can raise ValueError.
         self._set_date_time(gps_segments[1], gps_segments[9])
+        # Check Receiver Data Valid Flag ('A' active)
+        if gps_segments[2] != 'A':
+            raise ValueError
 
         # Data from Receiver is Valid/Has Fix. Longitude / Latitude
         # Can raise ValueError.

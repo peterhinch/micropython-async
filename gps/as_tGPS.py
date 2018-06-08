@@ -79,6 +79,8 @@ class GPS_Tbase():
         msecs += self._update_ms
         if msecs >= 86400000:  # Next PPS will deal with rollover
             return
+        if self.t_ms == msecs:  # No RMC message has arrived: nothing to do
+            return
         self.t_ms = msecs  # Current time in ms past midnight
         self.acquired = acquired
         # Set RTC if required and if last RMC indicated a 1 second boundary

@@ -38,10 +38,11 @@ from asyn import launch
 
 
 class Delay_ms(object):
-    def __init__(self, func=None, args=(), can_alloc=True):
+    def __init__(self, func=None, args=(), can_alloc=True, duration=1000):
         self.func = func
         self.args = args
         self.can_alloc = can_alloc
+        self.duration = duration  # Default duration
         self.tstop = None  # Not running
         self.loop = asyncio.get_event_loop()
         if not can_alloc:
@@ -57,8 +58,10 @@ class Delay_ms(object):
     def stop(self):
         self.tstop = None
 
-    def trigger(self, duration):  # Update end time
-        if self.can_alloc and self.tstop is None:
+    def trigger(self, duration=0):  # Update end time
+        if duration <= 0:
+            duration = self.duration
+        if self.can_alloc and self.tstop is None:  # No killer task is running
             self.tstop = time.ticks_add(time.ticks_ms(), duration)
             # Start a task which stops the delay after its period has elapsed
             self.loop.create_task(self.killer())
