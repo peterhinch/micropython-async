@@ -1,18 +1,13 @@
-# iotest4.py Test PR #3836. Demonstrate the anomaly with a read/write device.
+# iotest4.py Test PR #3836.
 # User class write() performs unbuffered writing.
 # For simplicity this uses buffered read: unbuffered is tested by iotest2.py.
 
-# Run iotest4.test() to see expected output
-# iotest4.test(False) to demonstrate the issue.
+# This test was to demonstrate the original issue.
+# With modified moduselect.c and uasyncio.__init__.py the test now passes.
 
-# Pass/Fail is determined by whether the StreamReader and StreamWriter operate
-# on the same (fail) or different (pass) objects.
-# I suspect that the issue is with select/ipoll (uasyncio __init__.py)
-# The fault is either in select/poll or uasyncio __init__.py.
-# As soon as PollEventLoop.add_writer() is called, reading stops.
-# PollEventLoop.add_writer() is called when StreamWriter.awrite() issues
-# yield IOWrite(self.s), which for unbuffered devices is after the 1st char
-# of a multi-char buf is written.
+# iotest4.test() uses separate read and write objects.
+# iotest4.test(False) uses a common object (failed without the mod).
+
 
 import io, pyb
 import uasyncio as asyncio
@@ -25,19 +20,20 @@ MP_STREAM_POLL = const(3)
 MP_STREAM_ERROR = const(-1)
 
 def printbuf(this_io):
-    print(this_io.wbuf[:this_io.wprint_len])
+    for ch in this_io.wbuf[:this_io.wprint_len]:
+        print(chr(ch), end='')
 
 class MyIO(io.IOBase):
     def __init__(self, read=False, write=False):
+        self.ready_rd = False  # Read and write not ready
+        self.wch = b''
         if read:
-            self.ready_rd = False
             self.rbuf = b'ready\n'  # Read buffer
             pyb.Timer(4, freq = 1, callback = self.do_input)
         if write:
             self.wbuf = bytearray(100)  # Write buffer
             self.wprint_len = 0
             self.widx = 0
-            self.wch = b''
             pyb.Timer(5, freq = 10, callback = self.do_output)
 
     # Read callback: emulate asynchronous input from hardware.
