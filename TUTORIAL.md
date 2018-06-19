@@ -119,20 +119,22 @@ and rebuilding.
 
   4.5 [Exceptions](./TUTORIAL.md#45-exceptions)
 
- 5. [Device driver examples](./TUTORIAL.md#5-device-driver-examples)
+ 5. [Interfacing hardware](./TUTORIAL.md#5-interfacing-hardware)
 
-  5.1 [Using the IORead mechnanism](./TUTORIAL.md#51-using-the-ioread-mechanism)
+  5.1 [Timing issues](./TUTORIAL.md#51-timing-issues)
 
-   5.1.1 [A UART driver example](./TUTORIAL.md#511-a-uart-driver-example)
+  5.2 [Polling hardware with a coroutine](./TUTORIAL.md#52-polling-hardware-with-a-coroutine)
 
-  5.2 [Writing IORead device drivers](./TUTORIAL.md#52-writing-ioread-device-drivers)
+  5.3 [Using the IORead mechnanism](./TUTORIAL.md#53-using-the-ioread-mechanism)
 
-  5.3 [Polling hardware without IORead](./TUTORIAL.md#53-polling-hardware-without-ioread)
+   5.3.1 [A UART driver example](./TUTORIAL.md#531-a-uart-driver-example)
 
-  5.4 [A complete example: aremote.py](./TUTORIAL.md#54-a-complete-example-aremotepy)
+  5.4 [Writing IORead device drivers](./TUTORIAL.md#54-writing-ioread-device-drivers)
+
+  5.5 [A complete example: aremote.py](./TUTORIAL.md#55-a-complete-example-aremotepy)
   A driver for an IR remote control receiver.
 
-  5.5 [Driver for HTU21D](./TUTORIAL.md#55-htu21d-environment-sensor) A
+  5.6 [Driver for HTU21D](./TUTORIAL.md#56-htu21d-environment-sensor) A
   temperature and humidity sensor.
 
  6. [Hints and tips](./TUTORIAL.md#6-hints-and-tips)
@@ -380,7 +382,7 @@ This is generally highly desirable, but it does introduce uncertainty in the
 timing as the calling routine will only be rescheduled when the one running at
 the appropriate time has yielded. The amount of latency depends on the design
 of the application, but is likely to be on the order of tens or hundreds of ms;
-this is discussed further in [Section 5](./TUTORIAL.md#5-device-driver-examples).
+this is discussed further in [Section 5](./TUTORIAL.md#5-interfacing-hardware).
 
 Very precise delays may be issued by using the `utime` functions `sleep_ms`
 and `sleep_us`. These are best suited for short delays as the scheduler will
@@ -1006,186 +1008,86 @@ a keyboard interrupt should trap the exception at the event loop level.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
-# 5 Device driver examples
+# 5 Interfacing hardware
 
-Many devices such as sensors are read-only in nature and need to be polled to
-acquire data. In the case of a driver written in Python this must be done by
-having a coro which does this periodically. This may present problems if there
-is a requirement for rapid polling owing to the round-robin nature of uasyncio
-scheduling: the coro will compete for execution with others. There are two
-solutions to this. The official solution is to delegate polling to the
-scheduler using the IORead mechanism. This is currently subject to limitations.
+At heart all interfaces between `uasyncio` and external asynchronous events
+rely on polling. Hardware requiring a fast response may use an interrupt. But
+the interface between the interrupt service routine (ISR) and a user coro will
+be polled. For example the ISR might trigger an `Event` or set a global flag,
+while a coroutine awaiting the outcome polls the object each time it is
+scheduled.
 
-An alternative is to use the experimental version of uasyncio presented
-[here](./FASTPOLL.md).
+Polling may be effected in two ways, explicitly or implicitly. The latter is
+performed by using the `IORead` mechanism which is a system designed for stream
+devices such as UARTs and sockets. At its simplest explicit polling may consist
+of code like this:
 
-Note that where a very repeatable polling interval is required, it should be
-done using a hardware timer with a hard interrupt callback. For "very"
-repeatable read microsecond level (depending on platform).
+```python
+async def poll_my_device():
+    global my_flag  # Set by device ISR
+    while True:
+        if my_flag:
+            my_flag = False
+            # service the device
+        await asyncio.sleep(0)
+```
 
-In many cases less precise timing is acceptable. The definition of "less" is
-application dependent but the latency associated with scheduling the coro which
-is performing the polling may be variable on the order of tens or hundreds of
-milliseconds. Latency is determined as follows. When `await asyncio.sleep(0)`
-is issued all other pending coros will be scheduled in "fair round-robin"
-fashion before it is re-scheduled. Thus its worst-case latency may be
+In place of a global, an instance variable, an `Event` object or an instance of
+an awaitable class might be used. Explicit polling is discussed
+further [below](./TUTORIAL.md#52-polling-hardware-with-a-coroutine).
+
+Implicit polling consists of designing the driver to behave like a stream I/O
+device such as a socket or UART, using `IORead`. This polls devices using
+Python's `select.poll` system: because the polling is done in C it is faster
+and more efficient than explicit polling. The use of `IORead` is discussed
+[here](./TUTORIAL.md#53-using-the-ioread-mechanism).
+
+###### [Contents](./TUTORIAL.md#contents)
+
+## 5.1 Timing issues
+
+Both explicit and implicit polling are currently based on round-robin
+scheduling. Assume I/O is operating concurrently with N user coros each of
+which yields with a zero delay. When I/O has been serviced it will next be
+polled once all user coros have been scheduled. The implied latency needs to be
+considered in the design. I/O channels may require buffering, with an ISR
+servicing the hardware in real time from buffers and coroutines filling or
+emptying the buffers in slower time.
+
+The possibility of overrun also needs to be considered: this is the case where
+something being polled by a coroutine occurs more than once before the coro is
+actually scheduled.
+
+Another timing issue is the accuracy of delays. If a coro issues
+
+```python
+    await asyncio.sleep_ms(t)
+    # next line
+```
+
+the scheduler guarantees that execution will pause for at least `t`ms. The
+actual delay may be greater depending on the system state when `t` expires.
+If, at that time, all other coros are waiting on nonzero delays, the next line
+will immediately be scheduled. But if other coros are pending execution (either
+because they issued a zero delay or because their time has also elapsed) they
+may be scheduled first. This introduces a timing uncertainty into the `sleep()`
+and `sleep_ms()` functions. The worst-case value for this overrun may be
 calculated by summing, for every other coro, the worst-case execution time
 between yielding to the scheduler.
 
-If `await asyncio.sleep_ms(t)` is issued where t > 0 the coro is guaranteed not
-to be rescheduled until t has elapsed. If, at that time, all other coros are
-waiting on nonzero delays, it will immediately be scheduled. But if other coros
-are pending execution (either because they issued a zero delay or because their
-time has elapsed) they may be scheduled first. This introduces a timing
-uncertainty into the `sleep()` and `sleep_ms()` functions. The worst-case value
-for this may be calculated as above.
-
-[This document](./FASTPOLL.md) describes an experimental version of uasyncio
-which offers a means of reducing this latency for critical tasks.
+There is an experimental version of uasyncio presented [here](./FASTPOLL.md).
+This provides for callbacks which run on every iteration of the scheduler
+enabling a coro to wait on an event with much reduced latency. It is hoped
+that improvements to `uasyncio` will remove the need for this in future.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
-## 5.1 Using the IORead Mechanism
+## 5.2 Polling hardware with a coroutine
 
-This can be illustrated using a Pyboard UART. The following code sample
-demonstrates concurrent I/O on one UART. To run, link Pyboard pins X1 and X2
-(UART Txd and Rxd).
-
-```python
-import uasyncio as asyncio
-from pyb import UART
-uart = UART(4, 9600)
-
-async def sender():
-    swriter = asyncio.StreamWriter(uart, {})
-    while True:
-        await swriter.awrite('Hello uart\n')
-        await asyncio.sleep(2)
-
-async def receiver():
-    sreader = asyncio.StreamReader(uart)
-    while True:
-        res = await sreader.readline()
-        print('Recieved', res)
-
-loop = asyncio.get_event_loop()
-loop.create_task(sender())
-loop.create_task(receiver())
-loop.run_forever()
-```
-
-The supporting code may be found in `__init__.py` in the `uasyncio` library.
-The mechanism works because the device driver (written in C) implements the
-following methods: `ioctl`, `read`, `readline` and `write`. See
-[section 5.2](./TUTORIAL.md#52-writing-ioread-device-drivers) for details on
-how such drivers may be written in Python.
-
-A UART can receive data at any time. The IORead mechanism checks for pending
-incoming characters whenever the scheduler has control. When a coro is running
-an interrupt service routine buffers incoming characters; these will be removed
-when the coro yields to the scheduler. Consequently UART applications should be
-designed such that coros minimise the time between yielding to the scheduler to
-avoid buffer overflows and data loss. This can be ameliorated by using a larger
-UART read buffer or a lower baudrate. Alternatively hardware flow control will
-provide a solution if the data source supports it.
-
-### 5.1.1 A UART driver example
-
-The program `auart_hd.py` illustrates a method of communicating with a half
-duplex device such as one responding to the modem 'AT' command set. Half duplex
-means that the device never sends unsolicited data: its transmissions are
-always in response to a command from the master.
-
-The device is emulated, enabling the test to be run on a Pyboard with two wire
-links.
-
-The (highly simplified) emulated device responds to any command by sending four
-lines of data with a pause between each, to simulate slow processing.
-
-The master sends a command, but does not know in advance how many lines of data
-will be returned. It starts a retriggerable timer, which is retriggered each
-time a line is received. When the timer times out it is assumed that the device
-has completed transmission, and a list of received lines is returned.
-
-The case of device failure is also demonstrated. This is done by omitting the
-transmission before awaiting a response. After the timeout an empty list is
-returned. See the code comments for more details.
-
-###### [Contents](./TUTORIAL.md#contents)
-
-## 5.2 Writing IORead device drivers
-
-The `IORead` mechanism is provided to support I/O to stream devices. Its
-typical use is to support streaming I/O devices such as UARTs and sockets. The
-mechanism may be employed by drivers of any device which needs to be polled:
-the polling is delegated to the scheduler which uses `select` to schedule the
-handlers for any devices which are ready. This is more efficient than running
-multiple coros each polling a device.
-
-It should be noted that currently the task polling I/O devices effectively runs
-in round-robin fashion along with other coroutines. This is arguably sub
-optimal: [see this GitHub RFC](https://github.com/micropython/micropython/issues/2664).
-
-A device driver capable of employing the IORead mechanism may support
-`StreamReader`, `StreamWriter` instances or both. A readable device must
-provide at least one of the following methods. Note that these are synchronous
-methods. The `ioctl` method (see below) ensures that they are only called if
-data is available. The methods should return as fast as possible with as much
-data as is available.
-
-`readline()` Return as many characters as are available up to and including any
-newline character. Required if you intend to use `StreamReader.readline()`  
-`read(n)` Return as many characters as are available but no more than `n`.
-Required if you plan to use `StreamReader.read()` or
-`StreamReader.readexactly()`  
-
-A writeable driver must provide this synchronous method:  
-`write` Args `buf`, `off`, `sz`. Arguments:  
-`buf` is the buffer to write.  
-`off` is the offset into the buffer of the first character to write.  
-`sz` is the requested number of characters to write.  
-It should return immediately. The return value is the number of characters
-actually written (may well be 1 if the device is slow). The `ioctl` method
-ensures that this is only called if the device is ready to accept data.
-
-All devices must provide an `ioctl` method which polls the hardware to
-determine its ready status. A typical example for a read/write driver is:
-
-```python
-MP_STREAM_POLL_RD = const(1)
-MP_STREAM_POLL_WR = const(4)
-MP_STREAM_POLL = const(3)
-MP_STREAM_ERROR = const(-1)
-
-    def ioctl(self, req, arg):  # see ports/stm32/uart.c
-        ret = MP_STREAM_ERROR
-        if req == MP_STREAM_POLL:
-            ret = 0
-            if arg & MP_STREAM_POLL_RD:
-                if hardware_has_at_least_one_char_to_read:
-                    ret |= MP_STREAM_POLL_RD
-            if arg & MP_STREAM_POLL_WR:
-                if hardware_can_accept_at_least_one_write_character:
-                    ret |= MP_STREAM_POLL_WR
-        return ret
-```
-
-The demo program `iorw.py` illustrates a complete example. Note that, at the
-time of writing there is a bug in `uasyncio` which prevents this from woking.
-See [this GitHub thread](https://github.com/micropython/micropython/pull/3836#issuecomment-397317408).
-The workround is to write two separate drivers, one read-only and the other
-write-only.
-
-###### [Contents](./TUTORIAL.md#contents)
-
-## 5.3 Polling hardware without IORead
-
-This is a simple approach, but is only appropriate to hardware which is to be
-polled at a relatively low rate. This is for two reasons. Firstly the variable
-latency caused by the execution of other coros will result in variable polling
-intervals - this may or may not matter depending on the device and application.
-Secondly, attempting to poll with a short polling interval may cause the coro
-to consume more processor time than is desirable.
+This is a simple approach, but is most appropriate to hardware which may be
+polled at a relatively low rate. This is primarily because polling with a short
+(or zero) polling interval may cause the coro to consume more processor time
+than is desirable.
 
 The example `apoll.py` demonstrates this approach by polling the Pyboard
 accelerometer at 100ms intervals. It performs some simple filtering to ignore
@@ -1260,7 +1162,140 @@ loop.run_until_complete(run())
 
 ###### [Contents](./TUTORIAL.md#contents)
 
-## 5.4 A complete example: aremote.py
+## 5.3 Using the IORead Mechanism
+
+This can be illustrated using a Pyboard UART. The following code sample
+demonstrates concurrent I/O on one UART. To run, link Pyboard pins X1 and X2
+(UART Txd and Rxd).
+
+```python
+import uasyncio as asyncio
+from pyb import UART
+uart = UART(4, 9600)
+
+async def sender():
+    swriter = asyncio.StreamWriter(uart, {})
+    while True:
+        await swriter.awrite('Hello uart\n')
+        await asyncio.sleep(2)
+
+async def receiver():
+    sreader = asyncio.StreamReader(uart)
+    while True:
+        res = await sreader.readline()
+        print('Recieved', res)
+
+loop = asyncio.get_event_loop()
+loop.create_task(sender())
+loop.create_task(receiver())
+loop.run_forever()
+```
+
+The supporting code may be found in `__init__.py` in the `uasyncio` library.
+The mechanism works because the device driver (written in C) implements the
+following methods: `ioctl`, `read`, `readline` and `write`. See
+[Writing IORead device drivers](./TUTORIAL.md#54-writing-ioread-device-drivers)
+for details on how such drivers may be written in Python.
+
+A UART can receive data at any time. The IORead mechanism checks for pending
+incoming characters whenever the scheduler has control. When a coro is running
+an interrupt service routine buffers incoming characters; these will be removed
+when the coro yields to the scheduler. Consequently UART applications should be
+designed such that coros minimise the time between yielding to the scheduler to
+avoid buffer overflows and data loss. This can be ameliorated by using a larger
+UART read buffer or a lower baudrate. Alternatively hardware flow control will
+provide a solution if the data source supports it.
+
+### 5.3.1 A UART driver example
+
+The program `auart_hd.py` illustrates a method of communicating with a half
+duplex device such as one responding to the modem 'AT' command set. Half duplex
+means that the device never sends unsolicited data: its transmissions are
+always in response to a command from the master.
+
+The device is emulated, enabling the test to be run on a Pyboard with two wire
+links.
+
+The (highly simplified) emulated device responds to any command by sending four
+lines of data with a pause between each, to simulate slow processing.
+
+The master sends a command, but does not know in advance how many lines of data
+will be returned. It starts a retriggerable timer, which is retriggered each
+time a line is received. When the timer times out it is assumed that the device
+has completed transmission, and a list of received lines is returned.
+
+The case of device failure is also demonstrated. This is done by omitting the
+transmission before awaiting a response. After the timeout an empty list is
+returned. See the code comments for more details.
+
+###### [Contents](./TUTORIAL.md#contents)
+
+## 5.4 Writing IORead device drivers
+
+The `IORead` mechanism is provided to support I/O to stream devices. Its
+typical use is to support streaming I/O devices such as UARTs and sockets. The
+mechanism may be employed by drivers of any device which needs to be polled:
+the polling is delegated to the scheduler which uses `select` to schedule the
+handlers for any devices which are ready. This is more efficient than running
+multiple coros each polling a device.
+
+It should be noted that currently the task polling I/O devices effectively runs
+in round-robin fashion along with other coroutines. Arguably this could be
+improved: [see this GitHub RFC](https://github.com/micropython/micropython/issues/2664).
+
+A device driver capable of employing the IORead mechanism may support
+`StreamReader`, `StreamWriter` instances or both. A readable device must
+provide at least one of the following methods. Note that these are synchronous
+methods. The `ioctl` method (see below) ensures that they are only called if
+data is available. The methods should return as fast as possible with as much
+data as is available.
+
+`readline()` Return as many characters as are available up to and including any
+newline character. Required if you intend to use `StreamReader.readline()`  
+`read(n)` Return as many characters as are available but no more than `n`.
+Required if you plan to use `StreamReader.read()` or
+`StreamReader.readexactly()`  
+
+A writeable driver must provide this synchronous method:  
+`write` Args `buf`, `off`, `sz`. Arguments:  
+`buf` is the buffer to write.  
+`off` is the offset into the buffer of the first character to write.  
+`sz` is the requested number of characters to write.  
+It should return immediately. The return value is the number of characters
+actually written (may well be 1 if the device is slow). The `ioctl` method
+ensures that this is only called if the device is ready to accept data.
+
+All devices must provide an `ioctl` method which polls the hardware to
+determine its ready status. A typical example for a read/write driver is:
+
+```python
+MP_STREAM_POLL_RD = const(1)
+MP_STREAM_POLL_WR = const(4)
+MP_STREAM_POLL = const(3)
+MP_STREAM_ERROR = const(-1)
+
+    def ioctl(self, req, arg):  # see ports/stm32/uart.c
+        ret = MP_STREAM_ERROR
+        if req == MP_STREAM_POLL:
+            ret = 0
+            if arg & MP_STREAM_POLL_RD:
+                if hardware_has_at_least_one_char_to_read:
+                    ret |= MP_STREAM_POLL_RD
+            if arg & MP_STREAM_POLL_WR:
+                if hardware_can_accept_at_least_one_write_character:
+                    ret |= MP_STREAM_POLL_WR
+        return ret
+```
+
+The demo program `iorw.py` illustrates a complete example. Note that, at the
+time of writing there is a bug in `uasyncio` which prevents this from woking.
+See [this GitHub thread](https://github.com/micropython/micropython/pull/3836#issuecomment-397317408).
+The workround is to write two separate drivers, one read-only and the other
+write-only.
+
+###### [Contents](./TUTORIAL.md#contents)
+
+## 5.5 A complete example: aremote.py
 
 This may be found in the `nec_ir` directory. Its use is documented
 [here](./nec_ir/README.md). The demo provides a complete device driver example:
@@ -1277,7 +1312,7 @@ any asyncio latency when setting its delay period.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
-## 5.5 HTU21D environment sensor
+## 5.6 HTU21D environment sensor
 
 This chip provides accurate measurements of temperature and humidity. The
 driver is documented [here](./htu21d/README.md). It has a continuously running
