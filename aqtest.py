@@ -2,10 +2,7 @@
 # Author: Peter Hinch
 # Copyright Peter Hinch 2017 Released under the MIT license
 
-try:
-    import asyncio_priority as asyncio
-except ImportError:
-    import uasyncio as asyncio
+import uasyncio as asyncio
 
 from uasyncio.queues import Queue
 

@@ -121,13 +121,13 @@ and rebuilding.
 
  5. [Device driver examples](./TUTORIAL.md#5-device-driver-examples)
 
-  5.1 [The IORead mechnaism](./TUTORIAL.md#51-the-ioread-mechanism)
+  5.1 [Using the IORead mechnanism](./TUTORIAL.md#51-using-the-ioread-mechanism)
 
    5.1.1 [A UART driver example](./TUTORIAL.md#511-a-uart-driver-example)
 
-  5.2 [Using a coro to poll hardware](./TUTORIAL.md#52-using-a-coro-to-poll-hardware)
+  5.2 [Writing IORead device drivers](./TUTORIAL.md#52-writing-ioread-device-drivers)
 
-  5.3 [Using IORead to poll hardware](./TUTORIAL.md#53-using-ioread-to-poll-hardware)
+  5.3 [Polling hardware without IORead](./TUTORIAL.md#53-polling-hardware-without-ioread)
 
   5.4 [A complete example: aremote.py](./TUTORIAL.md#54-a-complete-example-aremotepy)
   A driver for an IR remote control receiver.
@@ -216,6 +216,7 @@ results by accessing Pyboard hardware.
  11. `auart_hd.py` Use of the Pyboard UART to communicate with a device using a
  half-duplex protocol. Suits devices such as those using the 'AT' modem command
  set.
+ 12. `iorw.py` Demo of a read/write device driver using the IORead mechanism.
 
 **Test Programs**
 
@@ -1012,11 +1013,11 @@ acquire data. In the case of a driver written in Python this must be done by
 having a coro which does this periodically. This may present problems if there
 is a requirement for rapid polling owing to the round-robin nature of uasyncio
 scheduling: the coro will compete for execution with others. There are two
-solutions to this. One is to use the experimental version of uasyncio presented
-[here](./FASTPOLL.md).
+solutions to this. The official solution is to delegate polling to the
+scheduler using the IORead mechanism. This is currently subject to limitations.
 
-The other potential solution is to delegate the polling to the scheduler using
-the IORead mechanism. This is unsupported for Python drivers: see section 5.3.
+An alternative is to use the experimental version of uasyncio presented
+[here](./FASTPOLL.md).
 
 Note that where a very repeatable polling interval is required, it should be
 done using a hardware timer with a hard interrupt callback. For "very"
@@ -1044,7 +1045,7 @@ which offers a means of reducing this latency for critical tasks.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
-## 5.1 The IORead Mechanism
+## 5.1 Using the IORead Mechanism
 
 This can be illustrated using a Pyboard UART. The following code sample
 demonstrates concurrent I/O on one UART. To run, link Pyboard pins X1 and X2
@@ -1073,19 +1074,20 @@ loop.create_task(receiver())
 loop.run_forever()
 ```
 
-The supporting code may be found in `__init__.py` in the uasyncio library.
+The supporting code may be found in `__init__.py` in the `uasyncio` library.
 The mechanism works because the device driver (written in C) implements the
-following methods: `ioctl`, `read`, `write`, `readline` and `close`. See
-section 5.3 for further discussion.
+following methods: `ioctl`, `read`, `readline` and `write`. See
+[section 5.2](./TUTORIAL.md#52-writing-ioread-device-drivers) for details on
+how such drivers may be written in Python.
 
 A UART can receive data at any time. The IORead mechanism checks for pending
 incoming characters whenever the scheduler has control. When a coro is running
 an interrupt service routine buffers incoming characters; these will be removed
 when the coro yields to the scheduler. Consequently UART applications should be
-designed such that all coros minimise blocking periods to avoid buffer
-overflows and data loss. This can be ameliorated by using a larger UART read
-buffer or a lower baudrate. Alternatively hardware flow control will provide a
-solution if the data source supports it.
+designed such that coros minimise the time between yielding to the scheduler to
+avoid buffer overflows and data loss. This can be ameliorated by using a larger
+UART read buffer or a lower baudrate. Alternatively hardware flow control will
+provide a solution if the data source supports it.
 
 ### 5.1.1 A UART driver example
 
@@ -1111,7 +1113,72 @@ returned. See the code comments for more details.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
-## 5.2 Using a coro to poll hardware
+## 5.2 Writing IORead device drivers
+
+The `IORead` mechanism is provided to support I/O to stream devices. Its
+typical use is to support streaming I/O devices such as UARTs and sockets. The
+mechanism may be employed by drivers of any device which needs to be polled:
+the polling is delegated to the scheduler which uses `select` to schedule the
+handlers for any devices which are ready. This is more efficient than running
+multiple coros each polling a device.
+
+It should be noted that currently the task polling I/O devices effectively runs
+in round-robin fashion along with other coroutines. This is arguably sub
+optimal: [see this GitHub RFC](https://github.com/micropython/micropython/issues/2664).
+
+A device driver capable of employing the IORead mechanism may support
+`StreamReader`, `StreamWriter` instances or both. A readable device must
+provide at least one of the following methods. Note that these are synchronous
+methods. The `ioctl` method (see below) ensures that they are only called if
+data is available. The methods should return as fast as possible with as much
+data as is available.
+
+`readline()` Return as many characters as are available up to and including any
+newline character. Required if you intend to use `StreamReader.readline()`  
+`read(n)` Return as many characters as are available but no more than `n`.
+Required if you plan to use `StreamReader.read()` or
+`StreamReader.readexactly()`  
+
+A writeable driver must provide this synchronous method:  
+`write` Args `buf`, `off`, `sz`. Arguments:  
+`buf` is the buffer to write.  
+`off` is the offset into the buffer of the first character to write.  
+`sz` is the requested number of characters to write.  
+It should return immediately. The return value is the number of characters
+actually written (may well be 1 if the device is slow). The `ioctl` method
+ensures that this is only called if the device is ready to accept data.
+
+All devices must provide an `ioctl` method which polls the hardware to
+determine its ready status. A typical example for a read/write driver is:
+
+```python
+MP_STREAM_POLL_RD = const(1)
+MP_STREAM_POLL_WR = const(4)
+MP_STREAM_POLL = const(3)
+MP_STREAM_ERROR = const(-1)
+
+    def ioctl(self, req, arg):  # see ports/stm32/uart.c
+        ret = MP_STREAM_ERROR
+        if req == MP_STREAM_POLL:
+            ret = 0
+            if arg & MP_STREAM_POLL_RD:
+                if hardware_has_at_least_one_char_to_read:
+                    ret |= MP_STREAM_POLL_RD
+            if arg & MP_STREAM_POLL_WR:
+                if hardware_can_accept_at_least_one_write_character:
+                    ret |= MP_STREAM_POLL_WR
+        return ret
+```
+
+The demo program `iorw.py` illustrates a complete example. Note that, at the
+time of writing there is a bug in `uasyncio` which prevents this from woking.
+See [this GitHub thread](https://github.com/micropython/micropython/pull/3836#issuecomment-397317408).
+The workround is to write two separate drivers, one read-only and the other
+write-only.
+
+###### [Contents](./TUTORIAL.md#contents)
+
+## 5.3 Polling hardware without IORead
 
 This is a simple approach, but is only appropriate to hardware which is to be
 polled at a relatively low rate. This is for two reasons. Firstly the variable
@@ -1190,21 +1257,6 @@ async def run():
 loop = asyncio.get_event_loop()
 loop.run_until_complete(run())
 ```
-
-###### [Contents](./TUTORIAL.md#contents)
-
-## 5.3 Using IORead to poll hardware
-
-The uasyncio `IORead` class is provided to support IO to stream devices. It
-may be employed by drivers of devices which need to be polled: the polling will
-be delegated to the scheduler which uses `select` to schedule the first
-stream or device driver to be ready. This is more efficient, and offers lower
-latency, than running multiple coros each polling a device.
-
-At the time of writing firmware support for using this mechanism in device
-drivers written in Python has not been implemented, and the final comment to
-[this](https://github.com/micropython/micropython/issues/2664) issue suggests
-that it may never be done. So streaming device drivers must be written in C.
 
 ###### [Contents](./TUTORIAL.md#contents)
 

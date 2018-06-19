@@ -75,7 +75,8 @@ Classes `Task` and `Future` are not supported.
 ## 3.1 Asynchronous I/O
 
 Asynchronous I/O (`StreamReader` and `StreamWriter` classes) support devices
-with streaming drivers, such as UARTs and sockets.
+with streaming drivers, such as UARTs and sockets. It is now possible to write
+streaming device drivers in Python.
 
 ## 3.2 Time values
 

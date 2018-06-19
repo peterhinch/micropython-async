@@ -4,6 +4,11 @@ This document describes a "priority" version of uasyncio. Its purpose is to
 provide a simple priority mechanism to facilitate the design of applications
 with improved millisecond-level timing accuracy and reduced scheduling latency.
 
+I remain hopeful that uasyncio will mature natively to support fast I/O
+polling: if this occurs I plan to deprecate this solution. See
+[this thread](https://github.com/micropython/micropython/pull/3836#issuecomment-397317408)
+and [this one](https://github.com/micropython/micropython/issues/2664).
+
 V0.3 Feb 2018. A single module designed to work with the official `uasyncio`
 library. This requires `uasyncio` V2.0 which requires firmware dated
 22nd Feb 2018 or later.
