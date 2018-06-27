@@ -908,11 +908,9 @@ comes from the `Lock` class:
 If the `async with` has an `as variable` clause the variable receives the
 value returned by `__aenter__`.
 
-Note there is currently a bug in the implementation whereby if an explicit
-`return` is issued within an `async with` block, the `__aexit__` method
-is not called. The solution is to design the code so that in all cases it runs
-to completion. The error appears to be in [PEP492](https://www.python.org/dev/peps/pep-0492/).
-See [this issue](https://github.com/micropython/micropython/issues/3153).
+There was a bug in the implementation whereby if an explicit `return` was issued
+within an `async with` block, the `__aexit__` method was not called. This was
+fixed as of 27th June 2018 [ref](https://github.com/micropython/micropython/pull/3890).
 
 ###### [Contents](./TUTORIAL.md#contents)
 
@@ -1269,11 +1267,14 @@ All devices must provide an `ioctl` method which polls the hardware to
 determine its ready status. A typical example for a read/write driver is:
 
 ```python
+import io
 MP_STREAM_POLL_RD = const(1)
 MP_STREAM_POLL_WR = const(4)
 MP_STREAM_POLL = const(3)
 MP_STREAM_ERROR = const(-1)
 
+class MyIO(io.IOBase):
+    # Methods omitted
     def ioctl(self, req, arg):  # see ports/stm32/uart.c
         ret = MP_STREAM_ERROR
         if req == MP_STREAM_POLL:

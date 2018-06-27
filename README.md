@@ -21,8 +21,11 @@ This GitHub repository consists of the following parts:
  * [A modified uasyncio](./FASTPOLL.md) This incorporates a simple priority
  mechanism. With suitable application design this improves the rate at which
  devices can be polled and improves the accuracy of time delays. Also provides
- for low priority tasks which are only scheduled when normal tasks are paused.
- NOTE: this requires uasyncio V2.0.
+ for low priority tasks which are only scheduled when normal tasks are paused.  
+ NOTE1: this requires uasyncio V2.0.  
+ NOTE2: I have a PR in place which, if accepted, will largely supersede this
+ with a faster and more efficient way of handling fast I/O. This modified
+ version should be regarded as "experimental". It may stop being supported.
  * [Communication between devices](./syncom_as/README.md) Enables MicroPython
  boards to communicate without using a UART. Primarily intended to enable a
  a Pyboard-like device to achieve bidirectional communication with an ESP8266.
