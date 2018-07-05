@@ -46,7 +46,7 @@ course.
 
 The documentation and code in this repository are based on `uasyncio` version
 2.0, which is the version on PyPi and in the official micropython-lib. This
-requires firmware dated 22nd Feb 2018 or later. Use of the IORead mechanism
+requires firmware dated 22nd Feb 2018 or later. Use of the stream I/O mechanism
 requires firmware after 17th June 2018.
 
 See [tutorial](./TUTORIAL.md#installing-uasyncio-on-bare-metal) for

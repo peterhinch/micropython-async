@@ -125,11 +125,11 @@ and rebuilding.
 
   5.2 [Polling hardware with a coroutine](./TUTORIAL.md#52-polling-hardware-with-a-coroutine)
 
-  5.3 [Using the IORead mechnanism](./TUTORIAL.md#53-using-the-ioread-mechanism)
+  5.3 [Using the stream mechnanism](./TUTORIAL.md#53-using-the-stream-mechanism)
 
    5.3.1 [A UART driver example](./TUTORIAL.md#531-a-uart-driver-example)
 
-  5.4 [Writing IORead device drivers](./TUTORIAL.md#54-writing-ioread-device-drivers)
+  5.4 [Writing streaming device drivers](./TUTORIAL.md#54-writing-streaming-device-drivers)
 
   5.5 [A complete example: aremote.py](./TUTORIAL.md#55-a-complete-example-aremotepy)
   A driver for an IR remote control receiver.
@@ -186,8 +186,8 @@ The following modules are provided which may be copied to the target hardware.
 **Libraries**
 
  1. `asyn.py` Provides synchronisation primitives `Lock`, `Event`, `Barrier`,
- `Semaphore` and `BoundedSemaphore`. Provides support for task cancellation via
- `NamedTask` and `Cancellable` classes.
+ `Semaphore`, `BoundedSemaphore`, `Condition` and `gather`. Provides support
+ for task cancellation via `NamedTask` and `Cancellable` classes.
  2. `aswitch.py` This provides classes for interfacing switches and
  pushbuttons and also a software retriggerable delay object. Pushbuttons are a
  generalisation of switches providing logical rather than physical status along
@@ -215,7 +215,7 @@ results by accessing Pyboard hardware.
  11. `auart_hd.py` Use of the Pyboard UART to communicate with a device using a
  half-duplex protocol. Suits devices such as those using the 'AT' modem command
  set.
- 12. `iorw.py` Demo of a read/write device driver using the IORead mechanism.
+ 12. `iorw.py` Demo of a read/write device driver using the stream I/O mechanism.
 
 **Test Programs**
 
@@ -247,7 +247,6 @@ Consider the following example:
 
 ```python
 import uasyncio as asyncio
-loop = asyncio.get_event_loop()
 async def bar():
     count = 0
     while True:
@@ -255,6 +254,7 @@ async def bar():
         print(count)
         await asyncio.sleep(1)  # Pause 1s
 
+loop = asyncio.get_event_loop()
 loop.create_task(bar()) # Schedule ASAP
 loop.run_forever()
 ```
@@ -272,11 +272,12 @@ loop's `run_until_complete` method. Examples of this may be found in the
 `astests.py` module.
 
 The event loop instance is a singleton, instantiated by a program's first call
-to `asyncio.get_event_loop()`. This takes an optional integer arg being the
-length of the coro queue - i.e. the maximum number of concurrent coros allowed.
-The default of 42 is likely to be adequate for most purposes. If a coro needs
-to call an event loop method, calling `asyncio.get_event_loop()` (without
-args) will efficiently return it.
+to `asyncio.get_event_loop()`. This takes two optional integer args being the
+lengths of the two coro queues - i.e. the maximum number of concurrent coros
+allowed. The default of 16 is likely to be adequate for most purposes.
+
+If a coro needs to call an event loop method (usually `create_task`), calling
+`asyncio.get_event_loop()` (without args) will efficiently return it.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
@@ -317,7 +318,8 @@ the `roundrobin.py` example.
  any required arguments passed. The `run_until_complete` call returns when
  the coro terminates: this method provides a way of quitting the scheduler.
  * `await`  Arg: the coro to run, specified with function call syntax. Starts
- the coro ASAP and blocks until it has run to completion.
+ the coro ASAP. The awaiting coro blocks until the awaited one has run to
+ completion.
 
 The above are compatible with CPython. Additional uasyncio methods are
 discussed in 2.2.3 below.
@@ -395,14 +397,15 @@ compete to access a single resource. An example is provided in the `astests.py`
 program and discussed in [the docs](./DRIVERS.md). Another hazard is the "deadly
 embrace" where two coros each wait on the other's completion.
 
-In simple applications communication may be achieved with global flags. A more
-elegant approach is to use synchronisation primitives. The module
+In simple applications communication may be achieved with global flags or bound
+variables. A more elegant approach is to use synchronisation primitives. The
+module
 [asyn.py](https://github.com/peterhinch/micropython-async/blob/master/asyn.py)
 offers "micro" implementations of `Event`, `Barrier`, `Semaphore` and
 `Condition` primitives. These are for use only with asyncio. They are not
 thread safe and should not be used with the `_thread` module or from an
 interrupt handler except where mentioned. A `Lock` primitive is provided which
-is partially superseded by an official implementation.
+is an alterantive to the official implementation.
 
 Another synchronisation issue arises with producer and consumer coros. The
 producer generates data which the consumer uses. Asyncio provides the `Queue`
@@ -460,9 +463,9 @@ ineffective. It will not receive the `TimeoutError` until it has acquired the
 lock. The same observation applies to task cancellation.
 
 The module `asyn.py` offers a `Lock` class which works in these situations
-[full details](./PRIMITIVES.md#32-class-lock). It is significantly less
-efficient than the official class but supports additional interfaces as per the
-CPython version including context manager usage.
+[see docs](./PRIMITIVES.md#32-class-lock). It is significantly less efficient
+than the official class but supports additional interfaces as per the CPython
+version including context manager usage.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
@@ -691,9 +694,9 @@ async def foo():
     print('Done')
 ```
 
-**Note** It is bad practice to issue the close() method to a de-scheduled
-coro. This subverts the scheduler by causing the coro to execute code even
-though descheduled. This is likely to have unwanted consequences.
+**Note** It is bad practice to issue the `close` or `throw` methods of a
+de-scheduled coro. This subverts the scheduler by causing the coro to execute
+code even though descheduled. This is likely to have unwanted consequences.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
@@ -1015,7 +1018,7 @@ while a coroutine awaiting the outcome polls the object each time it is
 scheduled.
 
 Polling may be effected in two ways, explicitly or implicitly. The latter is
-performed by using the `IORead` mechanism which is a system designed for stream
+performed by using the `stream I/O` mechanism which is a system designed for stream
 devices such as UARTs and sockets. At its simplest explicit polling may consist
 of code like this:
 
@@ -1034,10 +1037,10 @@ an awaitable class might be used. Explicit polling is discussed
 further [below](./TUTORIAL.md#52-polling-hardware-with-a-coroutine).
 
 Implicit polling consists of designing the driver to behave like a stream I/O
-device such as a socket or UART, using `IORead`. This polls devices using
+device such as a socket or UART, using `stream I/O`. This polls devices using
 Python's `select.poll` system: because the polling is done in C it is faster
-and more efficient than explicit polling. The use of `IORead` is discussed
-[here](./TUTORIAL.md#53-using-the-ioread-mechanism).
+and more efficient than explicit polling. The use of `stream I/O` is discussed
+[here](./TUTORIAL.md#53-using-the-stream-mechanism).
 
 ###### [Contents](./TUTORIAL.md#contents)
 
@@ -1099,7 +1102,7 @@ driver implements a `RecordOrientedUart` class, where data is supplied in
 variable length records consisting of bytes instances. The object appends a
 delimiter before sending and buffers incoming data until the delimiter is
 received. This is a demo and is an inefficient way to use a UART compared to
-IORead.
+stream I/O.
 
 For the purpose of demonstrating asynchronous transmission we assume the
 device being emulated has a means of checking that transmission is complete
@@ -1159,7 +1162,7 @@ loop.run_until_complete(run())
 
 ###### [Contents](./TUTORIAL.md#contents)
 
-## 5.3 Using the IORead Mechanism
+## 5.3 Using the stream mechanism
 
 This can be illustrated using a Pyboard UART. The following code sample
 demonstrates concurrent I/O on one UART. To run, link Pyboard pins X1 and X2
@@ -1191,10 +1194,10 @@ loop.run_forever()
 The supporting code may be found in `__init__.py` in the `uasyncio` library.
 The mechanism works because the device driver (written in C) implements the
 following methods: `ioctl`, `read`, `readline` and `write`. See
-[Writing IORead device drivers](./TUTORIAL.md#54-writing-ioread-device-drivers)
+[Writing streaming device drivers](./TUTORIAL.md#54-writing-streaming-device-drivers)
 for details on how such drivers may be written in Python.
 
-A UART can receive data at any time. The IORead mechanism checks for pending
+A UART can receive data at any time. The stream I/O mechanism checks for pending
 incoming characters whenever the scheduler has control. When a coro is running
 an interrupt service routine buffers incoming characters; these will be removed
 when the coro yields to the scheduler. Consequently UART applications should be
@@ -1227,9 +1230,9 @@ returned. See the code comments for more details.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
-## 5.4 Writing IORead device drivers
+## 5.4 Writing streaming device drivers
 
-The `IORead` mechanism is provided to support I/O to stream devices. Its
+The `stream I/O` mechanism is provided to support I/O to stream devices. Its
 typical use is to support streaming I/O devices such as UARTs and sockets. The
 mechanism may be employed by drivers of any device which needs to be polled:
 the polling is delegated to the scheduler which uses `select` to schedule the
@@ -1238,7 +1241,7 @@ multiple coros each polling a device, partly because `select` is written in C
 but also because the coroutine performing the polling is descheduled until the
 `poll` object returns a ready status.
 
-A device driver capable of employing the IORead mechanism may support
+A device driver capable of employing the stream I/O mechanism may support
 `StreamReader`, `StreamWriter` instances or both. A readable device must
 provide at least one of the following methods. Note that these are synchronous
 methods. The `ioctl` method (see below) ensures that they are only called if
