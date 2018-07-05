@@ -2,11 +2,15 @@
 
 This document aims to explain the operation of `uasyncio` as I understand it. I
 did not write the library so the information presented is a result of using it,
-also studying the code, experiment and inference. There may be errors, in which
-case please raise an issue. None of the information here is required to use the
-library.
+studying the code, experiment and inference. There may be errors, in which case
+please raise an issue. None of the information here is required to use the
+library: it is intended to satisfy the curiosity of scheduler geeks.
 
-It assumes a good appreciation of the use of `uasyncio`. Familiarity with
+Where the versions differ, the explanation relates to the `fast_io` version.
+Differences are largely in `__init__.py`: the scheduling algorithm in `core.py`
+is little changed.
+
+This doc assumes a good appreciation of the use of `uasyncio`. Familiarity with
 Python generators is also recommended, in particular the use of `yield from`
 and appreciating the difference between a generator and a generator function:
 
@@ -19,12 +23,11 @@ def gen_func(n):  # gen_func is a generator function
 my_gen = gen_func(7)  # my_gen is a generator
 ```
 
-The code for `uasyncio` may be found in micropython-lib in the following
-directories:
+The code for the `fast_io` variant of `uasyncio` may be found in:
 
 ```
-uasyncio/uasyncio/__init__.py
-uasyncio.core/uasyncio/core.py
+fast_io/__init__.py
+fast_io/core.py
 ```
 
 # Generators and coroutines
@@ -101,7 +104,7 @@ The following subclasses exist:
  interface.
  * `IOWrite` Causes an interface to be polled for ready to accept data. `.arg`
  is the interface.
- * `IOReadDone` These stop polling of an interface.
+ * `IOReadDone` These stop polling of an interface (in `.arg`).
  * `IOWriteDone`
 
 The `IO*` classes are for the exclusive use of `StreamReader` and `StreamWriter`
@@ -113,11 +116,14 @@ The file `core.py` defines an `EventLoop` class which is subclassed by
 `PollEventLoop` in `__init__.py`. The latter extends the base class to support
 stream I/O. In particular `.wait()` is overridden in the subclass.
 
-The `EventLoop` maintains two queues, `.runq` and `.waitq`. Tasks are appended
-to the bottom of the run queue and retrieved from the top; in other words it is
-a First In First Out (FIFO) queue. Tasks on the wait queue are sorted in order
-of the time when they are to run, the task having the soonest time to run at
-the top.
+The `fast_io` `EventLoop` maintains three queues, `.runq`, `.waitq` and `.ioq`,
+although `.ioq` is only instantiated if it is specified. Official `uasyncio`
+does not have `.ioq`.
+
+Tasks are appended to the bottom of the run queue and retrieved from the top;
+in other words it is a First In First Out (FIFO) queue. The I/O queue is
+similar. Tasks on the wait queue are sorted in order of the time when they are
+to run, the task having the soonest time to run at the top.
 
 When a task issues `await asyncio.sleep(t)` or `await asyncio.sleep_ms(t)` and
 t > 0 the task is placed on the wait queue. If t == 0 it is placed on the run
@@ -140,7 +146,8 @@ iterates to the next entry. If it is a task, it runs then either yields or
 raises an exception. If it yields the return type is examined as described
 above. If the task yields with a zero delay it will be appended to the run
 queue, but as described above it will not be rescheduled in this pass through
-the queue.
+the queue. If it yields a nonzero delay it will be added to `.waitq` (it has
+already been removed from `.runq`).
 
 Once every task which was initially on the run queue has been scheduled, the
 queue may or may not be empty depending on whether tasks yielded a zero delay.
@@ -164,10 +171,15 @@ the run queue - the task is simply not rescheduled.
 If an unhandled exception occurs in a task this will be propagated to the
 caller of `run_forever()` or `run_until_complete` a explained in the tutorial.
 
-# Stream I/O
+## Task Cancellation
 
-This description of stream I/O is based on my code rather than the official
-version.
+The `cancel` function uses `pend_throw` to pass a `CancelledError` to the coro
+to be cancelled. The generator's `.throw` and `.close` methods cause the coro
+to execute code immediately. This is incorrect behaviour for a de-scheduled
+coro. The `.pend_throw` method causes the exception to be processed the next
+time the coro is scheduled.
+
+# Stream I/O
 
 Stream I/O is an efficient way of polling stream devices using `select.poll`.
 Device drivers for this mechanism must provide an `ioctl` method which reports
