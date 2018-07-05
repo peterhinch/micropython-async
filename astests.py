@@ -7,11 +7,7 @@
 from machine import Pin
 from pyb import LED
 from aswitch import Switch, Pushbutton
-# Verify it works under standard and priority version
-try:
-    import asyncio_priority as asyncio
-except ImportError:
-    import uasyncio as asyncio
+import uasyncio as asyncio
 
 helptext = '''
 Test using switch or pushbutton between X1 and gnd.

@@ -37,7 +37,7 @@ def print_tests():
     st = '''Available functions:
 print_tests()  Print this list.
 ack_test()  Test event acknowledge.
-event_test(lp=True)  Test Event and Lock objects. If lp use low priority mechanism.
+event_test()  Test Event and Lock objects.
 barrier_test()  Test the Barrier class.
 semaphore_test(bounded=False)  Test Semaphore or BoundedSemaphore.
 condition_test()  Test the Condition class.
@@ -143,7 +143,7 @@ async def eventwait(event):
     print('got event')
     event.clear()
 
-async def run_event_test(lp):
+async def run_event_test():
     print('Test Lock class')
     loop = asyncio.get_event_loop()
     lock = asyn.Lock()
@@ -151,13 +151,13 @@ async def run_event_test(lp):
     loop.create_task(run_lock(2, lock))
     loop.create_task(run_lock(3, lock))
     print('Test Event class')
-    event = asyn.Event(lp)
+    event = asyn.Event()
     loop.create_task(eventset(event))
     await eventwait(event)  # run_event_test runs fast until this point
     print('Event status {}'.format('Incorrect' if event.is_set() else 'OK'))
     print('Tasks complete')
 
-def event_test(lp=True):  # Option to use low priority scheduling
+def event_test():
     printexp('''Test Lock class
 Test Event class
 waiting for event
@@ -177,7 +177,7 @@ Event status OK
 Tasks complete
 ''', 5)
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(run_event_test(lp))
+    loop.run_until_complete(run_event_test())
 
 # ************ Barrier test ************
 

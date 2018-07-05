@@ -5,12 +5,9 @@
 # Trivial fix for MicroPython issue #2678
 
 try:
-    import asyncio_priority as asyncio
+    import uasyncio as asyncio
 except ImportError:
-    try:
-        import uasyncio as asyncio
-    except ImportError:
-        import asyncio
+    import asyncio
 
 class Hardware(object):
     def __init__(self, count):

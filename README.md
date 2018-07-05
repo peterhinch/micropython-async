@@ -18,28 +18,36 @@ This GitHub repository consists of the following parts:
  * [A driver for GPS modules](./gps/README.md) Runs a background task to read
  and decode NMEA sentences, providing constantly updated position, course,
  altitude and time/date information.
- * [A modified uasyncio](./FASTPOLL.md) This incorporates a simple priority
- mechanism. With suitable application design this improves the rate at which
- devices can be polled and improves the accuracy of time delays. Also provides
- for low priority tasks which are only scheduled when normal tasks are paused.  
- NOTE1: this requires uasyncio V2.0.  
- NOTE2: I have a PR in place which, if accepted, will largely supersede this
- with a faster and more efficient way of handling fast I/O. This modified
- version should be regarded as "experimental". It may stop being supported.
  * [Communication between devices](./syncom_as/README.md) Enables MicroPython
  boards to communicate without using a UART. Primarily intended to enable a
  a Pyboard-like device to achieve bidirectional communication with an ESP8266.
+ * [Under the hood](./UNDER_THE_HOOD.md) A guide to help understand the
+ `uasyncio` code. Strictly for scheduler geeks...
+ 
+## 1.1 A new "priority" version.
+
+This repo included `asyncio_priority.py` which is now deprecated. Its primary
+purpose was to provide a means of servicing fast hardware devices by means of
+coroutines running at a high priority. The official firmware now includes
+[this major improvement](https://github.com/micropython/micropython/pull/3836)
+which offers a much more efficient way of achieving this end. The tutorial has
+details of how to use this.
+
+The current `uasyncio` suffers from high levels of latency when scheduling I/O
+in typical applications. It also has an issue which can cause bidirectional
+devices such as UART's to block.
+
+A modified version of `uasyncio` is described [here](./FASTPOLL.md) which
+provides an option for I/O scheduling with much reduced latency. It also fixes
+the bug. It is hoped that these changes will be accepted into mainstream in due
+course.
 
 # 2. Version and installation of uasyncio
 
 The documentation and code in this repository are based on `uasyncio` version
-2.0, which is the version on PyPi. This requires firmware dated 22nd Feb 2018
-or later.
-
-Version 2.0 brings only one API change over V1.7.1, namely the arguments to
-`get_event_loop()`. Unless using the priority version all test programs and
-code samples use default args so will work under either version. The priority
-version requires the later version and firmware.
+2.0, which is the version on PyPi and in the official micropython-lib. This
+requires firmware dated 22nd Feb 2018 or later. Use of the IORead mechanism
+requires firmware after 17th June 2018.
 
 See [tutorial](./TUTORIAL.md#installing-uasyncio-on-bare-metal) for
 installation instructions.
@@ -50,7 +58,7 @@ These notes are intended for users familiar with `asyncio` under CPython.
 
 The MicroPython language is based on CPython 3.4. The `uasyncio` library
 supports a subset of the CPython 3.4 `asyncio` library with some V3.5
-extensions. In addition there are nonstandard extensions to optimise services
+extensions. In addition there are non-standard extensions to optimise services
 such as millisecond level timing and task cancellation. Its design focus is on
 high performance and scheduling is performed without RAM allocation.
 

@@ -30,18 +30,11 @@
 # CPython 3.5 compatibility
 # (ignore RuntimeWarning: coroutine '_g' was never awaited)
 
-# Check availability of 'priority' version
 try:
-    import asyncio_priority as asyncio
-    p_version = True
+    import uasyncio as asyncio
 except ImportError:
-    p_version = False
-    try:
-        import uasyncio as asyncio
-    except ImportError:
-        import asyncio
+    import asyncio
 
-after = asyncio.after if p_version else asyncio.sleep
 
 async def _g():
     pass
@@ -102,11 +95,8 @@ class Lock():
 # A coro rasing the event issues event.set()
 # When all waiting coros have run
 # event.clear() should be issued
-# Use of low_priority may be specified in the constructor
-# when it will be used if available.
 class Event():
-    def __init__(self, lp=False):
-        self.after = after if (p_version and lp) else asyncio.sleep
+    def __init__(self, lp=False):  # Redundant arg retained for compatibility
         self.clear()
 
     def clear(self):
@@ -115,7 +105,7 @@ class Event():
 
     def __await__(self):
         while not self._flag:
-            yield from self.after(0)
+            yield
 
     __iter__ = __await__
 
@@ -162,7 +152,7 @@ class Barrier():
         while True:  # Wait until last waiting thread changes the direction
             if direction != self._down:
                 return
-            yield from after(0)
+            yield
 
     __iter__ = __await__
 
@@ -209,7 +199,7 @@ class Semaphore():
 
     async def acquire(self):
         while self._count == 0:
-            await after(0)
+            yield
         self._count -= 1
 
     def release(self):

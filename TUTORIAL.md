@@ -192,9 +192,6 @@ The following modules are provided which may be copied to the target hardware.
  pushbuttons and also a software retriggerable delay object. Pushbuttons are a
  generalisation of switches providing logical rather than physical status along
  with double-clicked and long pressed events.
- 3. `asyncio_priority.py` An experimental version of uasyncio with a simple
- priority mechanism. See [this doc](./FASTPOLL.md). Note that this does not yet
- support `uasyncio` V2.0.
 
 **Demo Programs**
 
@@ -639,8 +636,6 @@ controlled. Documentation of this is in the code.
 
 ## 3.6 Task cancellation
 
-This requires `uasyncio` V1.7.1 or later, with suitably recent firmware.
-
 `uasyncio` now provides a `cancel(coro)` function. This works by throwing an
 exception to the coro in a special way: cancellation is deferred until the coro
 is next scheduled. This mechanism works with nested coros. However there is a
@@ -649,7 +644,7 @@ limitation. If a coro issues `await uasyncio.sleep(secs)` or
 This introduces latency into cancellation which matters in some use-cases.
 Other potential sources of latency take the form of slow code. `uasyncio` has
 no mechanism for verifying when cancellation has actually occurred. The `asyn`
-library provides solutions via the following classes:
+library provides verification via the following classes:
 
  1. `Cancellable` This allows one or more tasks to be assigned to a group. A
  coro can cancel all tasks in the group, pausing until this has been acheived.
@@ -678,7 +673,7 @@ illustration of the mechanism a cancellable task is defined as below:
 
 ```python
 @asyn.cancellable
-async def print_nums(_, num):
+async def print_nums(num):
     while True:
         print(num)
         num += 1
@@ -695,6 +690,10 @@ async def foo():
     await asyn.Cancellable.cancel_all()
     print('Done')
 ```
+
+**Note** It is bad practice to issue the close() method to a de-scheduled
+coro. This subverts the scheduler by causing the coro to execute code even
+though descheduled. This is likely to have unwanted consequences.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
@@ -1235,11 +1234,9 @@ typical use is to support streaming I/O devices such as UARTs and sockets. The
 mechanism may be employed by drivers of any device which needs to be polled:
 the polling is delegated to the scheduler which uses `select` to schedule the
 handlers for any devices which are ready. This is more efficient than running
-multiple coros each polling a device.
-
-It should be noted that currently the task polling I/O devices effectively runs
-in round-robin fashion along with other coroutines. Arguably this could be
-improved: [see this GitHub RFC](https://github.com/micropython/micropython/issues/2664).
+multiple coros each polling a device, partly because `select` is written in C
+but also because the coroutine performing the polling is descheduled until the
+`poll` object returns a ready status.
 
 A device driver capable of employing the IORead mechanism may support
 `StreamReader`, `StreamWriter` instances or both. A readable device must
@@ -1288,11 +1285,117 @@ class MyIO(io.IOBase):
         return ret
 ```
 
+The following is a complete awaitable delay class:
+
+```python
+import uasyncio as asyncio
+import utime
+import io
+MP_STREAM_POLL_RD = const(1)
+MP_STREAM_POLL = const(3)
+MP_STREAM_ERROR = const(-1)
+
+class MillisecTimer(io.IOBase):
+    def __init__(self):
+        self.end = 0
+        self.sreader = asyncio.StreamReader(self)
+
+    def __iter__(self):
+        await self.sreader.readline()
+
+    def __call__(self, ms):
+        self.end = utime.ticks_add(utime.ticks_ms(), ms)
+        return self
+
+    def readline(self):
+        return b'\n'
+
+    def ioctl(self, req, arg):
+        ret = MP_STREAM_ERROR
+        if req == MP_STREAM_POLL:
+            ret = 0
+            if arg & MP_STREAM_POLL_RD:
+                if utime.ticks_diff(utime.ticks_ms(), self.end) >= 0:
+                    ret |= MP_STREAM_POLL_RD
+        return ret
+```
+
+which may be used as follows:
+
+```python
+async def timer_test(n):
+    timer = ms_timer.MillisecTimer()
+    await timer(30)  # Pause 30ms
+```
+
+With official `uasyncio` this confers no benefit over `await asyncio.sleep_ms()`.
+With the [priority version](./FASTPOLL.md) it offers much more precise delays
+under a common usage scenario.
+
+It is possible to use I/O scheduling to associate an event with a callback.
+This is more efficient than a polling loop because the coro doing the polling
+is descheduled until `ioctl` returns a ready status. The following runs a
+callback when a pin changes state.
+
+```python
+import uasyncio as asyncio
+import io
+MP_STREAM_POLL_RD = const(1)
+MP_STREAM_POLL = const(3)
+MP_STREAM_ERROR = const(-1)
+
+class PinCall(io.IOBase):
+    def __init__(self, pin, *, cb_rise=None, cbr_args=(), cb_fall=None, cbf_args=()):
+        self.pin = pin
+        self.cb_rise = cb_rise
+        self.cbr_args = cbr_args
+        self.cb_fall = cb_fall
+        self.cbf_args = cbf_args
+        self.pinval = pin.value()
+        self.sreader = asyncio.StreamReader(self)
+        loop = asyncio.get_event_loop()
+        loop.create_task(self.run())
+
+    async def run(self):
+        while True:
+            await self.sreader.read(1)
+
+    def read(self, _):
+        v = self.pinval
+        if v and self.cb_rise is not None:
+            self.cb_rise(*self.cbr_args)
+            return b'\n'
+        if not v and self.cb_fall is not None:
+            self.cb_fall(*self.cbf_args)
+        return b'\n'
+
+    def ioctl(self, req, arg):
+        ret = MP_STREAM_ERROR
+        if req == MP_STREAM_POLL:
+            ret = 0
+            if arg & MP_STREAM_POLL_RD:
+                v = self.pin.value()
+                if v != self.pinval:
+                    self.pinval = v
+                    ret = MP_STREAM_POLL_RD
+        return ret
+```
+
+Once again with official `uasyncio` latency can be high. Depending on
+application design the [priority version](./FASTPOLL.md) can greatly reduce
+this.
+
 The demo program `iorw.py` illustrates a complete example. Note that, at the
 time of writing there is a bug in `uasyncio` which prevents this from woking.
 See [this GitHub thread](https://github.com/micropython/micropython/pull/3836#issuecomment-397317408).
-The workround is to write two separate drivers, one read-only and the other
-write-only.
+There are two solutions. A workround is to write two separate drivers, one
+read-only and the other write-only. Alternatively an experimental version
+of `uasyncio` is [documented here](./FASTPOLL.md) which addresses this and
+also enables the priority of I/O to be substantially raised.
+
+In the official `uasyncio` is scheduled quite infrequently. See 
+[see this GitHub RFC](https://github.com/micropython/micropython/issues/2664).
+The experimental version addresses this issue.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
@@ -1436,6 +1539,10 @@ if it were a regular (synchronous) callable, MicroPython does not issue an
 error message. This is [by design](https://github.com/micropython/micropython/issues/3241).
 It typically leads to a program silently failing to run correctly.
 
+I have [a PR](https://github.com/micropython/micropython-lib/pull/292) which
+proposes a fix for this. The [experimental fast_io](./FASTPOLL.md) version
+implements this fix.
+
 The script `check_async_code.py` attempts to locate instances of questionable
 use of coros. It is intended to be run on a PC and uses Python3. It takes a
 single argument, a path to a MicroPython sourcefile (or `--help`). It is
@@ -1443,8 +1550,8 @@ designed for use on scripts written according to the guidelines in this
 tutorial, with coros declared using `async def`.
 
 Note it is somewhat crude and intended to be used on a syntactically correct
-file which is silently failing to run. Use a tool such as pylint for general
-syntax checking (pylint currently misses this error).
+file which is silently failing to run. Use a tool such as `pylint` for general
+syntax checking (`pylint` currently misses this error).
 
 The script produces false positives. This is by design: coros are first class
 objects; you can pass them to functions and can store them in data structures.
@@ -1479,6 +1586,9 @@ issues which require rather unpleasant hacks for error-free operation.
 
 The file `sock_nonblock.py` illustrates the sort of techniques required. It is
 not a working demo, and solutions are likely to be application dependent.
+
+An alternative approach is to use blocking sockets with `StreamReader` and
+`StreamWriter` instances to control polling.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
@@ -1774,11 +1884,10 @@ handles the data and clears the flag. A better approach is to use an `Event`.
 
 # 8 Modifying uasyncio
 
-The library is designed to be extensible, an example being the
-`asyncio_priority` module. By following the following guidelines a module can
-be constructed which alters the functionality of asyncio without the need to
-change the official library. Such a module may be used where `uasyncio` is
-implemented as frozen bytecode.
+The library is designed to be extensible. By following these guidelines a
+module can be constructed which alters the functionality of asyncio without the
+need to change the official library. Such a module may be used where `uasyncio`
+is implemented as frozen bytecode.
 
 Assume that the aim is to alter the event loop. The module should issue
 

@@ -28,10 +28,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-try:
-    import asyncio_priority as asyncio
-except ImportError:
-    import uasyncio as asyncio
+import uasyncio as asyncio
 import utime as time
 from asyn import launch
 # launch: run a callback or initiate a coroutine depending on which is passed.

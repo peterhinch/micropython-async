@@ -1,18 +1,12 @@
-# rate_p.py Benchmark for asyncio_priority.py aiming to measure overhead of
-# this version. Compare results with those from rate.py which uses the official
-# version.
-# Author Peter Hinch Feb 2018.
+# rate_fastio.py Benchmark for uasyncio. Author Peter Hinch July 2018.
+# This version tests the fast_io version when I/O is not pending.
 # Benchmark uasyncio round-robin scheduling performance
 # This measures the rate at which uasyncio can schedule a minimal coro which
 # mereley increments a global.
 
-# Outcome: minimal coros are scheduled at an interval of ~190us, independent of
-# the number of instances. Overhead relative to official version ~25%.
+# Outcome: minimal coros are scheduled at an interval of ~200us
 
-try:
-    import asyncio_priority as asyncio
-except ImportError:
-    print('This demo requires asyncio_priority.py')
+import uasyncio as asyncio
 
 num_coros = (100, 200, 500, 1000)
 iterations = [0, 0, 0, 0]
@@ -46,8 +40,8 @@ async def test():
         iterations[n] = count
     done = True
 
-ntasks = max(num_coros) + 3
-loop = asyncio.get_event_loop(ntasks, ntasks)
+ntasks = max(num_coros) + 2
+loop = asyncio.get_event_loop(ntasks, ntasks, 6)
 loop.create_task(test())
 loop.run_until_complete(report())
 

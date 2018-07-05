@@ -9,10 +9,7 @@
 # Note using yield in a coro is "unofficial" and may not
 # work in future uasyncio revisions.
 
-try:
-    import asyncio_priority as asyncio
-except ImportError:
-    import uasyncio as asyncio
+import uasyncio as asyncio
 
 count = 0
 period = 5
