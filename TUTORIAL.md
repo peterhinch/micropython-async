@@ -65,105 +65,57 @@ and rebuilding.
 
  1. [Cooperative scheduling](./TUTORIAL.md#1-cooperative-scheduling)  
    1.1 [Modules](./TUTORIAL.md#11-modules)  
- 2. [uasyncio](./TUTORIAL.md#2-uasyncio)
-
-  2.1 [Program structure: the event loop](./TUTORIAL.md#21-program-structure-the-event-loop)
-
-  2.2 [Coroutines (coros)](./TUTORIAL.md#22-coroutines-coros)
-
-   2.2.1 [Queueing a coro for scheduling](./TUTORIAL.md#221-queueing-a-coro-for-scheduling)
-
-   2.2.2 [Running a callback function](./TUTORIAL.md#222-running-a-callback-function)
-
-   2.2.3 [Notes](./TUTORIAL.md#223-notes) Coros as bound methods. Returning values.
-
-  2.3 [Delays](./TUTORIAL.md#23-delays)
-
- 3. [Synchronisation](./TUTORIAL.md#3-synchronisation)
-
-  3.1 [Lock](./TUTORIAL.md#31-lock)
-
-   3.1.1 [Locks and timeouts](./TUTORIAL.md#311-locks-and-timeouts)
-
-  3.2 [Event](./TUTORIAL.md#32-event)
-
-   3.2.1 [The event's value](./TUTORIAL.md#321-the-events-value)
-
-  3.3 [Barrier](./TUTORIAL.md#33-barrier)
-
-  3.4 [Semaphore](./TUTORIAL.md#34-semaphore)
-
-   3.4.1 [BoundedSemaphore](./TUTORIAL.md#341-boundedsemaphore)
-
-  3.5 [Queue](./TUTORIAL.md#35-queue)
-
-  3.6 [Task cancellation](./TUTORIAL.md#36-task-cancellation)
-
-  3.7 [Other synchronisation primitives](./TUTORIAL.md#37-other-synchronisation-primitives)
-
- 4. [Designing classes for asyncio](./TUTORIAL.md#4-designing-classes-for-asyncio)
-
-  4.1 [Awaitable classes](./TUTORIAL.md#41-awaitable-classes)
-
-   4.1.1 [Use in context managers](./TUTORIAL.md#411-use-in-context-managers)
-
-   4.1.2 [Awaiting a coro](./TUTORIAL.md#412-awaiting-a-coro)
-
-  4.2 [Asynchronous iterators](./TUTORIAL.md#42-asynchronous-iterators)
-
-  4.3 [Asynchronous context managers](./TUTORIAL.md#43-asynchronous-context-managers)
-
-  4.4 [Coroutines with timeouts](./TUTORIAL.md#44-coroutines-with-timeouts)
-
-  4.5 [Exceptions](./TUTORIAL.md#45-exceptions)
-
- 5. [Interfacing hardware](./TUTORIAL.md#5-interfacing-hardware)
-
-  5.1 [Timing issues](./TUTORIAL.md#51-timing-issues)
-
-  5.2 [Polling hardware with a coroutine](./TUTORIAL.md#52-polling-hardware-with-a-coroutine)
-
-  5.3 [Using the stream mechnanism](./TUTORIAL.md#53-using-the-stream-mechanism)
-
-   5.3.1 [A UART driver example](./TUTORIAL.md#531-a-uart-driver-example)
-
-  5.4 [Writing streaming device drivers](./TUTORIAL.md#54-writing-streaming-device-drivers)
-
+ 2. [uasyncio](./TUTORIAL.md#2-uasyncio)  
+  2.1 [Program structure: the event loop](./TUTORIAL.md#21-program-structure-the-event-loop)  
+  2.2 [Coroutines (coros)](./TUTORIAL.md#22-coroutines-coros)  
+   2.2.1 [Queueing a coro for scheduling](./TUTORIAL.md#221-queueing-a-coro-for-scheduling)  
+   2.2.2 [Running a callback function](./TUTORIAL.md#222-running-a-callback-function)  
+   2.2.3 [Notes](./TUTORIAL.md#223-notes) Coros as bound methods. Returning values.  
+  2.3 [Delays](./TUTORIAL.md#23-delays)  
+ 3. [Synchronisation](./TUTORIAL.md#3-synchronisation)  
+  3.1 [Lock](./TUTORIAL.md#31-lock)  
+   3.1.1 [Locks and timeouts](./TUTORIAL.md#311-locks-and-timeouts)  
+  3.2 [Event](./TUTORIAL.md#32-event)  
+   3.2.1 [The event's value](./TUTORIAL.md#321-the-events-value)  
+  3.3 [Barrier](./TUTORIAL.md#33-barrier)  
+  3.4 [Semaphore](./TUTORIAL.md#34-semaphore)  
+   3.4.1 [BoundedSemaphore](./TUTORIAL.md#341-boundedsemaphore)  
+  3.5 [Queue](./TUTORIAL.md#35-queue)  
+  3.6 [Task cancellation](./TUTORIAL.md#36-task-cancellation)  
+  3.7 [Other synchronisation primitives](./TUTORIAL.md#37-other-synchronisation-primitives)  
+ 4. [Designing classes for asyncio](./TUTORIAL.md#4-designing-classes-for-asyncio)  
+  4.1 [Awaitable classes](./TUTORIAL.md#41-awaitable-classes)  
+   4.1.1 [Use in context managers](./TUTORIAL.md#411-use-in-context-managers)  
+   4.1.2 [Awaiting a coro](./TUTORIAL.md#412-awaiting-a-coro)  
+  4.2 [Asynchronous iterators](./TUTORIAL.md#42-asynchronous-iterators)  
+  4.3 [Asynchronous context managers](./TUTORIAL.md#43-asynchronous-context-managers)  
+  4.4 [Coroutines with timeouts](./TUTORIAL.md#44-coroutines-with-timeouts)  
+  4.5 [Exceptions](./TUTORIAL.md#45-exceptions)  
+ 5. [Interfacing hardware](./TUTORIAL.md#5-interfacing-hardware)  
+  5.1 [Timing issues](./TUTORIAL.md#51-timing-issues)  
+  5.2 [Polling hardware with a coroutine](./TUTORIAL.md#52-polling-hardware-with-a-coroutine)  
+  5.3 [Using the stream mechnanism](./TUTORIAL.md#53-using-the-stream-mechanism)  
+   5.3.1 [A UART driver example](./TUTORIAL.md#531-a-uart-driver-example)  
+  5.4 [Writing streaming device drivers](./TUTORIAL.md#54-writing-streaming-device-drivers)  
   5.5 [A complete example: aremote.py](./TUTORIAL.md#55-a-complete-example-aremotepy)
-  A driver for an IR remote control receiver.
-
+  A driver for an IR remote control receiver.  
   5.6 [Driver for HTU21D](./TUTORIAL.md#56-htu21d-environment-sensor) A
-  temperature and humidity sensor.
-
- 6. [Hints and tips](./TUTORIAL.md#6-hints-and-tips)
-
-  6.1 [Program hangs](./TUTORIAL.md#61-program-hangs)
-
-  6.2 [uasyncio retains state](./TUTORIAL.md#62-uasyncio-retains-state)
-
-  6.3 [Garbage Collection](./TUTORIAL.md#63-garbage-collection)
-
-  6.4 [Testing](./TUTORIAL.md#64-testing)
-
-  6.5 [A common error](./TUTORIAL.md#65-a-common-error) This can be hard to find.
-
-  6.6 [Socket programming](./TUTORIAL.md#66-socket-programming)
-
- 7. [Notes for beginners](./TUTORIAL.md#7-notes-for-beginners)
-
-  7.1 [Problem 1: event loops](./TUTORIAL.md#71-problem-1:-event-loops)
-
-  7.2 [Problem 2: blocking methods](./TUTORIAL.md#7-problem-2:-blocking-methods)
-
-  7.3 [The uasyncio approach](./TUTORIAL.md#73-the-uasyncio-approach)
-
-  7.4 [Scheduling in uasyncio](./TUTORIAL.md#74-scheduling-in-uasyncio)
-
-  7.5 [Why cooperative rather than pre-emptive?](./TUTORIAL.md#75-why-cooperative-rather-than-pre-emptive)
-
-  7.6 [Communication](./TUTORIAL.md#76-communication)
-
-  7.7 [Polling](./TUTORIAL.md#77-polling)
+  temperature and humidity sensor.  
+ 6. [Hints and tips](./TUTORIAL.md#6-hints-and-tips)  
+  6.1 [Program hangs](./TUTORIAL.md#61-program-hangs)  
+  6.2 [uasyncio retains state](./TUTORIAL.md#62-uasyncio-retains-state)  
+  6.3 [Garbage Collection](./TUTORIAL.md#63-garbage-collection)  
+  6.4 [Testing](./TUTORIAL.md#64-testing)  
+  6.5 [A common error](./TUTORIAL.md#65-a-common-error) This can be hard to find.  
+  6.6 [Socket programming](./TUTORIAL.md#66-socket-programming)  
+ 7. [Notes for beginners](./TUTORIAL.md#7-notes-for-beginners)  
+  7.1 [Problem 1: event loops](./TUTORIAL.md#71-problem-1:-event-loops)  
+  7.2 [Problem 2: blocking methods](./TUTORIAL.md#7-problem-2:-blocking-methods)  
+  7.3 [The uasyncio approach](./TUTORIAL.md#73-the-uasyncio-approach)  
+  7.4 [Scheduling in uasyncio](./TUTORIAL.md#74-scheduling-in-uasyncio)  
+  7.5 [Why cooperative rather than pre-emptive?](./TUTORIAL.md#75-why-cooperative-rather-than-pre-emptive)  
+  7.6 [Communication](./TUTORIAL.md#76-communication)  
+  7.7 [Polling](./TUTORIAL.md#77-polling)  
 
 # 1. Cooperative scheduling
 
