@@ -64,9 +64,7 @@ and rebuilding.
 # Contents
 
  1. [Cooperative scheduling](./TUTORIAL.md#1-cooperative-scheduling)
-
    1.1 [Modules](./TUTORIAL.md#11-modules)
-
  2. [uasyncio](./TUTORIAL.md#2-uasyncio)
 
   2.1 [Program structure: the event loop](./TUTORIAL.md#21-program-structure-the-event-loop)
@@ -1529,11 +1527,11 @@ I have [a PR](https://github.com/micropython/micropython-lib/pull/292) which
 proposes a fix for case 1. The [fast_io](./FASTPOLL.md) version implements
 this.
 
-The script `check_async_code.py` attempts to locate instances of questionable
-use of coros. It is intended to be run on a PC and uses Python3. It takes a
-single argument, a path to a MicroPython sourcefile (or `--help`). It is
-designed for use on scripts written according to the guidelines in this
-tutorial, with coros declared using `async def`.
+The script [check_async_code.py](./check_async_code.py) attempts to locate
+instances of questionable use of coros. It is intended to be run on a PC and
+uses Python3. It takes a single argument, a path to a MicroPython sourcefile
+(or `--help`). It is designed for use on scripts written according to the
+guidelines in this tutorial, with coros declared using `async def`.
 
 Note it is somewhat crude and intended to be used on a syntactically correct
 file which is silently failing to run. Use a tool such as `pylint` for general
@@ -1573,8 +1571,9 @@ practice a timeout is likely to be required to cope with server outages.
 A further complication is that, at the time of writing, the ESP32 port has
 issues which require rather unpleasant hacks for error-free operation.
 
-The file [sock_nonblock.py](./sock_nonblock.py) illustrates the sort of techniques required. It is
-not a working demo, and solutions are likely to be application dependent.
+The file [sock_nonblock.py](./sock_nonblock.py) illustrates the sort of
+techniques required. It is not a working demo, and solutions are likely to be
+application dependent.
 
 An alternative approach is to use blocking sockets with `StreamReader` and
 `StreamWriter` instances to control polling.
