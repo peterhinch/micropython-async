@@ -30,6 +30,8 @@ fast_io/__init__.py
 fast_io/core.py
 ```
 
+###### [Main README](./README.md)
+
 # Generators and coroutines
 
 In MicroPython coroutines and generators are identical: this differs from
@@ -250,3 +252,37 @@ retrieved from `.rdobjmap` and queued for scheduling. This is done via
 I/O queue has been instantiated.
 
 Writing is handled similarly.
+
+# Modifying uasyncio
+
+The library is designed to be extensible. By following these guidelines a
+module can be constructed which alters the functionality of asyncio without the
+need to change the official library. Such a module may be used where `uasyncio`
+is implemented as frozen bytecode as in official release binaries.
+
+Assume that the aim is to alter the event loop. The module should issue
+
+```python
+from uasyncio import *
+```
+
+The event loop should be subclassed from `PollEventLoop` (defined in
+`__init__.py`).
+
+The event loop is instantiated by the first call to `get_event_loop()`: this
+creates a singleton instance. This is returned by every call to
+`get_event_loop()`. On the assumption that the constructor arguments for the
+new class differ from those of the base class, the module will need to redefine
+`get_event_loop()` along the following lines:
+
+```python
+_event_loop = None  # The singleton instance
+_event_loop_class = MyNewEventLoopClass  # The class, not an instance
+def get_event_loop(args):
+    global _event_loop
+    if _event_loop is None:
+        _event_loop = _event_loop_class(args)  # Instantiate once only
+    return _event_loop
+```
+
+###### [Main README](./README.md)

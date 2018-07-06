@@ -22,7 +22,7 @@ This GitHub repository consists of the following parts:
  boards to communicate without using a UART. Primarily intended to enable a
  a Pyboard-like device to achieve bidirectional communication with an ESP8266.
  * [Under the hood](./UNDER_THE_HOOD.md) A guide to help understand the
- `uasyncio` code. Strictly for scheduler geeks...
+ `uasyncio` code. For scheduler geeks and those wishing to modify `uasyncio`.
  
 ## 1.1 A new "priority" version.
 

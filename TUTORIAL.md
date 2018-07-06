@@ -139,19 +139,17 @@ and rebuilding.
 
  6. [Hints and tips](./TUTORIAL.md#6-hints-and-tips)
 
-  6.1 [Coroutines are generators](./TUTORIAL.md#61-coroutines-are-generators)
+  6.1 [Program hangs](./TUTORIAL.md#61-program-hangs)
 
-  6.2 [Program hangs](./TUTORIAL.md#62-program-hangs)
+  6.2 [uasyncio retains state](./TUTORIAL.md#62-uasyncio-retains-state)
 
-  6.3 [uasyncio retains state](./TUTORIAL.md#63-uasyncio-retains-state)
+  6.3 [Garbage Collection](./TUTORIAL.md#63-garbage-collection)
 
-  6.4 [Garbage Collection](./TUTORIAL.md#64-garbage-collection)
+  6.4 [Testing](./TUTORIAL.md#64-testing)
 
-  6.5 [Testing](./TUTORIAL.md#65-testing)
+  6.5 [A common error](./TUTORIAL.md#65-a-common-error) This can be hard to find.
 
-  6.6 [A common hard to find error](./TUTORIAL.md#66-a-common-error)
-
-  6.7 [Socket programming](./TUTORIAL.md#67-socket-programming)
+  6.6 [Socket programming](./TUTORIAL.md#66-socket-programming)
 
  7. [Notes for beginners](./TUTORIAL.md#7-notes-for-beginners)
 
@@ -168,8 +166,6 @@ and rebuilding.
   7.6 [Communication](./TUTORIAL.md#76-communication)
 
   7.7 [Polling](./TUTORIAL.md#77-polling)
-
- 8. [Modifying uasyncio](./TUTORIAL.md#8-modifying-uasyncio)
 
 # 1. Cooperative scheduling
 
@@ -1042,6 +1038,10 @@ Python's `select.poll` system: because the polling is done in C it is faster
 and more efficient than explicit polling. The use of `stream I/O` is discussed
 [here](./TUTORIAL.md#53-using-the-stream-mechanism).
 
+Owing to its efficiency implicit polling benefits most fast I/O device drivers:
+streaming drivers can be written for many devices not normally considered as
+streaming devices [section 5.4](./TUTORIAL.md#54-writing-streaming-device-drivers).
+
 ###### [Contents](./TUTORIAL.md#contents)
 
 ## 5.1 Timing issues
@@ -1075,10 +1075,9 @@ and `sleep_ms()` functions. The worst-case value for this overrun may be
 calculated by summing, for every other coro, the worst-case execution time
 between yielding to the scheduler.
 
-There is an experimental version of uasyncio presented [here](./FASTPOLL.md).
-This provides for callbacks which run on every iteration of the scheduler
-enabling a coro to wait on an event with much reduced latency. It is hoped
-that improvements to `uasyncio` will remove the need for this in future.
+The [fast_io](./FASTPOLL.md) version of `uasyncio` in this repo provides a way
+to ensure that stream I/O is polled on every iteration of the scheduler. It is
+hoped that official `uasyncio` will adopt code to this effect in due course.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
@@ -1121,7 +1120,7 @@ class RecordOrientedUart():
         self.uart = UART(4, 9600)
         self.data = b''
 
-    def __await__(self):
+    def __iter__(self):  # Not __await__ issue #2678
         data = b''
         while not data.endswith(self.DELIMITER):
             yield from asyncio.sleep(0) # Neccessary because:
@@ -1129,8 +1128,6 @@ class RecordOrientedUart():
                 yield from asyncio.sleep(0) # timing may mean this is never called
             data = b''.join((data, self.uart.read(self.uart.any())))
         self.data = data
-
-    __iter__ = __await__  # workround for issue #2678
 
     async def send_record(self, data):
         data = b''.join((data, self.DELIMITER))
@@ -1251,8 +1248,7 @@ data as is available.
 `readline()` Return as many characters as are available up to and including any
 newline character. Required if you intend to use `StreamReader.readline()`  
 `read(n)` Return as many characters as are available but no more than `n`.
-Required if you plan to use `StreamReader.read()` or
-`StreamReader.readexactly()`  
+Required to use `StreamReader.read()` or `StreamReader.readexactly()`  
 
 A writeable driver must provide this synchronous method:  
 `write` Args `buf`, `off`, `sz`. Arguments:  
@@ -1332,8 +1328,8 @@ async def timer_test(n):
 ```
 
 With official `uasyncio` this confers no benefit over `await asyncio.sleep_ms()`.
-With the [priority version](./FASTPOLL.md) it offers much more precise delays
-under a common usage scenario.
+Using [fast_io](./FASTPOLL.md) it offers much more precise delays under the
+common usage pattern where coros await a zero delay.
 
 It is possible to use I/O scheduling to associate an event with a callback.
 This is more efficient than a polling loop because the coro doing the polling
@@ -1385,20 +1381,19 @@ class PinCall(io.IOBase):
 ```
 
 Once again with official `uasyncio` latency can be high. Depending on
-application design the [priority version](./FASTPOLL.md) can greatly reduce
+application design the [fast_io](./FASTPOLL.md) version can greatly reduce
 this.
 
 The demo program `iorw.py` illustrates a complete example. Note that, at the
 time of writing there is a bug in `uasyncio` which prevents this from woking.
 See [this GitHub thread](https://github.com/micropython/micropython/pull/3836#issuecomment-397317408).
 There are two solutions. A workround is to write two separate drivers, one
-read-only and the other write-only. Alternatively an experimental version
-of `uasyncio` is [documented here](./FASTPOLL.md) which addresses this and
-also enables the priority of I/O to be substantially raised.
+read-only and the other write-only. Alternatively the
+[fast_io](./FASTPOLL.md) addresses this.
 
-In the official `uasyncio` is scheduled quite infrequently. See 
+In the official `uasyncio` I/O is scheduled quite infrequently. See 
 [see this GitHub RFC](https://github.com/micropython/micropython/issues/2664).
-The experimental version addresses this issue.
+The `fast_io` version addresses this issue.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
@@ -1407,7 +1402,7 @@ The experimental version addresses this issue.
 This may be found in the `nec_ir` directory. Its use is documented
 [here](./nec_ir/README.md). The demo provides a complete device driver example:
 a receiver/decoder for an infra red remote controller. The following notes are
-salient points regarding its asyncio usage.
+salient points regarding its `asyncio` usage.
 
 A pin interrupt records the time of a state change (in us) and sets an event,
 passing the time when the first state change occurred. A coro waits on the
@@ -1415,7 +1410,7 @@ event, yields for the duration of a data burst, then decodes the stored data
 before calling a user-specified callback.
 
 Passing the time to the `Event` instance enables the coro to compensate for
-any asyncio latency when setting its delay period.
+any `asyncio` latency when setting its delay period.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
@@ -1432,26 +1427,6 @@ works asynchronously by triggering the acquisition and using
 run while acquisition is in progress.
 
 # 6 Hints and tips
-
-## 6.1 Coroutines are generators
-
-In MicroPython coroutines are generators. This is not the case in CPython.
-Issuing `yield` in a coro will provoke a syntax error in CPython, whereas in
-MicroPython it has the same effect as `await asyncio.sleep(0)`. The surest way
-to write error free code is to use CPython conventions and assume that coros
-are not generators.
-
-The following will work. If you use them, be prepared to test your code against
-each uasyncio release because the behaviour is not necessarily guaranteed.
-
-```python
-yield from coro  # Equivalent to await coro: continue when coro terminates.
-yield  # Reschedule current coro in round-robin fashion.
-yield 100  # Pause 100ms - equivalent to above
-```
-
-Issuing `yield` or `yield 100` is slightly faster than the equivalent `await`
-statements.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
@@ -1532,6 +1507,7 @@ the outer loop:
 
 It is perhaps worth noting that this error would not have been apparent had
 data been sent to the UART at a slow rate rather than via a loopback test.
+Welcome to the joys of realtime programming.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
@@ -1540,11 +1516,18 @@ data been sent to the UART at a slow rate rather than via a loopback test.
 If a function or method is defined with `async def` and subsequently called as
 if it were a regular (synchronous) callable, MicroPython does not issue an
 error message. This is [by design](https://github.com/micropython/micropython/issues/3241).
-It typically leads to a program silently failing to run correctly.
+It typically leads to a program silently failing to run correctly:
+
+```python
+async def foo():
+    # code
+loop.create_task(foo)  # Case 1: foo will never run
+foo()  # Case 2: Likewise.
+```
 
 I have [a PR](https://github.com/micropython/micropython-lib/pull/292) which
-proposes a fix for this. The [experimental fast_io](./FASTPOLL.md) version
-implements this fix.
+proposes a fix for case 1. The [fast_io](./FASTPOLL.md) version implements
+this.
 
 The script `check_async_code.py` attempts to locate instances of questionable
 use of coros. It is intended to be run on a PC and uses Python3. It takes a
@@ -1569,11 +1552,14 @@ bar(foo)  # These lines will warn but may or may not be correct
 bar(foo())
 z = (foo,)
 z = (foo(),)
+foo()  # Will warn: is surely wrong.
 ```
 
 I find it useful as-is but improvements are always welcome.
 
-## 6.7 Socket programming
+###### [Contents](./TUTORIAL.md#contents)
+
+## 6.6 Socket programming
 
 The use of nonblocking sockets requires some attention to detail. If a
 nonblocking read is performed, because of server latency, there is no guarantee
@@ -1587,7 +1573,7 @@ practice a timeout is likely to be required to cope with server outages.
 A further complication is that, at the time of writing, the ESP32 port has
 issues which require rather unpleasant hacks for error-free operation.
 
-The file `sock_nonblock.py` illustrates the sort of techniques required. It is
+The file [sock_nonblock.py](./sock_nonblock.py) illustrates the sort of techniques required. It is
 not a working demo, and solutions are likely to be application dependent.
 
 An alternative approach is to use blocking sockets with `StreamReader` and
@@ -1884,35 +1870,3 @@ services the hardware and sets a flag. A coro polls the flag: if it's set it
 handles the data and clears the flag. A better approach is to use an `Event`.
 
 ###### [Contents](./TUTORIAL.md#contents)
-
-# 8 Modifying uasyncio
-
-The library is designed to be extensible. By following these guidelines a
-module can be constructed which alters the functionality of asyncio without the
-need to change the official library. Such a module may be used where `uasyncio`
-is implemented as frozen bytecode.
-
-Assume that the aim is to alter the event loop. The module should issue
-
-```python
-from uasyncio import *
-```
-
-The event loop should be subclassed from `PollEventLoop` (defined in
-`__init__.py`).
-
-The event loop is instantiated by the first call to `get_event_loop()`: this
-creates a singleton instance. This is returned by every call to
-`get_event_loop()`. On the assumption that the constructor arguments for the
-new class differ from those of the base class, the module will need to redefine
-`get_event_loop()` along the following lines:
-
-```python
-_event_loop = None  # The singleton instance
-_event_loop_class = MyNewEventLoopClass  # The class, not an instance
-def get_event_loop(args):
-    global _event_loop
-    if _event_loop is None:
-        _event_loop = _event_loop_class(args)  # Instantiate once only
-    return _event_loop
-```
