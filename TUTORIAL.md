@@ -266,15 +266,16 @@ because this has been placed on the scheduler's queue by `loop.create_task`.
 In this trivial example there is only one coro: `bar`. If there were others,
 the scheduler would schedule them in periods when `bar` was paused.
 
-Many embedded applications have an event loop which runs continuously. The event
+Most embedded applications have an event loop which runs continuously. The event
 loop can also be started in a way which permits termination, by using the event
-loop's `run_until_complete` method. Examples of this may be found in the
-`astests.py` module.
+loop's `run_until_complete` method; this is mainly of use in testing. Examples
+may be found in the `astests.py` module.
 
 The event loop instance is a singleton, instantiated by a program's first call
 to `asyncio.get_event_loop()`. This takes two optional integer args being the
-lengths of the two coro queues - i.e. the maximum number of concurrent coros
-allowed. The default of 16 is likely to be adequate for most purposes.
+lengths of the two coro queues. Typically both will have the same value being
+at least the number of concurrent coros in the application. The default of 16
+is usually sufficient.
 
 If a coro needs to call an event loop method (usually `create_task`), calling
 `asyncio.get_event_loop()` (without args) will efficiently return it.
@@ -754,7 +755,8 @@ loop = asyncio.get_event_loop()
 loop.run_until_complete(bar())
 ```
 
-Currently MicroPython doesn't support `__await__` (issue #2678) and
+Currently MicroPython doesn't support `__await__` 
+[issue #2678](https://github.com/micropython/micropython/issues/2678) and
 `__iter__` must be used. The line `__iter__ = __await__` enables portability
 between CPython and MicroPython. Example code may be found in the `Event`,
 `Barrier`, `Cancellable` and `Condition` classes in asyn.py.
@@ -912,19 +914,17 @@ value returned by `__aenter__`.
 
 There was a bug in the implementation whereby if an explicit `return` was issued
 within an `async with` block, the `__aexit__` method was not called. This was
-fixed as of 27th June 2018 [ref](https://github.com/micropython/micropython/pull/3890).
+fixed as of 27th June 2018 [PR 3890](https://github.com/micropython/micropython/pull/3890).
 
 ###### [Contents](./TUTORIAL.md#contents)
 
 ## 4.4 Coroutines with timeouts
 
-This requires uasyncio.core V1.7 which was released on 16th Dec 2017, with
-firmware of that date or later.
-
 Timeouts are implemented by means of `uasyncio.wait_for()`. This takes as
 arguments a coroutine and a timeout in seconds. If the timeout expires a
-`TimeoutError` will be thrown to the coro. The next time the coro is scheduled
-for execution the exception will be raised: the coro should trap this and quit.
+`TimeoutError` will be thrown to the coro in such a way that the next time the
+coro is scheduled for execution the exception will be raised. The coro should
+trap this and quit.
 
 ```python
 import uasyncio as asyncio
@@ -946,10 +946,11 @@ loop = asyncio.get_event_loop()
 loop.run_until_complete(foo())
 ```
 
-Note that if the coro awaits a long delay, it will not be rescheduled until the
-time has elapsed. The `TimeoutError` will occur as soon as the coro is
-scheduled. But in real time and from the point of view of the calling coro, its
-response to the `TimeoutError` will correspondingly be delayed.
+Note that if the coro issues `await asyncio.sleep(t)` where `t` is a long delay
+it will not be rescheduled until `t` has elapsed. If the timeout has elapsed
+before the `sleep` is complete the `TimeoutError` will occur when the coro is
+scheduled - i.e. when `t` has elapsed. In real time and from the point of view
+of the calling coro, its response to the `TimeoutError` will be delayed.
 
 If this matters to the application, create a long delay by awaiting a short one
 in a loop. The coro `asyn.sleep` [supports this](./PRIMITIVES.md#41-coro-sleep).
@@ -961,10 +962,9 @@ or in a coro which is awaiting its completion. This ensures that the exception
 is not propagated to the scheduler. If this occurred it would stop running,
 passing the exception to the code which started the scheduler.
 
-Using `throw` to throw an exception to a coro is unwise. It subverts the design
-of `uasyncio` by forcing the coro to run, and possibly terminate, when it is
-still queued for execution. I haven't entirely thought through the implications
-of this, but it's a thoroughly bad idea.
+Using `throw` or `close` to throw an exception to a coro is unwise. It subverts
+`uasyncio` by forcing the coro to run, and possibly terminate, when it is still
+queued for execution.
 
 There is a "gotcha" illustrated by this code sample. If allowed to run to
 completion it works as expected.
