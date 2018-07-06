@@ -131,10 +131,10 @@ The following modules are provided which may be copied to the target hardware.
 
 **Libraries**
 
- 1. `asyn.py` Provides synchronisation primitives `Lock`, `Event`, `Barrier`,
- `Semaphore`, `BoundedSemaphore`, `Condition` and `gather`. Provides support
- for task cancellation via `NamedTask` and `Cancellable` classes.
- 2. `aswitch.py` This provides classes for interfacing switches and
+ 1. [asyn.py](./asyn.py) Provides synchronisation primitives `Lock`, `Event`,
+ `Barrier`, `Semaphore`, `BoundedSemaphore`, `Condition` and `gather`. Provides
+ support for task cancellation via `NamedTask` and `Cancellable` classes.
+ 2. [aswitch.py](./aswitch.py) Provides classes for interfacing switches and
  pushbuttons and also a software retriggerable delay object. Pushbuttons are a
  generalisation of switches providing logical rather than physical status along
  with double-clicked and long pressed events.
@@ -144,34 +144,41 @@ The following modules are provided which may be copied to the target hardware.
 The first two are the most immediately rewarding as they produce visible
 results by accessing Pyboard hardware.
 
- 1. `aledflash.py` Flashes the four Pyboard LED's asynchronously for 10s. The
- simplest uasyncio demo. Import it to run.
- 2. `apoll.py` A device driver for the Pyboard accelerometer. Demonstrates
- the use of a coroutine to poll a device. Runs for 20s. Import it to run.
- 3. `astests.py` Test/demonstration programs for the `aswitch` module.
- 4. `asyn_demos.py` Simple task cancellation demos.
- 5. `roundrobin.py` Demo of round-robin scheduling. Also a benchmark of
- scheduling performance.
- 6. `awaitable.py` Demo of an awaitable class. One way of implementing a
- device driver which polls an interface.
- 7. `chain.py` Copied from the Python docs. Demo of chaining coroutines.
- 8. `aqtest.py` Demo of uasyncio `Queue` class.
- 9. `aremote.py` Example device driver for NEC protocol IR remote control.
- 10. `auart.py` Demo of streaming I/O via a Pyboard UART.
- 11. `auart_hd.py` Use of the Pyboard UART to communicate with a device using a
- half-duplex protocol. Suits devices such as those using the 'AT' modem command
- set.
- 12. `iorw.py` Demo of a read/write device driver using the stream I/O mechanism.
+ 1. [aledflash.py](./aledflash.py) Flashes the four Pyboard LEDs asynchronously
+ for 10s. The simplest uasyncio demo. Import it to run.
+ 2. [apoll.py](./apoll.py) A device driver for the Pyboard accelerometer.
+ Demonstrates the use of a coroutine to poll a device. Runs for 20s. Import it
+ to run.
+ 3. [astests.py](./astests.py) Test/demonstration programs for the
+ [aswitch](./aswitch) module.
+ 4. [asyn_demos.py](./asyn_demos.py) Simple task cancellation demos.
+ 5. [roundrobin.py](./roundrobin.py) Demo of round-robin scheduling. Also a
+ benchmark of scheduling performance.
+ 6. [awaitable.py](./awaitable.py) Demo of an awaitable class. One way of
+ implementing a device driver which polls an interface.
+ 7. [chain.py](./chain.py) Copied from the Python docs. Demo of chaining
+ coroutines.
+ 8. [aqtest.py](./aqtest.py) Demo of uasyncio `Queue` class.
+ 9. [aremote.py](./aremote.py) Example device driver for NEC protocol IR remote
+ control.
+ 10. [auart.py](./auart.py) Demo of streaming I/O via a Pyboard UART.
+ 11. [auart_hd.py](./auart_hd.py) Use of the Pyboard UART to communicate with a
+ device using a half-duplex protocol. Suits devices such as those using the
+ 'AT' modem command set.
+ 12. [iorw.py](./iorw.py) Demo of a read/write device driver using the stream
+ I/O mechanism.
 
 **Test Programs**
 
- 1. `asyntest.py` Tests for the synchronisation primitives in `asyn.py`.
- 2. `cantest.py` Task cancellation tests.
+ 1. [asyntest.py](./asyntest.py) Tests for the synchronisation primitives in
+ [asyn.py](./asyn.py).
+ 2. [cantest.py](./cantest.py) Task cancellation tests.
 
 **Utility**
 
- 1. `check_async_code.py` A Python3 utility to locate a particular coding
- error which can be hard to find. See [this para](./TUTORIAL.md#65-a-common-error).
+ 1. [check_async_code.py](./check_async_code.py) A Python3 utility to locate a
+ particular coding error which can be hard to find. See
+ [para 6.5](./TUTORIAL.md#65-a-common-error).
 
 **Benchmarks**
 
@@ -215,7 +222,7 @@ the scheduler would schedule them in periods when `bar` was paused.
 Most embedded applications have an event loop which runs continuously. The event
 loop can also be started in a way which permits termination, by using the event
 loop's `run_until_complete` method; this is mainly of use in testing. Examples
-may be found in the `astests.py` module.
+may be found in the [astests.py](./astests.py) module.
 
 The event loop instance is a singleton, instantiated by a program's first call
 to `asyncio.get_event_loop()`. This takes two optional integer args being the
@@ -340,9 +347,10 @@ be unable to schedule other coros while the delay is in progress.
 
 There is often a need to provide synchronisation between coros. A common
 example is to avoid what are known as "race conditions" where multiple coros
-compete to access a single resource. An example is provided in the `astests.py`
-program and discussed in [the docs](./DRIVERS.md). Another hazard is the "deadly
-embrace" where two coros each wait on the other's completion.
+compete to access a single resource. An example is provided in the
+[astests.py](./astests.py) program and discussed in [the docs](./DRIVERS.md).
+Another hazard is the "deadly embrace" where two coros each wait on the other's
+completion.
 
 In simple applications communication may be achieved with global flags or bound
 variables. A more elegant approach is to use synchronisation primitives. The
@@ -409,10 +417,10 @@ and the timeout is triggered while it is waiting on a lock, the timeout will be
 ineffective. It will not receive the `TimeoutError` until it has acquired the
 lock. The same observation applies to task cancellation.
 
-The module `asyn.py` offers a `Lock` class which works in these situations
-[see docs](./PRIMITIVES.md#32-class-lock). It is significantly less efficient
-than the official class but supports additional interfaces as per the CPython
-version including context manager usage.
+The module [asyn.py](./asyn.py) offers a `Lock` class which works in these
+situations [see docs](./PRIMITIVES.md#32-class-lock). It is significantly less
+efficient than the official class but supports additional interfaces as per the
+CPython version including context manager usage.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
@@ -649,9 +657,9 @@ code even though descheduled. This is likely to have unwanted consequences.
 
 ## 3.7 Other synchronisation primitives
 
-The `asyn.py` library provides 'micro' implementations of CPython capabilities,
-namely the [Condition class](./PRIMITIVES.md#36-class-condition) and the
-[gather](./PRIMITIVES.md#37-class-gather) method.
+The [asyn.py](./asyn.py) library provides 'micro' implementations of CPython
+capabilities, namely the [Condition class](./PRIMITIVES.md#36-class-condition)
+and the [gather](./PRIMITIVES.md#37-class-gather) method.
 
 The `Condition` class enables a coro to notify other coros which are waiting on
 a locked resource. Once notified they will access the resource and release the
@@ -705,7 +713,7 @@ Currently MicroPython doesn't support `__await__`
 [issue #2678](https://github.com/micropython/micropython/issues/2678) and
 `__iter__` must be used. The line `__iter__ = __await__` enables portability
 between CPython and MicroPython. Example code may be found in the `Event`,
-`Barrier`, `Cancellable` and `Condition` classes in asyn.py.
+`Barrier`, `Cancellable` and `Condition` classes in [asyn.py](./asyn.py).
 
 ### 4.1.1 Use in context managers
 
@@ -1155,10 +1163,10 @@ provide a solution if the data source supports it.
 
 ### 5.3.1 A UART driver example
 
-The program `auart_hd.py` illustrates a method of communicating with a half
-duplex device such as one responding to the modem 'AT' command set. Half duplex
-means that the device never sends unsolicited data: its transmissions are
-always in response to a command from the master.
+The program [auart_hd.py](./auart_hd.py) illustrates a method of communicating
+with a half duplex device such as one responding to the modem 'AT' command set.
+Half duplex means that the device never sends unsolicited data: its
+transmissions are always in response to a command from the master.
 
 The device is emulated, enabling the test to be run on a Pyboard with two wire
 links.
@@ -1349,10 +1357,10 @@ The `fast_io` version addresses this issue.
 
 ## 5.5 A complete example: aremote.py
 
-This may be found in the `nec_ir` directory. Its use is documented
-[here](./nec_ir/README.md). The demo provides a complete device driver example:
-a receiver/decoder for an infra red remote controller. The following notes are
-salient points regarding its `asyncio` usage.
+See [aremote.py](./nec_ir/aremote.py) documented [here](./nec_ir/README.md).
+The demo provides a complete device driver example: a receiver/decoder for an
+infra red remote controller. The following notes are salient points regarding
+its `asyncio` usage.
 
 A pin interrupt records the time of a state change (in us) and sets an event,
 passing the time when the first state change occurred. A coro waits on the
