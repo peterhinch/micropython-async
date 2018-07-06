@@ -63,8 +63,8 @@ and rebuilding.
 
 # Contents
 
- 1. [Cooperative scheduling](./TUTORIAL.md#1-cooperative-scheduling)
-   1.1 [Modules](./TUTORIAL.md#11-modules)
+ 1. [Cooperative scheduling](./TUTORIAL.md#1-cooperative-scheduling)  
+   1.1 [Modules](./TUTORIAL.md#11-modules)  
  2. [uasyncio](./TUTORIAL.md#2-uasyncio)
 
   2.1 [Program structure: the event loop](./TUTORIAL.md#21-program-structure-the-event-loop)
