@@ -351,17 +351,18 @@ def get_event_loop(args):
 
 # 8. Links
 
-Initial discussion of priority I/O scheduling [here](https://github.com/micropython/micropython/issues/2664)  
+Initial discussion of priority I/O scheduling [here](https://github.com/micropython/micropython/issues/2664).  
 
-PR enabling stream device drivers to be written in Python 
+MicroPython PR enabling stream device drivers to be written in Python 
 [PR #3836: io.IOBase](https://github.com/micropython/micropython/pull/3836).
 Includes discussion of the read/write bug.  
 
-My outstanding uasyncio PR's:
-[PR #287: fast I/O](https://github.com/micropython/micropython-lib/pull/287) and
-[PR #292: error reporting](https://github.com/micropython/micropython-lib/pull/292)
+My outstanding uasyncio PR's: fast I/O
+[PR #287](https://github.com/micropython/micropython-lib/pull/287) improved
+error reporting 
+[PR #292](https://github.com/micropython/micropython-lib/pull/292).
 
-This caught my attention as worthwhile:
+This caught my attention for usefulness and compliance with CPython:
 [PR #270](https://github.com/micropython/micropython-lib/pull/270).
 
 ###### [Main README](./README.md)
