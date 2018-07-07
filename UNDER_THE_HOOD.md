@@ -22,6 +22,7 @@ wishing to modify it.
   5.3 [PollEventLoop wait method](./UNDER_THE_HOOD.md#53-polleventloop-wait-method)  
  6. [Debug code](./UNDER_THE_HOOD.md#6-debug-code)  
  7. [Modifying uasyncio](./UNDER_THE_HOOD.md#7-modifying-uasyncio)  
+ 8. [Links](./UNDER_THE_HOOD.md#8-links)
 
 # 1. Introduction
 
@@ -347,5 +348,20 @@ def get_event_loop(args):
 ```
 
 ###### [Contents](./UNDER_THE_HOOD.md#0-contents)
+
+# 8. Links
+
+[Initial discussion of priority I/O scheduling](https://github.com/micropython/micropython/issues/2664)  
+
+PR enabling stream device drivers to be written in Python 
+[PR #3836: io.IOBase](https://github.com/micropython/micropython/pull/3836).
+Includes discussion of the read/write bug.  
+
+My outstanding uasyncio PR's:
+[PR #287: fast I/O](https://github.com/micropython/micropython-lib/pull/287)
+[PR #292: error reporting](https://github.com/micropython/micropython-lib/pull/292)
+
+This caught my attention as worthwhile:
+[PR #270](https://github.com/micropython/micropython-lib/pull/270).
 
 ###### [Main README](./README.md)
