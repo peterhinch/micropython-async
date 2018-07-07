@@ -50,7 +50,7 @@ class EventLoop:
         self.call_later_ms(0, coro)
         # CPython asyncio incompatibility: we don't return Task object
 
-    def _call_now(self, callback, *args):
+    def _call_now(self, callback, *args):  # For stream I/O only
         if __debug__ and DEBUG:
             log.debug("Scheduling in ioq: %s", (callback, args))
         self.ioq.append(callback)
@@ -99,79 +99,80 @@ class EventLoop:
                     log.debug("Moving from waitq to runq: %s", cur_task[1])
                 self.call_soon(cur_task[1], *cur_task[2])
 
-            # Process runq
+            # Process runq. This can append tasks to the end of .runq so get initial
+            # length so we only process those items on the queue at the start.
             l = len(self.runq)
             if __debug__ and DEBUG:
                 log.debug("Entries in runq: %d", l)
             cur_q = self.runq  # Default: always get tasks from runq
-            dl = 1
+            dl = 1  # Subtract this from entry count l
             while l or self.ioq_len:
-                if self.ioq_len:
+                if self.ioq_len:  # Using fast_io
                     self.wait(0)  # Schedule I/O. Can append to ioq.
                     if self.ioq:
                         cur_q = self.ioq
-                        dl = 0
+                        dl = 0  # No effect on l
                     elif l == 0:
-                        break
+                        break  # Both queues are empty
                     else:
                         cur_q = self.runq
                         dl = 1
                 l -= dl
-                cb = cur_q.popleft()
+                cb = cur_q.popleft()  # Remove most current task
                 args = ()
-                if not isinstance(cb, type_gen):
+                if not isinstance(cb, type_gen):  # It's a callback not a generator so get args
                     args = cur_q.popleft()
                     l -= dl
                     if __debug__ and DEBUG:
                         log.info("Next callback to run: %s", (cb, args))
-                    cb(*args)
-                    continue
+                    cb(*args)  # Call it
+                    continue  # Proceed to next runq entry
 
                 if __debug__ and DEBUG:
                     log.info("Next coroutine to run: %s", (cb, args))
-                self.cur_task = cb
+                self.cur_task = cb  # Stored in a bound variable for TimeoutObj
                 delay = 0
                 try:
                     if args is ():
-                        ret = next(cb)
+                        ret = next(cb)  # Schedule the coro, get result
                     else:
                         ret = cb.send(*args)
                     if __debug__ and DEBUG:
                         log.info("Coroutine %s yield result: %s", cb, ret)
-                    if isinstance(ret, SysCall1):
+                    if isinstance(ret, SysCall1):  # Coro returned a SysCall1: an object with an arg spcified in its constructor
                         arg = ret.arg
                         if isinstance(ret, SleepMs):
                             delay = arg
-                        elif isinstance(ret, IORead):
-                            cb.pend_throw(False)
-                            self.add_reader(arg, cb)
-                            continue
-                        elif isinstance(ret, IOWrite):
+                        elif isinstance(ret, IORead):  # coro was a StreamReader read method
+                            cb.pend_throw(False)  # Why? I think this is for debugging. If it is scheduled other than by wait
+                            # (which does pend_throw(None) an exception (exception doesn't inherit from Exception) is thrown
+                            self.add_reader(arg, cb)  # Set up select.poll for read and store the coro in object map
+                            continue  # Don't reschedule. Coro is scheduled by wait() when poll indicates h/w ready
+                        elif isinstance(ret, IOWrite):  # coro was StreamWriter.awrite. Above comments apply.
                             cb.pend_throw(False)
                             self.add_writer(arg, cb)
                             continue
-                        elif isinstance(ret, IOReadDone):
+                        elif isinstance(ret, IOReadDone):  # update select.poll registration and if necessary remove coro from map
                             self.remove_reader(arg)
-                            self._call_io(cb, args)  # Next call produces StopIteration
+                            self._call_io(cb, args)  # Next call produces StopIteration enabling result to be returned
                             continue
                         elif isinstance(ret, IOWriteDone):
                             self.remove_writer(arg)
-                            self._call_io(cb, args)
-                            continue
-                        elif isinstance(ret, StopLoop):
+                            self._call_io(cb, args)  # Next call produces StopIteration. Arguably this is not required
+                            continue  # as awrite produces no return value.
+                        elif isinstance(ret, StopLoop):  # e.g. from run_until_complete. run_forever() terminates
                             return arg
                         else:
                             assert False, "Unknown syscall yielded: %r (of type %r)" % (ret, type(ret))
-                    elif isinstance(ret, type_gen):
-                        self.call_soon(ret)
-                    elif isinstance(ret, int):
-                        # Delay
+                    elif isinstance(ret, type_gen):  # coro has yielded a coro (or generator)
+                        self.call_soon(ret)  # append to .runq
+                    elif isinstance(ret, int):  # If coro issued yield N, delay = N ms
                         delay = ret
-                    elif ret is None:
+                    elif ret is None:  # coro issued yield. delay == 0 so line 195 will put the current task back on runq
                         # Just reschedule
                         pass
                     elif ret is False:
-                        # Don't reschedule
+                        # yield False causes coro not to be rescheduled i.e. it stops.
                         continue
                     else:
                         assert False, "Unsupported coroutine yield value: %r (of type %r)" % (ret, type(ret))

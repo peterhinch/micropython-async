@@ -32,14 +32,14 @@ class PollEventLoop(EventLoop):
         if id(sock) in self.flags:
             flags = self.flags[id(sock)]
             if flags & flag:  # flag is currently registered
-                flags &= ~flag
-                if flags:
+                flags &= ~flag  # Clear current flag
+                if flags:  # Another flag is present
                     self.flags[id(sock)] = flags
                     self.poller.register(sock, flags)
                 else:
-                    del self.flags[id(sock)]
+                    del self.flags[id(sock)]  # Clear all flags
                     self.poller.unregister(sock)
-                del objmap[id(sock)]
+                del objmap[id(sock)]  # Remove coro from appropriate dict
 
     # Additively register sock for reading or writing
     def _register(self, sock, flag):
@@ -94,8 +94,8 @@ class PollEventLoop(EventLoop):
                 if isinstance(cb, tuple):
                     cb[0](*cb[1])
                 else:
-                    cb.pend_throw(None)
-                    self._call_io(cb)
+                    cb.pend_throw(None)  # Clears the pend_throw(False) executed when IOWrite was yielded
+                    self._call_io(cb)  # Put coro onto runq (or ioq if one exists)
             if ev & select.POLLIN:
                 cb = self.rdobjmap[id(sock)]
                 self.rdobjmap[id(sock)] = None  # TEST
@@ -126,14 +126,16 @@ class StreamReader:
     def read(self, n=-1):
         while True:
             yield IORead(self.polls)
-            res = self.ios.read(n)
+            res = self.ios.read(n)  # Call the device's read method
             if res is not None:
                 break
             # This should not happen for real sockets, but can easily
             # happen for stream wrappers (ssl, websockets, etc.)
             #log.warn("Empty read")
-        yield IOReadDone(self.polls)
-        return res
+        yield IOReadDone(self.polls)  # uasyncio.core calls remove_reader
+        # This de-registers device as a read device with poll via
+        # PollEventLoop._unregister
+        return res  # Next iteration raises StopIteration and returns result
 
     def readexactly(self, n):
         buf = b""
@@ -196,7 +198,7 @@ class StreamWriter:
             if res == sz:
                 if DEBUG and __debug__:
                     log.debug("StreamWriter.awrite(): completed spooling %d bytes", res)
-                yield IOWriteDone(self.s)
+                yield IOWriteDone(self.s)  # remove_writer de-registers device as a writer
                 return
             if res is None:
                 res = 0

@@ -3,16 +3,18 @@
 This document aims to explain the operation of `uasyncio` as I understand it. I
 did not write the library so the information presented is a result of using it,
 studying the code, experiment and inference. There may be errors, in which case
-please raise an issue. None of the information here is required to use the
-library: it is intended to satisfy the curiosity of scheduler geeks.
+please raise an issue. None of this information is required to use the library:
+it is intended to satisfy the curiosity of scheduler geeks or to help those
+wishing to modify it.
 
-Where the versions differ, the explanation relates to the `fast_io` version.
+Where the versions differ, this explanation relates to the `fast_io` version.
 Differences are largely in `__init__.py`: the scheduling algorithm in `core.py`
 is little changed.
 
-This doc assumes a good appreciation of the use of `uasyncio`. Familiarity with
-Python generators is also recommended, in particular the use of `yield from`
-and appreciating the difference between a generator and a generator function:
+This doc assumes a good appreciation of the use of `uasyncio`. An understanding
+of Python generators is also essential, in particular the use of `yield from`
+and an appreciatiion of the difference between a generator and a generator
+function:
 
 ```python
 def gen_func(n):  # gen_func is a generator function
@@ -29,6 +31,8 @@ The code for the `fast_io` variant of `uasyncio` may be found in:
 fast_io/__init__.py
 fast_io/core.py
 ```
+
+This has additional comments to aid in its understanding.
 
 ###### [Main README](./README.md)
 
