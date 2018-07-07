@@ -1,70 +1,11 @@
 # Application of uasyncio to hardware interfaces
 
-Most of this document assumes some familiarity with asynchronous programming.
-For those new to it an introduction may be found
-[here](./TUTORIAL.md#7-notes-for-beginners).
-
-The MicroPython `uasyncio` library comprises a subset of Python's `asyncio`
-library. It is designed for use on microcontrollers. As such it has a small RAM
-footprint and fast context switching with zero RAM allocation. This document
-describes its use with a focus on interfacing hardware devices. The aim is to
-design drivers in such a way that the application continues to run while the
-driver is awaiting a response from the hardware. The application remains
-responsive to events and to user interaction.
-
-Another major application area for asyncio is in network programming: many
-guides to this may be found online.
-
-Note that MicroPython is based on Python 3.4 with minimal Python 3.5 additions.
-Except where detailed below, `asyncio` features of versions >3.4 are
-unsupported. As stated above it is a subset; this document identifies supported
-features.
-
-# Installing uasyncio on bare metal
-
-MicroPython libraries are located on [PyPi](https://pypi.python.org/pypi).
-Libraries to be installed are:
-
- * micropython-uasyncio
- * micropython-uasyncio.queues
- * micropython-uasyncio.synchro
-
-The `queues` and `synchro` modules are optional, but are required to run all
-the examples below.
-
-The oficial approach is to use the `upip` utility as described
-[here](https://github.com/micropython/micropython-lib). Network enabled
-hardware has this included in the firmware so it can be run locally. This is
-the preferred approach.
-
-On non-networked hardware there are two options. One is to use `upip` under a
-Linux real or virtual machine. This involves installing and building the Unix
-version of MicroPython, using `upip` to install to a directory on the PC, and
-then copying the library to the target.
-
-The need for Linux and the Unix build may be avoided by using
-[micropip.py](https://github.com/peterhinch/micropython-samples/tree/master/micropip).
-This runs under Python 3.2 or above. Create a temporary directory on your PC
-and install to that. Then copy the contents of the temporary direcory to the
-device. The following assume Linux and a temporary directory named `~/syn` -
-adapt to suit your OS. The first option requires that `micropip.py` has
-executable permission.
-
-```
-$ ./micropip.py install -p ~/syn micropython-uasyncio
-$ python3 -m micropip.py install -p ~/syn micropython-uasyncio
-```
-
-The `uasyncio` modules may be frozen as bytecode in the usual way, by placing
-the `uasyncio` and `collections` directories in the port's `modules` directory
-and rebuilding.
-
-###### [Main README](./README.md)
-
 # Contents
 
+ 0. [Introduction](./TUTORIAL.md#0-introduction)  
+  0.1 [Installing uasyncio on bare metal](./TUTORIAL.md#01-installing-uasyncio-on-bare-metal)  
  1. [Cooperative scheduling](./TUTORIAL.md#1-cooperative-scheduling)  
-   1.1 [Modules](./TUTORIAL.md#11-modules)  
+  1.1 [Modules](./TUTORIAL.md#11-modules)  
  2. [uasyncio](./TUTORIAL.md#2-uasyncio)  
   2.1 [Program structure: the event loop](./TUTORIAL.md#21-program-structure-the-event-loop)  
   2.2 [Coroutines (coros)](./TUTORIAL.md#22-coroutines-coros)  
@@ -116,6 +57,71 @@ and rebuilding.
   7.5 [Why cooperative rather than pre-emptive?](./TUTORIAL.md#75-why-cooperative-rather-than-pre-emptive)  
   7.6 [Communication](./TUTORIAL.md#76-communication)  
   7.7 [Polling](./TUTORIAL.md#77-polling)  
+
+###### [Main README](./README.md)
+
+# 0. Introduction
+
+Most of this document assumes some familiarity with asynchronous programming.
+For those new to it an introduction may be found
+[in section 7](./TUTORIAL.md#7-notes-for-beginners).
+
+The MicroPython `uasyncio` library comprises a subset of Python's `asyncio`
+library. It is designed for use on microcontrollers. As such it has a small RAM
+footprint and fast context switching with zero RAM allocation. This document
+describes its use with a focus on interfacing hardware devices. The aim is to
+design drivers in such a way that the application continues to run while the
+driver is awaiting a response from the hardware. The application remains
+responsive to events and to user interaction.
+
+Another major application area for asyncio is in network programming: many
+guides to this may be found online.
+
+Note that MicroPython is based on Python 3.4 with minimal Python 3.5 additions.
+Except where detailed below, `asyncio` features of versions >3.4 are
+unsupported. As stated above it is a subset; this document identifies supported
+features.
+
+## 0.1 Installing uasyncio on bare metal
+
+MicroPython libraries are located on [PyPi](https://pypi.python.org/pypi).
+Libraries to be installed are:
+
+ * micropython-uasyncio
+ * micropython-uasyncio.queues
+ * micropython-uasyncio.synchro
+
+The `queues` and `synchro` modules are optional, but are required to run all
+the examples below.
+
+The oficial approach is to use the `upip` utility as described
+[here](https://github.com/micropython/micropython-lib). Network enabled
+hardware has this included in the firmware so it can be run locally. This is
+the preferred approach.
+
+On non-networked hardware there are two options. One is to use `upip` under a
+Linux real or virtual machine. This involves installing and building the Unix
+version of MicroPython, using `upip` to install to a directory on the PC, and
+then copying the library to the target.
+
+The need for Linux and the Unix build may be avoided by using
+[micropip.py](https://github.com/peterhinch/micropython-samples/tree/master/micropip).
+This runs under Python 3.2 or above. Create a temporary directory on your PC
+and install to that. Then copy the contents of the temporary direcory to the
+device. The following assume Linux and a temporary directory named `~/syn` -
+adapt to suit your OS. The first option requires that `micropip.py` has
+executable permission.
+
+```
+$ ./micropip.py install -p ~/syn micropython-uasyncio
+$ python3 -m micropip.py install -p ~/syn micropython-uasyncio
+```
+
+The `uasyncio` modules may be frozen as bytecode in the usual way, by placing
+the `uasyncio` and `collections` directories in the port's `modules` directory
+and rebuilding.
+
+###### [Main README](./README.md)
 
 # 1. Cooperative scheduling
 
