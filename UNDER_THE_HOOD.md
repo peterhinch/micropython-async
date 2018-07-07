@@ -9,7 +9,8 @@ wishing to modify it.
 
 Where the versions differ, this explanation relates to the `fast_io` version.
 Differences are largely in `__init__.py`: the scheduling algorithm in `core.py`
-is little changed.
+is little changed. Note that the code in `fast_io` contains additional comments
+to explain its operation.
 
 This doc assumes a good appreciation of the use of `uasyncio`. An understanding
 of Python generators is also essential, in particular the use of `yield from`
@@ -256,6 +257,27 @@ retrieved from `.rdobjmap` and queued for scheduling. This is done via
 I/O queue has been instantiated.
 
 Writing is handled similarly.
+
+# Debug code
+
+The official `uasyncio` contains considerable explicit debug code: schedulers
+are hard to debug. There is code which I believe is for debugging purposes and
+some I have added myself for this purpose. The aim is to ensure that, if an
+error causes a coro to be scheduled when it shouldn't be, an exception is
+thrown. The alternative is weird, hard to diagnose, behaviour.  
+These are the instances.
+
+[pend_throw(false)](https://github.com/peterhinch/micropython-lib/blob/f20d89c6aad9443a696561ca2a01f7ef0c8fb302/uasyncio.core/uasyncio/core.py#L119)  
+[also here](https://github.com/peterhinch/micropython-lib/blob/f20d89c6aad9443a696561ca2a01f7ef0c8fb302/uasyncio.core/uasyncio/core.py#L123)  
+I think the intention here is to throw an exception (exception doesn't inherit
+from Exception) if it is scheduled incorrectly. Correct scheduling coutermands
+this:  
+[here](https://github.com/peterhinch/micropython-lib/blob/819562312bae807ce0d01aa8ad36a13c22ba9e40/uasyncio/uasyncio/__init__.py#L97)  
+[and here](https://github.com/peterhinch/micropython-lib/blob/819562312bae807ce0d01aa8ad36a13c22ba9e40/uasyncio/uasyncio/__init__.py#L114)  
+The `rdobjmap` and `wrobjmap` dictionary entries are invalidated  
+[here](https://github.com/peterhinch/micropython-lib/blob/819562312bae807ce0d01aa8ad36a13c22ba9e40/uasyncio/uasyncio/__init__.py#L91)  
+[and here](https://github.com/peterhinch/micropython-lib/blob/819562312bae807ce0d01aa8ad36a13c22ba9e40/uasyncio/uasyncio/__init__.py#L101)  
+This has the same aim: if an attempt is made incorrectly to reschedule them, an
 
 # Modifying uasyncio
 

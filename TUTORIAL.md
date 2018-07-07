@@ -1,5 +1,8 @@
 # Application of uasyncio to hardware interfaces
 
+This tutorial is intended for users having varying levels of experience with
+asyncio and includes a section for complete beginners.
+
 # Contents
 
  0. [Introduction](./TUTORIAL.md#0-introduction)  
@@ -81,6 +84,9 @@ Note that MicroPython is based on Python 3.4 with minimal Python 3.5 additions.
 Except where detailed below, `asyncio` features of versions >3.4 are
 unsupported. As stated above it is a subset; this document identifies supported
 features.
+
+This tutoial advocates a consistent programming style with good compatibility
+with CPython V3.5 and above.
 
 ## 0.1 Installing uasyncio on bare metal
 
