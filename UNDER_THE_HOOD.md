@@ -275,7 +275,7 @@ this
 and [here](https://github.com/peterhinch/micropython-lib/blob/819562312bae807ce0d01aa8ad36a13c22ba9e40/uasyncio/uasyncio/__init__.py#L114):
 these lines ensures that the exception will not be thrown.  
 The `rdobjmap` and `wrobjmap` dictionary entries are invalidated
-[here](https://github.com/peterhinch/micropython-lib/blob/819562312bae807ce0d01aa8ad36a13c22ba9e40/uasyncio/uasyncio/__init__.py#L91)  
+[here](https://github.com/peterhinch/micropython-lib/blob/819562312bae807ce0d01aa8ad36a13c22ba9e40/uasyncio/uasyncio/__init__.py#L91)
 and [here](https://github.com/peterhinch/micropython-lib/blob/819562312bae807ce0d01aa8ad36a13c22ba9e40/uasyncio/uasyncio/__init__.py#L101).
 This has the same aim: if an attempt is made incorrectly to reschedule them, an
 exception is thrown.
