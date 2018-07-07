@@ -29,7 +29,9 @@ wishing to modify it.
 Where the versions differ, this explanation relates to the `fast_io` version.
 Differences are largely in `__init__.py`: the scheduling algorithm in `core.py`
 is little changed. Note that the code in `fast_io` contains additional comments
-to explain its operation.
+to explain its operation. The code the `fast_io` directory is also in
+[my micropython-lib fork](https://github.com/peterhinch/micropython-lib.git),
+`uasyncio-io-fast-and-rw` branch.
 
 This doc assumes a good appreciation of the use of `uasyncio`. An understanding
 of Python generators is also essential, in particular the use of `yield from`
@@ -305,7 +307,8 @@ from Exception) if it is scheduled incorrectly. Correct scheduling coutermands
 this
 [here](https://github.com/peterhinch/micropython-lib/blob/819562312bae807ce0d01aa8ad36a13c22ba9e40/uasyncio/uasyncio/__init__.py#L97)
 and [here](https://github.com/peterhinch/micropython-lib/blob/819562312bae807ce0d01aa8ad36a13c22ba9e40/uasyncio/uasyncio/__init__.py#L114):
-these lines ensures that the exception will not be thrown.
+these lines ensures that the exception will not be thrown. If my interpretation
+of this is wrong I'd be very glad to be enlightened.
 
 The `rdobjmap` and `wrobjmap` dictionary entries are invalidated
 [here](https://github.com/peterhinch/micropython-lib/blob/819562312bae807ce0d01aa8ad36a13c22ba9e40/uasyncio/uasyncio/__init__.py#L91)
