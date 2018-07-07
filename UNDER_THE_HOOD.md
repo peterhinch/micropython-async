@@ -35,7 +35,7 @@ to explain its operation. The code the `fast_io` directory is also in
 
 This doc assumes a good appreciation of the use of `uasyncio`. An understanding
 of Python generators is also essential, in particular the use of `yield from`
-and an appreciatiion of the difference between a generator and a generator
+and an appreciation of the difference between a generator and a generator
 function:
 
 ```python
@@ -303,7 +303,7 @@ Consider these instances:
 [pend_throw(false)](https://github.com/peterhinch/micropython-lib/blob/f20d89c6aad9443a696561ca2a01f7ef0c8fb302/uasyncio.core/uasyncio/core.py#L119)
 also [here](https://github.com/peterhinch/micropython-lib/blob/f20d89c6aad9443a696561ca2a01f7ef0c8fb302/uasyncio.core/uasyncio/core.py#L123).  
 I think the intention here is to throw an exception (exception doesn't inherit
-from Exception) if it is scheduled incorrectly. Correct scheduling coutermands
+from Exception) if it is scheduled incorrectly. Correct scheduling countermands
 this
 [here](https://github.com/peterhinch/micropython-lib/blob/819562312bae807ce0d01aa8ad36a13c22ba9e40/uasyncio/uasyncio/__init__.py#L97)
 and [here](https://github.com/peterhinch/micropython-lib/blob/819562312bae807ce0d01aa8ad36a13c22ba9e40/uasyncio/uasyncio/__init__.py#L114):
