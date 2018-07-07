@@ -7,6 +7,24 @@ please raise an issue. None of this information is required to use the library:
 it is intended to satisfy the curiosity of scheduler geeks or to help those
 wishing to modify it.
 
+# 0. Contents
+
+ 1. [Introduction](./UNDER_THE_HOOD.md#1-introduction)  
+ 2. [Generators and coroutines](./UNDER_THE_HOOD.md#2-generators-and-coroutines)  
+ 3. [Coroutine yield types](./UNDER_THE_HOOD.md#3-coroutine-yield-types)  
+  3.1 [SysCall1 classes](SysCall1 classes)  
+ 4. [The EventLoop](./UNDER_THE_HOOD.md#4-the-eventloop)  
+  4.1 [Exceptions](./UNDER_THE_HOOD.md#41-exceptions)  
+  4.2 [Task Cancellation](./UNDER_THE_HOOD.md#42-task-cancellation)  
+ 5. [Stream I/O](./UNDER_THE_HOOD.md#5-stream-i/o)  
+  5.1 [StreamReader](./UNDER_THE_HOOD.md#51-streamreader)  
+  5.2 [StreamWriter](./UNDER_THE_HOOD.md#52-streamwriter)  
+  5.3 [PollEventLoop.wait](./UNDER_THE_HOOD.md#53-polleventloop.wait)  
+ 6. [Debug code](./UNDER_THE_HOOD.md#6-debug-code)  
+ 7. [Modifying uasyncio](./UNDER_THE_HOOD.md#7-modifying-uasyncio)  
+
+# 1. Introduction
+
 Where the versions differ, this explanation relates to the `fast_io` version.
 Differences are largely in `__init__.py`: the scheduling algorithm in `core.py`
 is little changed. Note that the code in `fast_io` contains additional comments
@@ -37,7 +55,7 @@ This has additional comments to aid in its understanding.
 
 ###### [Main README](./README.md)
 
-# Generators and coroutines
+# 2. Generators and coroutines
 
 In MicroPython coroutines and generators are identical: this differs from
 CPython. The knowledge that a coro is a generator is crucial to understanding
@@ -62,7 +80,9 @@ creates a generator and transfers execution to it via `yield from`. The
 generator yields a value of 1000; this is passed to the scheduler to invoke the
 delay (see below).
 
-# Coroutine yield types
+###### [Contents](./UNDER_THE_HOOD.md#0-contents)
+
+# 3. Coroutine yield types
 
 Because coroutines are generators it is valid to issue `yield` in a coroutine,
 behaviour which would cause a syntax error in CPython. While explicitly issuing
@@ -95,7 +115,7 @@ the type of that object. The following object types are handled:
  `yield` is rescheduled.
  * A `SysCall1` instance. See below.
 
-## SysCall1 classes
+## 3.1 SysCall1 classes
 
 The `SysCall1` constructor takes a single argument stored in `self.arg`. It is
 effectively an abstract base class: only subclasses are instantiated. When a
@@ -117,7 +137,9 @@ The following subclasses exist:
 The `IO*` classes are for the exclusive use of `StreamReader` and `StreamWriter`
 objects.
 
-# The EventLoop
+###### [Contents](./UNDER_THE_HOOD.md#0-contents)
+
+# 4. The EventLoop
 
 The file `core.py` defines an `EventLoop` class which is subclassed by
 `PollEventLoop` in `__init__.py`. The latter extends the base class to support
@@ -168,7 +190,9 @@ The `.wait()` method is called with this delay. If the delay is > 0 the
 scheduler pauses for this period (polling I/O). On a zero delay I/O is checked
 once: if nothing is pending it returns quickly.
 
-## Exceptions
+###### [Contents](./UNDER_THE_HOOD.md#0-contents)
+
+## 4.1 Exceptions
 
 There are two "normal" cases where tasks raise an exception: when the task is
 complete (`StopIteration`) and when it is cancelled (`CancelledError`). In both
@@ -178,7 +202,7 @@ the run queue - the task is simply not rescheduled.
 If an unhandled exception occurs in a task this will be propagated to the
 caller of `run_forever()` or `run_until_complete` a explained in the tutorial.
 
-## Task Cancellation
+## 4.2 Task Cancellation
 
 The `cancel` function uses `pend_throw` to pass a `CancelledError` to the coro
 to be cancelled. The generator's `.throw` and `.close` methods cause the coro
@@ -186,7 +210,9 @@ to execute code immediately. This is incorrect behaviour for a de-scheduled
 coro. The `.pend_throw` method causes the exception to be processed the next
 time the coro is scheduled.
 
-# Stream I/O
+###### [Contents](./UNDER_THE_HOOD.md#0-contents)
+
+# 5. Stream I/O
 
 Stream I/O is an efficient way of polling stream devices using `select.poll`.
 Device drivers for this mechanism must provide an `ioctl` method which reports
@@ -194,7 +220,7 @@ whether a read device has data ready, or whether a write device is capable of
 accepting data. Stream I/O is handled via `StreamReader` and `StreamWriter`
 instances (defined in `__init__.py`).
 
-## StreamReader
+## 5.1 StreamReader
 
 The class supports three read coros which work in a similar fashion. The coro
 yields an `IORead` instance with the device to be polled as its arg. It is
@@ -230,7 +256,7 @@ When the `StreamReader` read method completes it yields
 `IOReadDone(object_to_poll)`: this updates `.flags` and the poll flags so that
 `ioctl` no longer responds to an `MP_STREAM_POLL_RD` query.
 
-## StreamWriter
+## 5.2 StreamWriter
 
 This supports the `awrite` coro which works in a similar way to `StreamReader`,
 yielding `IOWrite(object_to_poll)` until all data has been written, followed
@@ -240,7 +266,7 @@ The mechanism is the same as for reading, except that when `ioctl` returns a
 "ready" state for a writeable device it means the device is capable of writing
 at least one character.
 
-## PollEventLoop.wait()
+## 5.3 PollEventLoop.wait
 
 When this is called the `Poll` instance is checked in a one-shot mode. In this
 mode it will return either when `delay` has elapsed or when at least one device
@@ -258,14 +284,19 @@ I/O queue has been instantiated.
 
 Writing is handled similarly.
 
-# Debug code
+###### [Contents](./UNDER_THE_HOOD.md#0-contents)
+
+# 6. Debug code
 
 The official `uasyncio` contains considerable explicit debug code: schedulers
-are hard to debug. There is code which I believe is for debugging purposes and
-some I have added myself for this purpose. The aim is to ensure that, if an
-error causes a coro to be scheduled when it shouldn't be, an exception is
-thrown. The alternative is weird, hard to diagnose, behaviour.  
-These are the instances:
+are hard to debug.
+
+There is also code which I believe is for debugging purposes including some I
+have added myself for this purpose. The aim is to ensure that, if an error
+causes a coro to be scheduled when it shouldn't be, an exception is thrown. The
+alternative is weird, hard to diagnose, behaviour.
+
+Consider these instances:
 [pend_throw(false)](https://github.com/peterhinch/micropython-lib/blob/f20d89c6aad9443a696561ca2a01f7ef0c8fb302/uasyncio.core/uasyncio/core.py#L119)
 also [here](https://github.com/peterhinch/micropython-lib/blob/f20d89c6aad9443a696561ca2a01f7ef0c8fb302/uasyncio.core/uasyncio/core.py#L123).  
 I think the intention here is to throw an exception (exception doesn't inherit
@@ -273,14 +304,17 @@ from Exception) if it is scheduled incorrectly. Correct scheduling coutermands
 this
 [here](https://github.com/peterhinch/micropython-lib/blob/819562312bae807ce0d01aa8ad36a13c22ba9e40/uasyncio/uasyncio/__init__.py#L97)
 and [here](https://github.com/peterhinch/micropython-lib/blob/819562312bae807ce0d01aa8ad36a13c22ba9e40/uasyncio/uasyncio/__init__.py#L114):
-these lines ensures that the exception will not be thrown.  
+these lines ensures that the exception will not be thrown.
+
 The `rdobjmap` and `wrobjmap` dictionary entries are invalidated
 [here](https://github.com/peterhinch/micropython-lib/blob/819562312bae807ce0d01aa8ad36a13c22ba9e40/uasyncio/uasyncio/__init__.py#L91)
 and [here](https://github.com/peterhinch/micropython-lib/blob/819562312bae807ce0d01aa8ad36a13c22ba9e40/uasyncio/uasyncio/__init__.py#L101).
 This has the same aim: if an attempt is made incorrectly to reschedule them, an
 exception is thrown.
 
-# Modifying uasyncio
+###### [Contents](./UNDER_THE_HOOD.md#0-contents)
+
+# 7. Modifying uasyncio
 
 The library is designed to be extensible. By following these guidelines a
 module can be constructed which alters the functionality of asyncio without the
@@ -311,5 +345,7 @@ def get_event_loop(args):
         _event_loop = _event_loop_class(args)  # Instantiate once only
     return _event_loop
 ```
+
+###### [Contents](./UNDER_THE_HOOD.md#0-contents)
 
 ###### [Main README](./README.md)
