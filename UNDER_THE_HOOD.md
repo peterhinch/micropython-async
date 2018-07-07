@@ -19,7 +19,7 @@ wishing to modify it.
  5. [Stream I/O](./UNDER_THE_HOOD.md#5-stream-io)  
   5.1 [StreamReader](./UNDER_THE_HOOD.md#51-streamreader)  
   5.2 [StreamWriter](./UNDER_THE_HOOD.md#52-streamwriter)  
-  5.3 [PollEventLoop.wait](./UNDER_THE_HOOD.md#53-polleventloop.wait)  
+  5.3 [PollEventLoop wait method](./UNDER_THE_HOOD.md#53-polleventloop-wait-method)  
  6. [Debug code](./UNDER_THE_HOOD.md#6-debug-code)  
  7. [Modifying uasyncio](./UNDER_THE_HOOD.md#7-modifying-uasyncio)  
 
@@ -266,7 +266,7 @@ The mechanism is the same as for reading, except that when `ioctl` returns a
 "ready" state for a writeable device it means the device is capable of writing
 at least one character.
 
-## 5.3 PollEventLoop.wait
+## 5.3 PollEventLoop wait method
 
 When this is called the `Poll` instance is checked in a one-shot mode. In this
 mode it will return either when `delay` has elapsed or when at least one device
