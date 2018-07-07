@@ -12,11 +12,11 @@ wishing to modify it.
  1. [Introduction](./UNDER_THE_HOOD.md#1-introduction)  
  2. [Generators and coroutines](./UNDER_THE_HOOD.md#2-generators-and-coroutines)  
  3. [Coroutine yield types](./UNDER_THE_HOOD.md#3-coroutine-yield-types)  
-  3.1 [SysCall1 classes](SysCall1 classes)  
+  3.1 [SysCall1 classes](./UNDER_THE_HOOD.md#31-syscall1-classes)  
  4. [The EventLoop](./UNDER_THE_HOOD.md#4-the-eventloop)  
   4.1 [Exceptions](./UNDER_THE_HOOD.md#41-exceptions)  
   4.2 [Task Cancellation](./UNDER_THE_HOOD.md#42-task-cancellation)  
- 5. [Stream I/O](./UNDER_THE_HOOD.md#5-stream-i/o)  
+ 5. [Stream I/O](./UNDER_THE_HOOD.md#5-stream-io)  
   5.1 [StreamReader](./UNDER_THE_HOOD.md#51-streamreader)  
   5.2 [StreamWriter](./UNDER_THE_HOOD.md#52-streamwriter)  
   5.3 [PollEventLoop.wait](./UNDER_THE_HOOD.md#53-polleventloop.wait)  
@@ -212,7 +212,7 @@ time the coro is scheduled.
 
 ###### [Contents](./UNDER_THE_HOOD.md#0-contents)
 
-# 5. Stream I/O
+# 5. Stream IO
 
 Stream I/O is an efficient way of polling stream devices using `select.poll`.
 Device drivers for this mechanism must provide an `ioctl` method which reports
