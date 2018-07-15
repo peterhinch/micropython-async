@@ -1,4 +1,10 @@
-import utime as time
+# uasyncio.core fast_io
+# fork: peterhinch/micropython-lib branch: uasyncio-io-fast-and-rw
+version = 'fast_io'
+try:
+    import rtc_time as time # Low power timebase using RTC
+except ImportError:
+    import utime as time
 import utimeq
 import ucollections
 
@@ -46,7 +52,8 @@ class EventLoop:
 
     def create_task(self, coro):
         # CPython 3.4.2
-        assert not isinstance(coro, type_genf), 'Generator function is not iterable.'  # upy issue #3241
+        assert not isinstance(coro, type_genf), 'Coroutine arg expected.'  # upy issue #3241
+        # create_task with a callable would work, so above assert only traps the easily-made error
         self.call_later_ms(0, coro)
         # CPython asyncio incompatibility: we don't return Task object
 
@@ -158,8 +165,8 @@ class EventLoop:
                             continue
                         elif isinstance(ret, IOWriteDone):
                             self.remove_writer(arg)
-                            self._call_io(cb, args)  # Next call produces StopIteration. Arguably this is not required
-                            continue  # as awrite produces no return value.
+                            self._call_io(cb, args)  # Next call produces StopIteration: see StreamWriter.aclose
+                            continue 
                         elif isinstance(ret, StopLoop):  # e.g. from run_until_complete. run_forever() terminates
                             return arg
                         else:
@@ -205,7 +212,7 @@ class EventLoop:
             self.wait(delay)
 
     def run_until_complete(self, coro):
-        assert not isinstance(coro, type_genf), 'Generator function is not iterable.'  # upy issue #3241
+        assert not isinstance(coro, type_genf), 'Coroutine arg expected.'  # upy issue #3241
         def _run_and_stop():
             yield from coro
             yield StopLoop(0)

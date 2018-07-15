@@ -1,6 +1,11 @@
 # 1. The MicroPython uasyncio library
 
-This GitHub repository consists of the following parts:
+This GitHub repository consists of the following parts. Firstly a modified
+`fast_io` version of `uasyncio` offering some benefits over the official
+version.
+
+Secondly the following resources relevant to users of official or `fast_io`
+versions:
  * [A tutorial](./TUTORIAL.md) An introductory tutorial on asynchronous
  programming and the use of the uasyncio library (asyncio subset).
  * [Asynchronous device drivers](./DRIVERS.md). A module providing drivers for
@@ -24,7 +29,7 @@ This GitHub repository consists of the following parts:
  * [Under the hood](./UNDER_THE_HOOD.md) A guide to help understand the
  `uasyncio` code. For scheduler geeks and those wishing to modify `uasyncio`.
  
-## 1.1 A new "priority" version.
+## 1.1 The "fast_io" version.
 
 This repo included `asyncio_priority.py` which is now deprecated. Its primary
 purpose was to provide a means of servicing fast hardware devices by means of
@@ -41,6 +46,13 @@ A modified version of `uasyncio` is described [here](./FASTPOLL.md) which
 provides an option for I/O scheduling with much reduced latency. It also fixes
 the bug. It is hoped that these changes will be accepted into mainstream in due
 course.
+
+### 1.1.1 A Pyboard-only low power version
+
+This is documented [here](./lowpower/README.md). In essence a Python file is
+placed on the device which configures the `fast_io` version of `uasyncio` to
+reduce power consumption at times when it is not busy. This provides a means of
+using the library on battery powered projects.
 
 # 2. Version and installation of uasyncio
 

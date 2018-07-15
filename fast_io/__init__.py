@@ -1,8 +1,9 @@
+# uasyncio.__init__ fast_io
+# fork: peterhinch/micropython-lib branch: uasyncio-io-fast-and-rw
 import uerrno
 import uselect as select
 import usocket as _socket
 from uasyncio.core import *
-
 
 DEBUG = 0
 log = None

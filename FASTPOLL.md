@@ -225,6 +225,14 @@ This behaviour may be desired where short bursts of fast data are handled.
 Otherwise drivers of such hardware should be designed to avoid hogging, using
 techniques like buffering or timing.
 
+The version also supports an `implementation` namedtuple with the following
+fields:
+ * `name` 'fast_io'
+ * `variant` `standard`
+ * `major` 0 Major version no.
+ * `minor` 100 Minor version no. i.e. version = 0.100
+
+The `variant` field can also contain `lowpower` if running that version.
 
 ###### [Contents](./FASTPOLL.md#contents)
 
