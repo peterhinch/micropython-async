@@ -225,14 +225,29 @@ This behaviour may be desired where short bursts of fast data are handled.
 Otherwise drivers of such hardware should be designed to avoid hogging, using
 techniques like buffering or timing.
 
-The version also supports an `implementation` namedtuple with the following
-fields:
- * `name` 'fast_io'
- * `variant` `standard`
- * `major` 0 Major version no.
- * `minor` 100 Minor version no. i.e. version = 0.100
+The version also supports an `version` variable containing 'fast_io'. This
+enables the presence of this version to be determined at runtime.
 
-The `variant` field can also contain `lowpower` if running that version.
+It also supports a `got_event_loop()` function returning a `bool`: `True` if
+the event loop has been instantiated. The purpose is to enable code which uses
+the event loop to raise an exception if the event loop was not instantiated.
+
+```python
+class Foo():
+    def __init__(self):
+        if asyncio.got_event_loop():
+            loop = asyncio.get_event_loop()
+            loop.create_task(self._run())
+        else:
+            raise OSError('Foo class requires an event loop instance')
+```
+This avoids subtle errors:
+```python
+import uasyncio as asyncio
+bar = Bar()  # Constructor calls get_event_loop()
+# and renders these args inoperative
+loop = asyncio.get_event_loop(runq_len=40, waitq_len=40)
+```
 
 ###### [Contents](./FASTPOLL.md#contents)
 
