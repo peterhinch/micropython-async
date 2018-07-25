@@ -161,12 +161,15 @@ while True:
 ```
 
 This accords with the 500μA maximum specification for `stop`. So current
-consumption can be estimated by `i = ib + n/latency` where `ib` is the stopped
-current (in my case 380μA) and `n` is a factor dependent on the amount of code
-which runs when the latency period expires. A data logging application might
-tolerate latencies of many seconds while waiting for a long delay to expire:
-getting close to `ib` may be practicable for such applications during their
-waiting period.
+consumption can be estimated by  
+`i = ib + n/latency`  
+`ib` is the stopped current (in my case 380μA).  
+`n` is a factor dependent on the amount of code which runs when the latency
+period expires.  
+
+A data logging application might tolerate latencies of many seconds while
+waiting for a long delay to expire: getting close to `ib` may be practicable
+for such applications during their waiting period.
 
 # 4. The rtc_time module
 
@@ -300,8 +303,8 @@ with high latency to conserve battery.
 # 6. Note on the design
 
 The `rtc_time` module represents a compromise designed to minimise changes to
-`uasyncio`. The aim is to have zero effect on the performance of normal
-applications or code running on non-Pyboard hardware.
+`uasyncio`. The aim is to have zero effect on the performance of applications
+not using `rtc_time` or ones running on non-Pyboard hardware.
 
 An alternative approach is to modify the `PollEventLoop` `wait` method to
 invoke `stop` conditions when required. It would have the advantage of removing
