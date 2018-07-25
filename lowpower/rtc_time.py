@@ -10,6 +10,7 @@
 # On an externally powered Pyboard an RTC timebase is substituted.
 
 import sys
+import utime
 
 _PERIOD = const(604800000)  # ms in 7 days
 _PERIOD_2 = const(302400000)  # half period
@@ -28,15 +29,68 @@ if sys.platform == 'pyboard':
             pyb.usb_mode(None)  # Save power
             use_utime = False  # use RTC timebase
 else:
-    print('rtc_time.py is Pyboard-specific.')
+    raise OSError('rtc_time.py is Pyboard-specific.')
 
+# For lowest power consumption set unused pins as inputs with pullups.
+# Note the 4K7 I2C pullups on X9 X10 Y9 Y10.
+for pin in [p for p in dir(pyb.Pin.board) if p[0] in 'XY']:
+    pin_x = pyb.Pin(pin, pyb.Pin.IN, pyb.Pin.PULL_UP)
+# User code redefines any pins in use
+
+import uasyncio as asyncio
+
+# Common version has a needless dict: https://www.python.org/dev/peps/pep-0318/#examples
+# https://stackoverflow.com/questions/6760685/creating-a-singleton-in-python
+# Resolved: https://forum.micropython.org/viewtopic.php?f=2&t=5033&p=28824#p28824
+def singleton(cls):
+    instance = None
+    def getinstance(*args, **kwargs):
+        nonlocal instance
+        if instance is None:
+            instance = cls(*args, **kwargs)
+        return instance
+    return getinstance
+
+@singleton
+class Latency():
+    def __init__(self, t_ms=100):
+        if use_utime:  # Not in low power mode: t_ms stays zero
+            self._t_ms = 0
+        else:
+            if asyncio.got_event_loop():
+                self._t_ms = t_ms
+                loop = asyncio.get_event_loop()
+                loop.create_task(self._run())
+            else:
+                raise OSError('Event loop not instantiated.')
+
+    def _run(self):
+        rtc = pyb.RTC()
+        rtc.wakeup(self._t_ms)
+        t_ms = self._t_ms
+        while True:
+            if t_ms > 0:
+                pyb.stop()
+            yield
+            if t_ms != self._t_ms:
+                t_ms = self._t_ms
+                if t_ms > 0:
+                    rtc.wakeup(t_ms)
+                else:
+                    rtc.wakeup(None)
+
+    def value(self, val=None):
+        if val is not None and not use_utime:
+            self._t_ms = max(val, 0)
+        return self._t_ms
+
+# sleep_ms is defined to stop things breaking if someone imports uasyncio.core
+# Power won't be saved if this is done.
+sleep_ms = utime.sleep_ms
 if use_utime:  # Run utime: Pyboard connected to PC via USB or alien platform
-    import utime
     ticks_ms = utime.ticks_ms
     ticks_add = utime.ticks_add
     ticks_diff = utime.ticks_diff
-    sleep_ms = utime.sleep_ms
-    lo_power = lambda _ : (yield)
 else:
     rtc = pyb.RTC()
     # dt: (year, month, day, weekday, hours, minutes, seconds, subseconds)
@@ -52,23 +106,3 @@ else:
 
     def ticks_diff(end, start):
         return ((end - start + _PERIOD_2) % _PERIOD) - _PERIOD_2
-
-    # This function is unused by uasyncio as its only call is in core.wait which
-    # is overridden in __init__.py. This means that the lo_power coro can rely
-    # on rtc.wakeup()
-    def sleep_ms(t):
-        end = ticks_add(ticks_ms(), t)
-        while t > 0:
-            if t < 9:  # <= 2 RTC increments
-                pyb.delay(t)  # Just wait and quit
-                break
-            rtc.wakeup(t)
-            pyb.stop()  # Note some interrupt might end this prematurely
-            rtc.wakeup(None)
-            t = ticks_diff(end, ticks_ms())
-
-    def lo_power(t_ms):
-        rtc.wakeup(t_ms)
-        while True:
-            pyb.stop()
-            yield

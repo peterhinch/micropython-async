@@ -264,6 +264,10 @@ def get_event_loop(runq_len=16, waitq_len=16, ioq_len=0):
         _event_loop = _event_loop_class(runq_len, waitq_len, ioq_len)
     return _event_loop
 
+# Allow user classes to determine prior event loop instantiation.
+def got_event_loop():
+    return _event_loop is not None
+
 def sleep(secs):
     yield int(secs * 1000)
 
