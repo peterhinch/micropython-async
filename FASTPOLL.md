@@ -49,7 +49,7 @@ module documented [here](./lowpower/README.md).
   2.2 [Timing accuracy](./FASTPOLL.md#22-timing-accuracy)  
   2.3 [Polling in uasyncio](./FASTPOLL.md#23-polling-in-usayncio)  
  3. [The modified version](./FASTPOLL.md#3-the-modified-version)  
-  3.1 [Fast I/O](./FASTPOLL.md#31-fast-I/O)  
+  3.1 [Fast IO](./FASTPOLL.md#31-fast-IO)  
   3.2 [Low Priority](./FASTPOLL.md#32-low-priority)  
   3.3 [Other Features](./FASTPOLL.md#33-other-features)  
   3.4 [Low priority yield](./FASTPOLL.md#34-low-priority-yield)  
@@ -260,7 +260,9 @@ Arguments to `get_event_loop()`:
  3. `ioq_len=0` Length of I/O queue. Default: no queue is created.
  4. `lp_len=0` Length of low priority queue. Default: no queue.
 
-## 3.1 Fast I/O
+###### [Contents](./FASTPOLL.md#contents)
+
+## 3.1 Fast IO
 
 Device drivers which are to be capable of running at high priority should be
 written to use stream I/O: see
@@ -274,6 +276,8 @@ service routine is called at an excessive frequency.
 This behaviour may be desired where short bursts of fast data are handled.
 Otherwise drivers of such hardware should be designed to avoid hogging, using
 techniques like buffering or timing.
+
+###### [Contents](./FASTPOLL.md#contents)
 
 ## 3.2 Low Priority
 
@@ -295,6 +299,8 @@ It adds the following event loop methods:
  yield, the low priority yield will be postponed indefinitely.
 
 See [Low priority callbacks](./FASTPOLL.md#35-low-priority-callbacks)
+
+###### [Contents](./FASTPOLL.md#contents)
 
 ## 3.3 Other Features
 
@@ -321,6 +327,9 @@ bar = Bar()  # Constructor calls get_event_loop()
 # and renders these args inoperative
 loop = asyncio.get_event_loop(runq_len=40, waitq_len=40)
 ```
+
+###### [Contents](./FASTPOLL.md#contents)
+
 ## 3.4 Low priority yield
 
 Consider this code fragment:
