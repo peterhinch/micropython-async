@@ -38,7 +38,7 @@ asyncio and includes a section for complete beginners.
  5. [Interfacing hardware](./TUTORIAL.md#5-interfacing-hardware)  
   5.1 [Timing issues](./TUTORIAL.md#51-timing-issues)  
   5.2 [Polling hardware with a coroutine](./TUTORIAL.md#52-polling-hardware-with-a-coroutine)  
-  5.3 [Using the stream mechnanism](./TUTORIAL.md#53-using-the-stream-mechanism)  
+  5.3 [Using the stream mechanism](./TUTORIAL.md#53-using-the-stream-mechanism)  
    5.3.1 [A UART driver example](./TUTORIAL.md#531-a-uart-driver-example)  
   5.4 [Writing streaming device drivers](./TUTORIAL.md#54-writing-streaming-device-drivers)  
   5.5 [A complete example: aremote.py](./TUTORIAL.md#55-a-complete-example-aremotepy)
@@ -86,8 +86,8 @@ Except where detailed below, `asyncio` features of versions >3.4 are
 unsupported. As stated above it is a subset; this document identifies supported
 features.
 
-This tutoial advocates a consistent programming style with good compatibility
-with CPython V3.5 and above.
+This tutorial aims to present a consistent programming style compatible with
+CPython V3.5 and above.
 
 ## 0.1 Installing uasyncio on bare metal
 
@@ -101,7 +101,7 @@ Libraries to be installed are:
 The `queues` and `synchro` modules are optional, but are required to run all
 the examples below.
 
-The oficial approach is to use the `upip` utility as described
+The official approach is to use the `upip` utility as described
 [here](https://github.com/micropython/micropython-lib). Network enabled
 hardware has this included in the firmware so it can be run locally. This is
 the preferred approach.
@@ -114,7 +114,7 @@ then copying the library to the target.
 The need for Linux and the Unix build may be avoided by using
 [micropip.py](https://github.com/peterhinch/micropython-samples/tree/master/micropip).
 This runs under Python 3.2 or above. Create a temporary directory on your PC
-and install to that. Then copy the contents of the temporary direcory to the
+and install to that. Then copy the contents of the temporary directory to the
 device. The following assume Linux and a temporary directory named `~/syn` -
 adapt to suit your OS. The first option requires that `micropip.py` has
 executable permission.
@@ -374,7 +374,7 @@ offers "micro" implementations of `Event`, `Barrier`, `Semaphore` and
 `Condition` primitives. These are for use only with asyncio. They are not
 thread safe and should not be used with the `_thread` module or from an
 interrupt handler except where mentioned. A `Lock` primitive is provided which
-is an alterantive to the official implementation.
+is an alternative to the official implementation.
 
 Another synchronisation issue arises with producer and consumer coros. The
 producer generates data which the consumer uses. Asyncio provides the `Queue`
@@ -474,7 +474,7 @@ async def foo(event):
         event.set()
 ```
 
-Where multiple coros wait on a single event synchronisationcan be achieved by
+Where multiple coros wait on a single event synchronisation can be achieved by
 means of an acknowledge event. Each coro needs a separate event.
 
 ```python
@@ -619,7 +619,7 @@ no mechanism for verifying when cancellation has actually occurred. The `asyn`
 library provides verification via the following classes:
 
  1. `Cancellable` This allows one or more tasks to be assigned to a group. A
- coro can cancel all tasks in the group, pausing until this has been acheived.
+ coro can cancel all tasks in the group, pausing until this has been achieved.
  Documentation may be found [here](./PRIMITIVES.md#42-class-cancellable).
  2. `NamedTask` This enables a coro to be associated with a user-defined name.
  The running status of named coros may be checked. For advanced usage more
@@ -1095,7 +1095,7 @@ class RecordOrientedUart():
     def __iter__(self):  # Not __await__ issue #2678
         data = b''
         while not data.endswith(self.DELIMITER):
-            yield from asyncio.sleep(0) # Neccessary because:
+            yield from asyncio.sleep(0) # Necessary because:
             while not self.uart.any():
                 yield from asyncio.sleep(0) # timing may mean this is never called
             data = b''.join((data, self.uart.read(self.uart.any())))
@@ -1152,7 +1152,7 @@ async def receiver():
     sreader = asyncio.StreamReader(uart)
     while True:
         res = await sreader.readline()
-        print('Recieved', res)
+        print('Received', res)
 
 loop = asyncio.get_event_loop()
 loop.create_task(sender())
@@ -1357,7 +1357,7 @@ application design the [fast_io](./FASTPOLL.md) version can greatly reduce
 this.
 
 The demo program `iorw.py` illustrates a complete example. Note that, at the
-time of writing there is a bug in `uasyncio` which prevents this from woking.
+time of writing there is a bug in `uasyncio` which prevents this from working.
 See [this GitHub thread](https://github.com/micropython/micropython/pull/3836#issuecomment-397317408).
 There are two solutions. A workround is to write two separate drivers, one
 read-only and the other write-only. Alternatively the
@@ -1406,7 +1406,7 @@ run while acquisition is in progress.
 
 Hanging usually occurs because a task has blocked without yielding: this will
 hang the entire system. When developing it is useful to have a coro which
-periodically toggles an onboard LED. This provides confirmtion that the
+periodically toggles an onboard LED. This provides confirmation that the
 scheduler is running.
 
 ###### [Contents](./TUTORIAL.md#contents)
@@ -1470,7 +1470,7 @@ the outer loop:
     def __await__(self):
         data = b''
         while not data.endswith(self.DELIMITER):
-            yield from asyncio.sleep(0) # Neccessary because:
+            yield from asyncio.sleep(0) # Necessary because:
             while not self.uart.any():
                 yield from asyncio.sleep(0) # timing may mean this is never called
             data = b''.join((data, self.uart.read(self.uart.any())))
@@ -1630,7 +1630,7 @@ def event_loop():
             # handle UART input
 ```
 
-This works for simple examples but event loops rapidly become unweildy as the
+This works for simple examples but event loops rapidly become unwieldy as the
 number of events increases. They also violate the principles of object oriented
 programming by lumping much of the program logic in one place rather than
 associating code with the object being controlled. We want to design a class
@@ -1800,7 +1800,7 @@ overrun the specified time. This is because while the delay is in progress
 other tasks will run. When the delay period completes, execution will not
 resume until the running task issues `await` or terminates. A well-behaved coro
 will always issue `await` at regular intervals. Where a precise delay is
-required, especially one below a few ms, it may be neccessary to use
+required, especially one below a few ms, it may be necessary to use
 `utime.sleep_us(us)`.
 
 ###### [Contents](./TUTORIAL.md#contents)
@@ -1812,7 +1812,7 @@ often one of disappointment. Surely pre-emptive is better? Why should I have to
 explicitly yield control when the Python virtual machine can do it for me?
 
 When it comes to embedded systems the cooperative model has two advantages.
-Fistly, it is lightweight. It is possible to have large numbers of coroutines
+Firstly, it is lightweight. It is possible to have large numbers of coroutines
 because unlike descheduled threads, paused coroutines contain little state.
 Secondly it avoids some of the subtle problems associated with pre-emptive
 scheduling. In practice cooperative multi-tasking is widely used, notably in

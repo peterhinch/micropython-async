@@ -1,8 +1,8 @@
-# fast_io: An experimental modified version of uasyncio
+# fast_io: A modified version of uasyncio
 
 MicroPython firmware now enables device drivers for stream devices to be
 written in Python, via `uio.IOBase`. This mechanism can be applied to any
-situation where a piece of hardware or an aysnchronously set flag needs to be
+situation where a piece of hardware or an asynchronously set flag needs to be
 polled. Such polling is efficient because it is handled in C using
 `select.poll`, and because the coroutine accessing the device is descheduled
 until polling succeeds.
@@ -16,7 +16,7 @@ This version has the following changes:
  [PR287](https://github.com/micropython/micropython-lib/pull/287).
  * The bug with read/write device drivers is fixed (forthcoming PR).
  * An assertion failure is produced if `create_task` or `run_until_complete`
- is called with a generator function [PR292](https://github.com/micropython/micropython-lib/pull/292)
+ is called with a generator function [PR292](https://github.com/micropython/micropython-lib/pull/292).
 
 A key advantage of this version is that priority device drivers are written
 entirely by using the officially-supported technique for writing stream I/O
@@ -25,32 +25,28 @@ means than by these proposals, application code changes are likely to be
 minimal. Using the priority mechanism in this version requires a change to just
 one line of code compared to an application running under the official version.
 
-The high priority mechanism in `asyncio_priority.py` is replaced with a faster
-and more efficient way of handling asynchronous events with minimum latency.
-Consequently `asyncio_priority.py` is obsolete and should be deleted from your
-system. The facility for low priority coros is currently unavailable.
+The high priority mechanism formerly provided in `asyncio_priority.py` is
+replaced with a faster and more efficient way of handling asynchronous events
+with minimum latency. Consequently `asyncio_priority.py` is obsolete and should
+be deleted from your system. The facility for low priority coros is currently
+unavailable but will be reinstated.
+
+This modified version also provides for ultra low power consumption using a
+module documented [here](./lowpower/README.md).
 
 ###### [Main README](./README.md)
 
 # Contents
 
- 1. [Installation](./FASTPOLL.md#1-installation)
-
-  1.1 [Benchmarks](./FASTPOLL.md#11-benchmarks) Benchmark and demo programs.
-
- 2. [Rationale](./FASTPOLL.md#2-rationale)
-
-  2.1 [Latency](./FASTPOLL.md#21-latency)
-
-  2.2 [Timing accuracy](./FASTPOLL.md#22-timing-accuracy)
-
-  2.3 [Polling in uasyncio](./FASTPOLL.md#23-polling-in-usayncio)
-
- 3. [The modified version](./FASTPOLL.md#3-the-modified-version)
-
- 4. [ESP Platforms](./FASTPOLL.md#4-esp-platforms)
-
- 5. [Background](./FASTPOLL.md#4-background)
+ 1. [Installation](./FASTPOLL.md#1-installation)  
+  1.1 [Benchmarks](./FASTPOLL.md#11-benchmarks) Benchmark and demo programs.  
+ 2. [Rationale](./FASTPOLL.md#2-rationale)  
+  2.1 [Latency](./FASTPOLL.md#21-latency)  
+  2.2 [Timing accuracy](./FASTPOLL.md#22-timing-accuracy)  
+  2.3 [Polling in uasyncio](./FASTPOLL.md#23-polling-in-usayncio)  
+ 3. [The modified version](./FASTPOLL.md#3-the-modified-version)  
+ 4. [ESP Platforms](./FASTPOLL.md#4-esp-platforms)  
+ 5. [Background](./FASTPOLL.md#4-background)  
 
 # 1. Installation
 
@@ -69,7 +65,7 @@ The benchmarks directory contains files demonstrating the performance gains
 offered by prioritisation. They also offer illustrations of the use of these
 features. Documentation is in the code.
 
- * ``benchmarks/rate.py` Shows the frequency with which uasyncio schedules
+ * `benchmarks/rate.py` Shows the frequency with which uasyncio schedules
  minimal coroutines (coros).
  * `benchmarks/rate_esp.py` As above for ESP32 and ESP8266.
  * `benchmarks/rate_fastio.py` Measures the rate at which coros can be scheduled
@@ -126,7 +122,7 @@ have ten instances of `foo()` and one instance of `handle_isr()`. When
 `handle_isr()` issues `yield`, its execution will pause for 40ms while each
 instance of `foo()` is scheduled and performs one iteration. This may be
 unacceptable: it may be necessary to poll and respond to the flag at a rate
-suficient to avoid overruns.
+sufficient to avoid overruns.
 
 In this version `handle_isr()` would be rewritten as a stream device driver
 which could be expected to run with latency of just over 4ms.
@@ -225,7 +221,7 @@ This behaviour may be desired where short bursts of fast data are handled.
 Otherwise drivers of such hardware should be designed to avoid hogging, using
 techniques like buffering or timing.
 
-The version also supports an `version` variable containing 'fast_io'. This
+The version also supports a `version` variable containing 'fast_io'. This
 enables the presence of this version to be determined at runtime.
 
 It also supports a `got_event_loop()` function returning a `bool`: `True` if
