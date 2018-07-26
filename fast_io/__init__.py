@@ -19,8 +19,8 @@ def set_debug(val):
 # to add_reader. Cand we fix this by maintaining two object maps?
 class PollEventLoop(EventLoop):
 
-    def __init__(self, runq_len=16, waitq_len=16, fast_io=0):
-        EventLoop.__init__(self, runq_len, waitq_len, fast_io)
+    def __init__(self, runq_len=16, waitq_len=16, fast_io=0, lp_len=0):
+        EventLoop.__init__(self, runq_len, waitq_len, fast_io, lp_len)
         self.poller = select.poll()
         self.rdobjmap = {}
         self.wrobjmap = {}

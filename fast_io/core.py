@@ -33,8 +33,10 @@ class TimeoutError(CancelledError):
 
 class EventLoop:
 
-    def __init__(self, runq_len=16, waitq_len=16, ioq_len=0):
+    def __init__(self, runq_len=16, waitq_len=16, ioq_len=0, lp_len=0):
         self.runq = ucollections.deque((), runq_len, True)
+        self._max_overdue_ms = 0
+        self.lpq = utimeq.utimeq(lp_len) if lp_len else None
         self.ioq_len = ioq_len
         if ioq_len:
             self.ioq = ucollections.deque((), ioq_len, True)
@@ -63,6 +65,24 @@ class EventLoop:
         self.ioq.append(callback)
         if not isinstance(callback, type_gen):
             self.ioq.append(args)
+
+    def max_overdue_ms(self, t=None):
+        if t is not None:
+            self._max_overdue_ms = int(t)
+        return self._max_overdue_ms
+
+    # Low priority versions of call_later() call_later_ms() and call_at_()
+    def call_after_ms(self, delay, callback, *args):
+        self.call_at_lp_(time.ticks_add(self.time(), delay), callback, *args)
+
+    def call_after(self, delay, callback, *args):
+        self.call_at_lp_(time.ticks_add(self.time(), int(delay * 1000)), callback, *args)
+
+    def call_at_lp_(self, time, callback, *args):
+        if self.lpq is not None:
+            self.lpq.push(time, callback, args)
+        else:
+            raise OSError('No low priority queue exists.')
 
     def call_soon(self, callback, *args):
         if __debug__ and DEBUG:
@@ -96,6 +116,22 @@ class EventLoop:
         while True:
             # Expire entries in waitq and move them to runq
             tnow = self.time()
+            if self.lpq:
+                # Schedule a LP task if overdue or if no normal task is ready
+                to_run = False  # Assume no LP task is to run
+                t = self.lpq.peektime()
+                tim = time.ticks_diff(t, tnow)
+                to_run = self._max_overdue_ms > 0 and tim < -self._max_overdue_ms
+                if not (to_run or self.runq):  # No overdue LP task or task on runq
+                    # zero delay tasks go straight to runq. So don't schedule LP if runq
+                    to_run = tim <= 0  # True if LP task is due
+                    if to_run and self.waitq:  # Set False if normal tasks due.
+                        t = self.waitq.peektime()
+                        to_run = time.ticks_diff(t, tnow) > 0 # No normal task is ready
+                if to_run:
+                    self.lpq.pop(cur_task)
+                    self.call_soon(cur_task[1], *cur_task[2])
+
             while self.waitq:
                 t = self.waitq.peektime()
                 delay = time.ticks_diff(t, tnow)
@@ -139,6 +175,7 @@ class EventLoop:
                     log.info("Next coroutine to run: %s", (cb, args))
                 self.cur_task = cb  # Stored in a bound variable for TimeoutObj
                 delay = 0
+                low_priority = False  # Assume normal priority
                 try:
                     if args is ():
                         ret = next(cb)  # Schedule the coro, get result
@@ -150,6 +187,10 @@ class EventLoop:
                         arg = ret.arg
                         if isinstance(ret, SleepMs):
                             delay = arg
+                            if isinstance(ret, AfterMs):
+                                low_priority = True
+                                if isinstance(ret, After):
+                                    delay = int(delay*1000)
                         elif isinstance(ret, IORead):  # coro was a StreamReader read method
                             cb.pend_throw(False)  # Why? I think this is for debugging. If it is scheduled other than by wait
                             # (which does pend_throw(None) an exception (exception doesn't inherit from Exception) is thrown
@@ -194,7 +235,9 @@ class EventLoop:
                 # Currently all syscalls don't return anything, so we don't
                 # need to feed anything to the next invocation of coroutine.
                 # If that changes, need to pass that value below.
-                if delay:
+                if low_priority:
+                    self.call_after_ms(delay, cb)  # Put on lpq
+                elif delay:
                     self.call_later_ms(delay, cb)
                 else:
                     self.call_soon(cb)
@@ -209,6 +252,13 @@ class EventLoop:
                     delay = time.ticks_diff(t, tnow)
                     if delay < 0:
                         delay = 0
+                if self.lpq:
+                    t = self.lpq.peektime()
+                    lpdelay = time.ticks_diff(t, tnow)
+                    if lpdelay < 0:
+                        lpdelay = 0
+                    if lpdelay < delay or delay < 0:
+                        delay = lpdelay  # waitq is empty or lp task is more current
             self.wait(delay)
 
     def run_until_complete(self, coro):
@@ -258,10 +308,10 @@ class IOWriteDone(SysCall1):
 
 _event_loop = None
 _event_loop_class = EventLoop
-def get_event_loop(runq_len=16, waitq_len=16, ioq_len=0):
+def get_event_loop(runq_len=16, waitq_len=16, ioq_len=0, lp_len=0):
     global _event_loop
     if _event_loop is None:
-        _event_loop = _event_loop_class(runq_len, waitq_len, ioq_len)
+        _event_loop = _event_loop_class(runq_len, waitq_len, ioq_len, lp_len)
     return _event_loop
 
 # Allow user classes to determine prior event loop instantiation.
@@ -341,6 +391,16 @@ def wait_for(coro, timeout):
 
 def coroutine(f):
     return f
+
+# Low priority
+class AfterMs(SleepMs):
+    pass
+
+class After(AfterMs):
+    pass
+
+after_ms = AfterMs()
+after = After()
 
 #
 # The functions below are deprecated in uasyncio, and provided only

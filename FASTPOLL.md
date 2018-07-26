@@ -28,8 +28,10 @@ one line of code compared to an application running under the official version.
 The high priority mechanism formerly provided in `asyncio_priority.py` is
 replaced with a faster and more efficient way of handling asynchronous events
 with minimum latency. Consequently `asyncio_priority.py` is obsolete and should
-be deleted from your system. The facility for low priority coros is currently
-unavailable but will be reinstated.
+be deleted from your system.
+
+The facility for low priority coros formerly provided by `asyncio_priority.py`
+exists but is not yet documented.
 
 This modified version also provides for ultra low power consumption using a
 module documented [here](./lowpower/README.md).
