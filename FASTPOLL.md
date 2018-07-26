@@ -49,7 +49,7 @@ module documented [here](./lowpower/README.md).
   2.2 [Timing accuracy](./FASTPOLL.md#22-timing-accuracy)  
   2.3 [Polling in uasyncio](./FASTPOLL.md#23-polling-in-usayncio)  
  3. [The modified version](./FASTPOLL.md#3-the-modified-version)  
-  3.1 [Fast IO](./FASTPOLL.md#31-fast-IO)  
+  3.1 [Fast IO](./FASTPOLL.md#31-fast-io)  
   3.2 [Low Priority](./FASTPOLL.md#32-low-priority)  
   3.3 [Other Features](./FASTPOLL.md#33-other-features)  
   3.4 [Low priority yield](./FASTPOLL.md#34-low-priority-yield)  
