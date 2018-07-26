@@ -52,6 +52,7 @@ asyncio and includes a section for complete beginners.
   6.4 [Testing](./TUTORIAL.md#64-testing)  
   6.5 [A common error](./TUTORIAL.md#65-a-common-error) This can be hard to find.  
   6.6 [Socket programming](./TUTORIAL.md#66-socket-programming)  
+  6.7 [Event loop constructor args](./TUTORIAL.md#67-event-loop-constructor-args)  
  7. [Notes for beginners](./TUTORIAL.md#7-notes-for-beginners)  
   7.1 [Problem 1: event loops](./TUTORIAL.md#71-problem-1:-event-loops)  
   7.2 [Problem 2: blocking methods](./TUTORIAL.md#7-problem-2:-blocking-methods)  
@@ -240,7 +241,8 @@ The event loop instance is a singleton, instantiated by a program's first call
 to `asyncio.get_event_loop()`. This takes two optional integer args being the
 lengths of the two coro queues. Typically both will have the same value being
 at least the number of concurrent coros in the application. The default of 16
-is usually sufficient.
+is usually sufficient. If using non-default values see
+[Event loop constructor args](./TUTORIAL.md#67-event-loop-constructor-args).
 
 If a coro needs to call an event loop method (usually `create_task`), calling
 `asyncio.get_event_loop()` (without args) will efficiently return it.
@@ -984,9 +986,9 @@ while a coroutine awaiting the outcome polls the object each time it is
 scheduled.
 
 Polling may be effected in two ways, explicitly or implicitly. The latter is
-performed by using the `stream I/O` mechanism which is a system designed for stream
-devices such as UARTs and sockets. At its simplest explicit polling may consist
-of code like this:
+performed by using the `stream I/O` mechanism which is a system designed for
+stream devices such as UARTs and sockets. At its simplest explicit polling may
+consist of code like this:
 
 ```python
 async def poll_my_device():
@@ -1359,11 +1361,11 @@ time of writing there is a bug in `uasyncio` which prevents this from woking.
 See [this GitHub thread](https://github.com/micropython/micropython/pull/3836#issuecomment-397317408).
 There are two solutions. A workround is to write two separate drivers, one
 read-only and the other write-only. Alternatively the
-[fast_io](./FASTPOLL.md) addresses this.
+[fast_io](./FASTPOLL.md) version addresses this.
 
 In the official `uasyncio` I/O is scheduled quite infrequently. See 
 [see this GitHub RFC](https://github.com/micropython/micropython/issues/2664).
-The `fast_io` version addresses this issue.
+The [fast_io](./FASTPOLL.md) version addresses this issue.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
@@ -1374,7 +1376,7 @@ The demo provides a complete device driver example: a receiver/decoder for an
 infra red remote controller. The following notes are salient points regarding
 its `asyncio` usage.
 
-A pin interrupt records the time of a state change (in us) and sets an event,
+A pin interrupt records the time of a state change (in μs) and sets an event,
 passing the time when the first state change occurred. A coro waits on the
 event, yields for the duration of a data burst, then decodes the stored data
 before calling a user-specified callback.
@@ -1549,6 +1551,35 @@ application dependent.
 
 An alternative approach is to use blocking sockets with `StreamReader` and
 `StreamWriter` instances to control polling.
+
+###### [Contents](./TUTORIAL.md#contents)
+
+## 6.7 Event loop constructor args
+
+A subtle bug can arise if you need to instantiate the event loop with non
+default values. Instantiation should be performed before running any other
+`asyncio` code. This is because the code may acquire the event loop. In
+doing so it initialises it to the default values:
+
+```python
+import uasyncio as asyncio
+import some_module
+bar = some_module.Bar()  # Constructor calls get_event_loop()
+# and renders these args inoperative
+loop = asyncio.get_event_loop(runq_len=40, waitq_len=40)
+```
+
+Given that importing a module can run code the only safe way is to instantiate
+the event loop immediately after importing `uasyncio`.
+
+```python
+import uasyncio as asyncio
+loop = asyncio.get_event_loop(runq_len=40, waitq_len=40)
+import some_module
+bar = some_module.Bar()  # The get_event_loop() call is now safe
+```
+
+Ref [this issue](https://github.com/micropython/micropython-lib/issues/295).
 
 ###### [Contents](./TUTORIAL.md#contents)
 
