@@ -7,8 +7,8 @@ polled. Such polling is efficient because it is handled in C using
 `select.poll`, and because the coroutine accessing the device is descheduled
 until polling succeeds.
 
-Unfortunately current `uasyncio` polls I/O with a relatively high degree of
-latency. It also has a bug whereby bidirectional devices such as UARTS could
+Unfortunately official `uasyncio` polls I/O with a relatively high degree of
+latency. It also has a bug whereby bidirectional devices such as UARTS can
 fail to handle concurrent input and output.
 
 This version has the following changes:
@@ -18,7 +18,9 @@ This version has the following changes:
  * Callbacks can similarly be scheduled with low priority. 
  * The bug with read/write device drivers is fixed (forthcoming PR).
  * An assertion failure is produced if `create_task` or `run_until_complete`
- is called with a generator function [PR292](https://github.com/micropython/micropython-lib/pull/292).
+ is called with a generator function
+ [PR292](https://github.com/micropython/micropython-lib/pull/292). This traps
+ a common coding error which otherwise results in silent failure.
 
 A key advantage of this version is that priority device drivers are written
 entirely by using the officially-supported technique for writing stream I/O
@@ -35,8 +37,8 @@ be deleted from your system.
 The facility for low priority coros formerly provided by `asyncio_priority.py`
 is now implemented.
 
-This modified version also provides for ultra low power consumption using a
-module documented [here](./lowpower/README.md).
+This version also provides for ultra low power consumption using a module
+documented [here](./lowpower/README.md).
 
 ###### [Main README](./README.md)
 
@@ -69,6 +71,10 @@ above two files implemented as frozen bytecode. See
 [ESP Platforms](./FASTPOLL.md#6-esp-platforms) for general comments on the
 suitability of ESP platforms for systems requiring fast response.
 
+It is possible to load modules in the filesystem in preference to frozen ones
+by modifying `sys.path`. However the ESP8266 probably has too little RAM for
+this to be useful.
+
 ## 1.1 Benchmarks
 
 The benchmarks directory contains files demonstrating the performance gains
@@ -82,14 +88,14 @@ features. Documentation is in the code.
  * `benchmarks/rate_esp.py` As above for ESP32 and ESP8266.
  * `benchmarks/rate_fastio.py` Measures the rate at which coros can be scheduled
  if the fast I/O mechanism is used but no I/O is pending.
+ * `benchmarks/call_lp.py` Demos low priority callbacks.
+ * `benchmarks/overdue.py` Demo of maximum overdue feature.
+ * `benchmarks/priority_test.py` Cancellation of low priority coros.
  * `fast_io/ms_timer.py` Provides higher precision timing than `wait_ms()`.
- * `fast_io/ms_timer.py` Test/demo program for above.
+ * `fast_io/ms_timer_test.py` Test/demo program for above.
  * `fast_io/pin_cb.py` Demo of an I/O device driver which causes a pin state
  change to trigger a callback.
  * `fast_io/pin_cb_test.py` Demo of above.
- * `benchmarks/call_lp.py` Demos low priority callbacks.
- * `benchmarks/overdue.py` Demo of maximum overdue feature.
- * `priority_test.py` Cancellation of low priority coros.
 
 With the exceptions of `call_lp`, `priority` and `rate_fastio`, benchmarks can
 be run against the official and priority versions of usayncio.
@@ -115,8 +121,8 @@ realised.
 It also enables coros to yield control in a way which prevents them from
 competing with coros which are ready for execution. Coros which have yielded in
 a low priority fashion will not be scheduled until all "normal" coros are
-waiting on a nonzero timeout. The benchmarks show that the improvement can
-exceed two orders of magnitude.
+waiting on a nonzero timeout. The benchmarks show that the improvement in the
+accuracy of time delays can exceed two orders of magnitude.
 
 ## 2.1 Latency
 
@@ -248,11 +254,12 @@ Examples are:
 
 The `fast_io` version adds `ioq_len=0` and `lp_len=0` arguments to
 `get_event_loop`. These determine the lengths of I/O and low priority queues.
-The zero defaults cause the queues not to be instantiated. The scheduler
-operates as per the official version. If an I/O queue length > 0 is provided,
-I/O performed by `StreamReader` and `StreamWriter` objects will be prioritised
-over other coros. If a low priority queue length > 0 is specified, tasks have
-an option to yield in such a way to minimise competition with other tasks.
+The zero defaults cause the queues not to be instantiated, in which case the
+scheduler operates as per the official version. If an I/O queue length > 0 is
+provided, I/O performed by `StreamReader` and `StreamWriter` objects is
+prioritised over other coros. If a low priority queue length > 0 is specified,
+tasks have an option to yield in such a way to minimise their competition with
+other tasks.
 
 Arguments to `get_event_loop()`:  
  1. `runq_len=16` Length of normal queue. Default 16 tasks.
@@ -266,7 +273,7 @@ Arguments to `get_event_loop()`:
 
 Device drivers which are to be capable of running at high priority should be
 written to use stream I/O: see
-[Writing IORead device drivers](./TUTORIAL.md#54-writing-ioread-device-drivers).
+[Writing streaming device drivers](./TUTORIAL.md#54-writing-streaming-device-drivers).
 
 The `fast_io` version will schedule I/O whenever the `ioctl` reports a ready
 status. This implies that devices which become ready very soon after being
@@ -304,13 +311,14 @@ See [Low priority callbacks](./FASTPOLL.md#35-low-priority-callbacks)
 
 ## 3.3 Other Features
 
-The version has a `version` variable containing 'fast_io'. This enables the
-presence of this version to be determined at runtime.
+Variable:  
+ * `version` Contains 'fast_io'. Enables the presence of this version to be
+ determined at runtime.
 
-It also supports a `got_event_loop()` function returning a `bool`: `True` if
-the event loop has been instantiated. The purpose is to enable code which uses
-the event loop to raise an exception if the event loop was not instantiated.
-
+Function:
+ * `got_event_loop()` No arg. Returns a `bool`: `True` if the event loop has
+ been instantiated. Enables code using the event loop to raise an exception if
+ the event loop was not instantiated:
 ```python
 class Foo():
     def __init__(self):
@@ -357,6 +365,7 @@ overdue. For the reasoning behind this consider this code:
 
 ```python
 import uasyncio as asyncio
+loop = asyncio.get_event_loop(lp_len=16)
 
 async def foo():
     while True:
@@ -404,7 +413,8 @@ The following `EventLoop` methods enable callback functions to be scheduled
 to run when all normal coros are waiting on a delay or when `max_overdue_ms`
 has elapsed:
 
-`call_after` Schedule a callback with low priority. Positional args:  
+`call_after(delay, callback, *args)` Schedule a callback with low priority.
+Positional args:  
  1. `delay`  Minimum delay in seconds. May be a float or integer.
  2. `callback` The callback to run.
  3. `*args` Optional comma-separated positional args for the callback.
