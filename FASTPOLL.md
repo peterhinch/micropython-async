@@ -14,6 +14,8 @@ fail to handle concurrent input and output.
 This version has the following changes:
  * I/O can optionally be handled at a higher priority than other coroutines
  [PR287](https://github.com/micropython/micropython-lib/pull/287).
+ * Tasks can yield with low priority, running when nothing else is pending.
+ * Callbacks can similarly be scheduled with low priority. 
  * The bug with read/write device drivers is fixed (forthcoming PR).
  * An assertion failure is produced if `create_task` or `run_until_complete`
  is called with a generator function [PR292](https://github.com/micropython/micropython-lib/pull/292).
@@ -31,7 +33,7 @@ with minimum latency. Consequently `asyncio_priority.py` is obsolete and should
 be deleted from your system.
 
 The facility for low priority coros formerly provided by `asyncio_priority.py`
-exists but is not yet documented.
+is now implemented.
 
 This modified version also provides for ultra low power consumption using a
 module documented [here](./lowpower/README.md).
@@ -47,6 +49,12 @@ module documented [here](./lowpower/README.md).
   2.2 [Timing accuracy](./FASTPOLL.md#22-timing-accuracy)  
   2.3 [Polling in uasyncio](./FASTPOLL.md#23-polling-in-usayncio)  
  3. [The modified version](./FASTPOLL.md#3-the-modified-version)  
+  3.1 [Fast I/O](./FASTPOLL.md#31-fast-I/O)  
+  3.2 [Low Priority](./FASTPOLL.md#32-low-priority)  
+  3.3 [Other Features](./FASTPOLL.md#33-other-features)  
+  3.4 [Low priority yield](./FASTPOLL.md#34-low-priority-yield)  
+   3.4.1 [Task Cancellation and Timeouts](./FASTPOLL.md#341-task-cancellation-and-timeouts)  
+  3.5 [Low priority callbacks](./FASTPOLL.md#35-low-priority-callbacks)  
  4. [ESP Platforms](./FASTPOLL.md#4-esp-platforms)  
  5. [Background](./FASTPOLL.md#4-background)  
 
@@ -67,6 +75,8 @@ The benchmarks directory contains files demonstrating the performance gains
 offered by prioritisation. They also offer illustrations of the use of these
 features. Documentation is in the code.
 
+ * `benchmarks/latency.py` Shows the effect on latency with and without low
+ priority usage.
  * `benchmarks/rate.py` Shows the frequency with which uasyncio schedules
  minimal coroutines (coros).
  * `benchmarks/rate_esp.py` As above for ESP32 and ESP8266.
@@ -77,9 +87,12 @@ features. Documentation is in the code.
  * `fast_io/pin_cb.py` Demo of an I/O device driver which causes a pin state
  change to trigger a callback.
  * `fast_io/pin_cb_test.py` Demo of above.
+ * `benchmarks/call_lp.py` Demos low priority callbacks.
+ * `benchmarks/overdue.py` Demo of maximum overdue feature.
+ * `priority_test.py` Cancellation of low priority coros.
 
-With the exception of `rate_fastio`, benchmarks can be run against the official
-and priority versions of usayncio.
+With the exceptions of `call_lp`, `priority` and `rate_fastio`, benchmarks can
+be run against the official and priority versions of usayncio.
 
 # 2. Rationale
 
@@ -98,6 +111,12 @@ priority than other coros: if an I/O queue is specified, I/O devices are polled
 on every iteration of the scheduler. This enables faster response to real time
 events and also enables higher precision millisecond-level delays to be
 realised.
+
+It also enables coros to yield control in a way which prevents them from
+competing with coros which are ready for execution. Coros which have yielded in
+a low priority fashion will not be scheduled until all "normal" coros are
+waiting on a nonzero timeout. The benchmarks show that the improvement can
+exceed two orders of magnitude.
 
 ## 2.1 Latency
 
@@ -129,9 +148,20 @@ sufficient to avoid overruns.
 In this version `handle_isr()` would be rewritten as a stream device driver
 which could be expected to run with latency of just over 4ms.
 
+Alternatively this latency may be reduced by enabling the `foo()` instances to
+yield in a low priority manner. In the case where all coros other than
+`handle_isr()` are low priority the latency is reduced to 300μs - a figure
+of about double the inherent latency of uasyncio.
+
+The benchmark latency.py demonstrates this. Documentation is in the code; it
+can be run against both official and priority versions. This measures scheduler
+latency. Maximum application latency, measured relative to the incidence of an
+asynchronous event, will be 300μs plus the worst-case delay between yields of
+any one competing task.
+
 ### 2.1.1 I/O latency
 
-The current version of `uasyncio` has even higher levels of latency for I/O
+The official version of `uasyncio` has even higher levels of latency for I/O
 scheduling. In the above case of ten coros using 4ms of CPU time between zero
 delay yields, the latency of an I/O driver would be 80ms.
 
@@ -196,19 +226,41 @@ The `fast_io` version enables awaitable classes and asynchronous iterators to
 run with lower latency by designing them to use the stream I/O mechanism. The
 program `fast_io/ms_timer.py` provides an example.
 
+Practical cases exist where the `foo()` tasks are not time-critical: in such
+cases the performance of time critical tasks may be enhanced by enabling
+`foo()` to submit for rescheduling in a way which does not compete with tasks
+requiring a fast response. In essence "slow" operations tolerate longer latency
+and longer time delays so that fast operations meet their performance targets.
+Examples are:
+
+ * User interface code. A system with ten pushbuttons might have a coro running
+ on each. A GUI touch detector coro needs to check a touch against sequence of
+ objects. Both may tolerate 100ms of latency before users notice any lag.
+ * Networking code: a latency of 100ms may be dwarfed by that of the network.
+ * Mathematical code: there are cases where time consuming calculations may
+ take place which are tolerant of delays. Examples are statistical analysis,
+ sensor fusion and astronomical calculations.
+ * Data logging.
+
 ###### [Contents](./FASTPOLL.md#contents)
 
 # 3. The modified version
 
-The `fast_io` version adds an `ioq_len=0` argument to `get_event_loop`. The
-zero default causes the scheduler to operate as per the official version. If an
-I/O queue length > 0 is provided, I/O performed by `StreamReader` and
-`StreamWriter` objects will be prioritised over other coros.
+The `fast_io` version adds `ioq_len=0` and `lp_len=0` arguments to
+`get_event_loop`. These determine the lengths of I/O and low priority queues.
+The zero defaults cause the queues not to be instantiated. The scheduler
+operates as per the official version. If an I/O queue length > 0 is provided,
+I/O performed by `StreamReader` and `StreamWriter` objects will be prioritised
+over other coros. If a low priority queue length > 0 is specified, tasks have
+an option to yield in such a way to minimise competition with other tasks.
 
 Arguments to `get_event_loop()`:  
- 1. `runq_len` Length of normal queue. Default 16 tasks.
- 2. `waitq_len` Length of wait queue. Default 16.
- 3. `ioq_len` Length of I/O queue. Default 0.
+ 1. `runq_len=16` Length of normal queue. Default 16 tasks.
+ 2. `waitq_len=16` Length of wait queue.
+ 3. `ioq_len=0` Length of I/O queue. Default: no queue is created.
+ 4. `lp_len=0` Length of low priority queue. Default: no queue.
+
+## 3.1 Fast I/O
 
 Device drivers which are to be capable of running at high priority should be
 written to use stream I/O: see
@@ -223,8 +275,31 @@ This behaviour may be desired where short bursts of fast data are handled.
 Otherwise drivers of such hardware should be designed to avoid hogging, using
 techniques like buffering or timing.
 
-The version also supports a `version` variable containing 'fast_io'. This
-enables the presence of this version to be determined at runtime.
+## 3.2 Low Priority
+
+The low priority solution is based on the notion of "after" implying a time
+delay which can be expected to be less precise than the asyncio standard calls.
+The `fast_io` version adds the following awaitable instances:
+
+ * `after(t)`  Low priority version of `sleep(t)`.
+ * `after_ms(t)`  Low priority version of `sleep_ms(t)`.
+
+It adds the following event loop methods:
+
+ * `loop.call_after(t, callback, *args)`
+ * `loop.call_after_ms(t, callback, *args)`
+ * `loop.max_overdue_ms(t=None)` This sets the maximum time a low priority task
+ will wait before being  scheduled. A value of 0 corresponds to no limit. The
+ default arg `None` leaves the period unchanged. Always returns the period
+ value. If there is no limit and a competing task runs a loop with a zero delay
+ yield, the low priority yield will be postponed indefinitely.
+
+See [Low priority callbacks](./FASTPOLL.md#35-low-priority-callbacks)
+
+## 3.3 Other Features
+
+The version has a `version` variable containing 'fast_io'. This enables the
+presence of this version to be determined at runtime.
 
 It also supports a `got_event_loop()` function returning a `bool`: `True` if
 the event loop has been instantiated. The purpose is to enable code which uses
@@ -246,6 +321,97 @@ bar = Bar()  # Constructor calls get_event_loop()
 # and renders these args inoperative
 loop = asyncio.get_event_loop(runq_len=40, waitq_len=40)
 ```
+## 3.4 Low priority yield
+
+Consider this code fragment:
+
+```python
+import uasyncio as asyncio
+loop = asyncio.get_event_loop(lp_len=16)
+
+async def foo():
+    while True:
+        # Do something
+        await asyncio.after(1.5)  # Wait a minimum of 1.5s
+        # code
+        await asyncio.after_ms(20)  # Wait a minimum of 20ms
+```
+
+These `await` statements cause the coro to suspend execution for the minimum
+time specified. Low priority coros run in a mutually "fair" round-robin fashion.
+By default the coro will only be rescheduled when all "normal" coros are waiting
+on a nonzero time delay. A "normal" coro is one that has yielded by any other
+means.
+
+This behaviour can be overridden to limit the degree to which they can become
+overdue. For the reasoning behind this consider this code:
+
+```python
+import uasyncio as asyncio
+
+async def foo():
+    while True:
+        # Do something
+        await asyncio.after(0)
+```
+
+By default a coro yielding in this way will be re-scheduled only when there are
+no "normal" coros ready for execution i.e. when all are waiting on a nonzero
+delay. The implication of having this degree of control is that if a coro
+issues:
+
+```python
+while True:
+    await asyncio.sleep(0)
+    # Do something which does not yield to the scheduler
+```
+
+low priority tasks will never be executed. Normal coros must sometimes wait on
+a non-zero delay to enable the low priority ones to be scheduled. This is
+analogous to running an infinite loop without yielding.
+
+This behaviour can be modified by issuing:
+
+```python
+loop = asyncio.get_event_loop(lp_len = 16)
+loop.max_overdue_ms(1000)
+```
+
+In this instance a task which has yielded in a low priority manner will be
+rescheduled in the presence of pending "normal" tasks if they become overdue by
+more than 1s.
+
+### 3.4.1 Task Cancellation and Timeouts
+
+Tasks which yield in a low priority manner may be subject to timeouts or be
+cancelled in the same way as normal tasks. See [Task cancellation](./TUTORIAL.md#36-task-cancellation)
+and [Coroutines with timeouts](./TUTORIAL.md#44-coroutines-with-timeouts).
+
+###### [Contents](./FASTPOLL.md#contents)
+
+## 3.5 Low priority callbacks
+
+The following `EventLoop` methods enable callback functions to be scheduled
+to run when all normal coros are waiting on a delay or when `max_overdue_ms`
+has elapsed:
+
+`call_after` Schedule a callback with low priority. Positional args:  
+ 1. `delay`  Minimum delay in seconds. May be a float or integer.
+ 2. `callback` The callback to run.
+ 3. `*args` Optional comma-separated positional args for the callback.
+
+The delay specifies a minimum period before the callback will run and may have
+a value of 0. The period may be extended depending on other high and low
+priority tasks which are pending execution.
+
+A simple demo of this is `benchmarks/call_lp.py`. Documentation is in the
+code.
+
+`call_after_ms(delay, callback, *args)` Call with low priority. Positional
+args:  
+ 1. `delay` Integer. Minimum delay in millisecs before callback runs.
+ 2. `callback` The callback to run.
+ 3. `*args` Optional positional args for the callback.
 
 ###### [Contents](./FASTPOLL.md#contents)
 
