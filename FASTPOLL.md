@@ -16,23 +16,25 @@ This version has the following changes:
  [PR287](https://github.com/micropython/micropython-lib/pull/287).
  * Tasks can yield with low priority, running when nothing else is pending.
  * Callbacks can similarly be scheduled with low priority. 
- * The bug with read/write device drivers is fixed (forthcoming PR).
+ * The bug with read/write device drivers is fixed.
  * An assertion failure is produced if `create_task` or `run_until_complete`
  is called with a generator function
  [PR292](https://github.com/micropython/micropython-lib/pull/292). This traps
  a common coding error which otherwise results in silent failure.
+ * The version and the presence of an event loop instance can be tested at
+ runtime.
 
-A key advantage of this version is that priority device drivers are written
-entirely by using the officially-supported technique for writing stream I/O
-drivers. If official `uasyncio` acquires a means of prioritising I/O by other
-means than by these proposals, application code changes are likely to be
-minimal. Using the priority mechanism in this version requires a change to just
-one line of code compared to an application running under the official version.
+Note that priority device drivers are written by using the officially supported
+technique for writing stream I/O drivers. If official `uasyncio` acquires a
+means of prioritising I/O other than that in this version, application code
+changes should be minimal. Using the fast I/O mechanism in this version
+requires changing just one line of code compared to running under the official
+version.
 
-The high priority mechanism formerly provided in `asyncio_priority.py` is
-replaced with a faster and more efficient way of handling asynchronous events
-with minimum latency. Consequently `asyncio_priority.py` is obsolete and should
-be deleted from your system.
+The high priority mechanism formerly provided in `asyncio_priority.py` was a
+workround based on the view that stream I/O written in Python would remain
+unsupported. This is now available so `asyncio_priority.py` is obsolete and
+should be deleted from your system.
 
 The facility for low priority coros formerly provided by `asyncio_priority.py`
 is now implemented.
