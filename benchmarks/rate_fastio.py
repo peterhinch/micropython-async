@@ -4,7 +4,8 @@
 # This measures the rate at which uasyncio can schedule a minimal coro which
 # mereley increments a global.
 
-# Outcome: minimal coros are scheduled at an interval of ~200us
+# This is identical to rate.py but instantiates io and lp queues
+# Outcome: minimal coros are scheduled at an interval of ~206μs
 
 import uasyncio as asyncio
 
@@ -41,7 +42,7 @@ async def test():
     done = True
 
 ntasks = max(num_coros) + 2
-loop = asyncio.get_event_loop(ntasks, ntasks, 6)
+loop = asyncio.get_event_loop(ntasks, ntasks, 6, 6)
 loop.create_task(test())
 loop.run_until_complete(report())
 

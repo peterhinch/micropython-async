@@ -1,22 +1,19 @@
 # fast_io: A modified version of uasyncio
 
-MicroPython firmware now enables device drivers for stream devices to be
-written in Python, via `uio.IOBase`. This mechanism can be applied to any
-situation where a piece of hardware or an asynchronously set flag needs to be
-polled. Such polling is efficient because it is handled in C using
-`select.poll`, and because the coroutine accessing the device is descheduled
-until polling succeeds.
+This version is a "drop in" replacement for official `uasyncio`. Existing
+applications should run under it unchanged and with essentially identical
+performance.
 
-Unfortunately official `uasyncio` polls I/O with a relatively high degree of
-latency. It also has a bug whereby bidirectional devices such as UARTS can
-fail to handle concurrent input and output.
-
-This version has the following changes:
+This version has the following features:
  * I/O can optionally be handled at a higher priority than other coroutines
  [PR287](https://github.com/micropython/micropython-lib/pull/287).
  * Tasks can yield with low priority, running when nothing else is pending.
  * Callbacks can similarly be scheduled with low priority. 
- * The bug with read/write device drivers is fixed.
+ * A [bug](https://github.com/micropython/micropython/pull/3836#issuecomment-397317408)
+ whereby bidirectional devices such as UARTS can fail to handle concurrent
+ input and output is fixed.
+ * It is compatible with `rtc_time.py` for micro-power applications documented
+ [here](./lowpower/README.md).
  * An assertion failure is produced if `create_task` or `run_until_complete`
  is called with a generator function
  [PR292](https://github.com/micropython/micropython-lib/pull/292). This traps
@@ -34,13 +31,8 @@ version.
 The high priority mechanism formerly provided in `asyncio_priority.py` was a
 workround based on the view that stream I/O written in Python would remain
 unsupported. This is now available so `asyncio_priority.py` is obsolete and
-should be deleted from your system.
-
-The facility for low priority coros formerly provided by `asyncio_priority.py`
-is now implemented.
-
-This version also provides for ultra low power consumption using a module
-documented [here](./lowpower/README.md).
+should be deleted from your system. The facility for low priority coros
+formerly provided by `asyncio_priority.py` is now implemented.
 
 ###### [Main README](./README.md)
 
@@ -61,6 +53,7 @@ documented [here](./lowpower/README.md).
   3.5 [Low priority callbacks](./FASTPOLL.md#35-low-priority-callbacks)  
  4. [ESP Platforms](./FASTPOLL.md#4-esp-platforms)  
  5. [Background](./FASTPOLL.md#4-background)  
+ 6. [Performance](./FASTPOLL.md#6-performance)
 
 # 1. Installation
 
@@ -103,6 +96,16 @@ With the exceptions of `call_lp`, `priority` and `rate_fastio`, benchmarks can
 be run against the official and priority versions of usayncio.
 
 # 2. Rationale
+
+MicroPython firmware now enables device drivers for stream devices to be
+written in Python, via `uio.IOBase`. This mechanism can be applied to any
+situation where a piece of hardware or an asynchronously set flag needs to be
+polled. Such polling is efficient because it is handled in C using
+`select.poll`, and because the coroutine accessing the device is descheduled
+until polling succeeds.
+
+Unfortunately official `uasyncio` polls I/O with a relatively high degree of
+latency.
 
 Applications may need to poll a hardware device or a flag set by an interrupt
 service routine (ISR). An overrun may occur if the scheduling of the polling
@@ -454,3 +457,25 @@ fast scheduling took place
 [in issue 2664](https://github.com/micropython/micropython/issues/2664).
 
 Support was finally [added here](https://github.com/micropython/micropython/pull/3836).
+
+# 6. Performance
+
+This version is designed to enable existing applications to run without change
+to code and to minimise the effect on raw scheduler performance in the case
+where the added functionality is unused.
+
+The benchmark `rate.py` measures the rate at which tasks can be scheduled. It
+was run (on a Pyboard V1.1) under official `uasyncio` V2, then under this
+version. The benchmark `rate_fastio` is identical except it instantiates an I/O
+queue and a low priority queue. Results were as follows.
+
+| Script | Uasyncio version | Period (100 coros) | Overhead |
+| --- | --- | --- |
+| rate | Official V2 | 156μs | 0% |
+| rate | fast_io | 162μs | 3.4% |
+| rate_fastio | fast_io | 206μs | 32% |
+
+If an I/O queue is instantiated I/O is polled on every scheduler iteration
+(that is its purpose). Consequently there is a significant overhead. In
+practice the overhead will increase with the number of I/O devices being
+polled and will be determined by the efficiency of their `ioctl` methods.

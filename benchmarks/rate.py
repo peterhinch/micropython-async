@@ -3,7 +3,9 @@
 # This measures the rate at which uasyncio can schedule a minimal coro which
 # mereley increments a global.
 
-# Outcome: minimal coros are scheduled at an interval of ~150us
+# Outcome: 100 minimal coros are scheduled at an interval of ~156μs on official
+# uasyncio V2. On fast_io version 0.1 (including low priority) at 162μs.
+# fast_io overhead is < 4%
 
 import uasyncio as asyncio
 

@@ -1,13 +1,13 @@
 # 1. The MicroPython uasyncio library
 
-This GitHub repository consists of the following parts. Firstly a modified
-`fast_io` version of `uasyncio` offering some benefits over the official
-version.
+This repository comprises the following parts.  
+ 1. A modified [fast_io](./FASTPOLL.md) version of `uasyncio`. This is a "drop
+ in" replacement for the official version providing additional functionality.
+ 2. A module enabling the `fast_io` version to run with very low power draw.
+ 3. Resources for users of official or `fast_io` versions:
 
-Secondly the following resources relevant to users of official or `fast_io`
-versions:
  * [A tutorial](./TUTORIAL.md) An introductory tutorial on asynchronous
- programming and the use of the uasyncio library (asyncio subset).
+ programming and the use of the `uasyncio` library (asyncio subset).
  * [Asynchronous device drivers](./DRIVERS.md). A module providing drivers for
  devices such as switches and pushbuttons.
  * [Synchronisation primitives](./PRIMITIVES.md). Provides commonly used
@@ -29,34 +29,9 @@ versions:
  * [Under the hood](./UNDER_THE_HOOD.md) A guide to help understand the
  `uasyncio` code. For scheduler geeks and those wishing to modify `uasyncio`.
  
-## 1.1 The "fast_io" version.
-
-This repo included `asyncio_priority.py` which is now deprecated. Its primary
-purpose was to provide a means of servicing fast hardware devices by means of
-coroutines running at a high priority. The official firmware now includes
-[this major improvement](https://github.com/micropython/micropython/pull/3836)
-which offers a much more efficient way of achieving this end. The tutorial has
-details of how to use this.
-
-The current `uasyncio` suffers from high levels of latency when scheduling I/O
-in typical applications. It also has an issue which can cause bidirectional
-devices such as UART's to block.
-
-A modified version of `uasyncio` is described [here](./FASTPOLL.md) which
-provides an option for I/O scheduling with much reduced latency. It also fixes
-the bug. It is hoped that these changes will be accepted into mainstream in due
-course.
-
-### 1.1.1 A Pyboard-only low power version
-
-This is documented [here](./lowpower/README.md). In essence a Python file is
-placed on the device which configures the `fast_io` version of `uasyncio` to
-reduce power consumption at times when it is not busy. This provides a means of
-using the library on battery powered projects.
-
 # 2. Version and installation of uasyncio
 
-The documentation and code in this repository are based on `uasyncio` version
+The documentation and code in this repository assume `uasyncio` version
 2.0, which is the version on PyPi and in the official micropython-lib. This
 requires firmware dated 22nd Feb 2018 or later. Use of the stream I/O mechanism
 requires firmware after 17th June 2018.
@@ -114,7 +89,32 @@ The `loop.time` method returns an integer number of milliseconds whereas
 CPython returns a floating point number of seconds. `call_at` follows the
 same convention.
 
-# 4. The asyn.py library
+# 4. The "fast_io" version.
+
+Official `uasyncio` suffers from high levels of latency when scheduling I/O in
+typical applications. It also has an issue which can cause bidirectional
+devices such as UART's to block. The `fast_io` version fixes the bug. It also
+provides a facility for reducing I/O latency which can substantially improve
+the performance of stream I/O drivers. It provides other features aimed at
+providing greater control over scheduling behaviour.
+
+## 4.1 A Pyboard-only low power module
+
+This is documented [here](./lowpower/README.md). In essence a Python file is
+placed on the device which configures the `fast_io` version of `uasyncio` to
+reduce power consumption at times when it is not busy. This provides a means of
+using `uasyncio` in battery powered projects.
+
+## 4.2 Historical note
+
+This repo formerly included `asyncio_priority.py` which is replaced. Its main
+purpose was to provide a means of servicing fast hardware devices by means of
+coroutines running at a high priority. The official firmware now includes
+[this major improvement](https://github.com/micropython/micropython/pull/3836)
+which offers a much more efficient way of achieving this end. The tutorial has
+details of how to use this.
+
+# 5. The asyn.py library
 
 This library ([docs](./PRIMITIVES.md)) provides 'micro' implementations of the
 `asyncio` synchronisation primitives.
