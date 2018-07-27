@@ -3,8 +3,9 @@
 This repository comprises the following parts.  
  1. A modified [fast_io](./FASTPOLL.md) version of `uasyncio`. This is a "drop
  in" replacement for the official version providing additional functionality.
- 2. A module enabling the `fast_io` version to run with very low power draw.
- 3. Resources for users of official or `fast_io` versions:
+ 2. A module enabling the [fast_io](./FASTPOLL.md) version to run with very low
+ power draw.
+ 3. Resources for users of official or [fast_io](./FASTPOLL.md) versions:
 
  * [A tutorial](./TUTORIAL.md) An introductory tutorial on asynchronous
  programming and the use of the `uasyncio` library (asyncio subset).
@@ -98,6 +99,11 @@ provides a facility for reducing I/O latency which can substantially improve
 the performance of stream I/O drivers. It provides other features aimed at
 providing greater control over scheduling behaviour.
 
+To take advantage of the reduced latency device drivers should be written to
+employ stream I/O. To operate at low latency they are simply run under the
+`fast_io` version. The [tutorial](./TUTORIAL.md#54-writing-streaming-device-drivers)
+has details of how to write streaming drivers.
+
 ## 4.1 A Pyboard-only low power module
 
 This is documented [here](./lowpower/README.md). In essence a Python file is
@@ -107,12 +113,14 @@ using `uasyncio` in battery powered projects.
 
 ## 4.2 Historical note
 
-This repo formerly included `asyncio_priority.py` which is replaced. Its main
+This repo formerly included `asyncio_priority.py` which is obsolete. Its main
 purpose was to provide a means of servicing fast hardware devices by means of
-coroutines running at a high priority. The official firmware now includes
+coroutines running at a high priority. This was essentially a workround.
+
+The official firmware now includes
 [this major improvement](https://github.com/micropython/micropython/pull/3836)
-which offers a much more efficient way of achieving this end. The tutorial has
-details of how to use this.
+which offers a much more efficient way of achieving the same end using stream
+I/O and efficient polling using `select.poll`.
 
 # 5. The asyn.py library
 
