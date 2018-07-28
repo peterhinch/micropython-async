@@ -8,7 +8,7 @@ Release 0.1 25th July 2018
  3. [Low power uasyncio operation](./README.md#3-low-power-uasyncio-operation)  
   3.1 [The official uasyncio package](./README.md#31-the-official-uasyncio-package)  
   3.2 [The low power adaptation](./README.md#32-the-low-power-adaptation)  
-   3.2.1 [Consequences of pyb.stop](./README.md#321-consequences-of-pyb.stop)  
+   3.2.1 [Consequences of stop mode](./README.md#321-consequences-of-stop-mode)  
     3.2.1.1 [Timing Accuracy and rollover](./README.md#3211-timing-accuracy-and-rollover)  
     3.2.1.2 [USB](./README.md#3212-usb)  
    3.2.2 [Measured results](./README.md#322-measured-results)  
@@ -89,16 +89,24 @@ calculated on that basis. This consumes power.
 The second issue is that it uses `utime`'s millisecond timing utilities for
 timing. This ensures portability across MicroPython platforms. Unfortunately on
 the Pyboard the clock responsible for `utime` stops for the duration of
-`pyb.stop()`. An application-level scheme using `pyb.stop` to conserve power
-would cause all `uasyncio` timing to become highly inaccurate.
+`pyb.stop()`. If an application were to use `pyb.stop` to conserve power it
+would cause `uasyncio` timing to become highly inaccurate.
 
 ## 3.2 The low power adaptation
 
 If running on a Pyboard the version of `uasyncio` in this repo attempts to
 import the file `rtc_time.py`. If this succeeds and there is no USB connection
 to the board it derives its millisecond timing from the RTC; this continues to
-run through `stop`. Libraries using `uasyncio` will run unmodified, barring any
-timing issues if user code increases scheduler latency.
+run through `stop`. So code such as the following will behave as expected:
+```python
+async def foo():
+    await asyncio.sleep(10)
+    bar()
+    await asyncio.sleep_ms(100)
+```
+Libraries and applications using `uasyncio` will run unmodified. Code adapted
+to invoke power saving (as described below) may exhibit reduced performance:
+there is a tradeoff beween power consumption and speed.
 
 To avoid the power drain caused by `select.poll` the user code must issue the
 following:
@@ -123,7 +131,7 @@ scheduler is again paused (if `latency` > 0).
 
 ###### [Contents](./README.md#a-low-power-usayncio-adaptation)
 
-### 3.2.1 Consequences of pyb.stop
+### 3.2.1 Consequences of stop mode
 
 #### 3.2.1.1 Timing Accuracy and rollover
 
@@ -207,7 +215,7 @@ Horizontal 50ms/div
 ![Image](./current.png)
 
 The following shows that peak on a faster timebase. This type of waveform is
-typical that experienced when Python code is running.
+typical that experienced when Python code is running.  
 Vertical 20mA/div  
 Horizontal 500μs/div  
 ![Image](./current1.png)  
@@ -225,8 +233,8 @@ Variable:
 Functions:  
 If the timebase is `utime` these are references to the corresponding `utime`
 functions. Otherwise they are direct replacements but using the RTC as their
-timebase. See the `utime` official
-[documentation](http://docs.micropython.org/en/latest/pyboard/library/utime.html)
+timebase. See the `utime` 
+[official documentation](http://docs.micropython.org/en/latest/pyboard/library/utime.html)
 for these.  
  * `ticks_ms`
  * `ticks_add`
@@ -289,8 +297,9 @@ control.
 
 Floating Pyboard I/O pins can consume power. Further there are 4.7KΩ pullups on
 the I2C pins. The `rtc_time` module sets all pins as inputs with internal
-pullups. The application should then reconfigure any pins which are to be used.
-If I2C is to be used there are further implications: see the above reference.
+pullups. The application should import `rtc_time` before configuring any pins
+or instantiating any drivers which use pins. If I2C is to be used there are
+implications regarding the onboard pullups: see the above reference.
 
 ## 5.2 Application Code
 
@@ -327,8 +336,8 @@ async def foo():
         await asyncio.sleep(0)
 ```
 
-will execute (at best) at a rate of 5Hz; possibly considerably less frequently
-depending on the behaviour of competing tasks. Likewise
+will execute (at best) at a rate of 5Hz; possibly less, depending on the
+behaviour of competing tasks. Likewise with 200ms latency
 
 ```python
 async def bar():
