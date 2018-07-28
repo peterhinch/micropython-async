@@ -176,11 +176,11 @@ for such applications during their waiting period.
 Running `lpdemo.py` while it waits for a button press with latency = 200ms.  
 Vertical 20mA/div  
 Horizontal 50ms/div  
-![Image](./lowpower.png)
+![Image](./current.png)
 
 Vertical 20mA/div  
 Horizontal 500μs/div  
-![Image](./lowpower1.png)  
+![Image](./current1.png)  
 
 
 # 4. The rtc_time module
