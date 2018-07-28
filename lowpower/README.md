@@ -2,6 +2,25 @@
 
 Release 0.1 25th July 2018
 
+ 1. [Introduction](./README.md#1-introduction)  
+ 2. [Installation](./README.md#2-installation)  
+  2.1 [Files](./README.md#21-files)  
+ 3. [Low power uasyncio operation](./README.md#3-low-power-uasyncio-operation)  
+  3.1 [The official uasyncio package](./README.md#31-the-official-uasyncio-package)  
+  3.2 [The low power adaptation](./README.md#32-the-low-power-adaptation)  
+   3.2.1 [Consequences of pyb.stop](./README.md#321-consequences-of-pyb.stop)  
+    3.2.1.1 [Timing Accuracy and rollover](./README.md#3211-timing-accuracy-and-rollover)  
+    3.2.1.2 [USB](./README.md#3212-usb)  
+   3.2.2 [Measured results](./README.md#322-measured-results)  
+   3.2.3 [Current waveforms](./README.md#323-current-waveforms)  
+ 4. [The rtc_time module](./README.md#4-the-rtc_time-module)  
+ 5. [Application design](./README.md#5-application-design)  
+  5.1 [Hardware](./README.md#51-hardware)  
+  5.2 [Application Code](./README.md#52-application-code)  
+ 6. [Note on the design](./README.md#6-note-on-the-design)
+
+###### [Main README](../README.md)
+
 # 1. Introduction
 
 This adaptation is specific to the Pyboard and compatible platforms, namely
@@ -33,6 +52,8 @@ waiting for a new trigger.
 Some general notes on low power Pyboard applications may be found
 [here](https://github.com/peterhinch/micropython-micropower).
 
+###### [Contents](./README.md#a-low-power-usayncio-adaptation)
+
 # 2. Installation
 
 Ensure that the version of `uasyncio` in this repository is installed and
@@ -52,6 +73,8 @@ tested. Copy the file `rtc_time.py` to the device so that it is on `sys.path`.
 
 The test program `lowpower.py` requires a link between pins X1 and X2 to enable
 UART 4 to receive data via a loopback.
+
+###### [Contents](./README.md#a-low-power-usayncio-adaptation)
 
 # 3 Low power uasyncio operation
 
@@ -98,6 +121,8 @@ before yielding with a zero delay. The duration of the `stop` condition
 full speed. The `yield` allows each pending task to run once before the
 scheduler is again paused (if `latency` > 0).
 
+###### [Contents](./README.md#a-low-power-usayncio-adaptation)
+
 ### 3.2.1 Consequences of pyb.stop
 
 #### 3.2.1.1 Timing Accuracy and rollover
@@ -142,6 +167,8 @@ else:
 Debugging at low power is facilitated by using `pyb.repl_uart` with an FTDI
 adaptor.
 
+###### [Contents](./README.md#a-low-power-usayncio-adaptation)
+
 ### 3.2.2 Measured results
 
 The `lpdemo.py` script consumes a mean current of 980μA with 100ms latency, and
@@ -174,14 +201,18 @@ for such applications during their waiting period.
 ### 3.2.3 Current waveforms
 
 Running `lpdemo.py` while it waits for a button press with latency = 200ms.  
+It consumes 380μA except for brief peaks while polling the switch.  
 Vertical 20mA/div  
 Horizontal 50ms/div  
 ![Image](./current.png)
 
+The following shows that peak on a faster timebase. This type of waveform is
+typical that experienced when Python code is running.
 Vertical 20mA/div  
 Horizontal 500μs/div  
 ![Image](./current1.png)  
 
+###### [Contents](./README.md#a-low-power-usayncio-adaptation)
 
 # 4. The rtc_time module
 
@@ -223,6 +254,8 @@ around or to make it global. Once instantiated, latency may be changed by
 ```python
 rtc_time.Latency().value(t)
 ```
+
+###### [Contents](./README.md#a-low-power-usayncio-adaptation)
 
 # 5. Application design
 
@@ -312,6 +345,8 @@ button with a high latency value, before running the application code with a
 lower (or zero) latency. On completion it could revert to waiting for "Start"
 with high latency to conserve battery.
 
+###### [Contents](./README.md#a-low-power-usayncio-adaptation)
+
 # 6. Note on the design
 
 The `rtc_time` module represents a compromise designed to minimise changes to
@@ -337,3 +372,5 @@ The `rtc_time` module ensures that `uasyncio` uses `utime` for timing if the
 module is present in the path but is unused. This can occur because of an
 active USB connection or if running on an an incompatible platform. This
 ensures that under such conditions performance is unaffected.
+
+###### [Contents](./README.md#a-low-power-usayncio-adaptation)
