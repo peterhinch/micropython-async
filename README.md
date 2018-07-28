@@ -33,7 +33,7 @@ This repository comprises the following parts.
 # 2. Version and installation of uasyncio
 
 The documentation and code in this repository assume `uasyncio` version
-2.0, which is the version on PyPi and in the official micropython-lib. This
+2.0.x, which is the version on PyPi and in the official micropython-lib. This
 requires firmware dated 22nd Feb 2018 or later. Use of the stream I/O mechanism
 requires firmware after 17th June 2018.
 

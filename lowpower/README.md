@@ -171,6 +171,18 @@ A data logging application might tolerate latencies of many seconds while
 waiting for a long delay to expire: getting close to `ib` may be practicable
 for such applications during their waiting period.
 
+### 3.2.3 Current waveforms
+
+Running `lpdemo.py` while it waits for a button press with latency = 200ms.  
+Vertical 20mA/div  
+Horizontal 50ms/div  
+![Image](./lowpower.png)
+
+Vertical 20mA/div  
+Horizontal 500μs/div  
+![Image](./lowpower1.png)  
+
+
 # 4. The rtc_time module
 
 This provides the following.
