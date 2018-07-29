@@ -18,15 +18,18 @@ This version has the following features:
  is called with a generator function
  [PR292](https://github.com/micropython/micropython-lib/pull/292). This traps
  a common coding error which otherwise results in silent failure.
- * The version and the presence of an event loop instance can be tested at
- runtime.
+ * The presence of the `fast_io` version can be tested at runtime.
+ * The presence of an event loop instance can be tested at runtime.
+ * `run_until_complete(coro())` now returns the value returned by `coro()` as
+ per CPython
+ [micropython-lib PR270](https://github.com/micropython/micropython-lib/pull/270).
 
 Note that priority device drivers are written by using the officially supported
-technique for writing stream I/O drivers. If official `uasyncio` acquires a
-means of prioritising I/O other than that in this version, application code
-changes should be minimal. Using the fast I/O mechanism in this version
-requires changing just one line of code compared to running under the official
-version.
+technique for writing stream I/O drivers. Code using such drivers will run
+unchanged under the `fast_io` version. Using the fast I/O mechanism requires
+adding just one line of code. This implies that if official `uasyncio` acquires
+a means of prioritising I/O other than that in this version, application code
+changes should be minimal. 
 
 The high priority mechanism formerly provided in `asyncio_priority.py` was a
 workround based on the view that stream I/O written in Python would remain

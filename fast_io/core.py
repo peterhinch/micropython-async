@@ -264,10 +264,10 @@ class EventLoop:
     def run_until_complete(self, coro):
         assert not isinstance(coro, type_genf), 'Coroutine arg expected.'  # upy issue #3241
         def _run_and_stop():
-            yield from coro
-            yield StopLoop(0)
+            ret = yield from coro # https://github.com/micropython/micropython-lib/pull/270
+            yield StopLoop(ret)
         self.call_soon(_run_and_stop())
-        self.run_forever()
+        return self.run_forever()
 
     def stop(self):
         self.call_soon((lambda: (yield StopLoop(0)))())
