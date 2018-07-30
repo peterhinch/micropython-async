@@ -15,6 +15,8 @@ if platform == 'pyboard':
 else:
     from machine import Pin
 
+ESP32 = platform == 'esp32' or platform == 'esp32_LoBo'
+
 # Save RAM
 # from micropython import alloc_emergency_exception_buf
 # alloc_emergency_exception_buf(100)
@@ -48,6 +50,8 @@ class NEC_IR():
         self._times = array('i',  (0 for _ in range(_EDGECOUNT + 1)))  # +1 for overrun
         if platform == 'pyboard':
             ExtInt(pin, ExtInt.IRQ_RISING_FALLING, Pin.PULL_NONE, self._cb_pin)
+        elif ESP32:
+            pin.irq(handler = self._cb_pin, trigger = (Pin.IRQ_FALLING | Pin.IRQ_RISING))
         else:
             pin.irq(handler = self._cb_pin, trigger = (Pin.IRQ_FALLING | Pin.IRQ_RISING), hard = True)
         self._edge = 0

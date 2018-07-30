@@ -10,9 +10,10 @@
 
 from sys import platform
 import uasyncio as asyncio
+ESP32 = platform == 'esp32' or platform == 'esp32_LoBo'
 if platform == 'pyboard':
     from pyb import Pin, LED
-elif platform == 'esp8266':
+elif platform == 'esp8266' or ESP32:
     from machine import Pin, freq
 else:
     print('Unsupported platform', platform)
@@ -47,6 +48,10 @@ def test():
         freq(160000000)
         p = Pin(13, Pin.IN)
         led = Pin(2, Pin.OUT)
+        led(1)
+    elif ESP32:
+        p = Pin(23, Pin.IN)
+        led = Pin(21, Pin.OUT)  # LED with 220Ω series resistor between 3.3V and pin 21
         led(1)
     ir = NEC_IR(p, cb, True, led)  # Assume extended address mode r/c
     loop = asyncio.get_event_loop()

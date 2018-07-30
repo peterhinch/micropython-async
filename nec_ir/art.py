@@ -8,9 +8,11 @@
 
 from sys import platform
 import uasyncio as asyncio
+ESP32 = platform == 'esp32' or platform == 'esp32_LoBo'
+
 if platform == 'pyboard':
     from pyb import Pin
-elif platform == 'esp8266':
+elif platform == 'esp8266' or ESP32:
     from machine import Pin, freq
 else:
     print('Unsupported platform', platform)
@@ -36,6 +38,8 @@ def test():
     elif platform == 'esp8266':
         freq(160000000)
         p = Pin(13, Pin.IN)
+    elif ESP32:
+        p = Pin(23, Pin.IN)
     ir = NEC_IR(p, cb, True)  # Assume r/c uses extended addressing
     loop = asyncio.get_event_loop()
     loop.run_forever()
