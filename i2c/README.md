@@ -32,12 +32,12 @@ the `Responder` in this event.
  4. [API](./README.md#4-api)  
   4.1 [Channel class](./README.md#41-channel-class)  
   4.2 [Initiator class](./README.md#42-initiator-class)  
-    4.2.1 [Configuration](./README.md#21-configuration) Fine-tuning the interface.  
-  4.3 [Responder class](./README.md#431-responder-class)  
+    4.2.1 [Configuration](./README.md#421-configuration) Fine-tuning the interface.  
+  4.3 [Responder class](./README.md#43-responder-class)  
  5. [Limitations](./README.md#5-limitations)  
-  5.1 [Blocking](./TUTORIAL.md#51-blocking)  
-  5.2 [Buffering](./TUTORIAL.md#52-buffering)  
-  5.3 [Responder crash detection](./TUTORIAL.md#53-responder-crash-detection)  
+  5.1 [Blocking](./README.md#51-blocking)  
+  5.2 [Buffering](./README.md#52-buffering)  
+  5.3 [Responder crash detection](./README.md#53-responder-crash-detection)  
 
 # 1. Files
 
@@ -169,7 +169,7 @@ Constructor args:
 
 The `reset` tuple consists of (`pin`, `level`, `time`). If provided, and the
 `Responder` times out, `pin` will be set to `level` for duration `time` ms. A
-Pyboard target with an active high reset might have:
+Pyboard or ESP8266 target with an active low reset might have:
 
 ```python
 (machine.Pin('X12'), 0, 200)
@@ -188,7 +188,8 @@ Class variables:
 Class variables should be set before instantiating `Initiator` or `Responder`.
 See [Section 4.4](./README.md#44-configuration).
 
-Instance variables:  
+Instance variables:
+
 The `Initiator` maintains instance variables which may be used to measure its
 peformance. See [Section 4.4](./README.md#44-configuration).
 
