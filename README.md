@@ -24,9 +24,12 @@ This repository comprises the following parts.
  * [A driver for GPS modules](./gps/README.md) Runs a background task to read
  and decode NMEA sentences, providing constantly updated position, course,
  altitude and time/date information.
+ * [Communication using I2C slave mode.](./i2c/README.md) Enables a Pyboard to
+ to communicate with another MicroPython device using stream I/O. The Pyboard
+ achieves bidirectional communication with targets such as an ESP8266.
  * [Communication between devices](./syncom_as/README.md) Enables MicroPython
- boards to communicate without using a UART. Primarily intended to enable a
- a Pyboard-like device to achieve bidirectional communication with an ESP8266.
+ boards to communicate without using a UART. This is hardware agnostic but
+ slower than the I2C version.
  * [Under the hood](./UNDER_THE_HOOD.md) A guide to help understand the
  `uasyncio` code. For scheduler geeks and those wishing to modify `uasyncio`.
  
