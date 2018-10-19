@@ -44,6 +44,10 @@ chan = asi2c_i.Initiator(i2c, syn, ack) #, rst)
 
 async def receiver():
     sreader = asyncio.StreamReader(chan)
+    for _ in range(5):  # Test flow control
+        res = await sreader.readline()
+        print('Received', ujson.loads(res))
+        await asyncio.sleep(4)
     while True:
         res = await sreader.readline()
         print('Received', ujson.loads(res))
@@ -63,6 +67,7 @@ async def test(loop):
     loop.create_task(receiver())
     loop.create_task(sender())
     while True:
+        await chan.ready()
         await asyncio.sleep(10)
         print('Blocking time {:d}μs max. {:d}μs mean.'.format(
             chan.block_max, int(chan.block_sum/chan.block_cnt)))

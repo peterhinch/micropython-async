@@ -42,6 +42,12 @@ chan = asi2c.Responder(i2c, syn, ack)
 
 async def receiver():
     sreader = asyncio.StreamReader(chan)
+    await chan.ready()
+    print('started')
+    for _ in range(5):  # Test flow control
+        res = await sreader.readline()
+        print('Received', ujson.loads(res))
+        await asyncio.sleep(4)
     while True:
         res = await sreader.readline()
         print('Received', ujson.loads(res))

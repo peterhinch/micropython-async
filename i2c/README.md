@@ -22,6 +22,11 @@ The `Initiator` implements a timeout enabling it to detect failure of the other
 end of the interface (the `Responder`). There is optional provision to reset
 the `Responder` in this event.
 
+## Changes
+
+V0.15 RAM allocation reduced and flow control implemented.
+V0.1 Initial release.
+
 ###### [Main README](../README.md)
 
 # Contents
@@ -36,7 +41,7 @@ the `Responder` in this event.
   4.3 [Responder class](./README.md#43-responder-class)  
  5. [Limitations](./README.md#5-limitations)  
   5.1 [Blocking](./README.md#51-blocking)  
-  5.2 [Buffering](./README.md#52-buffering)  
+  5.2 [Buffering and RAM usage](./README.md#52-buffering-and-ram-usage)  
   5.3 [Responder crash detection](./README.md#53-responder-crash-detection)  
 
 # 1. Files
@@ -184,6 +189,8 @@ Class variables:
  1. `timeout=1000` Timeout (in ms) before `Initiator` assumes `Responder` has
  failed.
  2. `t_poll=100` Interval (ms) for `Initiator` polling `Responder`.
+ 3. `rxbufsize=200` Size of receive buffer. This should exceed the maximum
+ message length.
 
 Class variables should be set before instantiating `Initiator` or `Responder`.
 See [Section 4.4](./README.md#44-configuration).
@@ -230,10 +237,12 @@ Constructor args:
 
 `Pin` instances passed to the constructor must be instantiated by `machine`.
 
-Class variable:
+Class variables:
  1. `addr=0x12` Address of I2C slave. This should be set before instantiating
  `Initiator` or `Responder`. If the default address (0x12) is to be overriden,
  `Initiator` application code must instantiate the I2C accordingly.
+ 2. `rxbufsize` Size of receive buffer. This should exceed the maximum message
+ length.
 
 ###### [Contents](./README.md#contents)
 
@@ -270,15 +279,18 @@ but involves explicit delays. I took the view that a 2-wire solution is easier
 should anyone want to port the `Responder` to a platform such as the Raspberry
 Pi. The design has no timing constraints and uses normal I/O pins.
 
-## 5.2 Buffering
+## 5.2 Buffering and RAM usage
 
-The protocol does not implement flow control, incoming data being buffered
-until read. To avoid the risk of memory errors a coroutine should read incoming
-data as it arrives. Since this is the normal mode of using such an interface I
-see little merit in increasing the complexity of the code with flow control.
+The protocol implements flow control: the `StreamWriter` at one end of the link
+will pause until the last string transmitted has been read by the corresponding
+`StreamReader`.
 
 Outgoing data is unbuffered. `StreamWriter.awrite` will pause until pending
 data has been transmitted.
+
+Efforts are under way to remove RAM allocation by the `Responder`. This would
+enable hard interrupts to be used, further reducing blocking. With this aim
+incoming data is buffered in a pre-allocated bytearray.
 
 ## 5.3 Responder crash detection
 
