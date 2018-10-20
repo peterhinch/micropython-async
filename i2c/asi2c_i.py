@@ -28,7 +28,7 @@ import machine
 import utime
 import gc
 from micropython import schedule
-from asi2c import Channel
+from asi2c import Channel, upsize
 
 # The initiator is an I2C slave. It runs on a Pyboard. I2C uses pyb for slave
 # mode, but pins are instantiated using machine.
@@ -128,10 +128,12 @@ class Initiator(Channel):
         if n:
             self.waitfor(1)  # Wait for responder to request send
             self.own(1)  # Acknowledge
-            mv = memoryview(self.rx_mv[0 : n])
+            mv = self.lstmv[(n >> 4)]
+#            mv = memoryview(self.rx_mv[0 : upsize(n)])
             self.i2c.recv(mv, timeout=to)
             self.waitfor(0)
             self.own(0)
+            self.nrx = n
             schedule(self._handle_rxd, mv) # Postpone allocation
             return True
         return False

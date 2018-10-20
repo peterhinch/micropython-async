@@ -27,6 +27,10 @@ import machine
 import utime
 from micropython import const, schedule
 import io
+import gc
+
+import micropython
+micropython.alloc_emergency_exception_buf(100)
 
 _MP_STREAM_POLL_RD = const(1)
 _MP_STREAM_POLL_WR = const(4)
@@ -36,6 +40,8 @@ _MP_STREAM_ERROR = const(-1)
 # between Initiator setting a pin and initiating an I2C transfer: ensure
 # Initiator sets up first.
 _DELAY = const(20)  # μs
+# bytes objects are transmitted in blocks of size 16N where N is an integer
+upsize = lambda x : (x + 15) & ~15
 
 # Base class provides user interface and send/receive object buffers
 class Channel(io.IOBase):
@@ -52,8 +58,12 @@ class Channel(io.IOBase):
         self.txbyt = b''  # Data to send
         self.txsiz = bytearray(2)  # Size of .txbyt encoded as 2 bytes
         self.rxbyt = b''
-        self.rxbuf = bytearray(rxbufsize)
+        self.rxbuf = bytearray(upsize(rxbufsize))  # Hold an integer no. of blocks
         self.rx_mv = memoryview(self.rxbuf)
+        self.lstmv = []
+        for n in range(16, len(self.rxbuf) + 16, 16):  # Preallocate memoryviews
+            self.lstmv.append(self.rx_mv[0 : n])  # for all data lengths
+        self.nrx = 0  # No. of bytes received (ignoring padding)
         self.cantx = True  # Remote can accept data
 
     async def _sync(self):
@@ -72,7 +82,7 @@ class Channel(io.IOBase):
 
     # Get incoming bytes instance from memoryview.
     def _handle_rxd(self, msg):
-        self.rxbyt = bytes(msg)
+        self.rxbyt = bytes(msg[:self.nrx])
 
     def _txdone(self):
         self.txbyt = b''
@@ -122,7 +132,8 @@ class Channel(io.IOBase):
                 d = buf[off : off + sz]
             d = d.encode()
             l = len(d)
-            self.txbyt = d
+            # Pad to integer no. of blocks
+            self.txbyt = b''.join((d, bytes(upsize(l) - l)))
             self.txsiz[0] = l & 0xff
             self.txsiz[1] = l >> 8
             return l
@@ -148,19 +159,27 @@ class Responder(Channel):
     rxbufsize = 200
     def __init__(self, i2c, pin, pinack, verbose=True):
         super().__init__(i2c, pinack, pin, verbose, self.rxbufsize)
+        self._handle_rxd_ref = self._handle_rxd  # Alocate RAM here
+        self._re_enable_ref = self._re_enable
         loop = asyncio.get_event_loop()
         loop.create_task(self._run())
 
     async def _run(self):
         await self._sync()  # own pin ->0, wait for remote pin == 0
-        self.rem.irq(handler = self._handler, trigger = machine.Pin.IRQ_RISING)
+        self.rem.irq(handler = self._handler, trigger = machine.Pin.IRQ_RISING, hard = True)
+        while True:
+            await asyncio.sleep(1)
+            gc.collect()
+
+    def _re_enable(self, _):
+        self.rem.irq(handler = self._handler, trigger = machine.Pin.IRQ_RISING, hard = True)
 
     # Request was received: immediately read payload size, then payload
     # On Pyboard blocks for 380μs to 1.2ms for small amounts of data
     def _handler(self, _, sn=bytearray(2), txnull=bytearray(2)):
 #        tstart = utime.ticks_us()  # TEST
         addr = Responder.addr
-        self.rem.irq(handler = None, trigger = machine.Pin.IRQ_RISING)
+        self.rem.irq(handler = None, trigger = machine.Pin.IRQ_RISING, hard = True)
         utime.sleep_us(_DELAY)  # Ensure Initiator has set up to write.
         self.i2c.readfrom_into(addr, sn)
         self.own(1)
@@ -171,12 +190,13 @@ class Responder(Channel):
         if n:
             self.waitfor(1)
             utime.sleep_us(_DELAY)
-            mv = memoryview(self.rx_mv[0 : n])  # allocates
+            mv = self.lstmv[(n >> 4)]
             self.i2c.readfrom_into(addr, mv)
             self.own(1)
             self.waitfor(0)
             self.own(0)
-            schedule(self._handle_rxd, mv)  # Postpone allocation
+            self.nrx = n
+            schedule(self._handle_rxd_ref, mv)  # Postpone allocation
 
         self.own(1)  # Request to send
         self.waitfor(1)
@@ -198,5 +218,5 @@ class Responder(Channel):
             self.own(0)
             self.waitfor(0)
             self._txdone()  # Invalidate source
-        self.rem.irq(handler = self._handler, trigger = machine.Pin.IRQ_RISING)
+        schedule(self._re_enable_ref, 0)
 #        print('Time: ', utime.ticks_diff(utime.ticks_us(), tstart))
