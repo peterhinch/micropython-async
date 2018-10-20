@@ -160,7 +160,7 @@ class Responder(Channel):
     def __init__(self, i2c, pin, pinack, verbose=True):
         super().__init__(i2c, pinack, pin, verbose, self.rxbufsize)
         self._handle_rxd_ref = self._handle_rxd  # Alocate RAM here
-        self._re_enable_ref = self._re_enable
+        self._handler_ref = self._handler
         loop = asyncio.get_event_loop()
         loop.create_task(self._run())
 
@@ -170,9 +170,6 @@ class Responder(Channel):
         while True:
             await asyncio.sleep(1)
             gc.collect()
-
-    def _re_enable(self, _):
-        self.rem.irq(handler = self._handler, trigger = machine.Pin.IRQ_RISING, hard = True)
 
     # Request was received: immediately read payload size, then payload
     # On Pyboard blocks for 380μs to 1.2ms for small amounts of data
@@ -218,5 +215,5 @@ class Responder(Channel):
             self.own(0)
             self.waitfor(0)
             self._txdone()  # Invalidate source
-        schedule(self._re_enable_ref, 0)
+        self.rem.irq(handler = self._handler_ref, trigger = machine.Pin.IRQ_RISING, hard = True)
 #        print('Time: ', utime.ticks_diff(utime.ticks_us(), tstart))

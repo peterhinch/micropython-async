@@ -85,8 +85,9 @@ class Initiator(Channel):
                 except OSError:
                     break
                 await asyncio.sleep_ms(Initiator.t_poll)
-                self.block_max = max(self.block_max, t)  # self measurement
                 self.block_cnt += 1
+                if self.block_cnt > 2:  # Avoid any start-up effects
+                    self.block_max = max(self.block_max, t)  # self measurement
                 self.block_sum += t
             self.nboots += 1
             if self.reset is None:  # No means of recovery
