@@ -166,7 +166,7 @@ class Responder(Channel):
 
     async def _run(self):
         await self._sync()  # own pin ->0, wait for remote pin == 0
-        self.rem.irq(handler = self._handler, trigger = machine.Pin.IRQ_RISING, hard = True)
+        self.rem.irq(handler = self._handler, trigger = machine.Pin.IRQ_RISING) #, hard = True)
         while True:
             await asyncio.sleep(1)
             gc.collect()
@@ -176,7 +176,7 @@ class Responder(Channel):
     def _handler(self, _, sn=bytearray(2), txnull=bytearray(2)):
 #        tstart = utime.ticks_us()  # TEST
         addr = Responder.addr
-        self.rem.irq(handler = None, trigger = machine.Pin.IRQ_RISING, hard = True)
+        self.rem.irq(handler = None, trigger = machine.Pin.IRQ_RISING) #, hard = True)
         utime.sleep_us(_DELAY)  # Ensure Initiator has set up to write.
         self.i2c.readfrom_into(addr, sn)
         self.own(1)
@@ -215,5 +215,5 @@ class Responder(Channel):
             self.own(0)
             self.waitfor(0)
             self._txdone()  # Invalidate source
-        self.rem.irq(handler = self._handler_ref, trigger = machine.Pin.IRQ_RISING, hard = True)
+        #self.rem.irq(handler = self._handler_ref, trigger = machine.Pin.IRQ_RISING) #, hard = True)
 #        print('Time: ', utime.ticks_diff(utime.ticks_us(), tstart))
