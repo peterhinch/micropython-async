@@ -45,7 +45,7 @@ V0.1 Initial release.
   5.1 [Blocking](./README.md#51-blocking)  
   5.2 [Buffering and RAM usage](./README.md#52-buffering-and-ram-usage)  
   5.3 [Responder crash detection](./README.md#53-responder-crash-detection)  
- 6. [Hacker notes](./README.md#5-hacker-notes) For anyone wanting to hack on
+ 6. [Hacker notes](./README.md#6-hacker-notes) For anyone wanting to hack on
  the code.
 
 # 1. Files
