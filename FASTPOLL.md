@@ -126,11 +126,11 @@ on every iteration of the scheduler. This enables faster response to real time
 events and also enables higher precision millisecond-level delays to be
 realised.
 
-It also enables coros to yield control in a way which prevents them from
-competing with coros which are ready for execution. Coros which have yielded in
-a low priority fashion will not be scheduled until all "normal" coros are
-waiting on a nonzero timeout. The benchmarks show that the improvement in the
-accuracy of time delays can exceed two orders of magnitude.
+The variant also enables coros to yield control in a way which prevents them
+from competing with coros which are ready for execution. Coros which have
+yielded in a low priority fashion will not be scheduled until all "normal"
+coros are waiting on a nonzero timeout. The benchmarks show that the
+improvement in the accuracy of time delays can exceed two orders of magnitude.
 
 ## 2.1 Latency
 
@@ -404,8 +404,8 @@ loop.max_overdue_ms(1000)
 ```
 
 In this instance a task which has yielded in a low priority manner will be
-rescheduled in the presence of pending "normal" tasks if they become overdue by
-more than 1s.
+rescheduled in the presence of pending "normal" tasks if they cause a low
+priority task to become overdue by more than 1s.
 
 ### 3.4.1 Task Cancellation and Timeouts
 
@@ -473,7 +473,7 @@ version. The benchmark `rate_fastio` is identical except it instantiates an I/O
 queue and a low priority queue. Results were as follows.
 
 | Script | Uasyncio version | Period (100 coros) | Overhead |
-| --- | --- | --- |
+|:------:|:----------------:|:------------------:|:--------:|
 | rate | Official V2 | 156μs | 0% |
 | rate | fast_io | 162μs | 3.4% |
 | rate_fastio | fast_io | 206μs | 32% |

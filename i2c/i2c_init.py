@@ -40,7 +40,7 @@ syn = Pin('X11')
 ack = Pin('Y8')
 # Reset on Pyboard and ESP8266 is active low. Use 200ms pulse.
 rst = (Pin('X12'), 0, 200)
-chan = asi2c_i.Initiator(i2c, syn, ack) #, rst)
+chan = asi2c_i.Initiator(i2c, syn, ack, rst)
 
 async def receiver():
     sreader = asyncio.StreamReader(chan)

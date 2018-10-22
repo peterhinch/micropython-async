@@ -27,7 +27,6 @@ import uasyncio as asyncio
 import machine
 import utime
 import gc
-from micropython import schedule
 from asi2c import Channel
 
 # The initiator is an I2C slave. It runs on a Pyboard. I2C uses pyb for slave
@@ -35,7 +34,6 @@ from asi2c import Channel
 # reset (if provided) is a means of resetting Responder in case of error: it
 # is (pin, active_level, ms)
 class Initiator(Channel):
-    timeout = 1000  # ms Timeout to detect slave down
     t_poll = 100  # ms between Initiator polling Responder
     rxbufsize = 200
 
@@ -52,11 +50,10 @@ class Initiator(Channel):
         loop = asyncio.get_event_loop()
         loop.create_task(self._run())
 
-    def waitfor(self, val):
-        to = Initiator.timeout
+    def waitfor(self, val):  # Wait for response for 1 sec
         tim = utime.ticks_ms()
         while not self.rem() == val:
-            if utime.ticks_diff(utime.ticks_ms(), tim) > to:
+            if utime.ticks_diff(utime.ticks_ms(), tim) > 1000:
                 raise OSError
 
     async def reboot(self):
@@ -75,12 +72,11 @@ class Initiator(Channel):
             self.rxbyt = b''
             await self._sync()
             await asyncio.sleep(1)  # Ensure Responder is ready
-            rxbusy = False
             while True:
                 gc.collect()
                 try:
                     tstart = utime.ticks_us()
-                    rxbusy = self._sendrx(rxbusy)
+                    self._sendrx()
                     t = utime.ticks_diff(utime.ticks_us(), tstart)
                 except OSError:
                     break
@@ -93,12 +89,9 @@ class Initiator(Channel):
                 raise OSError('Responder fail.')
 
     # Send payload length (may be 0) then payload (if any)
-    def _sendrx(self, rxbusy, sn=bytearray(2), txnull=bytearray(2)):
-        to = Initiator.timeout
+    def _sendrx(self, sn=bytearray(2), txnull=bytearray(2)):
         siz = self.txsiz if self.cantx else txnull
-        # rxbusy handles the (unlikely) case where last call received data but
-        # schedule() has not yet processed it
-        if self.rxbyt or rxbusy:
+        if self.rxbyt:
             siz[1] |= 0x80  # Hold off further received data
         else:
             siz[1] &= 0x7f
@@ -106,13 +99,13 @@ class Initiator(Channel):
         # send. Send must start before RX begins. Fast responders may need to
         # do a short blocking wait to guarantee this.
         self.own(1)  # Trigger interrupt.
-        self.i2c.send(siz, timeout=to)  # Blocks until RX complete.
+        self.i2c.send(siz) # Blocks until RX complete.
         self.waitfor(1)
         self.own(0)
         self.waitfor(0)
         if self.txbyt and self.cantx:
             self.own(1)
-            self.i2c.send(self.txbyt, timeout=to)
+            self.i2c.send(self.txbyt)
             self.waitfor(1)
             self.own(0)
             self.waitfor(0)
@@ -120,18 +113,19 @@ class Initiator(Channel):
         # Send complete
         self.waitfor(1)  # Wait for responder to request send
         self.own(1)  # Acknowledge
-        self.i2c.recv(sn, timeout=to)
+        self.i2c.recv(sn)
         self.waitfor(0)
         self.own(0)
         n = sn[0] + ((sn[1] & 0x7f) << 8)  # no of bytes to receive
+        if n > self.rxbufsize:
+            raise ValueError('Receive data too large for buffer.')
         self.cantx = not bool(sn[1] & 0x80)
         if n:
             self.waitfor(1)  # Wait for responder to request send
+            #print('setting up receive', n,' bytes')
             self.own(1)  # Acknowledge
             mv = memoryview(self.rx_mv[0 : n])
-            self.i2c.recv(mv, timeout=to)
+            self.i2c.recv(mv)
             self.waitfor(0)
             self.own(0)
-            schedule(self._handle_rxd, mv) # Postpone allocation
-            return True
-        return False
+            self._handle_rxd(mv)

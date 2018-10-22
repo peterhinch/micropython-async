@@ -25,7 +25,7 @@
 import uasyncio as asyncio
 import machine
 import utime
-from micropython import const, schedule
+from micropython import const
 import io
 
 _MP_STREAM_POLL_RD = const(1)
@@ -40,6 +40,7 @@ _DELAY = const(20)  # μs
 # Base class provides user interface and send/receive object buffers
 class Channel(io.IOBase):
     def __init__(self, i2c, own, rem, verbose, rxbufsize):
+        self.rxbufsize = rxbufsize
         self.verbose = verbose
         self.synchronised = False
         # Hardware
@@ -158,7 +159,6 @@ class Responder(Channel):
     # Request was received: immediately read payload size, then payload
     # On Pyboard blocks for 380μs to 1.2ms for small amounts of data
     def _handler(self, _, sn=bytearray(2), txnull=bytearray(2)):
-#        tstart = utime.ticks_us()  # TEST
         addr = Responder.addr
         self.rem.irq(handler = None, trigger = machine.Pin.IRQ_RISING)
         utime.sleep_us(_DELAY)  # Ensure Initiator has set up to write.
@@ -167,6 +167,8 @@ class Responder(Channel):
         self.waitfor(0)
         self.own(0)
         n = sn[0] + ((sn[1] & 0x7f) << 8)  # no of bytes to receive
+        if n > self.rxbufsize:
+            raise ValueError('Receive data too large for buffer.')
         self.cantx = not bool(sn[1] & 0x80)  # Can Initiator accept a payload?
         if n:
             self.waitfor(1)
@@ -176,18 +178,18 @@ class Responder(Channel):
             self.own(1)
             self.waitfor(0)
             self.own(0)
-            schedule(self._handle_rxd, mv)  # Postpone allocation
+            self._handle_rxd(mv)
 
         self.own(1)  # Request to send
         self.waitfor(1)
         utime.sleep_us(_DELAY)
         dtx = self.txbyt != b'' and self.cantx  # Data to send
         siz = self.txsiz if dtx else txnull
-        if n or self.rxbyt:  # test n because .rxbyt may not be populated yet
+        if self.rxbyt:
             siz[1] |= 0x80  # Hold off Initiator TX
         else:
             siz[1] &= 0x7f
-        self.i2c.writeto(addr, siz)
+        self.i2c.writeto(addr, siz)  # Was getting ENODEV occasionally on Pyboard
         self.own(0)
         self.waitfor(0)
         if dtx:
@@ -199,4 +201,3 @@ class Responder(Channel):
             self.waitfor(0)
             self._txdone()  # Invalidate source
         self.rem.irq(handler = self._handler, trigger = machine.Pin.IRQ_RISING)
-#        print('Time: ', utime.ticks_diff(utime.ticks_us(), tstart))

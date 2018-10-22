@@ -24,7 +24,9 @@ the `Responder` in this event.
 
 ## Changes
 
-V0.15 RAM allocation reduced and flow control implemented.
+v0.16 Minor improvements and bugfixes. Eliminate `timeout` option which caused
+failures where `Responder` was a Pyboard.
+V0.15 RAM allocation reduced. Flow control implemented.
 V0.1 Initial release.
 
 ###### [Main README](../README.md)
@@ -43,6 +45,8 @@ V0.1 Initial release.
   5.1 [Blocking](./README.md#51-blocking)  
   5.2 [Buffering and RAM usage](./README.md#52-buffering-and-ram-usage)  
   5.3 [Responder crash detection](./README.md#53-responder-crash-detection)  
+ 6. [Hacker notes](./README.md#5-hacker-notes) For anyone wanting to hack on
+ the code.
 
 # 1. Files
 
@@ -97,11 +101,11 @@ periodically interrupts `Responder` to cause a data exchange. If either
 participant has no data to send it sends an empty string. Strings are exchanged
 at a fixed rate to limit the interrupt overhead on `Responder`. This implies a
 latency on communications in either direction; the rate (maximum latency) is
-under application control and may be as low as 100ms.
+under application control. By default it is 100ms.
 
 The module will run under official or `fast_io` builds of `uasyncio`. Owing to
-the latency discussed above the performance of this interface is largely
-unaffected.
+the latency discussed above, the choice has little effect on the performance of
+this interface.
 
 A further issue common to most communications protocols is synchronisation:
 the devices won't boot simultaneously. Initially, and after the `Initiator`
@@ -115,39 +119,89 @@ used.
 
 # 4. API
 
-The following is a typical `Initiator` usage example where the two participants
-exchange Python objects serialised using `ujson`:
+The following scripts demonstrate basic usage. They may be copied and pasted at
+the REPL. They assume a Pyboard linked to an ESP8266 as follows:
+
+| Pyboard | ESP8266 | Notes    |
+|:-------:|:-------:|:--------:|
+|  gnd    |  gnd    |          |
+|  X9     |  0      | I2C scl  |
+|  X10    |  2      | I2C sda  |
+|  X11    |  5      | syn      |
+|  X12    |  rst    | Optional |
+|  Y8     |  4      | ack      |
+
+On Pyboard:
 
 ```python
 import uasyncio as asyncio
 from pyb import I2C  # Only pyb supports slave mode
 from machine import Pin
-import asi2c
-import ujson
+import asi2c_i
 
-i2c = I2C(1, mode=I2C.SLAVE)  # Soft I2C may be used
-syn = Pin('X11')  # Pins are arbitrary but must be declared
-ack = Pin('Y8')  # using machine
-rst = (Pin('X12'), 0, 200)  # Responder reset is low for 200ms
-chan = asi2c.Initiator(i2c, syn, ack, rst)
+i2c = I2C(1, mode=I2C.SLAVE)
+syn = Pin('X11')
+ack = Pin('Y8')
+rst = (Pin('X12'), 0, 200)
+chan = asi2c_i.Initiator(i2c, syn, ack, rst)
 
 async def receiver():
     sreader = asyncio.StreamReader(chan)
     while True:
         res = await sreader.readline()
-        print('Received', ujson.loads(res))
+        print('Received', int(res))
 
 async def sender():
     swriter = asyncio.StreamWriter(chan, {})
-    txdata = [0, 0]
+    n = 0
     while True:
-        await swriter.awrite(''.join((ujson.dumps(txdata), '\n')))
-        txdata[0] += 1
+        await swriter.awrite('{}\n'.format(n))
+        n += 1
         await asyncio.sleep_ms(800)
+
+loop = asyncio.get_event_loop()
+loop.create_task(receiver())
+loop.create_task(sender())
+try:
+    loop.run_forever()
+finally:
+    chan.close()  # for subsequent runs
 ```
 
-Code for `Responder` is very similar. See `i2c_init.py` and `i2c_resp.py` for
-complete examples.
+On ESP8266:
+
+```python
+import uasyncio as asyncio
+from machine import Pin, I2C
+import asi2c
+
+i2c = I2C(scl=Pin(0),sda=Pin(2))  # software I2C
+syn = Pin(5)
+ack = Pin(4)
+chan = asi2c.Responder(i2c, syn, ack)
+
+async def receiver():
+    sreader = asyncio.StreamReader(chan)
+    while True:
+        res = await sreader.readline()
+        print('Received', int(res))
+
+async def sender():
+    swriter = asyncio.StreamWriter(chan, {})
+    n = 1
+    while True:
+        await swriter.awrite('{}\n'.format(n))
+        n += 1
+        await asyncio.sleep_ms(1500)
+
+loop = asyncio.get_event_loop()
+loop.create_task(receiver())
+loop.create_task(sender())
+try:
+    loop.run_forever()
+finally:
+    chan.close()  # for subsequent runs
+```
 
 ###### [Contents](./README.md#contents)
 
@@ -186,10 +240,8 @@ If the `Initiator` has no `reset` tuple and the `Responder` times out, an
 `Pin` instances passed to the constructor must be instantiated by `machine`.
 
 Class variables:
- 1. `timeout=1000` Timeout (in ms) before `Initiator` assumes `Responder` has
- failed.
- 2. `t_poll=100` Interval (ms) for `Initiator` polling `Responder`.
- 3. `rxbufsize=200` Size of receive buffer. This should exceed the maximum
+ 1. `t_poll=100` Interval (ms) for `Initiator` polling `Responder`.
+ 2. `rxbufsize=200` Size of receive buffer. This should exceed the maximum
  message length.
 
 Class variables should be set before instantiating `Initiator` or `Responder`.
@@ -208,10 +260,6 @@ Coroutine:
 The `Initiator` class variables determine the behaviour of the interface. Where
 these are altered, it should be done before instantiation.
 
-`Initiator.timeout` If the `Responder` fails the `Initiator` times out and
-resets the `Responder`; this occurs if `reset` tuple with a pin is supplied.
-Otherwise the `Initiator` raises an `OSError`.
-
 `Initiator.t_poll` This defines the polling interval for incoming data. Shorter
 values reduce the latency when the `Responder` sends data; at the cost of a
 raised CPU overhead (at both ends) in processing `Responder` polling.
@@ -224,6 +272,8 @@ variables may be read:
  2. `block_max` Maximum blocking time in μs.
  3. `block_sum` Cumulative total of blocking time (μs).
  4. `block_cnt` Transfer count: mean blocking time is `block_sum/block_cnt`.
+
+See test program `i2c_init.py` for an example of using the above.
 
 ###### [Contents](./README.md#contents)
 
@@ -242,7 +292,7 @@ Class variables:
  `Initiator` or `Responder`. If the default address (0x12) is to be overriden,
  `Initiator` application code must instantiate the I2C accordingly.
  2. `rxbufsize` Size of receive buffer. This should exceed the maximum message
- length.
+ length. Consider reducing this in ESP8266 applications to save RAM.
 
 ###### [Contents](./README.md#contents)
 
@@ -270,15 +320,6 @@ strings, the speed of the processors, soft interrupt latency and the behaviour
 of other coroutines. If blocking time is critical it should be measured while
 running application code.
 
-I tried a variety of approaches before settling on a synchronous method for
-data exchange coupled with 2-wire hardware handshaking. The chosen approach
-minimises the time for which the schedulers are blocked. This is because of
-the need to initiate a blocking transfer on the I2C slave before the master can
-initiate a transfer. A one-wire handshake using open drain outputs is feasible
-but involves explicit delays. I took the view that a 2-wire solution is easier
-should anyone want to port the `Responder` to a platform such as the Raspberry
-Pi. The design has no timing constraints and uses normal I/O pins.
-
 ## 5.2 Buffering and RAM usage
 
 The protocol implements flow control: the `StreamWriter` at one end of the link
@@ -288,9 +329,9 @@ will pause until the last string transmitted has been read by the corresponding
 Outgoing data is unbuffered. `StreamWriter.awrite` will pause until pending
 data has been transmitted.
 
-Efforts are under way to remove RAM allocation by the `Responder`. This would
-enable hard interrupts to be used, further reducing blocking. With this aim
-incoming data is buffered in a pre-allocated bytearray.
+Incoming data is stored in a buffer whose length is set by the `rxbufsize`
+constructor arg. If an incoming payload is too long to fit the buffer a
+`ValueError` will be thrown.
 
 ## 5.3 Responder crash detection
 
@@ -300,4 +341,40 @@ the ISR continues to run; `Initiator` would therefore see no problem. To trap
 this condition regular messages should be sent from `Responder`, with
 `Initiator` application code timing out on their absence and issuing `reboot`.
 
+This also has implications when testing. If a `Responder` application is
+interrupted with `ctrl-c` the ISR will continue to run. To test crash detection
+issue a soft or hard reset to the `Responder`.
+
 ###### [Contents](./README.md#contents)
+
+# 6. Hacker notes
+
+I tried a variety of approaches before settling on a synchronous method for
+data exchange coupled with 2-wire hardware handshaking. The chosen approach
+minimises the time for which the schedulers are blocked. Blocking occurs
+because of the need to initiate a blocking transfer on the I2C slave before the
+master can initiate a transfer.
+
+A one-wire handshake using open drain outputs is feasible but involves explicit
+delays. I took the view that a 2-wire solution is easier should anyone want to
+port the `Responder` to a platform such as the Raspberry Pi. The design has no
+timing constraints and uses normal push-pull I/O pins.
+
+I experienced a couple of obscure issues affecting reliability. Calling `pyb`
+`I2C` methods with an explicit timeout caused rare failures when the target was
+also a Pyboard. Using `micropython.schedule` to defer RAM allocation also
+provoked rare failures. This may be the reason why I never achieved reliable
+operation with hard IRQ's on ESP8266.
+
+I created a version which eliminated RAM allocation by the `Responder` ISR to
+use hard interrupts. This reduced blocking further. Unfortunately I failed to
+achieve reliable operation on an ESP8266 target. This version introduced some
+complexity into the code so was abandoned. If anyone feels like hacking, the
+branch `i2c_hard_irq` exists.
+
+The main branch aims to minimise allocation while achieving reliability.
+
+PR's to reduce allocation and enable hard IRQ's welcome. I will expect them to
+run the two test programs for >10,000 messages with ESP8266 and Pyboard
+targets. Something I haven't yet achieved.
+
