@@ -16,7 +16,7 @@ obvious workround is to produce a version with unused primitives removed.
   1.1 [Synchronisation Primitives](./PRIMITIVES.md#11-synchronisation-primitives)  
   1.2 [Task control and monitoring](./PRIMITIVES.md#12-task-control-and-monitoring)  
  2. [Modules](./PRIMITIVES.md#2-modules)  
- 3 [Synchronisation Primitives](./PRIMITIVES.md#3-synchronisation-primitives)  
+ 3. [Synchronisation Primitives](./PRIMITIVES.md#3-synchronisation-primitives)  
   3.1 [Function launch](./PRIMITIVES.md#31-function-launch)  
   3.2 [Class Lock](./PRIMITIVES.md#32-class-lock)  
    3.2.1 [Definition](./PRIMITIVES.md#321-definition)  
