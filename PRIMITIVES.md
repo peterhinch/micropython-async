@@ -12,56 +12,32 @@ obvious workround is to produce a version with unused primitives removed.
 
 # Contents
 
- 1. [The asyn.py library](./PRIMITIVES.md#1-the-asyn.py-library)
-
-  1.1 [Synchronisation Primitives](./PRIMITIVES.md#11-synchronisation-primitives)
-
-  1.2 [Task control and monitoring](./PRIMITIVES.md#12-task-control-and-monitoring)
-
- 2. [Modules](./PRIMITIVES.md#2-modules)
- 
- 3 [Synchronisation Primitives](./PRIMITIVES.md#3-synchronisation-primitives)
-
-  3.1 [Function launch](./PRIMITIVES.md#31-function-launch)
-
-  3.2 [Class Lock](./PRIMITIVES.md#32-class-lock)
-
-   3.2.1 [Definition](./PRIMITIVES.md#321-definition)
-
-  3.3 [Class Event](./PRIMITIVES.md#33-class-event)
-
-   3.3.1 [Definition](./PRIMITIVES.md#331-definition)
-
-  3.4 [Class Barrier](./PRIMITIVES.md#34-class-barrier)
-
-  3.5 [Class Semaphore](./PRIMITIVES.md#35-class-semaphore)
-
-   3.5.1 [Class BoundedSemaphore](./PRIMITIVES.md#351-class-boundedsemaphore)
-
-  3.6 [Class Condition](./PRIMITIVES.md#36-class-condition)
-
-   3.6.1 [Definition](./PRIMITIVES.md#361-definition)
-
-  3.7 [Class Gather](./PRIMITIVES.md#37-class-gather)
-
-   3.7.1 [Definition](./PRIMITIVES.md#371-definition)
-
- 4. [Task Cancellation](./PRIMITIVES.md#4-task-cancellation)
-
-  4.1 [Coro sleep](./PRIMITIVES.md#41-coro-sleep)
-
-  4.2 [Class Cancellable](./PRIMITIVES.md#42-class-cancellable)
-
-   4.2.1 [Groups](./PRIMITIVES.md#421-groups)
-
-   4.2.2 [Custom cleanup](./PRIMITIVES.md#422-custom-cleanup)
-
-  4.3 [Class NamedTask](./PRIMITIVES.md#43-class-namedtask)
-
-   4.3.1 [Latency and Barrier objects](./PRIMITIVES.md#431-latency-and-barrier-objects)
-
-   4.3.2 [Custom cleanup](./PRIMITIVES.md#432-custom-cleanup)
-
+ 1. [The asyn.py library](./PRIMITIVES.md#1-the-asyn.py-library)  
+  1.1 [Synchronisation Primitives](./PRIMITIVES.md#11-synchronisation-primitives)  
+  1.2 [Task control and monitoring](./PRIMITIVES.md#12-task-control-and-monitoring)  
+ 2. [Modules](./PRIMITIVES.md#2-modules)  
+ 3 [Synchronisation Primitives](./PRIMITIVES.md#3-synchronisation-primitives)  
+  3.1 [Function launch](./PRIMITIVES.md#31-function-launch)  
+  3.2 [Class Lock](./PRIMITIVES.md#32-class-lock)  
+   3.2.1 [Definition](./PRIMITIVES.md#321-definition)  
+  3.3 [Class Event](./PRIMITIVES.md#33-class-event)  
+   3.3.1 [Definition](./PRIMITIVES.md#331-definition)  
+  3.4 [Class Barrier](./PRIMITIVES.md#34-class-barrier)  
+  3.5 [Class Semaphore](./PRIMITIVES.md#35-class-semaphore)  
+   3.5.1 [Class BoundedSemaphore](./PRIMITIVES.md#351-class-boundedsemaphore)  
+  3.6 [Class Condition](./PRIMITIVES.md#36-class-condition)  
+   3.6.1 [Definition](./PRIMITIVES.md#361-definition)  
+  3.7 [Class Gather](./PRIMITIVES.md#37-class-gather)  
+   3.7.1 [Definition](./PRIMITIVES.md#371-definition)  
+   3.7.2 [Use with timeouts and cancellation](./PRIMITIVES.md#372-use-with-timeouts-and-cancellation)  
+ 4. [Task Cancellation](./PRIMITIVES.md#4-task-cancellation)  
+  4.1 [Coro sleep](./PRIMITIVES.md#41-coro-sleep)  
+  4.2 [Class Cancellable](./PRIMITIVES.md#42-class-cancellable)  
+   4.2.1 [Groups](./PRIMITIVES.md#421-groups)  
+   4.2.2 [Custom cleanup](./PRIMITIVES.md#422-custom-cleanup)  
+  4.3 [Class NamedTask](./PRIMITIVES.md#43-class-namedtask)  
+   4.3.1 [Latency and Barrier objects](./PRIMITIVES.md#431-latency-and-barrier-objects)  
+   4.3.2 [Custom cleanup](./PRIMITIVES.md#432-custom-cleanup)  
    4.3.3 [Changes](./PRIMITIVES.md#433-changes)
 
 ## 1.1 Synchronisation Primitives
@@ -377,6 +353,10 @@ list of results returned by the tasks. Timeouts may be assigned to individual
 tasks.
 
 ```python
+async def foo(n):
+    await asyncio.sleep(n)
+    return n * n
+
 async def bar(x, y, rats):  # Example coro: note arg passing
     await asyncio.sleep(1)
     return x * y * rats
@@ -410,6 +390,51 @@ the last member task completes or times out. It returns a list whose length
 matches the length of the list of `Gatherable` instances. Each element contains
 the return value of the corresponding `Gatherable` instance. Each return value
 may be of any type.
+
+### 3.7.2 Use with timeouts and cancellation
+
+The following complete example illustrates the use of `Gather` with tasks which
+are subject to cancellation or timeout.
+
+```python
+import uasyncio as asyncio
+import asyn
+
+async def foo(n):
+    while True:
+        try:
+            await asyncio.sleep(1)
+            n += 1
+        except asyncio.TimeoutError:
+            print('foo timeout')
+            return n
+
+@asyn.cancellable
+async def bar(n):
+    while True:
+        try:
+            await asyncio.sleep(1)
+            n += 1
+        except asyn.StopTask:
+            print('bar stopped')
+            return n
+
+async def do_cancel():
+    await asyncio.sleep(5)
+    await asyn.Cancellable.cancel_all()
+
+
+async def main(loop):
+    bar_task = asyn.Cancellable(bar, 70)
+    gatherables = [asyn.Gatherable(bar_task),]
+    gatherables.append(asyn.Gatherable(foo, 10, timeout=7))
+    loop.create_task(do_cancel())
+    res = await asyn.Gather(gatherables)
+    print('Result: ', res)
+
+loop = asyncio.get_event_loop()
+loop.run_until_complete(main(loop))
+```
 
 ###### [Contents](./PRIMITIVES.md#contents)
 
