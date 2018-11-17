@@ -562,8 +562,8 @@ Public bound method:
  * `__call__` This returns the coro and is used to schedule the task using the
  event loop `create_task()` method using function call syntax.
 
-The `StopTask` exception is an alias for `usayncio.CancelledError`. In my view
-the name is more descriptive of its function.
+The `asyn.StopTask` exception is an alias for `usayncio.CancelledError`. In my
+view the name is more descriptive of its function.
 
 ### 4.2.1 Groups
 
@@ -579,12 +579,12 @@ A task created with the `cancellable` decorator can intercept the `StopTask`
 exception to perform custom cleanup operations. This may be done as below:
 
 ```python
-@cancellable
+@asyn.cancellable
 async def foo():
     while True:
         try:
             await sleep(1)  # Main body of task
-        except StopTask:
+        except asyn.StopTask:
             # perform custom cleanup
             return  # Respond by quitting
 ```
@@ -593,11 +593,11 @@ The following example returns `True` if it ends normally or `False` if
 cancelled.
 
 ```python
-@cancellable
+@asyn.cancellable
 async def bar():
     try:
         await sleep(1)  # Main body of task
-    except StopTask:
+    except asyn.StopTask:
         return False
     else:
         return True
@@ -697,11 +697,11 @@ if necessary. This might be done for cleanup or to return a 'cancelled' status.
 The coro should have the following form:
 
 ```python
-@cancellable
+@asyn.cancellable
 async def foo():
     try:
         await asyncio.sleep(1)  # User code here
-    except StopTask:
+    except asyn.StopTask:
         return False  # Cleanup code
     else:
         return True  # Normal exit
@@ -716,7 +716,7 @@ latest API changes are:
  * `NamedTask.cancel()` is now asynchronous.
  * `NamedTask` and `Cancellable` coros no longer receive a `TaskId` instance as
  their 1st arg.
- * `@namedtask` still works but is now an alias for `@cancellable`.
+ * `@asyn.namedtask` still works but is now an alias for `@asyn.cancellable`.
 
 The drive to simplify code comes from the fact that `uasyncio` is itself under
 development. Tracking changes is an inevitable headache.
