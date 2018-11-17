@@ -608,15 +608,16 @@ controlled. Documentation of this is in the code.
 
 ## 3.6 Task cancellation
 
-`uasyncio` now provides a `cancel(coro)` function. This works by throwing an
+`uasyncio` provides a `cancel(coro)` function. This works by throwing an
 exception to the coro in a special way: cancellation is deferred until the coro
 is next scheduled. This mechanism works with nested coros. However there is a
 limitation. If a coro issues `await uasyncio.sleep(secs)` or
 `uasyncio.sleep_ms(ms)` scheduling will not occur until the time has elapsed.
 This introduces latency into cancellation which matters in some use-cases.
-Other potential sources of latency take the form of slow code. `uasyncio` has
-no mechanism for verifying when cancellation has actually occurred. The `asyn`
-library provides verification via the following classes:
+Other potential sources of latency take the form of slow code. 
+
+`uasyncio` lacks a mechanism for verifying when cancellation has actually
+occurred. The `asyn` library provides verification via the following classes:
 
  1. `Cancellable` This allows one or more tasks to be assigned to a group. A
  coro can cancel all tasks in the group, pausing until this has been achieved.

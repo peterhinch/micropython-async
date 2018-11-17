@@ -400,37 +400,46 @@ are subject to cancellation or timeout.
 import uasyncio as asyncio
 import asyn
 
+async def barking(n):
+    print('Start normal coro barking()')
+    for _ in range(6):
+        await asyncio.sleep(1)
+    print('Done barking.')
+    return 2 * n
+
 async def foo(n):
-    while True:
-        try:
+    print('Start timeout coro foo()')
+    try:
+        while True:
             await asyncio.sleep(1)
             n += 1
-        except asyncio.TimeoutError:
-            print('foo timeout')
-            return n
+    except asyncio.TimeoutError:
+        print('foo timeout.')
+    return n
 
 @asyn.cancellable
 async def bar(n):
-    while True:
-        try:
+    print('Start cancellable bar()')
+    try:
+        while True:
             await asyncio.sleep(1)
             n += 1
-        except asyn.StopTask:
-            print('bar stopped')
-            return n
+    except asyn.StopTask:
+        print('bar stopped.')
+    return n
 
 async def do_cancel():
-    await asyncio.sleep(5)
+    await asyncio.sleep(5.5)
     await asyn.Cancellable.cancel_all()
 
-
 async def main(loop):
-    bar_task = asyn.Cancellable(bar, 70)
-    gatherables = [asyn.Gatherable(bar_task),]
-    gatherables.append(asyn.Gatherable(foo, 10, timeout=7))
+    bar_task = asyn.Cancellable(bar, 70)  # Note args here
+    gatherables = [asyn.Gatherable(barking, 21),
+                   asyn.Gatherable(foo, 10, timeout=7.5),
+                   asyn.Gatherable(bar_task)]
     loop.create_task(do_cancel())
     res = await asyn.Gather(gatherables)
-    print('Result: ', res)
+    print('Result: ', res)  # Expect  [42, 17, 75]
 
 loop = asyncio.get_event_loop()
 loop.run_until_complete(main(loop))
