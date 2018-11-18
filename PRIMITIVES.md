@@ -17,7 +17,7 @@ obvious workround is to produce a version with unused primitives removed.
   1.2 [Task control and monitoring](./PRIMITIVES.md#12-task-control-and-monitoring)  
  2. [Modules](./PRIMITIVES.md#2-modules)  
  3. [Synchronisation Primitives](./PRIMITIVES.md#3-synchronisation-primitives)  
-  3.1 [Function launch](./PRIMITIVES.md#31-function-launch) Launch a function or a coro interchangeably. 
+  3.1 [Function launch](./PRIMITIVES.md#31-function-launch) Launch a function or a coro interchangeably.  
   3.2 [Class Lock](./PRIMITIVES.md#32-class-lock) Ensure exclusive access to a shared resource.  
    3.2.1 [Definition](./PRIMITIVES.md#321-definition)  
   3.3 [Class Event](./PRIMITIVES.md#33-class-event) Pause a coro until an event occurs.  
@@ -35,7 +35,7 @@ obvious workround is to produce a version with unused primitives removed.
   4.2 [Class Cancellable](./PRIMITIVES.md#42-class-cancellable) Register tasks for cancellation.  
    4.2.1 [Groups](./PRIMITIVES.md#421-groups) Group sets of tasks for cancellation.  
    4.2.2 [Custom cleanup](./PRIMITIVES.md#422-custom-cleanup)  
-  4.3 [Class NamedTask](./PRIMITIVES.md#43-class-namedtask) Associate tasks with names for cancellation. 
+  4.3 [Class NamedTask](./PRIMITIVES.md#43-class-namedtask) Associate tasks with names for cancellation.  
    4.3.1 [Latency and Barrier objects](./PRIMITIVES.md#431-latency-and-barrier-objects)  
    4.3.2 [Custom cleanup](./PRIMITIVES.md#432-custom-cleanup)  
    4.3.3 [Changes](./PRIMITIVES.md#433-changes) June 2018 asyn API changes affecting cancellation.
