@@ -17,28 +17,28 @@ obvious workround is to produce a version with unused primitives removed.
   1.2 [Task control and monitoring](./PRIMITIVES.md#12-task-control-and-monitoring)  
  2. [Modules](./PRIMITIVES.md#2-modules)  
  3. [Synchronisation Primitives](./PRIMITIVES.md#3-synchronisation-primitives)  
-  3.1 [Function launch](./PRIMITIVES.md#31-function-launch)  
-  3.2 [Class Lock](./PRIMITIVES.md#32-class-lock)  
+  3.1 [Function launch](./PRIMITIVES.md#31-function-launch) Launch a function or a coro interchangeably. 
+  3.2 [Class Lock](./PRIMITIVES.md#32-class-lock) Ensure exclusive access to a shared resource.  
    3.2.1 [Definition](./PRIMITIVES.md#321-definition)  
-  3.3 [Class Event](./PRIMITIVES.md#33-class-event)  
+  3.3 [Class Event](./PRIMITIVES.md#33-class-event) Pause a coro until an event occurs.  
    3.3.1 [Definition](./PRIMITIVES.md#331-definition)  
-  3.4 [Class Barrier](./PRIMITIVES.md#34-class-barrier)  
-  3.5 [Class Semaphore](./PRIMITIVES.md#35-class-semaphore)  
+  3.4 [Class Barrier](./PRIMITIVES.md#34-class-barrier) Pause multiple coros until all reach a given point.  
+  3.5 [Class Semaphore](./PRIMITIVES.md#35-class-semaphore) Limit number of coros which can access a resource.  
    3.5.1 [Class BoundedSemaphore](./PRIMITIVES.md#351-class-boundedsemaphore)  
-  3.6 [Class Condition](./PRIMITIVES.md#36-class-condition)  
+  3.6 [Class Condition](./PRIMITIVES.md#36-class-condition) Control access to a shared reource.  
    3.6.1 [Definition](./PRIMITIVES.md#361-definition)  
-  3.7 [Class Gather](./PRIMITIVES.md#37-class-gather)  
+  3.7 [Class Gather](./PRIMITIVES.md#37-class-gather) Synchronise and collect results from multiple coros.  
    3.7.1 [Definition](./PRIMITIVES.md#371-definition)  
    3.7.2 [Use with timeouts and cancellation](./PRIMITIVES.md#372-use-with-timeouts-and-cancellation)  
- 4. [Task Cancellation](./PRIMITIVES.md#4-task-cancellation)  
-  4.1 [Coro sleep](./PRIMITIVES.md#41-coro-sleep)  
-  4.2 [Class Cancellable](./PRIMITIVES.md#42-class-cancellable)  
-   4.2.1 [Groups](./PRIMITIVES.md#421-groups)  
+ 4. [Task Cancellation](./PRIMITIVES.md#4-task-cancellation) Methods of cancelling tasks and groups of tasks.  
+  4.1 [Coro sleep](./PRIMITIVES.md#41-coro-sleep) sleep() with reduced exception handling latency.  
+  4.2 [Class Cancellable](./PRIMITIVES.md#42-class-cancellable) Register tasks for cancellation.  
+   4.2.1 [Groups](./PRIMITIVES.md#421-groups) Group sets of tasks for cancellation.  
    4.2.2 [Custom cleanup](./PRIMITIVES.md#422-custom-cleanup)  
-  4.3 [Class NamedTask](./PRIMITIVES.md#43-class-namedtask)  
+  4.3 [Class NamedTask](./PRIMITIVES.md#43-class-namedtask) Associate tasks with names for cancellation. 
    4.3.1 [Latency and Barrier objects](./PRIMITIVES.md#431-latency-and-barrier-objects)  
    4.3.2 [Custom cleanup](./PRIMITIVES.md#432-custom-cleanup)  
-   4.3.3 [Changes](./PRIMITIVES.md#433-changes)
+   4.3.3 [Changes](./PRIMITIVES.md#433-changes) June 2018 asyn API changes affecting cancellation.
 
 ## 1.1 Synchronisation Primitives
 
@@ -667,7 +667,7 @@ async def foo(arg1, arg2):
 ```
 
 The `NamedTask` constructor takes the name, the coro, plus any user positional
-or keyword args. Th eresultant instance can be scheduled in the usual ways:
+or keyword args. The resultant instance can be scheduled in the usual ways:
 
 ```python
 await NamedTask('my foo', foo, 1, 2)  # Pause until complete or killed
