@@ -29,7 +29,7 @@ obvious workround is to produce a version with unused primitives removed.
    3.6.1 [Definition](./PRIMITIVES.md#361-definition)  
   3.7 [Class Gather](./PRIMITIVES.md#37-class-gather) Synchronise and collect results from multiple coros.  
    3.7.1 [Definition](./PRIMITIVES.md#371-definition)  
-   3.7.2 [Use with timeouts and cancellation](./PRIMITIVES.md#372-use-with-timeouts-and-cancellation)  
+   3.7.2 [Use with timeouts and cancellation](./PRIMITIVES.md#372-use-with-timeouts-and-cancellation) Demo of advanced usage of Gather.  
  4. [Task Cancellation](./PRIMITIVES.md#4-task-cancellation) Methods of cancelling tasks and groups of tasks.  
   4.1 [Coro sleep](./PRIMITIVES.md#41-coro-sleep) sleep() with reduced exception handling latency.  
   4.2 [Class Cancellable](./PRIMITIVES.md#42-class-cancellable) Register tasks for cancellation.  
