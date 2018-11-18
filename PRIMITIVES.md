@@ -500,7 +500,7 @@ async def comms():  # Perform some communications task
         try:
             await do_communications()  # Launches Cancellable tasks
         except CommsError:
-            await Cancellable.cancel_all()
+            await asyn.Cancellable.cancel_all()
         # All sub-tasks are now known to be stopped. They can be re-started
         # with known initial state on next pass.
 ```
@@ -508,7 +508,7 @@ async def comms():  # Perform some communications task
 A `Cancellable` task is declared with the `@cancellable` decorator:
 
 ```python
-@cancellable
+@asyn.cancellable
 async def print_nums(num):
     while True:
         print(num)
@@ -521,16 +521,16 @@ constructor as below. Note that the coro is passed not using function call
 syntax. `Cancellable` tasks may be awaited or placed on the event loop:
 
 ```python
-await Cancellable(print_nums, 5)  # single arg to print_nums.
+await asyn.Cancellable(print_nums, 5)  # single arg to print_nums.
 loop = asyncio.get_event_loop()
-loop.create_task(Cancellable(print_nums, 42)())  # Note () syntax.
+loop.create_task(asyn.Cancellable(print_nums, 42)())  # Note () syntax.
 ```
 
 The following will cancel any tasks still running, pausing until cancellation
 is complete:
 
 ```python
-await Cancellable.cancel_all()
+await asyn.Cancellable.cancel_all()
 ```
 
 Constructor mandatory args:  
@@ -565,6 +565,29 @@ Public bound method:
 The `asyn.StopTask` exception is an alias for `usayncio.CancelledError`. In my
 view the name is more descriptive of its function.
 
+A complete minimal, example:
+```python
+import uasyncio as asyncio
+import asyn
+
+@asyn.cancellable
+async def print_nums(num):
+    while True:
+        print(num)
+        num += 1
+        await asyn.sleep(1)  # asyn.sleep() allows fast response to exception
+
+async def main(loop):
+    loop.create_task(asyn.Cancellable(print_nums, 42)())  # Note () syntax
+    await asyncio.sleep(5)
+    await asyn.Cancellable.cancel_all()
+    print('Task cancelled: delay 3 secs to prove it.')
+    await asyncio.sleep(3)
+
+loop = asyncio.get_event_loop()
+loop.run_until_complete(main(loop))
+```
+
 ### 4.2.1 Groups
 
 `Cancellable` tasks may be assigned to groups, identified by a user supplied
@@ -577,7 +600,6 @@ with `cancel_all` cancelling all `Cancellable` tasks.
 
 A task created with the `cancellable` decorator can intercept the `StopTask`
 exception to perform custom cleanup operations. This may be done as below:
-
 ```python
 @asyn.cancellable
 async def foo():
@@ -588,10 +610,8 @@ async def foo():
             # perform custom cleanup
             return  # Respond by quitting
 ```
-
 The following example returns `True` if it ends normally or `False` if
 cancelled.
-
 ```python
 @asyn.cancellable
 async def bar():
@@ -601,6 +621,31 @@ async def bar():
         return False
     else:
         return True
+```
+A complete minimal example:
+```python
+import uasyncio as asyncio
+import asyn
+
+@asyn.cancellable
+async def print_nums(num):
+    try:
+        while True:
+            print(num)
+            num += 1
+            await asyn.sleep(1)  # asyn.sleep() allows fast response to exception
+    except asyn.StopTask:
+        print('print_nums was cancelled')
+
+async def main(loop):
+    loop.create_task(asyn.Cancellable(print_nums, 42)())  # Note () syntax
+    await asyncio.sleep(5)
+    await asyn.Cancellable.cancel_all()
+    print('Task cancelled: delay 3 secs to prove it.')
+    await asyncio.sleep(3)
+
+loop = asyncio.get_event_loop()
+loop.run_until_complete(main(loop))
 ```
 
 ###### [Contents](./PRIMITIVES.md#contents)
