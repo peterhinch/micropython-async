@@ -127,15 +127,18 @@ async def bar(lock):
 While the coro `bar` is accessing the resource, other coros will pause at the
 `async with lock` statement until the context manager in `bar()` is complete.
 
-Note that MicroPython has a bug in its implementation of asynchronous context
-managers: a `return` statement should not be issued in the `async with` block.
-See note at end of [this section](./TUTORIAL.md#43-asynchronous-context-managers).
+Note that MicroPython had a bug in its implementation of asynchronous context
+managers. This is fixed: if you build from source there is no problem. Alas the
+fix was too late for release build V1.9.4. If using that build  a `return`
+statement should not be issued in the `async with` block. See note at end of
+[this section](./TUTORIAL.md#43-asynchronous-context-managers).
 
 ### 3.2.1 Definition
 
 Constructor: Optional argument `delay_ms` default 0. Sets a delay between
 attempts to acquire the lock. In applications with coros needing frequent
-scheduling a nonzero value will facilitate this at the expense of latency.  
+scheduling a nonzero value will reduce the `Lock` object's CPU overhead at the
+expense of latency.  
 Methods:
 
  * `locked` No args. Returns `True` if locked.
@@ -190,10 +193,10 @@ Example of this are in `event_test` and `ack_test` in asyntest.py.
 
 ### 3.3.1 Definition
 
-Constructor: takes one optional boolean argument, defaulting False.
- * `lp` If `True` and the experimental low priority core.py is installed,
- low priority scheduling will be used while awaiting the event. If the standard
- version of uasyncio is installed the arg will have no effect.
+Constructor: takes one optional integer argument.
+ * `delay_ms` default 0. While awaiting an event an internal flag is repeatedly
+ polled. Setting a finite polling interval reduces the task's CPU overhead at
+ the expense of increased latency.
 
 Synchronous Methods:
  * `set` Initiates the event. Optional arg `data`: may be of any type,

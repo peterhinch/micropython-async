@@ -96,7 +96,8 @@ class Lock():
 # When all waiting coros have run
 # event.clear() should be issued
 class Event():
-    def __init__(self, lp=False):  # Redundant arg retained for compatibility
+    def __init__(self, delay_ms=0):
+        self.delay_ms = delay_ms
         self.clear()
 
     def clear(self):
@@ -105,7 +106,7 @@ class Event():
 
     def __await__(self):
         while not self._flag:
-            yield
+            await asyncio.sleep_ms(self.delay_ms)
 
     __iter__ = __await__
 
