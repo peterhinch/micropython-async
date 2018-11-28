@@ -118,8 +118,10 @@ class Pushbutton(object):
     debounce_ms = 50
     long_press_ms = 1000
     double_click_ms = 400
-    def __init__(self, pin):
+    def __init__(self, pin, lpmode=False):
         self.pin = pin # Initialise for input
+        self._lpmode = lpmode
+        self._press_pend = False
         self._true_func = False
         self._false_func = False
         self._double_func = False
@@ -176,13 +178,19 @@ class Pushbutton(object):
                             # First click: start doubleclick timer
                             doubledelay.trigger(Pushbutton.double_click_ms)
                     if self._true_func:
-                        launch(self._true_func, self._true_args)
+                        if self._long_func and self._lpmode:
+                            self._press_pend = True  # Delay launch until release
+                        else:
+                            launch(self._true_func, self._true_args)
                 else:
                     # Button release
-                    if self._long_func and longdelay.running():
+                    if longdelay.running():
                         # Avoid interpreting a second click as a long push
                         longdelay.stop()
+                        if self._press_pend:
+                            launch(self._true_func, self._true_args)
                     if self._false_func:
                         launch(self._false_func, self._false_args)
+                    self._press_pend = False
             # Ignore state changes until switch has settled
             await asyncio.sleep_ms(Pushbutton.debounce_ms)

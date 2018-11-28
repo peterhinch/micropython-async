@@ -101,9 +101,10 @@ implementation.
 click or long press events; where the **function** is a coroutine it will be
 scheduled for execution and will run asynchronously.
 
-Constructor argument (mandatory):
+Constructor arguments:
 
- 1. `pin` The initialised Pin instance.
+ 1. `pin` Mandatory. The initialised Pin instance.
+ 2. `lpmode` Default `False`. See below.
 
 Methods:
 
@@ -146,6 +147,18 @@ pb.press_func(toggle, (red,))  # Note how function and args are passed
 loop = asyncio.get_event_loop()
 loop.run_until_complete(my_app())  # Run main application code
 ```
+
+The `lpmode` constructor argument modifies the behaviour of `press_func` in the
+event that a `long_func` is specified.
+
+If `lpmode` is `False`, if a button press occurs `press_func` runs immediately;
+`long_func` runs if the button is still pressed when the timeout has elapsed.
+If `lpmode` is `True`, `press_func` is delayed until button release. If, at the
+time of release, `long_func` has run, `press_func` will be suppressed.
+
+The default provides for low latency but a long button press will trigger
+`press_func` and `long_func`. `lpmode` = `True` prevents `press_func` from
+running.
 
 ## 3.3 Delay_ms class
 

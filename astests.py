@@ -60,7 +60,8 @@ def test_swcb():
     loop.run_until_complete(killer())
 
 # Test for the Pushbutton class (coroutines)
-def test_btn():
+# Pass True to test lpmode
+def test_btn(lpmode=False):
     print('Test of pushbutton scheduling coroutines.')
     print(helptext)
     pin = Pin('X1', Pin.IN, Pin.PULL_UP)
@@ -68,7 +69,7 @@ def test_btn():
     green = LED(2)
     yellow = LED(3)
     blue = LED(4)
-    pb = Pushbutton(pin)
+    pb = Pushbutton(pin, lpmode)
     pb.press_func(pulse, (red, 1000))
     pb.release_func(pulse, (green, 1000))
     pb.double_func(pulse, (yellow, 1000))
