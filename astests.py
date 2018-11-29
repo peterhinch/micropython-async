@@ -73,8 +73,10 @@ def test_btn(suppress=False, lf=True, df=True):
     pb.press_func(pulse, (red, 1000))
     pb.release_func(pulse, (green, 1000))
     if df:
+        print('Doubleclick enabled')
         pb.double_func(pulse, (yellow, 1000))
     if lf:
+        print('Long press enabled')
         pb.long_func(pulse, (blue, 1000))
     loop = asyncio.get_event_loop()
     loop.run_until_complete(killer())
