@@ -2,7 +2,7 @@
 # Tested on Pyboard but should run on other microcontroller platforms
 # running MicroPython with uasyncio library.
 # Author: Peter Hinch.
-# Copyright Peter Hinch 2017 Released under the MIT license.
+# Copyright Peter Hinch 2017-2018 Released under the MIT license.
 
 from machine import Pin
 from pyb import LED
@@ -60,8 +60,8 @@ def test_swcb():
     loop.run_until_complete(killer())
 
 # Test for the Pushbutton class (coroutines)
-# Pass True to test lpmode
-def test_btn(lpmode=False):
+# Pass True to test suppress
+def test_btn(suppress=False, lf=True, df=True):
     print('Test of pushbutton scheduling coroutines.')
     print(helptext)
     pin = Pin('X1', Pin.IN, Pin.PULL_UP)
@@ -69,11 +69,13 @@ def test_btn(lpmode=False):
     green = LED(2)
     yellow = LED(3)
     blue = LED(4)
-    pb = Pushbutton(pin, lpmode)
+    pb = Pushbutton(pin, suppress)
     pb.press_func(pulse, (red, 1000))
     pb.release_func(pulse, (green, 1000))
-    pb.double_func(pulse, (yellow, 1000))
-    pb.long_func(pulse, (blue, 1000))
+    if df:
+        pb.double_func(pulse, (yellow, 1000))
+    if lf:
+        pb.long_func(pulse, (blue, 1000))
     loop = asyncio.get_event_loop()
     loop.run_until_complete(killer())
 

@@ -16,8 +16,7 @@ events.
  and also a software retriggerable delay object. Pushbuttons are a
  generalisation of switches providing logical rather than physical status along
  with double-clicked and long pressed events.
- 3. `asyn.py` Provides synchronisation primitives. Required by `aswitch.py`.
- 4. `astests.py` Test/demonstration programs for `aswitch.py`.
+ 3. `astests.py` Test/demonstration programs for `aswitch.py`.
 
 # 3. Module aswitch.py
 
@@ -104,7 +103,7 @@ scheduled for execution and will run asynchronously.
 Constructor arguments:
 
  1. `pin` Mandatory. The initialised Pin instance.
- 2. `lpmode` Default `False`. See below.
+ 2. `suppress` Default `False`. See 3.2.1 below.
 
 Methods:
 
@@ -148,17 +147,28 @@ loop = asyncio.get_event_loop()
 loop.run_until_complete(my_app())  # Run main application code
 ```
 
-The `lpmode` constructor argument modifies the behaviour of `press_func` in the
-event that a `long_func` is specified.
+### 3.2.1 The suppress constructor argument
 
-If `lpmode` is `False`, if a button press occurs `press_func` runs immediately;
-`long_func` runs if the button is still pressed when the timeout has elapsed.
-If `lpmode` is `True`, `press_func` is delayed until button release. If, at the
-time of release, `long_func` has run, `press_func` will be suppressed.
+When the button is pressed `press_func` runs immediately. This minimal latency
+is ideal for applications such as games, but does imply that in the event of a
+long press, both `press_func` and `long_func` run: `press_func` immediately and
+`long_func` if the button is still pressed when the timer has elapsed. Similar
+reasoning applies to the double click function.
 
-The default provides for low latency but a long button press will trigger
-`press_func` and `long_func`. `lpmode` = `True` prevents `press_func` from
-running.
+There can be a need for a **function** which runs if a button is pressed but
+only if a doubleclick or long press function does not run. The soonest that the
+absence of a long press can be detected is on button release. The absence of a
+double click can only be detected when the double click timer times out without
+a second press occurring.
+
+This **function** is the `release_func`. If the `suppress` constructor arg is
+set, `release_func` will be launched as follows:
+ 1. If `double_func` does not exist on rapid button release.
+ 2. If `double_func` exists, after the expiration of the doubleclick timer.
+ 3. If `long_func` exists and the press duration causes `long_func` to be
+ launched, `release_func` will not be launched.
+ 4. If `double_func` exists and a double click occurs, `release_func` will not
+ be launched.
 
 ## 3.3 Delay_ms class
 
@@ -192,6 +202,7 @@ Methods:
  2. `stop` No argument. Cancels the timeout, setting the `running` status
  `False`. The timer can be restarted by issuing `trigger` again.
  3. `running` No argument. Returns the running status of the object.
+ 4. `__call__` Alias for running.
 
 If the `trigger` method is to be called from an interrupt service routine the
 `can_alloc` constructor arg should be `False`. This causes the delay object
@@ -236,10 +247,17 @@ of its behaviour if the switch is toggled rapidly.
 
 Demonstrates the use of callbacks to toggle the red and green LED's.
 
-## 4.3 Function test_btn()
+## 4.3 Function test_btn(lpmode=False)
 
 This will flash the red LED on button push, and the green LED on release. A
 long press will flash the blue LED and a double-press the yellow one.
+
+Test the launching of coroutines and also the `suppress` constructor arg.
+
+It takes three optional positional boolean args:
+ 1. `Suppresss=False` If `True` sets the `suppress` constructor arg.
+ 2. `lf=True` Declare a long press coro.
+ 3. `df=true` Declare a double click coro.
 
 The note below on race conditions applies.
 
@@ -268,3 +286,6 @@ In the case of this test program it might be to ignore events while a similar
 one is running, or to extend the timer to prolong the LED illumination.
 Alternatively a subsequent button press might be required to terminate the
 illumination. The "right" behaviour is application dependent.
+
+A further consequence of scheduling new coroutine instances when one or more
+are already running is that the `uasyncio` queue can fill causing an exception.
