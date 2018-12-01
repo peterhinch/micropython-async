@@ -1,4 +1,5 @@
 # uasyncio.core fast_io
+# (c) 2014-2018 Paul Sokolovsky. MIT license.
 # fork: peterhinch/micropython-lib branch: uasyncio-io-fast-and-rw
 version = 'fast_io'
 try:
