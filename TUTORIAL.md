@@ -1554,6 +1554,10 @@ application dependent.
 An alternative approach is to use blocking sockets with `StreamReader` and
 `StreamWriter` instances to control polling.
 
+[This doc](https://github.com/peterhinch/micropython-samples/blob/master/resilient/README.md)
+describes issues I encountered in WiFi applications which keep sockets open for
+long periods, and offers a solution.
+
 ###### [Contents](./TUTORIAL.md#contents)
 
 ## 6.7 Event loop constructor args
@@ -1571,7 +1575,7 @@ bar = some_module.Bar()  # Constructor calls get_event_loop()
 loop = asyncio.get_event_loop(runq_len=40, waitq_len=40)
 ```
 
-Given that importing a module can run code the only safe way is to instantiate
+Given that importing a module can run code the safest way is to instantiate
 the event loop immediately after importing `uasyncio`.
 
 ```python
@@ -1579,6 +1583,17 @@ import uasyncio as asyncio
 loop = asyncio.get_event_loop(runq_len=40, waitq_len=40)
 import some_module
 bar = some_module.Bar()  # The get_event_loop() call is now safe
+```
+
+If imported modules do not run `uasyncio` code, another approach is to pass the
+loop as an arg to any user code which needs it. Ensure that only the initially
+loaded module calls `get_event_loop` e.g.
+
+```python
+import uasyncio as asyncio
+import some_module
+loop = asyncio.get_event_loop(runq_len=40, waitq_len=40)
+bar = some_module.Bar(loop)
 ```
 
 Ref [this issue](https://github.com/micropython/micropython-lib/issues/295).
