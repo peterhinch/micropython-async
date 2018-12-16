@@ -18,9 +18,9 @@ supporting I2C slave mode. Consequently at least one end of the interface
 (known as the`Initiator`) must be a Pyboard. The other end may be any hardware
 running MicroPython.
 
-The `Initiator` implements a timeout enabling it to detect failure of the other
-end of the interface (the `Responder`). There is optional provision to reset
-the `Responder` in this event.
+`Initiator` user applications may implement a timeout to enable detection of
+failure of the other end of the interface (the `Responder`). The `Initiator`
+can reset the `Responder` in this event.
 
 ## Changes
 
@@ -376,5 +376,4 @@ The main branch aims to minimise allocation while achieving reliability.
 
 PR's to reduce allocation and enable hard IRQ's welcome. I will expect them to
 run the two test programs for >10,000 messages with ESP8266 and Pyboard
-targets. Something I haven't yet achieved.
-
+targets. Something I haven't yet achieved (with hard IRQ's).
