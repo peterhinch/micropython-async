@@ -36,6 +36,13 @@ The module `astests.py` provides examples of usage. In the following text the
 term **function** implies a Python `callable`: namely a function, bound method,
 coroutine or bound coroutine interchangeably.
 
+### Timing
+
+The `Switch` class relies on millisecond-level timing: callback functions must
+be designed to terminate rapidly. This applies to all functions in the
+application; coroutines should yield regularly. If these constraints are not
+met, switch events can be missed.
+
 ## 3.1 Switch class
 
 This assumes a normally open switch connected between a pin and ground. The pin
@@ -99,6 +106,8 @@ implementation.
 **function** instances may be specified to run on button press, release, double
 click or long press events; where the **function** is a coroutine it will be
 scheduled for execution and will run asynchronously.
+
+Please see the note on timing in section 3.
 
 Constructor arguments:
 
