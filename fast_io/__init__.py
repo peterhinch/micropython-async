@@ -1,6 +1,13 @@
 # uasyncio.__init__ fast_io
 # (c) 2014-2018 Paul Sokolovsky. MIT license.
+
+# This is a fork of official MicroPython uasynco. It is recommended to use
+# the official version unless the specific features of this fork are required.
+
+# Changes copyright (c) Peter Hinch 2018
+# Code at https://github.com/peterhinch/micropython-async.git
 # fork: peterhinch/micropython-lib branch: uasyncio-io-fast-and-rw
+
 import uerrno
 import uselect as select
 import usocket as _socket
