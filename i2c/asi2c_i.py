@@ -81,7 +81,7 @@ class Initiator(Channel):
             await self._sync()
             await asyncio.sleep(1)  # Ensure Responder is ready
             if self.cr_go:
-                self.loop.create_task(self.cr_go(*self.go_args)
+                self.loop.create_task(self.cr_go(*self.go_args))
             while True:
                 gc.collect()
                 try:
