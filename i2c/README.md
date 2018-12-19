@@ -15,16 +15,20 @@ configured for a transfer before the master attempts to access it.
 
 The Pyboard or similar STM based boards are currently the only targets
 supporting I2C slave mode. Consequently at least one end of the interface
-(known as the`Initiator`) must be a Pyboard. The other end may be any hardware
-running MicroPython.
+(known as the`Initiator`) must be a Pyboard or other board supporting the `pyb`
+module. The `Responder` may be any hardware running MicroPython and supporting
+`machine`.
 
-`Initiator` user applications may implement a timeout to enable detection of
-failure of the other end of the interface (the `Responder`). The `Initiator`
-can reset the `Responder` in this event.
+If the `Responder` (typically an ESP8266) crashes the resultant I2C failure is
+detected by the `Initiator` which can issue a hardware reboot to the 
+`Responder` enabling the link to recover. This can occur transparently to the
+application and is covered in detail
+[in section 5.3](./README.md#53-responder-crash-detection).
 
 ## Changes
 
-v0.16 Minor improvements and bugfixes. Eliminate `timeout` option which caused
+V0.17 Dec 2018 Initiator: add optional "go" and "fail" user coroutines.
+V0.16 Minor improvements and bugfixes. Eliminate `timeout` option which caused
 failures where `Responder` was a Pyboard.
 V0.15 RAM allocation reduced. Flow control implemented.
 V0.1 Initial release.
@@ -40,6 +44,7 @@ V0.1 Initial release.
   4.1 [Channel class](./README.md#41-channel-class)  
   4.2 [Initiator class](./README.md#42-initiator-class)  
     4.2.1 [Configuration](./README.md#421-configuration) Fine-tuning the interface.  
+    4.2.2 [Optional coroutines](./README.md#422-optional-coroutines)  
   4.3 [Responder class](./README.md#43-responder-class)  
  5. [Limitations](./README.md#5-limitations)  
   5.1 [Blocking](./README.md#51-blocking)  
@@ -109,7 +114,7 @@ this interface.
 
 A further issue common to most communications protocols is synchronisation:
 the devices won't boot simultaneously. Initially, and after the `Initiator`
-reboots the `Responder`, both ends run a synchronisation phase. The iterface
+reboots the `Responder`, both ends run a synchronisation phase. The interface
 starts to run once each end has determined that its counterpart is ready.
 
 The design assumes exclusive use of the I2C interface. Hard or soft I2C may be
@@ -219,12 +224,17 @@ Coroutine:
 
 ## 4.2 Initiator class
 
-Constructor args:  
+##### Constructor args:  
  1. `i2c` An `I2C` instance.
  2. `pin` A `Pin` instance for the `sync` signal.
  3. `pinack` A `Pin` instance for the `ack` signal.
  4. `reset=None` Optional tuple defining a reset pin (see below).
  5. `verbose=True` If `True` causes debug messages to be output.
+ 6. `cr_go=False` Optional coroutine to run at startup. See
+ [4.2.2](./README.md#422-optional-coroutines).
+ 7. `go_args=()` Optional tuple of args for above coro.
+ 8. `cr_fail=False` Optional coro to run on ESP8266 fail or reboot.
+ 9. `f_args=()` Optional tuple of args for above.
 
 The `reset` tuple consists of (`pin`, `level`, `time`). If provided, and the
 `Responder` times out, `pin` will be set to `level` for duration `time` ms. A
@@ -239,26 +249,26 @@ If the `Initiator` has no `reset` tuple and the `Responder` times out, an
 
 `Pin` instances passed to the constructor must be instantiated by `machine`.
 
-Class variables:
+##### Class variables:
  1. `t_poll=100` Interval (ms) for `Initiator` polling `Responder`.
  2. `rxbufsize=200` Size of receive buffer. This should exceed the maximum
  message length.
 
-Class variables should be set before instantiating `Initiator` or `Responder`.
-See [Section 4.4](./README.md#44-configuration).
+See [Section 4.2.1](./README.md#421-configuration).
 
-Instance variables:
+##### Instance variables:
 
 The `Initiator` maintains instance variables which may be used to measure its
-peformance. See [Section 4.4](./README.md#44-configuration).
+peformance. See [Section 4.2.1](./README.md#421-configuration).
 
-Coroutine:
+##### Coroutine:
  1. `reboot` If a `reset` tuple was provided, reboot the `Responder`.
 
 ## 4.2.1 Configuration
 
 The `Initiator` class variables determine the behaviour of the interface. Where
-these are altered, it should be done before instantiation.
+these are altered, it should be done before  instantiating `Initiator` or
+`Responder`.
 
 `Initiator.t_poll` This defines the polling interval for incoming data. Shorter
 values reduce the latency when the `Responder` sends data; at the cost of a
@@ -275,11 +285,42 @@ variables may be read:
 
 See test program `i2c_init.py` for an example of using the above.
 
+## 4.2.2 Optional coroutines
+
+These are intended for applications where the `Responder` may reboot at runtime
+either because I2C failure was detected or because the application issues an
+explicit reboot command.
+
+The `cr_go` and `cr_fail` coroutines provide for applications which implement
+an application-level initialisation sequence on first and subsequent boots of
+the `Responder`. Such applications need to ensure that the initialisation
+sequence does not conflict with other coros accessing the channel.
+
+The `cr_go` coro runs after synchronisation has been achieved. It runs
+concurrently with the coro which keeps the link open (`Initiator._run()`), but
+should run to completion reasonably quickly. Typically it performs any app
+level synchronisation, starts or re-enables application coros, and quits.
+
+The `cr_fail` routine will prevent the automatic reboot from occurring until
+it completes. This may be used to prevent user coros from accessing the channel
+until reboot is complete. This may be done by means of locks or task
+cancellation. Typically `cr_fail` will terminate when this is done, so that
+`cr_go` has unique access to the channel.
+
+If an explicit `.reboot()` is issued, a reset tuple was provided, and `cr_fail`
+exists, it will run and the physical reboot will be postponed until it
+completes.
+
+Typical usage:
+```python
+chan = asi2c_i.Initiator(i2c, syn, ack, rst, verbose, self._go, (), self._fail)
+```
+
 ###### [Contents](./README.md#contents)
 
 ## 4.3 Responder class
 
-Constructor args:
+##### Constructor args:
  1. `i2c` An `I2C` instance.
  2. `pin` A `Pin` instance for the `sync` signal.
  3. `pinack` A `Pin` instance for the `ack` signal.
@@ -287,12 +328,12 @@ Constructor args:
 
 `Pin` instances passed to the constructor must be instantiated by `machine`.
 
-Class variables:
+##### Class variables:
  1. `addr=0x12` Address of I2C slave. This should be set before instantiating
  `Initiator` or `Responder`. If the default address (0x12) is to be overriden,
  `Initiator` application code must instantiate the I2C accordingly.
- 2. `rxbufsize` Size of receive buffer. This should exceed the maximum message
- length. Consider reducing this in ESP8266 applications to save RAM.
+ 2. `rxbufsize=200` Size of receive buffer. This should exceed the maximum
+ message length. Consider reducing this in ESP8266 applications to save RAM.
 
 ###### [Contents](./README.md#contents)
 

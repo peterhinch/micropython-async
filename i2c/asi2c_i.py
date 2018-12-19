@@ -37,9 +37,14 @@ class Initiator(Channel):
     t_poll = 100  # ms between Initiator polling Responder
     rxbufsize = 200
 
-    def __init__(self, i2c, pin, pinack, reset=None, verbose=True):
+    def __init__(self, i2c, pin, pinack, reset=None, verbose=True,
+                 cr_go=False, go_args=(), cr_fail=False, f_args=()):
         super().__init__(i2c, pin, pinack, verbose, self.rxbufsize)
         self.reset = reset
+        self.cr_go = cr_go
+        self.go_args = go_args
+        self.cr_fail = cr_fail
+        self.f_args = f_args
         if reset is not None:
             reset[0].init(mode=machine.Pin.OUT, value = not(reset[1]))
         # Self measurement
@@ -47,8 +52,8 @@ class Initiator(Channel):
         self.block_max = 0  # Blocking times: max
         self.block_sum = 0  # Total
         self.block_cnt = 0  # Count
-        loop = asyncio.get_event_loop()
-        loop.create_task(self._run())
+        self.loop = asyncio.get_event_loop()
+        self.loop.create_task(self._run())
 
     def waitfor(self, val):  # Wait for response for 1 sec
         tim = utime.ticks_ms()
@@ -57,7 +62,10 @@ class Initiator(Channel):
                 raise OSError
 
     async def reboot(self):
+        self.close()  # Leave own pin high
         if self.reset is not None:
+            if self.cr_fail:
+                await self.cr_fail(*self.f_args)
             rspin, rsval, rstim = self.reset
             self.verbose and print('Resetting target.')
             rspin(rsval)  # Pulse reset line
@@ -72,6 +80,8 @@ class Initiator(Channel):
             self.rxbyt = b''
             await self._sync()
             await asyncio.sleep(1)  # Ensure Responder is ready
+            if self.cr_go:
+                self.loop.create_task(self.cr_go(*self.go_args)
             while True:
                 gc.collect()
                 try:
@@ -85,6 +95,8 @@ class Initiator(Channel):
                 self.block_cnt += 1
                 self.block_sum += t
             self.nboots += 1
+            if self.cr_fail:
+                await self.cr_fail(*self.f_args)
             if self.reset is None:  # No means of recovery
                 raise OSError('Responder fail.')
 
