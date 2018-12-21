@@ -104,6 +104,10 @@ class Event():
         self._flag = False
         self._data = None
 
+    async def wait(self):  # CPython comptaibility
+        while not self._flag:
+            await asyncio.sleep_ms(self.delay_ms)
+
     def __await__(self):
         while not self._flag:
             await asyncio.sleep_ms(self.delay_ms)

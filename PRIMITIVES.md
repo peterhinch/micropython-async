@@ -205,6 +205,10 @@ Synchronous Methods:
  * `is_set` No args. Returns `True` if the event is set.
  * `value` No args. Returns the value passed to `set`.
 
+Asynchronous Method:
+ * `wait` For CPython compatibility. Pause until event is set. The CPython
+ Event is not awaitable.
+
 The optional data value may be used to compensate for the latency in awaiting
 the event by passing `loop.time()`.
 
