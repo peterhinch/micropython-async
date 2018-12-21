@@ -64,8 +64,6 @@ class Initiator(Channel):
     async def reboot(self):
         self.close()  # Leave own pin high
         if self.reset is not None:
-            if self.cr_fail:
-                await self.cr_fail(*self.f_args)
             rspin, rsval, rstim = self.reset
             self.verbose and print('Resetting target.')
             rspin(rsval)  # Pulse reset line
