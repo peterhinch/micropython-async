@@ -614,10 +614,24 @@ is next scheduled. This mechanism works with nested coros. However there is a
 limitation. If a coro issues `await uasyncio.sleep(secs)` or
 `uasyncio.sleep_ms(ms)` scheduling will not occur until the time has elapsed.
 This introduces latency into cancellation which matters in some use-cases.
-Other potential sources of latency take the form of slow code. 
+Another source of latency is where a task is waiting on I/O. In many
+applications it is necessary for the task performing cancellation to pause
+until all cancelled coros have actually stopped.
 
-`uasyncio` lacks a mechanism for verifying when cancellation has actually
-occurred. The `asyn` library provides verification via the following classes:
+If the task to be cancelled only pauses on zero delays and never waits on I/O,
+the round-robin nature of the scheduler avoids the need to verify cancellation:
+
+```python
+asyncio.cancel(my_coro)
+await asyncio.sleep(0)  # Ensure my_coro gets scheduled with the exception
+ # my_coro will be cancelled now
+```
+This does require that all coros awaited by `my_coro` also meet the zero delay
+criterion.
+
+That special case notwithstanding, `uasyncio` lacks a mechanism for verifying
+when cancellation has actually occurred. The `asyn` library provides
+verification via the following classes:
 
  1. `Cancellable` This allows one or more tasks to be assigned to a group. A
  coro can cancel all tasks in the group, pausing until this has been achieved.
