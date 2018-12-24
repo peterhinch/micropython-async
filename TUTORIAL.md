@@ -91,42 +91,38 @@ CPython V3.5 and above.
 
 ## 0.1 Installing uasyncio on bare metal
 
-MicroPython libraries are located on [PyPi](https://pypi.python.org/pypi).
-Libraries to be installed are:
+If a release build of firmware is used no installation is necessary as uasyncio
+is compiled into the build. The current release build (V1.9.4) does not support
+asynchronous stream I/O.
 
- * micropython-uasyncio
- * micropython-uasyncio.queues
- * micropython-uasyncio.synchro
+The following instructions cover the case where a release build is not used or
+where a later official `uasyncio` version is required for stream I/O. The
+instructions have changed as the version on PyPi is no longer compatible with
+official MicroPython firmware.
+
+The following instructions describe copying the bare minimum of files to a
+target device, also the case where `uasyncio` is to be frozen into a compiled
+build as bytecode. For the latest release compatible with official firmware
+files must be copied from the official
+[micropython-lib](https://github.com/micropython/micropython-lib).
+
+Clone the library to a PC with
+```
+git clone https://github.com/micropython/micropython-lib.git
+```
+On the target hardware create a `uasyncio` directory and copy the following
+files to it:
+ * `uasyncio/uasyncio/__init__.py`
+ * `uasyncio.core/uasyncio/core.py`
+ * `uasyncio.synchro/uasyncio/synchro.py`
+ * `uasyncio.queues/uasyncio/queues.py`
 
 The `queues` and `synchro` modules are optional, but are required to run all
 the examples below.
 
-The official approach is to use the `upip` utility as described
-[here](https://github.com/micropython/micropython-lib). Network enabled
-hardware has this included in the firmware so it can be run locally. This is
-the preferred approach.
-
-On non-networked hardware there are two options. One is to use `upip` under a
-Linux real or virtual machine. This involves installing and building the Unix
-version of MicroPython, using `upip` to install to a directory on the PC, and
-then copying the library to the target.
-
-The need for Linux and the Unix build may be avoided by using
-[micropip.py](https://github.com/peterhinch/micropython-samples/tree/master/micropip).
-This runs under Python 3.2 or above. Create a temporary directory on your PC
-and install to that. Then copy the contents of the temporary directory to the
-device. The following assume Linux and a temporary directory named `~/syn` -
-adapt to suit your OS. The first option requires that `micropip.py` has
-executable permission.
-
-```
-$ ./micropip.py install -p ~/syn micropython-uasyncio
-$ python3 -m micropip.py install -p ~/syn micropython-uasyncio
-```
-
 The `uasyncio` modules may be frozen as bytecode in the usual way, by placing
-the `uasyncio` and `collections` directories in the port's `modules` directory
-and rebuilding.
+the `uasyncio` directory and its contents in the port's `modules` directory and
+rebuilding.
 
 ###### [Main README](./README.md)
 

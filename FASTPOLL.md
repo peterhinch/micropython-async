@@ -60,18 +60,23 @@ formerly provided by `asyncio_priority.py` is now implemented.
 
 # 1. Installation
 
-Install and test uasyncio on the target hardware. Replace `core.py` and
-`__init__.py` with the files in the `fast_io` directory.
+The basic approach is to install and test `uasyncio` on the target hardware.
+Replace `core.py` and `__init__.py` with the files in the `fast_io` directory.
 
-In MicroPython 1.9 `uasyncio` was implemented as a frozen module on the
-ESP8266. To install this version it is necessary to build the firmware with the
-above two files implemented as frozen bytecode. See
-[ESP Platforms](./FASTPOLL.md#6-esp-platforms) for general comments on the
+The current MicroPython release build (1.9.4) has `uasyncio` implemented as a
+frozen module. The following options for installing `fast_io` exist:
+
+ 1. Use a daily build, install `uasyncio` as per the tutorial then replace the
+ above files.
+ 2. Build the firmware with the `fast_io` version implemented as frozen
+ bytecode.
+ 3. Use a release build. Install as in 1. above. Then change the module search
+ order by modifying `sys.path`. The initial entry `''` specifies frozen
+ bytecode. If this is deleted and appended to the end, frozen files will only
+ be found if there is no match in the filesystem.
+
+See [ESP Platforms](./FASTPOLL.md#6-esp-platforms) for general comments on the
 suitability of ESP platforms for systems requiring fast response.
-
-It is possible to load modules in the filesystem in preference to frozen ones
-by modifying `sys.path`. However the ESP8266 probably has too little RAM for
-this to be useful.
 
 ## 1.1 Benchmarks
 

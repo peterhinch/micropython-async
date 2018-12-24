@@ -35,10 +35,20 @@ This repository comprises the following parts.
  
 # 2. Version and installation of uasyncio
 
+As of 24th Dec 2018 Paul Sokolovsky has released uasyncio V2.2. This version
+is on PyPi and requires his [Pycopy](https://github.com/pfalcon/micropython)
+fork of MicroPython.
+
+I support only the official build of MicroPython. The library code guaranteed
+to work with this build is in [micropython-lib](https://github.com/micropython/micropython-lib).
+Most of the resources in here should work with Paul's forks (the great majority
+work with CPython). I am unlikely to fix issues which are only evident in an
+unofficial fork.
+
 The documentation and code in this repository assume `uasyncio` version
-2.0.x, which is the version on PyPi and in the official micropython-lib. This
-requires firmware dated 22nd Feb 2018 or later. Use of the stream I/O mechanism
-requires firmware after 17th June 2018.
+2.0.x, the version in [micropython-lib](https://github.com/micropython/micropython-lib).
+This requires firmware dated 22nd Feb 2018 or later. Use of the stream I/O
+mechanism requires firmware after 17th June 2018.
 
 See [tutorial](./TUTORIAL.md#installing-uasyncio-on-bare-metal) for
 installation instructions.
