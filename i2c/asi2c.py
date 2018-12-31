@@ -37,6 +37,7 @@ _MP_STREAM_ERROR = const(-1)
 # Initiator sets up first.
 _DELAY = const(20)  # μs
 
+
 # Base class provides user interface and send/receive object buffers
 class Channel(io.IOBase):
     def __init__(self, i2c, own, rem, verbose, rxbufsize):
@@ -80,7 +81,7 @@ class Channel(io.IOBase):
         self.txsiz[0] = 0
         self.txsiz[1] = 0
 
-# Stream interface
+    # Stream interface
 
     def ioctl(self, req, arg):
         ret = _MP_STREAM_ERROR
@@ -102,7 +103,7 @@ class Channel(io.IOBase):
             self.rxbyt = b''
         else:
             t = self.rxbyt[: n + 1]
-            self.rxbyt = self.rxbyt[n + 1 :]
+            self.rxbyt = self.rxbyt[n + 1:]
         return t.decode()
 
     def read(self, n):
@@ -120,7 +121,7 @@ class Channel(io.IOBase):
             if off == 0 and sz == len(buf):
                 d = buf
             else:
-                d = buf[off : off + sz]
+                d = buf[off: off + sz]
             d = d.encode()
             l = len(d)
             self.txbyt = d
@@ -129,7 +130,7 @@ class Channel(io.IOBase):
             return l
         return 0
 
-# User interface
+    # User interface
 
     # Wait for sync
     async def ready(self):
@@ -140,6 +141,7 @@ class Channel(io.IOBase):
     def close(self):
         self.own(1)
 
+
 # Responder is I2C master. It is cross-platform and uses machine.
 # It does not handle errors: if I2C fails it dies and awaits reset by initiator.
 # send_recv is triggered by Interrupt from Initiator.
@@ -147,6 +149,7 @@ class Channel(io.IOBase):
 class Responder(Channel):
     addr = 0x12
     rxbufsize = 200
+
     def __init__(self, i2c, pin, pinack, verbose=True):
         super().__init__(i2c, pinack, pin, verbose, self.rxbufsize)
         loop = asyncio.get_event_loop()
@@ -154,13 +157,13 @@ class Responder(Channel):
 
     async def _run(self):
         await self._sync()  # own pin ->0, wait for remote pin == 0
-        self.rem.irq(handler = self._handler, trigger = machine.Pin.IRQ_RISING)
+        self.rem.irq(handler=self._handler, trigger=machine.Pin.IRQ_RISING)
 
     # Request was received: immediately read payload size, then payload
     # On Pyboard blocks for 380μs to 1.2ms for small amounts of data
     def _handler(self, _, sn=bytearray(2), txnull=bytearray(2)):
         addr = Responder.addr
-        self.rem.irq(handler = None, trigger = machine.Pin.IRQ_RISING)
+        self.rem.irq(handler=None, trigger=machine.Pin.IRQ_RISING)
         utime.sleep_us(_DELAY)  # Ensure Initiator has set up to write.
         self.i2c.readfrom_into(addr, sn)
         self.own(1)
@@ -173,7 +176,7 @@ class Responder(Channel):
         if n:
             self.waitfor(1)
             utime.sleep_us(_DELAY)
-            mv = memoryview(self.rx_mv[0 : n])  # allocates
+            mv = memoryview(self.rx_mv[0: n])  # allocates
             self.i2c.readfrom_into(addr, mv)
             self.own(1)
             self.waitfor(0)
@@ -200,4 +203,4 @@ class Responder(Channel):
             self.own(0)
             self.waitfor(0)
             self._txdone()  # Invalidate source
-        self.rem.irq(handler = self._handler, trigger = machine.Pin.IRQ_RISING)
+        self.rem.irq(handler=self._handler, trigger=machine.Pin.IRQ_RISING)

@@ -29,6 +29,7 @@ import utime
 import gc
 from asi2c import Channel
 
+
 # The initiator is an I2C slave. It runs on a Pyboard. I2C uses pyb for slave
 # mode, but pins are instantiated using machine.
 # reset (if provided) is a means of resetting Responder in case of error: it
@@ -46,7 +47,7 @@ class Initiator(Channel):
         self.cr_fail = cr_fail
         self.f_args = f_args
         if reset is not None:
-            reset[0].init(mode=machine.Pin.OUT, value = not(reset[1]))
+            reset[0].init(mode=machine.Pin.OUT, value=not (reset[1]))
         # Self measurement
         self.nboots = 0  # No. of reboots of Responder
         self.block_max = 0  # Blocking times: max
@@ -109,7 +110,7 @@ class Initiator(Channel):
         # send. Send must start before RX begins. Fast responders may need to
         # do a short blocking wait to guarantee this.
         self.own(1)  # Trigger interrupt.
-        self.i2c.send(siz) # Blocks until RX complete.
+        self.i2c.send(siz)  # Blocks until RX complete.
         self.waitfor(1)
         self.own(0)
         self.waitfor(0)
@@ -132,9 +133,9 @@ class Initiator(Channel):
         self.cantx = not bool(sn[1] & 0x80)
         if n:
             self.waitfor(1)  # Wait for responder to request send
-            #print('setting up receive', n,' bytes')
+            # print('setting up receive', n,' bytes')
             self.own(1)  # Acknowledge
-            mv = memoryview(self.rx_mv[0 : n])
+            mv = memoryview(self.rx_mv[0: n])
             self.i2c.recv(mv)
             self.waitfor(0)
             self.own(0)
