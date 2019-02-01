@@ -115,7 +115,6 @@ class Switch(object):
         return self.switchstate
 
     async def switchcheck(self):
-        loop = asyncio.get_event_loop()
         while True:
             state = self.pin.value()
             if state != self.switchstate:

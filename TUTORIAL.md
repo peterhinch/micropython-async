@@ -904,7 +904,9 @@ Timeouts are implemented by means of `uasyncio.wait_for()`. This takes as
 arguments a coroutine and a timeout in seconds. If the timeout expires a
 `TimeoutError` will be thrown to the coro in such a way that the next time the
 coro is scheduled for execution the exception will be raised. The coro should
-trap this and quit.
+trap this and quit; alternatively the calling coro should trap and ignore the
+exception. If the exception is not trapped the code will hang: this appears to
+be a bug in `uasyncio` V2.0.
 
 ```python
 import uasyncio as asyncio
@@ -920,6 +922,27 @@ async def forever():
 
 async def foo():
     await asyncio.wait_for(forever(), 5)
+    await asyncio.sleep(2)
+
+loop = asyncio.get_event_loop()
+loop.run_until_complete(foo())
+```
+Alternatively:
+```python
+import uasyncio as asyncio
+
+async def forever():
+    print('Starting')
+    while True:
+        await asyncio.sleep_ms(300)
+        print('Got here')
+
+async def foo():
+    try:
+        await asyncio.wait_for(forever(), 5)
+    except asyncio.TimeoutError:
+        pass
+    print('Timeout elapsed.')
     await asyncio.sleep(2)
 
 loop = asyncio.get_event_loop()
