@@ -891,10 +891,7 @@ comes from the `Lock` class:
 If the `async with` has an `as variable` clause the variable receives the
 value returned by `__aenter__`.
 
-There was a bug in the implementation whereby if an explicit `return` was issued
-within an `async with` block, the `__aexit__` method was not called. This was
-fixed as of 27th June 2018 [PR 3890](https://github.com/micropython/micropython/pull/3890)
-but the fix was too late for the current release build (V1.9.4).
+To ensure correct behaviour firmware should be V1.9.10 or later.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
