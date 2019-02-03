@@ -959,8 +959,10 @@ in a loop. The coro `asyn.sleep` [supports this](./PRIMITIVES.md#41-coro-sleep).
 
 Where an exception occurs in a coro, it should be trapped either in that coro
 or in a coro which is awaiting its completion. This ensures that the exception
-is not propagated to the scheduler. If this occurred it would stop running,
-passing the exception to the code which started the scheduler.
+is not propagated to the scheduler. If this occurred the scheduler would stop
+running, passing the exception to the code which started the scheduler.
+Consequently, to avoid stopping the scheduler, coros launched with
+`loop.create_task()` must trap any exceptions internally.
 
 Using `throw` or `close` to throw an exception to a coro is unwise. It subverts
 `uasyncio` by forcing the coro to run, and possibly terminate, when it is still
