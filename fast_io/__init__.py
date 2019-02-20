@@ -103,7 +103,7 @@ class PollEventLoop(EventLoop):
                 if isinstance(cb, tuple):
                     cb[0](*cb[1])
                 else:
-                    cb.pend_throw(None)  # Clears the pend_throw(False) executed when IOWrite was yielded
+                    cb.pend_throw(None)  # Ensure that, if task is cancelled, it doesn't get queued again
                     self._call_io(cb)  # Put coro onto runq (or ioq if one exists)
             if ev & select.POLLIN:
                 cb = self.rdobjmap[id(sock)]

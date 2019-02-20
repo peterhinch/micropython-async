@@ -200,7 +200,8 @@ class EventLoop:
                                 if isinstance(ret, After):
                                     delay = int(delay*1000)
                         elif isinstance(ret, IORead):  # coro was a StreamReader read method
-                            cb.pend_throw(False)  # Why? I think this is for debugging. If it is scheduled other than by wait
+                            cb.pend_throw(False)  # If task is cancelled or times out, it is put on runq to process exception.
+                            # Note if it is scheduled other than by wait
                             # (which does pend_throw(None) an exception (exception doesn't inherit from Exception) is thrown
                             self.add_reader(arg, cb)  # Set up select.poll for read and store the coro in object map
                             continue  # Don't reschedule. Coro is scheduled by wait() when poll indicates h/w ready
@@ -361,7 +362,7 @@ sleep_ms = SleepMs()
 
 def cancel(coro):
     prev = coro.pend_throw(CancelledError())
-    if prev is False:
+    if prev is False:  # Not on runq so put it there
         _event_loop.call_soon(coro)
 
 
