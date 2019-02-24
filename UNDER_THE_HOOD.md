@@ -102,7 +102,8 @@ b = my_coro.pend_throw(None)  # Coro can now safely be executed
 ```
 In the above instance `a` will be `None` if it was the first call to
 `pend_throw` and `b` will be 42. This is used to determine if a paused task is
-on a `timeq` or waiting on I/O.
+on a `timeq` or waiting on I/O. A task on a `timeq` will have an integer value,
+being the `ID` of the task; one pending I/O will have `False`.
 
 If a coro is actually run, the only acceptable stored values are `None` or an
 exception. The error "exception must be derived from base exception" indicates
@@ -241,9 +242,9 @@ time the coro is scheduled.
 In the `fast_io` version the `cancel` function puts the task onto `.runq` or
 `.ioq` for "immediate" excecution. In the case where the task is on `.waitq` or
 `.lpq` the task ID is added to a `set` `.canned`. When the task reaches the top
-of the timeq it is discarded. This pure Python approach is less efficient than
-that in the Paul Sokolovsky fork, but his approach uses a special version of
-the C `utimeq` object and so requires his firmware.
+of the timeq it is ignored and removed from `.canned`. This Python approach is
+less efficient than that in the Paul Sokolovsky fork, but his approach uses a
+special version of the C `utimeq` object and so requires his firmware.
 
 Timeouts use a similar mechanism.
 

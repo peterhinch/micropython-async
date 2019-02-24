@@ -32,7 +32,7 @@ asyncio and includes a section for complete beginners.
    4.1.2 [Awaiting a coro](./TUTORIAL.md#412-awaiting-a-coro)  
   4.2 [Asynchronous iterators](./TUTORIAL.md#42-asynchronous-iterators)  
   4.3 [Asynchronous context managers](./TUTORIAL.md#43-asynchronous-context-managers)  
- 5 [Exceptions timeouts and cancellation](./TUTORIAL.md#45-exceptions-timeouts-and-cancellation)  
+ 5. [Exceptions timeouts and cancellation](./TUTORIAL.md#5-exceptions-timeouts-and-cancellation)  
   5.1 [Exceptions](./TUTORIAL.md#51-exceptions)  
   5.2 [Cancellation and Timeouts](./TUTORIAL.md#52-cancellation-and-timeouts)  
    5.2.1 [Task cancellation](./TUTORIAL.md#521-task-cancellation)  
@@ -892,10 +892,11 @@ is complete.
 There is currently a wokround and two solutions.
  * Workround: the `asyn` library provides means of waiting on cancellation of
  tasks or groups of tasks. See [Task Cancellation](./PRIMITIVES.md#4-task-cancellation).
- * Paul Sokolovsky's library fork provides `uasyncio` V2.4, but this requires
- his [Pycopy](https://github.com/pfalcon/micropython) firmware.
- * The `fast_io` fork also solves this (in a less elegant manner) and runs
- under official firmware.
+ * [Paul Sokolovsky's library fork](https://github.com/pfalcon/micropython-lib)
+ provides `uasyncio` V2.4, but this requires his
+ [Pycopy](https://github.com/pfalcon/micropython) firmware.
+ * The [fast_io](./FASTPOLL.md) fork of `uasyncio` solves this in Python (in a
+ less elegant manner) and runs under official firmware.
 
 The exception hierarchy used here is `Exception-CancelledError-TimeoutError`.
 

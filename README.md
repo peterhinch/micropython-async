@@ -120,10 +120,10 @@ employ stream I/O. To operate at low latency they are simply run under the
 has details of how to write streaming drivers.
 
 The current `fast_io` version 0.24 fixes an issue with task cancellation and
-timeouts. In version 2.0, where a coroutine is waiting on a `sleep()` or on
-I/O, a timeout or cancellation are deferred until the coroutine is next
-scheduled. This introduces uncertainty into when the coroutine is stopped. This
-issue is also addressed in Paul Sokolovsky's fork.
+timeouts. In `uasyncio` version 2.0, where a coroutine is waiting on a
+`sleep()` or on I/O, a timeout or cancellation is deferred until the coroutine
+is next scheduled. This introduces uncertainty into when the coroutine is
+stopped. This issue is also addressed in Paul Sokolovsky's fork.
 
 ## 4.1 A Pyboard-only low power module
 

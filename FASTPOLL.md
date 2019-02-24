@@ -40,7 +40,7 @@ changes should be minimal.
 #### Changes incompatible with prior versions
 
 V0.24  
-The `version` bound variable now retuens a 2-tuple.
+The `version` bound variable now returns a 2-tuple.
 
 Prior versions.  
 The high priority mechanism formerly provided in `asyncio_priority.py` was a
