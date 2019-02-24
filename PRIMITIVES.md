@@ -38,7 +38,6 @@ obvious workround is to produce a version with unused primitives removed.
   4.3 [Class NamedTask](./PRIMITIVES.md#43-class-namedtask) Associate tasks with names for cancellation.  
    4.3.1 [Latency and Barrier objects](./PRIMITIVES.md#431-latency-and-barrier-objects)  
    4.3.2 [Custom cleanup](./PRIMITIVES.md#432-custom-cleanup)  
-   4.3.3 [Changes](./PRIMITIVES.md#433-changes) June 2018 asyn API changes affecting cancellation.
 
 ## 1.1 Synchronisation Primitives
 
@@ -456,18 +455,46 @@ loop.run_until_complete(main(loop))
 
 # 4. Task Cancellation
 
-This has been under active development. Existing users please see
-[Changes](./PRIMITIVES.md#433-changes) for recent API changes.
+All current `uasyncio` versions have a `cancel(coro)` function. This works by
+throwing an exception to the coro in a special way: cancellation is deferred
+until the coro is next scheduled. This mechanism works with nested coros.
 
-`uasyncio` now provides a `cancel(coro)` function. This works by throwing an
-exception to the coro in a special way: cancellation is deferred until the coro
-is next scheduled. This mechanism works with nested coros. However there is a
-limitation. If a coro issues `await uasyncio.sleep(secs)` or
-`await uasyncio.sleep_ms(ms)` scheduling will not occur until the time has
-elapsed. This introduces latency into cancellation which matters in some
-use-cases. Other potential sources of latency take the form of slow code. 
-`uasyncio` has no mechanism for verifying when cancellation has actually
-occurred. The `asyn.py` library provides solutions in the form of two classes.
+There is a limitation with official `uasyncio` V2.0. In this version a coro
+which is waiting on a `sleep()` or `sleep_ms()` or pending I/O will not get the
+exception until it is next scheduled. This means that cancellation can take a
+long time: there is often a need to be able to verify when this has occurred.
+
+This problem can now be circumvented in two ways both involving running
+unofficial code. The solutions fix the problem by ensuring that the cancelled
+coro is scheduled promptly. Assuming `my_coro` is coded normally the following
+will ensure that cancellation is complete, even if `my_coro` is paused at the
+time of cancellation:
+```python
+my_coro_instance = my_coro()
+loop.add_task(my_coro_instance)
+# Do something
+asyncio.cancel(my_coro_instance)
+await asyncio.sleep(0)
+# The task is now cancelled
+```
+The unofficial solutions are:
+ * To run the `fast_io` version of `uasyncio` presented her, with official
+ MicroPython firmware.
+ * To run [Paul Sokolovsky's Pycopy firmware fork](https://github.com/pfalcon/pycopy)
+ plus `uasyncio` V2.4 from
+ [Paul Sokolovsky's library fork](https://github.com/pfalcon/micropython-lib)
+
+The following describes workrounds for those wishing to run official code (for
+example the current realease build which includes `uasyncio` V2.0). There is
+usually a need to establish when cancellation has occured: the classes and 
+decorators described below facilitate this.
+
+If a coro issues `await uasyncio.sleep(secs)` or `await uasyncio.sleep_ms(ms)`
+scheduling will not occur until the time has elapsed. This introduces latency
+into cancellation which matters in some use-cases. Other potential sources of
+latency take the form of slow code. `uasyncio` V2.0 has no mechanism for
+verifying when cancellation has actually occurred. The `asyn.py` library
+provides solutions in the form of two classes.
 
 These are `Cancellable` and `NamedTask`. The `Cancellable` class allows the
 creation of named groups of tasks which may be cancelled as a group; this
@@ -758,19 +785,5 @@ async def foo():
     else:
         return True  # Normal exit
 ```
-
-### 4.3.3 Changes
-
-The `NamedTask` class has been rewritten as a subclass of `Cancellable`. This
-is to simplify the code and to ensure accuracy of the `is_running` method. The
-latest API changes are:  
- * `Cancellable.stopped()` is no longer a public method.
- * `NamedTask.cancel()` is now asynchronous.
- * `NamedTask` and `Cancellable` coros no longer receive a `TaskId` instance as
- their 1st arg.
- * `@asyn.namedtask` still works but is now an alias for `@asyn.cancellable`.
-
-The drive to simplify code comes from the fact that `uasyncio` is itself under
-development. Tracking changes is an inevitable headache.
 
 ###### [Contents](./PRIMITIVES.md#contents)

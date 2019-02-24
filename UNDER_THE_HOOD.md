@@ -11,25 +11,24 @@ wishing to modify it.
 
  1. [Introduction](./UNDER_THE_HOOD.md#1-introduction)  
  2. [Generators and coroutines](./UNDER_THE_HOOD.md#2-generators-and-coroutines)  
+  2.1 [pend_throw](./UNDER_THE_HOOD.md#21-pend_throw)  
  3. [Coroutine yield types](./UNDER_THE_HOOD.md#3-coroutine-yield-types)  
   3.1 [SysCall1 classes](./UNDER_THE_HOOD.md#31-syscall1-classes)  
  4. [The EventLoop](./UNDER_THE_HOOD.md#4-the-eventloop)  
   4.1 [Exceptions](./UNDER_THE_HOOD.md#41-exceptions)  
-  4.2 [Task Cancellation](./UNDER_THE_HOOD.md#42-task-cancellation)  
+  4.2 [Task Cancellation and Timeouts](./UNDER_THE_HOOD.md#42-task-cancellation-and-timeouts)  
  5. [Stream I/O](./UNDER_THE_HOOD.md#5-stream-io)  
   5.1 [StreamReader](./UNDER_THE_HOOD.md#51-streamreader)  
   5.2 [StreamWriter](./UNDER_THE_HOOD.md#52-streamwriter)  
   5.3 [PollEventLoop wait method](./UNDER_THE_HOOD.md#53-polleventloop-wait-method)  
- 6. [Debug code](./UNDER_THE_HOOD.md#6-debug-code)  
- 7. [Modifying uasyncio](./UNDER_THE_HOOD.md#7-modifying-uasyncio)  
- 8. [Links](./UNDER_THE_HOOD.md#8-links)
+ 6. [Modifying uasyncio](./UNDER_THE_HOOD.md#6-modifying-uasyncio)  
+ 7. [Links](./UNDER_THE_HOOD.md#7-links)
 
 # 1. Introduction
 
 Where the versions differ, this explanation relates to the `fast_io` version.
-Differences are largely in `__init__.py`: the scheduling algorithm in `core.py`
-is little changed. Note that the code in `fast_io` contains additional comments
-to explain its operation. The code the `fast_io` directory is also in
+Note that the code in `fast_io` contains additional comments to explain its
+operation. The code the `fast_io` directory is also in
 [my micropython-lib fork](https://github.com/peterhinch/micropython-lib.git),
 `uasyncio-io-fast-and-rw` branch.
 
@@ -54,7 +53,7 @@ fast_io/__init__.py
 fast_io/core.py
 ```
 
-This has additional comments to aid in its understanding.
+This has additional code comments to aid in its understanding.
 
 ###### [Main README](./README.md)
 
@@ -81,7 +80,33 @@ execution to the generator instantiated by `bar()` does not involve the
 scheduler. `asyncio.sleep` is a generator function so `await asyncio.sleep(1)`
 creates a generator and transfers execution to it via `yield from`. The
 generator yields a value of 1000; this is passed to the scheduler to invoke the
-delay (see below).
+delay by placing the coro onto a `timeq` (see below).
+
+## 2.1 pend_throw
+
+Generators in MicroPython have a nonstandard method `pend_throw`. The Python
+`throw` method causes the generator immediately to run and to handle the passed
+exception. `pend_throw` retains the exception until the generator (coroutine)
+is next scheduled, when the exception is raised. In `fast_io` the task
+cancellation and timeout mechanisms aim to ensure that the task is scheduled as
+soon as possible to minimise latency.
+
+The `pend_throw` method serves a secondary purpose in `uasyncio`: to store
+state in a coro which is paused pending execution. This works because the
+object returned from `pend_throw` is that which was previously passed to it, or
+`None` on the first call.
+
+```python
+a = my_coro.pend_throw(42)
+b = my_coro.pend_throw(None)  # Coro can now safely be executed
+```
+In the above instance `a` will be `None` if it was the first call to
+`pend_throw` and `b` will be 42. This is used to determine if a paused task is
+on a `timeq` or waiting on I/O.
+
+If a coro is actually run, the only acceptable stored values are `None` or an
+exception. The error "exception must be derived from base exception" indicates
+an error in the scheduler whereby this constraint has not been satisfied.
 
 ###### [Contents](./UNDER_THE_HOOD.md#0-contents)
 
@@ -111,7 +136,7 @@ so `ret` contains the object yielded. Subsequent scheduler behaviour depends on
 the type of that object. The following object types are handled:
 
  * `None` The coro is rescheduled and will run in round-robin fashion.  
- Hence `yield` is functionally equivalent to `await asyncio.sleep(0)`
+ Hence `yield` is functionally equivalent to `await asyncio.sleep(0)`.
  * An integer `N`: equivalent to `await asyncio.sleep_ms(N)`.
  * `False` The coro terminates and is not rescheduled.
  * A coro/generator: the yielded coro is scheduled. The coro which issued the
@@ -148,14 +173,14 @@ The file `core.py` defines an `EventLoop` class which is subclassed by
 `PollEventLoop` in `__init__.py`. The latter extends the base class to support
 stream I/O. In particular `.wait()` is overridden in the subclass.
 
-The `fast_io` `EventLoop` maintains three queues, `.runq`, `.waitq` and `.ioq`,
-although `.ioq` is only instantiated if it is specified. Official `uasyncio`
-does not have `.ioq`.
+The `fast_io` `EventLoop` maintains four queues, `.runq`, `.waitq`, `.lpq` and
+`.ioq`. The latter two are only instantiated if specified to the
+`get_event_loop` method. Official `uasyncio` does not have `.lpq` or `.ioq`.
 
 Tasks are appended to the bottom of the run queue and retrieved from the top;
 in other words it is a First In First Out (FIFO) queue. The I/O queue is
-similar. Tasks on the wait queue are sorted in order of the time when they are
-to run, the task having the soonest time to run at the top.
+similar. Tasks on `.waitq` and `.lpq` are sorted in order of the time when they
+are to run, the task having the soonest time to run at the top.
 
 When a task issues `await asyncio.sleep(t)` or `await asyncio.sleep_ms(t)` and
 t > 0 the task is placed on the wait queue. If t == 0 it is placed on the run
@@ -175,7 +200,7 @@ this queue will run (even when tasks are appended).
 
 The topmost task/callback is removed and run. If it is a callback the loop
 iterates to the next entry. If it is a task, it runs then either yields or
-raises an exception. If it yields the return type is examined as described
+raises an exception. If it yields, the return type is examined as described
 above. If the task yields with a zero delay it will be appended to the run
 queue, but as described above it will not be rescheduled in this pass through
 the queue. If it yields a nonzero delay it will be added to `.waitq` (it has
@@ -205,13 +230,22 @@ the run queue - the task is simply not rescheduled.
 If an unhandled exception occurs in a task this will be propagated to the
 caller of `run_forever()` or `run_until_complete` a explained in the tutorial.
 
-## 4.2 Task Cancellation
+## 4.2 Task Cancellation and Timeouts
 
 The `cancel` function uses `pend_throw` to pass a `CancelledError` to the coro
 to be cancelled. The generator's `.throw` and `.close` methods cause the coro
 to execute code immediately. This is incorrect behaviour for a de-scheduled
 coro. The `.pend_throw` method causes the exception to be processed the next
 time the coro is scheduled.
+
+In the `fast_io` version the `cancel` function puts the task onto `.runq` or
+`.ioq` for "immediate" excecution. In the case where the task is on `.waitq` or
+`.lpq` the task ID is added to a `set` `.canned`. When the task reaches the top
+of the timeq it is discarded. This pure Python approach is less efficient than
+that in the Paul Sokolovsky fork, but his approach uses a special version of
+the C `utimeq` object and so requires his firmware.
+
+Timeouts use a similar mechanism.
 
 ###### [Contents](./UNDER_THE_HOOD.md#0-contents)
 
@@ -289,36 +323,7 @@ Writing is handled similarly.
 
 ###### [Contents](./UNDER_THE_HOOD.md#0-contents)
 
-# 6. Debug code
-
-The official `uasyncio` contains considerable explicit debug code: schedulers
-are hard to debug.
-
-There is also code which I believe is for debugging purposes including some I
-have added myself for this purpose. The aim is to ensure that, if an error
-causes a coro to be scheduled when it shouldn't be, an exception is thrown. The
-alternative is weird, hard to diagnose, behaviour.
-
-Consider these instances:
-[pend_throw(false)](https://github.com/peterhinch/micropython-lib/blob/f20d89c6aad9443a696561ca2a01f7ef0c8fb302/uasyncio.core/uasyncio/core.py#L119)
-also [here](https://github.com/peterhinch/micropython-lib/blob/f20d89c6aad9443a696561ca2a01f7ef0c8fb302/uasyncio.core/uasyncio/core.py#L123).  
-I think the intention here is to throw an exception (exception doesn't inherit
-from Exception) if it is scheduled incorrectly. Correct scheduling countermands
-this
-[here](https://github.com/peterhinch/micropython-lib/blob/819562312bae807ce0d01aa8ad36a13c22ba9e40/uasyncio/uasyncio/__init__.py#L97)
-and [here](https://github.com/peterhinch/micropython-lib/blob/819562312bae807ce0d01aa8ad36a13c22ba9e40/uasyncio/uasyncio/__init__.py#L114):
-these lines ensures that the exception will not be thrown. If my interpretation
-of this is wrong I'd be very glad to be enlightened.
-
-The `rdobjmap` and `wrobjmap` dictionary entries are invalidated
-[here](https://github.com/peterhinch/micropython-lib/blob/819562312bae807ce0d01aa8ad36a13c22ba9e40/uasyncio/uasyncio/__init__.py#L91)
-and [here](https://github.com/peterhinch/micropython-lib/blob/819562312bae807ce0d01aa8ad36a13c22ba9e40/uasyncio/uasyncio/__init__.py#L101).
-This has the same aim: if an attempt is made incorrectly to reschedule them, an
-exception is thrown.
-
-###### [Contents](./UNDER_THE_HOOD.md#0-contents)
-
-# 7. Modifying uasyncio
+# 6. Modifying uasyncio
 
 The library is designed to be extensible. By following these guidelines a
 module can be constructed which alters the functionality of asyncio without the
@@ -352,7 +357,7 @@ def get_event_loop(args):
 
 ###### [Contents](./UNDER_THE_HOOD.md#0-contents)
 
-# 8. Links
+# 7. Links
 
 Initial discussion of priority I/O scheduling [here](https://github.com/micropython/micropython/issues/2664).  
 

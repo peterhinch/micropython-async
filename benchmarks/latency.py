@@ -20,7 +20,7 @@
 import uasyncio as asyncio
 lp_version = True
 try:
-    if asyncio.version != 'fast_io':
+    if not(isinstance(asyncio.version, tuple)):
         raise AttributeError
 except AttributeError:
     lp_version = False

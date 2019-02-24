@@ -4,10 +4,10 @@
 import pyb
 import uasyncio as asyncio
 try:
-    if asyncio.version != 'fast_io':
+    if not(isinstance(asyncio.version, tuple)):
         raise AttributeError
 except AttributeError:
-    raise OSError('This program requires uasyncio fast_io version.')
+    raise OSError('This program requires uasyncio fast_io version V0.24 or above.')
 
 loop = asyncio.get_event_loop(lp_len=16)
 

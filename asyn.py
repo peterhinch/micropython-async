@@ -2,7 +2,6 @@
 # Test/demo programs asyntest.py, barrier_test.py
 # Provides Lock, Event, Barrier, Semaphore, BoundedSemaphore, Condition,
 # NamedTask and Cancellable classes, also sleep coro.
-# Uses low_priority where available and appropriate.
 # Updated 31 Dec 2017 for uasyncio.core V1.6 and to provide task cancellation.
 
 # The MIT License (MIT)
@@ -136,8 +135,6 @@ class Event():
 # it. The use of nowait promotes efficiency by enabling tasks which have been
 # cancelled to leave the task queue as soon as possible.
 
-# Uses low_priority if available
-
 class Barrier():
     def __init__(self, participants, func=None, args=()):
         self._participants = participants
@@ -235,7 +232,7 @@ class TaskId():
         return self.taskid
 
 # Sleep coro breaks up a sleep into shorter intervals to ensure a rapid
-# response to StopTask exceptions
+# response to StopTask exceptions. Only relevant to official uasyncio V2.0.
 async def sleep(t, granularity=100):  # 100ms default
     if granularity <= 0:
         raise ValueError('sleep granularity must be > 0')

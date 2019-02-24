@@ -5,15 +5,11 @@
 
 # Check availability of 'priority' version
 import uasyncio as asyncio
-p_version = True
 try:
-    if asyncio.version != 'fast_io':
+    if not(isinstance(asyncio.version, tuple)):
         raise AttributeError
 except AttributeError:
-    p_version = False
-
-if not p_version:
-    raise OSError('This program requires uasyncio fast_io version.')
+    raise OSError('This program requires uasyncio fast_io version V0.24 or above.')
 
 loop = asyncio.get_event_loop(lp_len=16)
 import asyn

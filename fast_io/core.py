@@ -4,13 +4,13 @@
 # This is a fork of official MicroPython uasynco. It is recommended to use
 # the official version unless the specific features of this fork are required.
 
-# Changes copyright (c) Peter Hinch 2018
+# Changes copyright (c) Peter Hinch 2018, 2019
 # Code at https://github.com/peterhinch/micropython-async.git
 # fork: peterhinch/micropython-lib branch: uasyncio-io-fast-and-rw
 
-version = 'fast_io'
+version = ('fast_io', '0.24')
 try:
-    import rtc_time as time # Low power timebase using RTC
+    import rtc_time as time  # Low power timebase using RTC
 except ImportError:
     import utime as time
 import utimeq
@@ -43,9 +43,10 @@ class EventLoop:
 
     def __init__(self, runq_len=16, waitq_len=16, ioq_len=0, lp_len=0):
         self.runq = ucollections.deque((), runq_len, True)
-        self._max_overdue_ms = 0
+        self._max_od = 0
         self.lpq = utimeq.utimeq(lp_len) if lp_len else None
         self.ioq_len = ioq_len
+        self.canned = set()
         if ioq_len:
             self.ioq = ucollections.deque((), ioq_len, True)
             self._call_io = self._call_now
@@ -76,8 +77,8 @@ class EventLoop:
 
     def max_overdue_ms(self, t=None):
         if t is not None:
-            self._max_overdue_ms = int(t)
-        return self._max_overdue_ms
+            self._max_od = int(t)
+        return self._max_od
 
     # Low priority versions of call_later() call_later_ms() and call_at_()
     def call_after_ms(self, delay, callback, *args):
@@ -89,6 +90,8 @@ class EventLoop:
     def call_at_lp_(self, time, callback, *args):
         if self.lpq is not None:
             self.lpq.push(time, callback, args)
+            if isinstance(callback, type_gen):
+                callback.pend_throw(id(callback))
         else:
             raise OSError('No low priority queue exists.')
 
@@ -111,6 +114,8 @@ class EventLoop:
         if __debug__ and DEBUG:
             log.debug("Scheduling in waitq: %s", (time, callback, args))
         self.waitq.push(time, callback, args)
+        if isinstance(callback, type_gen):
+            callback.pend_throw(id(callback))
 
     def wait(self, delay):
         # Default wait implementation, to be overriden in subclasses
@@ -121,6 +126,18 @@ class EventLoop:
 
     def run_forever(self):
         cur_task = [0, 0, 0]
+        # Put a task on the runq unless it was cancelled
+        def runq_add():
+            if isinstance(cur_task[1], type_gen):
+                tid = id(cur_task[1])
+                if tid in self.canned:
+                    self.canned.remove(tid)
+                else:
+                    cur_task[1].pend_throw(None)
+                    self.call_soon(cur_task[1], *cur_task[2])
+            else:
+                self.call_soon(cur_task[1], *cur_task[2])
+
         while True:
             # Expire entries in waitq and move them to runq
             tnow = self.time()
@@ -129,7 +146,7 @@ class EventLoop:
                 to_run = False  # Assume no LP task is to run
                 t = self.lpq.peektime()
                 tim = time.ticks_diff(t, tnow)
-                to_run = self._max_overdue_ms > 0 and tim < -self._max_overdue_ms
+                to_run = self._max_od > 0 and tim < -self._max_od
                 if not (to_run or self.runq):  # No overdue LP task or task on runq
                     # zero delay tasks go straight to runq. So don't schedule LP if runq
                     to_run = tim <= 0  # True if LP task is due
@@ -138,7 +155,7 @@ class EventLoop:
                         to_run = time.ticks_diff(t, tnow) > 0 # No normal task is ready
                 if to_run:
                     self.lpq.pop(cur_task)
-                    self.call_soon(cur_task[1], *cur_task[2])
+                    runq_add()
 
             while self.waitq:
                 t = self.waitq.peektime()
@@ -148,7 +165,7 @@ class EventLoop:
                 self.waitq.pop(cur_task)
                 if __debug__ and DEBUG:
                     log.debug("Moving from waitq to runq: %s", cur_task[1])
-                self.call_soon(cur_task[1], *cur_task[2])
+                runq_add()
 
             # Process runq. This can append tasks to the end of .runq so get initial
             # length so we only process those items on the queue at the start.
@@ -200,9 +217,10 @@ class EventLoop:
                                 if isinstance(ret, After):
                                     delay = int(delay*1000)
                         elif isinstance(ret, IORead):  # coro was a StreamReader read method
-                            cb.pend_throw(False)  # If task is cancelled or times out, it is put on runq to process exception.
-                            # Note if it is scheduled other than by wait
-                            # (which does pend_throw(None) an exception (exception doesn't inherit from Exception) is thrown
+                            cb.pend_throw(False)  # Marks the task as waiting on I/O for cancellation/timeout
+                            # If task is cancelled or times out, it is put on runq to process exception.
+                            # Debug note: if task is scheduled other than by wait (which does pend_throw(None) 
+                            # an exception (exception doesn't inherit from Exception) is thrown
                             self.add_reader(arg, cb)  # Set up select.poll for read and store the coro in object map
                             continue  # Don't reschedule. Coro is scheduled by wait() when poll indicates h/w ready
                         elif isinstance(ret, IOWrite):  # coro was StreamWriter.awrite. Above comments apply.
@@ -225,8 +243,8 @@ class EventLoop:
                         self.call_soon(ret)  # append to .runq
                     elif isinstance(ret, int):  # If coro issued yield N, delay = N ms
                         delay = ret
-                    elif ret is None:  # coro issued yield. delay == 0 so line 195 will put the current task back on runq
-                        # Just reschedule
+                    elif ret is None:
+                        # coro issued yield. delay == 0 so code below will put the current task back on runq
                         pass
                     elif ret is False:
                         # yield False causes coro not to be rescheduled i.e. it stops.
@@ -362,8 +380,14 @@ sleep_ms = SleepMs()
 
 def cancel(coro):
     prev = coro.pend_throw(CancelledError())
-    if prev is False:  # Not on runq so put it there
-        _event_loop.call_soon(coro)
+    if prev is False:  # Waiting on I/O. Not on q so put it there.
+        _event_loop._call_io(coro)
+    elif isinstance(prev, int):  # On waitq or lpq
+        # task id
+        _event_loop.canned.add(prev)  # Alas this allocates
+        _event_loop._call_io(coro)  # Put on runq/ioq
+    else:
+        assert prev is None
 
 
 class TimeoutObj:
@@ -385,9 +409,14 @@ def wait_for_ms(coro, timeout):
             if __debug__ and DEBUG:
                 log.debug("timeout_func: cancelling %s", timeout_obj.coro)
             prev = timeout_obj.coro.pend_throw(TimeoutError())
-            #print("prev pend", prev)
-            if prev is False:
-                _event_loop.call_soon(timeout_obj.coro)
+            if prev is False:  # Waiting on I/O
+                _event_loop._call_io(timeout_obj.coro)
+            elif isinstance(prev, int):  # On waitq or lpq
+                # prev==task id
+                _event_loop.canned.add(prev)  # Alas this allocates
+                _event_loop._call_io(timeout_obj.coro)  # Put on runq/ioq
+            else:
+                assert prev is None
 
     timeout_obj = TimeoutObj(_event_loop.cur_task)
     _event_loop.call_later_ms(timeout, timeout_func, timeout_obj)

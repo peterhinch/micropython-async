@@ -25,42 +25,44 @@ asyncio and includes a section for complete beginners.
   3.4 [Semaphore](./TUTORIAL.md#34-semaphore)  
    3.4.1 [BoundedSemaphore](./TUTORIAL.md#341-boundedsemaphore)  
   3.5 [Queue](./TUTORIAL.md#35-queue)  
-  3.6 [Task cancellation](./TUTORIAL.md#36-task-cancellation)  
-  3.7 [Other synchronisation primitives](./TUTORIAL.md#37-other-synchronisation-primitives)  
+  3.6 [Other synchronisation primitives](./TUTORIAL.md#36-other-synchronisation-primitives)  
  4. [Designing classes for asyncio](./TUTORIAL.md#4-designing-classes-for-asyncio)  
   4.1 [Awaitable classes](./TUTORIAL.md#41-awaitable-classes)  
    4.1.1 [Use in context managers](./TUTORIAL.md#411-use-in-context-managers)  
    4.1.2 [Awaiting a coro](./TUTORIAL.md#412-awaiting-a-coro)  
   4.2 [Asynchronous iterators](./TUTORIAL.md#42-asynchronous-iterators)  
   4.3 [Asynchronous context managers](./TUTORIAL.md#43-asynchronous-context-managers)  
-  4.4 [Coroutines with timeouts](./TUTORIAL.md#44-coroutines-with-timeouts)  
-  4.5 [Exceptions](./TUTORIAL.md#45-exceptions)  
- 5. [Interfacing hardware](./TUTORIAL.md#5-interfacing-hardware)  
-  5.1 [Timing issues](./TUTORIAL.md#51-timing-issues)  
-  5.2 [Polling hardware with a coroutine](./TUTORIAL.md#52-polling-hardware-with-a-coroutine)  
-  5.3 [Using the stream mechanism](./TUTORIAL.md#53-using-the-stream-mechanism)  
-   5.3.1 [A UART driver example](./TUTORIAL.md#531-a-uart-driver-example)  
-  5.4 [Writing streaming device drivers](./TUTORIAL.md#54-writing-streaming-device-drivers)  
-  5.5 [A complete example: aremote.py](./TUTORIAL.md#55-a-complete-example-aremotepy)
+ 5 [Exceptions timeouts and cancellation](./TUTORIAL.md#45-exceptions-timeouts-and-cancellation)  
+  5.1 [Exceptions](./TUTORIAL.md#51-exceptions)  
+  5.2 [Cancellation and Timeouts](./TUTORIAL.md#52-cancellation-and-timeouts)  
+   5.2.1 [Task cancellation](./TUTORIAL.md#521-task-cancellation)  
+   5.2.2 [Coroutines with timeouts](./TUTORIAL.md#522-coroutines-with-timeouts)  
+ 6. [Interfacing hardware](./TUTORIAL.md#6-interfacing-hardware)  
+  6.1 [Timing issues](./TUTORIAL.md#61-timing-issues)  
+  6.2 [Polling hardware with a coroutine](./TUTORIAL.md#62-polling-hardware-with-a-coroutine)  
+  6.3 [Using the stream mechanism](./TUTORIAL.md#63-using-the-stream-mechanism)  
+   6.3.1 [A UART driver example](./TUTORIAL.md#631-a-uart-driver-example)  
+  6.4 [Writing streaming device drivers](./TUTORIAL.md#64-writing-streaming-device-drivers)  
+  6.5 [A complete example: aremote.py](./TUTORIAL.md#65-a-complete-example-aremotepy)
   A driver for an IR remote control receiver.  
-  5.6 [Driver for HTU21D](./TUTORIAL.md#56-htu21d-environment-sensor) A
+  6.6 [Driver for HTU21D](./TUTORIAL.md#66-htu21d-environment-sensor) A
   temperature and humidity sensor.  
- 6. [Hints and tips](./TUTORIAL.md#6-hints-and-tips)  
-  6.1 [Program hangs](./TUTORIAL.md#61-program-hangs)  
-  6.2 [uasyncio retains state](./TUTORIAL.md#62-uasyncio-retains-state)  
-  6.3 [Garbage Collection](./TUTORIAL.md#63-garbage-collection)  
-  6.4 [Testing](./TUTORIAL.md#64-testing)  
-  6.5 [A common error](./TUTORIAL.md#65-a-common-error) This can be hard to find.  
-  6.6 [Socket programming](./TUTORIAL.md#66-socket-programming)  
-  6.7 [Event loop constructor args](./TUTORIAL.md#67-event-loop-constructor-args)  
- 7. [Notes for beginners](./TUTORIAL.md#7-notes-for-beginners)  
-  7.1 [Problem 1: event loops](./TUTORIAL.md#71-problem-1:-event-loops)  
-  7.2 [Problem 2: blocking methods](./TUTORIAL.md#7-problem-2:-blocking-methods)  
-  7.3 [The uasyncio approach](./TUTORIAL.md#73-the-uasyncio-approach)  
-  7.4 [Scheduling in uasyncio](./TUTORIAL.md#74-scheduling-in-uasyncio)  
-  7.5 [Why cooperative rather than pre-emptive?](./TUTORIAL.md#75-why-cooperative-rather-than-pre-emptive)  
-  7.6 [Communication](./TUTORIAL.md#76-communication)  
-  7.7 [Polling](./TUTORIAL.md#77-polling)  
+ 7. [Hints and tips](./TUTORIAL.md#7-hints-and-tips)  
+  7.1 [Program hangs](./TUTORIAL.md#71-program-hangs)  
+  7.2 [uasyncio retains state](./TUTORIAL.md#72-uasyncio-retains-state)  
+  7.3 [Garbage Collection](./TUTORIAL.md#73-garbage-collection)  
+  7.4 [Testing](./TUTORIAL.md#74-testing)  
+  7.5 [A common error](./TUTORIAL.md#75-a-common-error) This can be hard to find.  
+  7.6 [Socket programming](./TUTORIAL.md#76-socket-programming)  
+  7.7 [Event loop constructor args](./TUTORIAL.md#77-event-loop-constructor-args)  
+ 8. [Notes for beginners](./TUTORIAL.md#8-notes-for-beginners)  
+  8.1 [Problem 1: event loops](./TUTORIAL.md#81-problem-1:-event-loops)  
+  8.2 [Problem 2: blocking methods](./TUTORIAL.md#8-problem-2:-blocking-methods)  
+  8.3 [The uasyncio approach](./TUTORIAL.md#83-the-uasyncio-approach)  
+  8.4 [Scheduling in uasyncio](./TUTORIAL.md#84-scheduling-in-uasyncio)  
+  8.5 [Why cooperative rather than pre-emptive?](./TUTORIAL.md#85-why-cooperative-rather-than-pre-emptive)  
+  8.6 [Communication](./TUTORIAL.md#86-communication)  
+  8.7 [Polling](./TUTORIAL.md#87-polling)  
 
 ###### [Main README](./README.md)
 
@@ -68,7 +70,7 @@ asyncio and includes a section for complete beginners.
 
 Most of this document assumes some familiarity with asynchronous programming.
 For those new to it an introduction may be found
-[in section 7](./TUTORIAL.md#7-notes-for-beginners).
+[in section 7](./TUTORIAL.md#8-notes-for-beginners).
 
 The MicroPython `uasyncio` library comprises a subset of Python's `asyncio`
 library. It is designed for use on microcontrollers. As such it has a small RAM
@@ -92,13 +94,12 @@ CPython V3.5 and above.
 ## 0.1 Installing uasyncio on bare metal
 
 If a release build of firmware is used no installation is necessary as uasyncio
-is compiled into the build. The current release build (V1.9.4) does not support
+is compiled into the build. The current release build (V1.9.10) now supports
 asynchronous stream I/O.
 
-The following instructions cover the case where a release build is not used or
-where a later official `uasyncio` version is required for stream I/O. The
-instructions have changed as the version on PyPi is no longer compatible with
-official MicroPython firmware.
+The following instructions cover the case where a release build is not used.
+The instructions have changed as the version on PyPi is no longer compatible
+with official MicroPython firmware.
 
 The following instructions describe copying the bare minimum of files to a
 target device, also the case where `uasyncio` is to be frozen into a compiled
@@ -110,8 +111,8 @@ Clone the library to a PC with
 ```
 git clone https://github.com/micropython/micropython-lib.git
 ```
-On the target hardware create a `uasyncio` directory and copy the following
-files to it:
+On the target hardware create a `uasyncio` directory (optionally under a
+directory `lib`) and copy the following files to it:
  * `uasyncio/uasyncio/__init__.py`
  * `uasyncio.core/uasyncio/core.py`
  * `uasyncio.synchro/uasyncio/synchro.py`
@@ -157,7 +158,7 @@ results by accessing Pyboard hardware.
  for 10s. The simplest uasyncio demo. Import it to run.
  2. [apoll.py](./apoll.py) A device driver for the Pyboard accelerometer.
  Demonstrates the use of a coroutine to poll a device. Runs for 20s. Import it
- to run.
+ to run. Requires a Pyboard V1.x.
  3. [astests.py](./astests.py) Test/demonstration programs for the
  [aswitch](./aswitch) module.
  4. [asyn_demos.py](./asyn_demos.py) Simple task cancellation demos.
@@ -187,7 +188,7 @@ results by accessing Pyboard hardware.
 
  1. [check_async_code.py](./check_async_code.py) A Python3 utility to locate a
  particular coding error which can be hard to find. See
- [para 6.5](./TUTORIAL.md#65-a-common-error).
+ [para 7.5](./TUTORIAL.md#75-a-common-error).
 
 **Benchmarks**
 
@@ -238,7 +239,7 @@ to `asyncio.get_event_loop()`. This takes two optional integer args being the
 lengths of the two coro queues. Typically both will have the same value being
 at least the number of concurrent coros in the application. The default of 16
 is usually sufficient. If using non-default values see
-[Event loop constructor args](./TUTORIAL.md#67-event-loop-constructor-args).
+[Event loop constructor args](./TUTORIAL.md#77-event-loop-constructor-args).
 
 If a coro needs to call an event loop method (usually `create_task`), calling
 `asyncio.get_event_loop()` (without args) will efficiently return it.
@@ -345,7 +346,7 @@ This is generally highly desirable, but it does introduce uncertainty in the
 timing as the calling routine will only be rescheduled when the one running at
 the appropriate time has yielded. The amount of latency depends on the design
 of the application, but is likely to be on the order of tens or hundreds of ms;
-this is discussed further in [Section 5](./TUTORIAL.md#5-interfacing-hardware).
+this is discussed further in [Section 6](./TUTORIAL.md#6-interfacing-hardware).
 
 Very precise delays may be issued by using the `utime` functions `sleep_ms`
 and `sleep_us`. These are best suited for short delays as the scheduler will
@@ -422,7 +423,7 @@ loop.run_until_complete(killer())  # Run for 10s
 ### 3.1.1 Locks and timeouts
 
 At time of writing (5th Jan 2018) the official `Lock` class is not complete.
-If a coro is subject to a [timeout](./TUTORIAL.md#44-coroutines-with-timeouts)
+If a coro is subject to a [timeout](./TUTORIAL.md#522-coroutines-with-timeouts)
 and the timeout is triggered while it is waiting on a lock, the timeout will be
 ineffective. It will not receive the `TimeoutError` until it has acquired the
 lock. The same observation applies to task cancellation.
@@ -602,133 +603,7 @@ controlled. Documentation of this is in the code.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
-## 3.6 Task cancellation
-
-`uasyncio` provides a `cancel(coro)` function. This works by throwing an
-exception to the coro in a special way: when the coro is next scheduled it
-receives the exception. This mechanism works with nested coros. Usage is as
-follows:
-```python
-async def foo():
-    while True:
-        # do something every 10 secs
-        await asyncio.sleep(10)
-
-async def bar(loop):
-    foo_instance = foo()  # Create a coroutine instance
-    loop.create_task(foo_instance)
-    # code omitted
-    asyncio.cancel(foo_instance)
-```
-In this example when `bar` issues `cancel` it will not take effect until `foo`
-is next scheduled. There is thus a latency of up to 10s in the cancellation of
-`foo`. Another source of latency would arise if `foo` waited on I/O. Where
-latency arises, `bar` cannot determine whether `foo` has yet been cancelled.
-This matters in some use-cases.
-
-In many applications it is necessary for the task performing cancellation to
-pause until all cancelled coros have actually stopped. If the task to be
-cancelled only pauses on zero delays and never waits on I/O, the round-robin
-nature of the scheduler avoids the need to verify cancellation:
-
-```python
-asyncio.cancel(my_coro)
-await asyncio.sleep(0)  # Ensure my_coro gets scheduled with the exception
- # my_coro will be cancelled now
-```
-This does require that all coros awaited by `my_coro` also meet the zero delay
-criterion. For the general case where latency exists, solutions are discussed
-below.
-
-Behaviour which may surprise the unwary arises when a coro to be cancelled is
-awaited rather than being launched by `create_task`. Consider this fragment:
-
-```python
-async def foo():
-    while True:
-        # do something every 10 secs
-        await asyncio.sleep(10)
-
-async def foo_runner(foo_instance):
-    await foo_instance
-    print('This will not be printed')
-
-async def bar(loop):
-    foo_instance = foo()
-    loop.create_task(foo_runner(foo_instance))
-    # code omitted
-    asyncio.cancel(foo_instance)
-```
-When `cancel` is called and `foo` is next scheduled it is removed from the
-scheduler's queue; because it lacks a `return` statement the calling routine
-`foo_runner` never resumes. The solution is to trap the exception:
-```python
-async def foo():
-    try:
-        while True:
-            # do something every 10 secs
-            await asyncio.sleep(10)
-    except asyncio.CancelledError:
-        return
-```
-
-In general `uasyncio` lacks a mechanism for verifying when cancellation has
-actually occurred. Ad-hoc mechanisms based on trapping `CancelledError` may be
-devised. For convenience the `asyn` library provides means of awaiting the
-cancellation of one or more coros via these classes:
-
- 1. `Cancellable` This allows one or more tasks to be assigned to a group. A
- coro can cancel all tasks in the group, pausing until this has been achieved.
- Documentation may be found [here](./PRIMITIVES.md#42-class-cancellable).
- 2. `NamedTask` This enables a coro to be associated with a user-defined name.
- The running status of named coros may be checked. For advanced usage more
- complex groupings of tasks can be created. Documentation may be found
- [here](./PRIMITIVES.md#43-class-namedtask).
-
-A typical use-case is as follows:
-
-```python
-async def comms():  # Perform some communications task
-    while True:
-        await initialise_link()
-        try:
-            await do_communications()  # Launches Cancellable tasks
-        except CommsError:
-            await Cancellable.cancel_all()
-        # All sub-tasks are now known to be stopped. They can be re-started
-        # with known initial state on next pass.
-```
-
-Examples of the usage of these classes may be found in `asyn_demos.py`. For an
-illustration of the mechanism a cancellable task is defined as below:
-
-```python
-@asyn.cancellable
-async def print_nums(num):
-    while True:
-        print(num)
-        num += 1
-        await asyn.sleep(1)
-```
-
-It is launched and cancelled with:
-
-```python
-async def foo():
-    loop = asyncio.get_event_loop()
-    loop.create_task(asyn.Cancellable(print_nums, 42)())
-    await asyn.sleep(7.5)
-    await asyn.Cancellable.cancel_all()
-    print('Done')
-```
-
-**Note** It is bad practice to issue the `close` or `throw` methods of a
-de-scheduled coro. This subverts the scheduler by causing the coro to execute
-code even though descheduled. This is likely to have unwanted consequences.
-
-###### [Contents](./TUTORIAL.md#contents)
-
-## 3.7 Other synchronisation primitives
+## 3.6 Other synchronisation primitives
 
 The [asyn.py](./asyn.py) library provides 'micro' implementations of CPython
 capabilities, namely the [Condition class](./PRIMITIVES.md#36-class-condition)
@@ -943,67 +818,13 @@ To ensure correct behaviour firmware should be V1.9.10 or later.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
-## 4.4 Coroutines with timeouts
+# 5 Exceptions timeouts and cancellation
 
-Timeouts are implemented by means of `uasyncio.wait_for()`. This takes as
-arguments a coroutine and a timeout in seconds. If the timeout expires a
-`TimeoutError` will be thrown to the coro in such a way that the next time the
-coro is scheduled for execution the exception will be raised. The coro should
-trap this and quit; alternatively the calling coro should trap and ignore the
-exception. If the exception is not trapped the code will hang: this appears to
-be a bug in `uasyncio` V2.0.
+These topics are related: `uasyncio` enables the cancellation of tasks, and the
+application of a timeout to a task, by throwing an exception to the task in a
+special way.
 
-```python
-import uasyncio as asyncio
-
-async def forever():
-    print('Starting')
-    try:
-        while True:
-            await asyncio.sleep_ms(300)
-            print('Got here')
-    except asyncio.TimeoutError:
-        print('Got timeout')
-
-async def foo():
-    await asyncio.wait_for(forever(), 5)
-    await asyncio.sleep(2)
-
-loop = asyncio.get_event_loop()
-loop.run_until_complete(foo())
-```
-Alternatively:
-```python
-import uasyncio as asyncio
-
-async def forever():
-    print('Starting')
-    while True:
-        await asyncio.sleep_ms(300)
-        print('Got here')
-
-async def foo():
-    try:
-        await asyncio.wait_for(forever(), 5)
-    except asyncio.TimeoutError:
-        pass
-    print('Timeout elapsed.')
-    await asyncio.sleep(2)
-
-loop = asyncio.get_event_loop()
-loop.run_until_complete(foo())
-```
-
-Note that if the coro issues `await asyncio.sleep(t)` where `t` is a long delay
-it will not be rescheduled until `t` has elapsed. If the timeout has elapsed
-before the `sleep` is complete the `TimeoutError` will occur when the coro is
-scheduled - i.e. when `t` has elapsed. In real time and from the point of view
-of the calling coro, its response to the `TimeoutError` will be delayed.
-
-If this matters to the application, create a long delay by awaiting a short one
-in a loop. The coro `asyn.sleep` [supports this](./PRIMITIVES.md#41-coro-sleep).
-
-## 4.5 Exceptions
+## 5.1 Exceptions
 
 Where an exception occurs in a coro, it should be trapped either in that coro
 or in a coro which is awaiting its completion. This ensures that the exception
@@ -1058,7 +879,177 @@ a keyboard interrupt should trap the exception at the event loop level.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
-# 5 Interfacing hardware
+## 5.2 Cancellation and Timeouts
+
+As stated above, these features work by throwing an exception to a task in a
+special way, using a MicroPython specific coro method `pend_throw`. The way
+this works is version dependent. In official `uasyncio` V2.0 the exception is
+not processed until the task is next scheduled. This imposes latency if the
+task is waiting on a `sleep` or on I/O. Timeouts may extend beyond their
+nominal period. Task cancelling other tasks cannot determine when cancellation
+is complete.
+
+There is currently a wokround and two solutions.
+ * Workround: the `asyn` library provides means of waiting on cancellation of
+ tasks or groups of tasks. See [Task Cancellation](./PRIMITIVES.md#4-task-cancellation).
+ * Paul Sokolovsky's library fork provides `uasyncio` V2.4, but this requires
+ his [Pycopy](https://github.com/pfalcon/micropython) firmware.
+ * The `fast_io` fork also solves this (in a less elegant manner) and runs
+ under official firmware.
+
+The exception hierarchy used here is `Exception-CancelledError-TimeoutError`.
+
+## 5.2.1 Task cancellation
+
+`uasyncio` provides a `cancel(coro)` function. This works by throwing an
+exception to the coro using `pend_throw`. This works with nested coros. Usage
+is as follows:
+```python
+async def foo():
+    while True:
+        # do something every 10 secs
+        await asyncio.sleep(10)
+
+async def bar(loop):
+    foo_instance = foo()  # Create a coroutine instance
+    loop.create_task(foo_instance)
+    # code omitted
+    asyncio.cancel(foo_instance)
+```
+If this example is run against `uasyncio` V2.0, when `bar` issues `cancel` it
+will not take effect until `foo` is next scheduled. There is thus a latency of
+up to 10s in the cancellation of `foo`. Another source of latency would arise
+if `foo` waited on I/O. Where latency arises, `bar` cannot determine whether
+`foo` has yet been cancelled. This matters in some use-cases.
+
+Using the Paul Sokolovsky fork or `fast_io` a simple `sleep(0)` suffices:
+```python
+async def foo():
+    while True:
+        # do something every 10 secs
+        await asyncio.sleep(10)
+
+async def bar(loop):
+    foo_instance = foo()  # Create a coroutine instance
+    loop.create_task(foo_instance)
+    # code omitted
+    asyncio.cancel(foo_instance)
+    await asyncio.sleep(0)
+    # Task is now cancelled
+```
+This would also work in `uasyncio` V2.0 if `foo` (and any coros awaited by
+`foo`) never issued `sleep` or waited on I/O.
+
+Behaviour which may surprise the unwary arises when a coro to be cancelled is
+awaited rather than being launched by `create_task`. Consider this fragment:
+
+```python
+async def foo():
+    while True:
+        # do something every 10 secs
+        await asyncio.sleep(10)
+
+async def foo_runner(foo_instance):
+    await foo_instance
+    print('This will not be printed')
+
+async def bar(loop):
+    foo_instance = foo()
+    loop.create_task(foo_runner(foo_instance))
+    # code omitted
+    asyncio.cancel(foo_instance)
+```
+When `foo` is cancelled it is removed from the scheduler's queue; because it
+lacks a `return` statement the calling routine `foo_runner` never resumes. It
+is recommended always to trap the exception in the outermost scope of a
+function subject to cancellation:
+```python
+async def foo():
+    try:
+        while True:
+            await asyncio.sleep(10)
+            await my_coro
+    except asyncio.CancelledError:
+        return
+```
+In this instance `my_coro` does not need to trap the exception as it will be
+propagated to the calling coro and trapped there.
+
+**Note** It is bad practice to issue the `close` or `throw` methods of a
+de-scheduled coro. This subverts the scheduler by causing the coro to execute
+code even though descheduled. This is likely to have unwanted consequences.
+
+###### [Contents](./TUTORIAL.md#contents)
+
+## 5.2.2 Coroutines with timeouts
+
+Timeouts are implemented by means of `uasyncio` methods `.wait_for()` and
+`.wait_for_ms()`. These take as arguments a coroutine and a timeout in seconds
+or ms respectively. If the timeout expires a `TimeoutError` will be thrown to
+the coro using `pend_throw`. This exception must be trapped, either by the coro
+or its caller. This is for the reason discussed above: if a coro times out it
+is descheduled. Unless it traps the error and returns the only way the caller
+can proceed is by trapping the exception itself.
+
+Where the exception is trapped by the coro, I have experienced obscure failures
+if the exception is not trapped in the outermost scope as below:
+```python
+import uasyncio as asyncio
+
+async def forever():
+    try:
+        print('Starting')
+        while True:
+            await asyncio.sleep_ms(300)
+            print('Got here')
+    except asyncio.TimeoutError:
+        print('Got timeout')  # And return
+
+async def foo():
+    await asyncio.wait_for(forever(), 5)
+    await asyncio.sleep(2)
+
+loop = asyncio.get_event_loop()
+loop.run_until_complete(foo())
+```
+Alternatively it may be trapped by the caller:
+```python
+import uasyncio as asyncio
+
+async def forever():
+    print('Starting')
+    while True:
+        await asyncio.sleep_ms(300)
+        print('Got here')
+
+async def foo():
+    try:
+        await asyncio.wait_for(forever(), 5)
+    except asyncio.TimeoutError:
+        pass
+    print('Timeout elapsed.')
+    await asyncio.sleep(2)
+
+loop = asyncio.get_event_loop()
+loop.run_until_complete(foo())
+```
+
+#### Uasyncio V2.0 note
+
+This does not apply to the Paul Sokolovsky fork or to `fast_io`.
+
+If the coro issues `await asyncio.sleep(t)` where `t` is a long delay, the coro
+will not be rescheduled until `t` has elapsed. If the timeout has elapsed
+before the `sleep` is complete the `TimeoutError` will occur when the coro is
+scheduled - i.e. when `t` has elapsed. In real time and from the point of view
+of the calling coro, its response to the `TimeoutError` will be delayed.
+
+If this matters to the application, create a long delay by awaiting a short one
+in a loop. The coro `asyn.sleep` [supports this](./PRIMITIVES.md#41-coro-sleep).
+
+###### [Contents](./TUTORIAL.md#contents)
+
+# 6 Interfacing hardware
 
 At heart all interfaces between `uasyncio` and external asynchronous events
 rely on polling. Hardware requiring a fast response may use an interrupt. But
@@ -1084,21 +1075,21 @@ async def poll_my_device():
 
 In place of a global, an instance variable, an `Event` object or an instance of
 an awaitable class might be used. Explicit polling is discussed
-further [below](./TUTORIAL.md#52-polling-hardware-with-a-coroutine).
+further [below](./TUTORIAL.md#62-polling-hardware-with-a-coroutine).
 
 Implicit polling consists of designing the driver to behave like a stream I/O
 device such as a socket or UART, using `stream I/O`. This polls devices using
 Python's `select.poll` system: because the polling is done in C it is faster
 and more efficient than explicit polling. The use of `stream I/O` is discussed
-[here](./TUTORIAL.md#53-using-the-stream-mechanism).
+[here](./TUTORIAL.md#63-using-the-stream-mechanism).
 
 Owing to its efficiency implicit polling benefits most fast I/O device drivers:
 streaming drivers can be written for many devices not normally considered as
-streaming devices [section 5.4](./TUTORIAL.md#54-writing-streaming-device-drivers).
+streaming devices [section 6.4](./TUTORIAL.md#64-writing-streaming-device-drivers).
 
 ###### [Contents](./TUTORIAL.md#contents)
 
-## 5.1 Timing issues
+## 6.1 Timing issues
 
 Both explicit and implicit polling are currently based on round-robin
 scheduling. Assume I/O is operating concurrently with N user coros each of
@@ -1135,7 +1126,7 @@ hoped that official `uasyncio` will adopt code to this effect in due course.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
-## 5.2 Polling hardware with a coroutine
+## 6.2 Polling hardware with a coroutine
 
 This is a simple approach, but is most appropriate to hardware which may be
 polled at a relatively low rate. This is primarily because polling with a short
@@ -1213,7 +1204,7 @@ loop.run_until_complete(run())
 
 ###### [Contents](./TUTORIAL.md#contents)
 
-## 5.3 Using the stream mechanism
+## 6.3 Using the stream mechanism
 
 This can be illustrated using a Pyboard UART. The following code sample
 demonstrates concurrent I/O on one UART. To run, link Pyboard pins X1 and X2
@@ -1245,7 +1236,7 @@ loop.run_forever()
 The supporting code may be found in `__init__.py` in the `uasyncio` library.
 The mechanism works because the device driver (written in C) implements the
 following methods: `ioctl`, `read`, `readline` and `write`. See
-[Writing streaming device drivers](./TUTORIAL.md#54-writing-streaming-device-drivers)
+[Writing streaming device drivers](./TUTORIAL.md#64-writing-streaming-device-drivers)
 for details on how such drivers may be written in Python.
 
 A UART can receive data at any time. The stream I/O mechanism checks for pending
@@ -1257,7 +1248,7 @@ avoid buffer overflows and data loss. This can be ameliorated by using a larger
 UART read buffer or a lower baudrate. Alternatively hardware flow control will
 provide a solution if the data source supports it.
 
-### 5.3.1 A UART driver example
+### 6.3.1 A UART driver example
 
 The program [auart_hd.py](./auart_hd.py) illustrates a method of communicating
 with a half duplex device such as one responding to the modem 'AT' command set.
@@ -1281,7 +1272,7 @@ returned. See the code comments for more details.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
-## 5.4 Writing streaming device drivers
+## 6.4 Writing streaming device drivers
 
 The `stream I/O` mechanism is provided to support I/O to stream devices. Its
 typical use is to support streaming I/O devices such as UARTs and sockets. The
@@ -1451,7 +1442,7 @@ The [fast_io](./FASTPOLL.md) version addresses this issue.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
-## 5.5 A complete example: aremote.py
+## 6.5 A complete example: aremote.py
 
 See [aremote.py](./nec_ir/aremote.py) documented [here](./nec_ir/README.md).
 The demo provides a complete device driver example: a receiver/decoder for an
@@ -1468,7 +1459,7 @@ any `asyncio` latency when setting its delay period.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
-## 5.6 HTU21D environment sensor
+## 6.6 HTU21D environment sensor
 
 This chip provides accurate measurements of temperature and humidity. The
 driver is documented [here](./htu21d/README.md). It has a continuously running
@@ -1480,11 +1471,11 @@ works asynchronously by triggering the acquisition and using
 `await asyncio.sleep(t)` prior to reading the data. This allows other coros to
 run while acquisition is in progress.
 
-# 6 Hints and tips
+# 7 Hints and tips
 
 ###### [Contents](./TUTORIAL.md#contents)
 
-## 6.1 Program hangs
+## 7.1 Program hangs
 
 Hanging usually occurs because a task has blocked without yielding: this will
 hang the entire system. When developing it is useful to have a coro which
@@ -1493,7 +1484,7 @@ scheduler is running.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
-## 6.2 uasyncio retains state
+## 7.2 uasyncio retains state
 
 When running programs using `uasyncio` at the REPL, issue a soft reset
 (ctrl-D) between runs. This is because `uasyncio` retains state between runs
@@ -1501,7 +1492,7 @@ which can lead to confusing behaviour.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
-## 6.3 Garbage Collection
+## 7.3 Garbage Collection
 
 You may want to consider running a coro which issues:
 
@@ -1516,7 +1507,7 @@ in the section on the heap.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
-## 6.4 Testing
+## 7.4 Testing
 
 It's advisable to test that a device driver yields control when you intend it
 to. This can be done by running one or more instances of a dummy coro which
@@ -1565,7 +1556,7 @@ Welcome to the joys of realtime programming.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
-## 6.5 A common error
+## 7.5 A common error
 
 If a function or method is defined with `async def` and subsequently called as
 if it were a regular (synchronous) callable, MicroPython does not issue an
@@ -1613,7 +1604,7 @@ I find it useful as-is but improvements are always welcome.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
-## 6.6 Socket programming
+## 7.6 Socket programming
 
 The use of nonblocking sockets requires some attention to detail. If a
 nonblocking read is performed, because of server latency, there is no guarantee
@@ -1640,7 +1631,7 @@ long periods, and offers a solution.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
-## 6.7 Event loop constructor args
+## 7.7 Event loop constructor args
 
 A subtle bug can arise if you need to instantiate the event loop with non
 default values. Instantiation should be performed before running any other
@@ -1665,35 +1656,36 @@ import some_module
 bar = some_module.Bar()  # The get_event_loop() call is now safe
 ```
 
-If imported modules do not run `uasyncio` code, another approach is to pass the
-loop as an arg to any user code which needs it. Ensure that only the initially
-loaded module calls `get_event_loop` e.g.
+My preferred approach to this is as follows. If writing modules for use by
+other programs avoid running `uasyncio` code on import. Write functions and
+methods to expect the event loop as an arg. Then ensure that only the top level
+application calls `get_event_loop`:
 
 ```python
 import uasyncio as asyncio
-import some_module
+import my_module  # Does not run code on loading
 loop = asyncio.get_event_loop(runq_len=40, waitq_len=40)
-bar = some_module.Bar(loop)
+bar = my_module.Bar(loop)
 ```
 
 Ref [this issue](https://github.com/micropython/micropython-lib/issues/295).
 
 ###### [Contents](./TUTORIAL.md#contents)
 
-# 7 Notes for beginners
+# 8 Notes for beginners
 
 These notes are intended for those new to asynchronous code. They start by
 outlining the problems which schedulers seek to solve, and give an overview of
 the `uasyncio` approach to a solution.
 
-[Section 7.5](./TUTORIAL.md#75-why-cooperative-rather-than-pre-emptive)
+[Section 8.5](./TUTORIAL.md#85-why-cooperative-rather-than-pre-emptive)
 discusses the relative merits of `uasyncio` and the `_thread` module and why
 you may prefer use cooperative (`uasyncio`) over pre-emptive (`_thread`)
 scheduling.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
-## 7.1 Problem 1: event loops
+## 8.1 Problem 1: event loops
 
 A typical firmware application runs continuously and is required to respond to
 external events. These might include a voltage change on an ADC, the arrival of
@@ -1752,7 +1744,7 @@ created.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
-## 7.2 Problem 2: blocking methods
+## 8.2 Problem 2: blocking methods
 
 Assume you need to read a number of bytes from a socket. If you call
 `socket.read(n)` with a default blocking socket it will "block" (i.e. fail to
@@ -1764,7 +1756,7 @@ method. The task requiring the data will (necessarily) block until it is
 received but during that period other tasks will be scheduled enabling the
 application to remain responsive.
 
-## 7.3 The uasyncio approach
+## 8.3 The uasyncio approach
 
 The following class provides for an LED which can be turned on and off, and
 which can also be made to flash at an arbitrary rate. A `LED_async` instance
@@ -1842,7 +1834,7 @@ loop.run_until_complete(killer())  # Execution passes to coroutines.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
-## 7.4 Scheduling in uasyncio
+## 8.4 Scheduling in uasyncio
 
 Python 3.5 and MicroPython support the notion of an asynchronous function,
 also known as a coroutine (coro) or task. A coro must include at least one
@@ -1902,7 +1894,7 @@ required, especially one below a few ms, it may be necessary to use
 
 ###### [Contents](./TUTORIAL.md#contents)
 
-## 7.5 Why cooperative rather than pre-emptive?
+## 8.5 Why cooperative rather than pre-emptive?
 
 The initial reaction of beginners to the idea of cooperative multi-tasking is
 often one of disappointment. Surely pre-emptive is better? Why should I have to
@@ -1948,7 +1940,7 @@ An eloquent discussion of the evils of threading may be found
 
 ###### [Contents](./TUTORIAL.md#contents)
 
-## 7.6 Communication
+## 8.6 Communication
 
 In non-trivial applications coroutines need to communicate. Conventional Python
 techniques can be employed. These include the use of global variables or
@@ -1960,7 +1952,7 @@ communications; in a cooperative system these are seldom required.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
-## 7.7 Polling
+## 8.7 Polling
 
 Some hardware devices such as the Pyboard accelerometer don't support
 interrupts, and therefore must be polled (i.e. checked periodically). Polling

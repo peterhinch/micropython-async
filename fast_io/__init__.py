@@ -95,19 +95,34 @@ class PollEventLoop(EventLoop):
         for sock, ev in res:
             if ev & select.POLLOUT:
                 cb = self.wrobjmap[id(sock)]
-                # Test code. Invalidate objmap: this ensures an exception is thrown
-                # rather than exhibiting weird behaviour when testing.
-                self.wrobjmap[id(sock)] = None  # TEST
+                if cb is None:
+                    continue  # Not yet ready.
+                # Invalidate objmap: can get adverse timing in fast_io whereby add_writer
+                # is not called soon enough. Ignore poll events occurring before we are
+                # ready to handle them.
+                self.wrobjmap[id(sock)] = None
+                if ev & (select.POLLHUP | select.POLLERR):
+                    # These events are returned even if not requested, and
+                    # are sticky, i.e. will be returned again and again.
+                    # If the caller doesn't do proper error handling and
+                    # unregister this sock, we'll busy-loop on it, so we
+                    # as well can unregister it now "just in case".
+                    self.remove_writer(sock)
                 if DEBUG and __debug__:
                     log.debug("Calling IO callback: %r", cb)
                 if isinstance(cb, tuple):
                     cb[0](*cb[1])
                 else:
-                    cb.pend_throw(None)  # Ensure that, if task is cancelled, it doesn't get queued again
+                    prev = cb.pend_throw(None)  # Enable task to run.
+                    #if isinstance(prev, Exception):
+                        #print('Put back exception')
+                        #cb.pend_throw(prev)
                     self._call_io(cb)  # Put coro onto runq (or ioq if one exists)
             if ev & select.POLLIN:
                 cb = self.rdobjmap[id(sock)]
-                self.rdobjmap[id(sock)] = None  # TEST
+                if cb is None:
+                    continue
+                self.rdobjmap[id(sock)] = None
                 if ev & (select.POLLHUP | select.POLLERR):
                     # These events are returned even if not requested, and
                     # are sticky, i.e. will be returned again and again.
@@ -120,7 +135,10 @@ class PollEventLoop(EventLoop):
                 if isinstance(cb, tuple):
                     cb[0](*cb[1])
                 else:
-                    cb.pend_throw(None)
+                    prev = cb.pend_throw(None)  # Enable task to run.
+                    #if isinstance(prev, Exception):
+                        #cb.pend_throw(prev)
+                        #print('Put back exception')
                     self._call_io(cb)
 
 

@@ -2,9 +2,15 @@
 
 This version is a "drop in" replacement for official `uasyncio`. Existing
 applications should run under it unchanged and with essentially identical
-performance.
+performance except that task cancellation and timeouts are expedited "soon"
+rather than being deferred until the task is next scheduled.
 
-This version has the following features:
+"Priority" features are only enabled if the event loop is instantiated with
+specific arguments.
+
+This version has the following features relative to official V2.0:
+ * Timeouts and task cancellation are handled promptly, rather than being
+ deferred until the coroutine is next scheduled.
  * I/O can optionally be handled at a higher priority than other coroutines
  [PR287](https://github.com/micropython/micropython-lib/pull/287).
  * Tasks can yield with low priority, running when nothing else is pending.
@@ -18,7 +24,7 @@ This version has the following features:
  is called with a generator function
  [PR292](https://github.com/micropython/micropython-lib/pull/292). This traps
  a common coding error which otherwise results in silent failure.
- * The presence of the `fast_io` version can be tested at runtime.
+ * The presence and version of the `fast_io` version can be tested at runtime.
  * The presence of an event loop instance can be tested at runtime.
  * `run_until_complete(coro())` now returns the value returned by `coro()` as
  per CPython
@@ -31,6 +37,12 @@ adding just one line of code. This implies that if official `uasyncio` acquires
 a means of prioritising I/O other than that in this version, application code
 changes should be minimal. 
 
+#### Changes incompatible with prior versions
+
+V0.24  
+The `version` bound variable now retuens a 2-tuple.
+
+Prior versions.  
 The high priority mechanism formerly provided in `asyncio_priority.py` was a
 workround based on the view that stream I/O written in Python would remain
 unsupported. This is now available so `asyncio_priority.py` is obsolete and
@@ -63,7 +75,7 @@ formerly provided by `asyncio_priority.py` is now implemented.
 The basic approach is to install and test `uasyncio` on the target hardware.
 Replace `core.py` and `__init__.py` with the files in the `fast_io` directory.
 
-The current MicroPython release build (1.9.4) has `uasyncio` implemented as a
+The current MicroPython release build (1.10) has `uasyncio` implemented as a
 frozen module. The following options for installing `fast_io` exist:
 
  1. Use a daily build, install `uasyncio` as per the tutorial then replace the
@@ -75,33 +87,43 @@ frozen module. The following options for installing `fast_io` exist:
  bytecode. If this is deleted and appended to the end, frozen files will only
  be found if there is no match in the filesystem.
 
+```python
+import sys
+sys.path.append(sys.path.pop(0))  # Prefer modules in filesystem
+```
+
 See [ESP Platforms](./FASTPOLL.md#6-esp-platforms) for general comments on the
 suitability of ESP platforms for systems requiring fast response.
 
 ## 1.1 Benchmarks
 
-The benchmarks directory contains files demonstrating the performance gains
-offered by prioritisation. They also offer illustrations of the use of these
-features. Documentation is in the code.
+The following files demonstrate the performance gains offered by prioritisation
+and the improvements to task cancellation and timeouts. They also show the use
+of these features. Documentation is in the code.
 
+Tests and benchmarks to run against the official and `fast_io` versions:
  * `benchmarks/latency.py` Shows the effect on latency with and without low
  priority usage.
  * `benchmarks/rate.py` Shows the frequency with which uasyncio schedules
  minimal coroutines (coros).
  * `benchmarks/rate_esp.py` As above for ESP32 and ESP8266.
+ * `fast_io/ms_timer.py` An I/O device driver providing a timer with higher
+ precision timing than `wait_ms()` when run under the `fast_io` version.
+ * `fast_io/ms_timer_test.py` Test/demo program for above.
+ * `fast_io/pin_cb.py` An I/O device driver which causes a pin state change to
+ trigger a callback. This is a driver, not an executable test program.
+ * `fast_io/pin_cb_test.py` Demo of above driver: illustrates performance gain
+ under `fast_io`.
+
+Tests requiring the current version of the `fast_io` fork:
  * `benchmarks/rate_fastio.py` Measures the rate at which coros can be scheduled
  if the fast I/O mechanism is used but no I/O is pending.
- * `benchmarks/call_lp.py` Demos low priority callbacks.
+ * `benchmarks/call_lp.py` Demo of low priority callbacks.
  * `benchmarks/overdue.py` Demo of maximum overdue feature.
  * `benchmarks/priority_test.py` Cancellation of low priority coros.
- * `fast_io/ms_timer.py` Provides higher precision timing than `wait_ms()`.
- * `fast_io/ms_timer_test.py` Test/demo program for above.
- * `fast_io/pin_cb.py` Demo of an I/O device driver which causes a pin state
- change to trigger a callback.
- * `fast_io/pin_cb_test.py` Demo of above.
-
-With the exceptions of `call_lp`, `priority` and `rate_fastio`, benchmarks can
-be run against the official and priority versions of usayncio.
+ * `fast_io/fast_can_test.py` Demo of cancellation of paused tasks.
+ * `fast_io/iorw_can.py` Cancellation of task waiting on I/O.
+ * `fast_io/iorw_to.py` Timeouts applies to tasks waiting on I/O.
 
 # 2. Rationale
 
@@ -325,8 +347,8 @@ See [Low priority callbacks](./FASTPOLL.md#35-low-priority-callbacks)
 ## 3.3 Other Features
 
 Variable:  
- * `version` Contains 'fast_io'. Enables the presence of this version to be
- determined at runtime.
+ * `version` Returns a 2-tuple. Current contents ('fast_io', '0.24'). Enables
+ the presence and realease state of this version to be determined at runtime.
 
 Function:
  * `got_event_loop()` No arg. Returns a `bool`: `True` if the event loop has
@@ -348,6 +370,8 @@ bar = Bar()  # Constructor calls get_event_loop()
 # and renders these args inoperative
 loop = asyncio.get_event_loop(runq_len=40, waitq_len=40)
 ```
+This is mainly for retro-fitting to existing classes and functions. The
+preferred approach is to pass the event loop to classes as a constructor arg.
 
 ###### [Contents](./FASTPOLL.md#contents)
 
@@ -415,8 +439,8 @@ priority task to become overdue by more than 1s.
 ### 3.4.1 Task Cancellation and Timeouts
 
 Tasks which yield in a low priority manner may be subject to timeouts or be
-cancelled in the same way as normal tasks. See [Task cancellation](./TUTORIAL.md#36-task-cancellation)
-and [Coroutines with timeouts](./TUTORIAL.md#44-coroutines-with-timeouts).
+cancelled in the same way as normal tasks. See [Task cancellation](./TUTORIAL.md#521-task-cancellation)
+and [Coroutines with timeouts](./TUTORIAL.md#522-coroutines-with-timeouts).
 
 ###### [Contents](./FASTPOLL.md#contents)
 
@@ -468,22 +492,27 @@ Support was finally [added here](https://github.com/micropython/micropython/pull
 
 # 6. Performance
 
-This version is designed to enable existing applications to run without change
-to code and to minimise the effect on raw scheduler performance in the case
-where the added functionality is unused.
+The `fast_io` version is designed to enable existing applications to run
+unchanged and to minimise the effect on raw scheduler performance in cases
+where the priority functionality is unused.
 
-The benchmark `rate.py` measures the rate at which tasks can be scheduled. It
-was run (on a Pyboard V1.1) under official `uasyncio` V2, then under this
-version. The benchmark `rate_fastio` is identical except it instantiates an I/O
-queue and a low priority queue. Results were as follows.
+The benchmark `rate.py` measures the rate at which tasks can be scheduled;
+`rate_fastio` is identical except it instantiates an I/O queue and a low
+priority queue. The benchmarks were run on a Pyboard V1.1 under official
+`uasyncio` V2 and under the current `fast_io` version V0.24. Results were as
+follows:
 
-| Script | Uasyncio version | Period (100 coros) | Overhead |
-|:------:|:----------------:|:------------------:|:--------:|
-| rate | Official V2 | 156μs | 0% |
-| rate | fast_io | 162μs | 3.4% |
-| rate_fastio | fast_io | 206μs | 32% |
+| Script | Uasyncio version | Period (100 coros) | Overhead | PBD |
+|:------:|:----------------:|:------------------:|:--------:|:---:|
+| rate | Official V2 | 156μs | 0% | 123μs |
+| rate | fast_io | 162μs | 3.4% | 129μs |
+| rate_fastio | fast_io | 206μs | 32% | 181μs |
+
+The last column shows times from a Pyboard D SF2W.
 
 If an I/O queue is instantiated I/O is polled on every scheduler iteration
 (that is its purpose). Consequently there is a significant overhead. In
 practice the overhead will increase with the number of I/O devices being
 polled and will be determined by the efficiency of their `ioctl` methods.
+
+Timings for current `fast_io` V0.24 and the original version were identical.
