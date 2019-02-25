@@ -1,14 +1,24 @@
-# 1. The MicroPython uasyncio library
+# 1. Asynchronous programming in MicroPython
 
-This repository comprises the following parts.  
- 1. A modified [fast_io](./FASTPOLL.md) version of `uasyncio`. This is a "drop
- in" replacement for the official version providing additional functionality.
- 2. A module enabling the [fast_io](./FASTPOLL.md) version to run with very low
- power draw.
- 3. Resources for users of official or [fast_io](./FASTPOLL.md) versions:
+CPython supports asynchronous programming via the `asyncio` library.
+MicroPython provides `uasyncio` which is a subset of this, optimised for small
+code size and high performance on bare metal targets. This repository provides
+documentation, tutorial material and code to aid in its effective use. It also
+contains an optional `fast_io` variant of `uasyncio`.
+
+## The fast_io variant
+
+This comprises two parts.  
+ 1. The [fast_io](./FASTPOLL.md) version of `uasyncio` is a "drop in"
+ replacement for the official version providing bug fixes, additional
+ functionality and, in certain respects, higher performance.
+ 2. An optional extension module enabling the [fast_io](./FASTPOLL.md) version
+ to run with very low power draw.
+
+## Resources for users of all versions
 
  * [A tutorial](./TUTORIAL.md) An introductory tutorial on asynchronous
- programming and the use of the `uasyncio` library (asyncio subset).
+ programming and the use of the `uasyncio` library.
  * [Asynchronous device drivers](./DRIVERS.md). A module providing drivers for
  devices such as switches and pushbuttons.
  * [Synchronisation primitives](./PRIMITIVES.md). Provides commonly used
@@ -35,7 +45,7 @@ This repository comprises the following parts.
  
 # 2. Version and installation of uasyncio
 
-Paul Sokolovsky (`uasyncio` author) has released `uasyncio` V2.4. This version
+Paul Sokolovsky (`uasyncio` author) has released `uasyncio` V2.2.1. This version
 is on PyPi and requires his [Pycopy](https://github.com/pfalcon/micropython)
 fork of MicroPython firmware. His `uasyncio` code may also be found in
 [his fork of micropython-lib](https://github.com/pfalcon/micropython-lib).
