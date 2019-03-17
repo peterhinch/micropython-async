@@ -6,6 +6,8 @@
 import usocket as socket
 import uasyncio as asyncio
 import ujson
+from heartbeat import heartbeat  # Optional LED flash
+
 server = '192.168.0.32'
 port = 8123
 
@@ -41,6 +43,8 @@ async def run():
             data[1] += 1
 
 loop = asyncio.get_event_loop()
+# Optional fast heartbeat to confirm nonblocking operation
+loop.create_task(heartbeat(100))
 try:
     loop.run_until_complete(run())
 except KeyboardInterrupt:

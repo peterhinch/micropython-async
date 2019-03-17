@@ -7,17 +7,10 @@ import usocket as socket
 import uasyncio as asyncio
 import uselect as select
 import ujson
+from heartbeat import heartbeat  # Optional LED flash
 
 class Server:
-    @staticmethod
-    async def flash():  # ESP8266 only: demo that it is nonblocking
-        from machine import Pin
-        pin = Pin(2, Pin.OUT)
-        while True:
-            pin(not pin())
-            await asyncio.sleep_ms(100)
-
-    async def run(self, loop, port=8123, led=True):
+    async def run(self, loop, port=8123):
         addr = socket.getaddrinfo('0.0.0.0', port, 0, socket.SOCK_STREAM)[0][-1]
         s_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # server socket
         s_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -28,8 +21,6 @@ class Server:
         poller = select.poll()
         poller.register(s_sock, select.POLLIN)
         client_id = 1  # For user feedback
-        if led:
-            loop.create_task(self.flash())
         while True:
             res = poller.poll(1)  # 1ms block
             if res:  # Only s_sock is polled
@@ -62,6 +53,8 @@ class Server:
             sock.close()
 
 loop = asyncio.get_event_loop()
+# Optional fast heartbeat to confirm nonblocking operation
+loop.create_task(heartbeat(100))
 server = Server()
 try:
     loop.run_until_complete(server.run(loop))

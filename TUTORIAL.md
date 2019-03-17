@@ -54,6 +54,7 @@ asyncio and includes a section for complete beginners.
   7.4 [Testing](./TUTORIAL.md#74-testing)  
   7.5 [A common error](./TUTORIAL.md#75-a-common-error) This can be hard to find.  
   7.6 [Socket programming](./TUTORIAL.md#76-socket-programming)  
+   7.6.1 [WiFi issues](./TUTORIAL.md#761-wifi-issues)  
   7.7 [Event loop constructor args](./TUTORIAL.md#77-event-loop-constructor-args)  
  8. [Notes for beginners](./TUTORIAL.md#8-notes-for-beginners)  
   8.1 [Problem 1: event loops](./TUTORIAL.md#81-problem-1:-event-loops)  
@@ -1607,6 +1608,26 @@ I find it useful as-is but improvements are always welcome.
 
 ## 7.6 Socket programming
 
+There are two basic approaches to socket programming under `uasyncio`. By
+default sockets block until a specified read or write operation completes.
+`uasyncio` supports blocking sockets by using `select.poll` to prevent them
+from blocking the scheduler. In most cases it is simplest to use this
+mechanism. Example client and server code may be found in the `client_server`
+directory. The `userver` application uses `select.poll` explicitly to poll
+the server socket. The client sockets use it implicitly in that the `uasyncio`
+stream mechanism employs it.
+
+Note that `socket.getaddrinfo` currently blocks. The time will be minimal in
+the example code but if a DNS lookup is required the blocking period could be
+substantial.
+
+The second approach to socket programming is to use nonblocking sockets. This
+adds complexity but is necessary in some applications, notably where
+connectivity is via WiFi (see below).
+
+At the time of writing (March 2019) support for TLS on nonblocking sockets is
+under development. Its exact status is unknown (to me).
+
 The use of nonblocking sockets requires some attention to detail. If a
 nonblocking read is performed, because of server latency, there is no guarantee
 that all (or any) of the requested data is returned. Likewise writes may not
@@ -1616,19 +1637,29 @@ Hence asynchronous read and write methods need to iteratively perform the
 nonblocking operation until the required data has been read or written. In
 practice a timeout is likely to be required to cope with server outages.
 
-A further complication is that, at the time of writing, the ESP32 port has
-issues which require rather unpleasant hacks for error-free operation.
+A further complication is that the ESP32 port had issues which required rather
+unpleasant hacks for error-free operation. I have not tested whether this is
+still the case.
 
 The file [sock_nonblock.py](./sock_nonblock.py) illustrates the sort of
 techniques required. It is not a working demo, and solutions are likely to be
 application dependent.
 
-An alternative approach is to use blocking sockets with `StreamReader` and
-`StreamWriter` instances to control polling.
+### 7.6.1 WiFi issues
+
+The `uasyncio` stream mechanism is not good at detecting WiFi outages. I have
+found it necessary to use nonblocking sockets to achieve resilient operation
+and client reconnection in the presence of outages.
 
 [This doc](https://github.com/peterhinch/micropython-samples/blob/master/resilient/README.md)
 describes issues I encountered in WiFi applications which keep sockets open for
-long periods, and offers a solution.
+long periods, and outlines a solution.
+
+[This repo](https://github.com/peterhinch/micropython-mqtt.git) offers a
+resilent asynchronous MQTT client which ensures message integrity over WiFi
+outages. [This repo](https://github.com/peterhinch/micropython-iot.git)
+provides a simple asynchronous full-duplex serial channel between a wirelessly
+connected client and a wired server with guaranteed message delivery.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
