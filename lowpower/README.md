@@ -113,7 +113,7 @@ following:
 
 ```python
 try:
-    if asyncio.version != 'fast_io':
+    if asyncio.version[0] != 'fast_io':
         raise AttributeError
 except AttributeError:
     raise OSError('This requires fast_io fork of uasyncio.')
@@ -161,7 +161,7 @@ Applications can detect which timebase is in use by issuing:
 
 ```python
 try:
-    if asyncio.version != 'fast_io':
+    if asyncio.version[0] != 'fast_io':
         raise AttributeError
 except AttributeError:
     raise OSError('This requires fast_io fork of uasyncio.')
@@ -272,7 +272,7 @@ hardware and code. The only *required* change to application code is to add
 
 ```python
 try:
-    if asyncio.version != 'fast_io':
+    if asyncio.version[0] != 'fast_io':
         raise AttributeError
 except AttributeError:
     raise OSError('This requires fast_io fork of uasyncio.')

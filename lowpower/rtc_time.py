@@ -23,7 +23,12 @@ if sys.platform == 'pyboard':
     if mode is None:  # USB is disabled
         use_utime = False  # use RTC timebase
     elif 'VCP' in mode:  # User has enabled VCP in boot.py
-        if pyb.Pin.board.USB_VBUS.value() == 1:  # USB physically connected
+        usb_conn = pyb.Pin.board.USB_VBUS.value()  # USB physically connected to pyb V1.x
+        if not usb_conn:
+            usb_conn = hasattr(pyb.Pin.board, 'USB_HS_DP') and pyb.Pin.board.USB_HS_DP.value()
+        if not usb_conn:
+            usb_conn = hasattr(pyb.Pin.board, 'USB_DP') and pyb.Pin.board.USB_DP.value()
+        if usb_conn:
             print('USB connection: rtc_time disabled.')
         else:
             pyb.usb_mode(None)  # Save power
