@@ -1,11 +1,10 @@
 # A low power usayncio adaptation
 
-This is specific to Pyboards including the D series.
 Release 0.11 9th April 2019
 
 API change: low power applications must now import `rtc_time_cfg` and set its
 `enabled` flag.  
-Now supports Pyboard D.
+This is specific to Pyboards including the D series.
 
  1. [Introduction](./README.md#1-introduction)  
  2. [Installation](./README.md#2-installation)  
@@ -146,9 +145,10 @@ scheduler is again paused (if `latency` > 0).
 
 #### 3.2.1.1 Timing Accuracy and rollover
 
-A minor limitation is that the Pyboard RTC cannot resolve times of less than
-4ms so there is a theoretical reduction in the accuracy of delays. In practice,
-as explained in the [tutorial](../TUTORIAL.md), issuing
+A minor limitation is that the Pyboard 1.x RTC cannot resolve times of less
+than 4ms so there is a theoretical reduction in the accuracy of delays. This
+does not apply to the Pyboard D. In practice this is somewhat academic. As
+explained in the [tutorial](../TUTORIAL.md), issuing
 
 ```python
 await asyncio.sleep_ms(t)
@@ -248,9 +248,10 @@ comparable to Pyboard 1.x.
 
 This provides the following.
 
-Variable:
+Variables (treat as read-only):
  * `use_utime` `True` if the `uasyncio` timebase is `utime`, `False` if it is
- the RTC. Treat as read-only.
+ the RTC.
+ * `d_series` `True` if running on Pyboard D, `False` if on Pyboard 1.x.
 
 Functions:  
 If the timebase is `utime` these are references to the corresponding `utime`
@@ -403,16 +404,18 @@ the design of the scheduler beyond the use of a different timebase. It does,
 however, rely on the fact that the scheduler algorithm behaves as described
 above.
 
-`rtc_time` imports `rtc_time_cfg` and quits if `rtc_time_cfg.enabled` is
-`False`. This ensures that `uasyncio` will only be affected by the `rtc_time`
-module if `rtc_time` has specifically been enabled by application code.
+By default `uasyncio` uses the `utime` module for timing. For the timing to be
+derived from the RTC the following conditions must be met:  
+ * Hardware must be a Pyboard 1.x, Pyboard D or compatible (i.e. able to use
+ the `pyb` module).
+ * The application must import `rtc_time_cfg` and set its `enabled` flag `True`
+ before importing `uasyncio`.
+ * `uasyncio` must be the `fast_io` version 2.4 or later.
+ * The `rtc_time` module must be on the MicroPython search path.
+ * There must be no active USB connection.
 
-The `rtc_time` module ensures that `uasyncio` uses `utime` for timing if the
-module is present in the path but is unused. This can occur because of an
-active USB connection or if running on an an incompatible platform.
-
-The above precautions ensures that application behaviour and performance are
-unaffected unless `rtc_time` has been enabled, a USB connection is absent, and
-the hardware is a Pyboard 1.x or Pyboard D.
+These constraints ensure there is no performance penalty unless an application
+specifically requires micropower operation. They also enable a USB connection
+to work if required for debugging.
 
 ###### [Contents](./README.md#a-low-power-usayncio-adaptation)
