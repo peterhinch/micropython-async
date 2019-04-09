@@ -1,6 +1,10 @@
 # A low power usayncio adaptation
 
-Release 0.1 25th July 2018
+Release 0.11 8th April 2019
+
+API change: low power applications must now import `rtc_time_cfg` and set its
+`enabled` flag.  
+Now supports Pyboard D.
 
  1. [Introduction](./README.md#1-introduction)  
  2. [Installation](./README.md#2-installation)  
@@ -62,16 +66,17 @@ tested. Copy the file `rtc_time.py` to the device so that it is on `sys.path`.
 ## 2.1 Files
 
  * `rtc_time.py` Low power library.
+ * `rtc_time_cfg` Configuration file to enable `uasyncio` to use above.
  * `lpdemo.py` A basic application which waits for a pushbutton to be pressed
  before running. A second button press terminates it. While "off" and waiting
  very low power is consumed. A normally open pushbutton should be connected
  between `X1` and `Gnd`. This program is intended as a basic template for
  similar applications.
- * `lowpower.py` Send and receive messages on UART4, echoing received messages
- to UART2 at a different baudrate. This consumes about 1.4mA and serves to
+ * `lp_uart.py` Send and receive messages on UART4, echoing received messages
+ to UART1 at a different baudrate. This consumes about 1.4mA and serves to
  demonstrate that interrupt-driven devices operate correctly.
 
-The test program `lowpower.py` requires a link between pins X1 and X2 to enable
+The test program `lp_uart.py` requires a link between pins X1 and X2 to enable
 UART 4 to receive data via a loopback.
 
 ###### [Contents](./README.md#a-low-power-usayncio-adaptation)
@@ -112,6 +117,10 @@ To avoid the power drain caused by `select.poll` the user code must issue the
 following:
 
 ```python
+import rtc_time_cfg
+rtc_time_cfg.enabled = True  # Must be done before importing uasyncio
+
+import uasyncio as asyncio
 try:
     if asyncio.version[0] != 'fast_io':
         raise AttributeError
@@ -160,6 +169,10 @@ from a separate power source for power measurements.
 Applications can detect which timebase is in use by issuing:
 
 ```python
+import rtc_time_cfg
+rtc_time_cfg.enabled = True  # Must be done before importing uasyncio
+
+import uasyncio as asyncio
 try:
     if asyncio.version[0] != 'fast_io':
         raise AttributeError
@@ -271,6 +284,10 @@ Attention to detail is required to minimise power consumption, both in terms of
 hardware and code. The only *required* change to application code is to add
 
 ```python
+import rtc_time_cfg
+rtc_time_cfg.enabled = True  # Must be done before importing uasyncio
+
+import uasyncio as asyncio
 try:
     if asyncio.version[0] != 'fast_io':
         raise AttributeError
@@ -377,9 +394,16 @@ the design of the scheduler beyond the use of a different timebase. It does,
 however, rely on the fact that the scheduler algorithm behaves as described
 above.
 
+`rtc_time` imports `rtc_time_cfg` and quits if `rtc_time_cfg.enabled` is
+`False`. This ensures that `uasyncio` will only be affected by the `rtc_time`
+module if `rtc_time` has specifically been enabled by application code.
+
 The `rtc_time` module ensures that `uasyncio` uses `utime` for timing if the
 module is present in the path but is unused. This can occur because of an
-active USB connection or if running on an an incompatible platform. This
-ensures that under such conditions performance is unaffected.
+active USB connection or if running on an an incompatible platform.
+
+The above precautions ensures that application behaviour and performance are
+unaffected unless `rtc_time` has been enabled, a USB connection is absent, and
+the hardware is a Pyboard 1.x or Pyboard D.
 
 ###### [Contents](./README.md#a-low-power-usayncio-adaptation)

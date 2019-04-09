@@ -11,23 +11,28 @@
 
 import sys
 import utime
+from os import uname
+from rtc_time_cfg import enabled
+if not enabled:
+    print('rtc_time module has not been enabled.')
+    sys.exit(0)
 
 _PERIOD = const(604800000)  # ms in 7 days
 _PERIOD_2 = const(302400000)  # half period
 _SS_TO_MS = 1000/256  # Subsecs to ms
-
+d_series = uname().machine[:5] == 'PYBD_'
 use_utime = True  # Assume the normal utime timebase
+
 if sys.platform == 'pyboard':
     import pyb
     mode = pyb.usb_mode()
     if mode is None:  # USB is disabled
         use_utime = False  # use RTC timebase
     elif 'VCP' in mode:  # User has enabled VCP in boot.py
-        usb_conn = pyb.Pin.board.USB_VBUS.value()  # USB physically connected to pyb V1.x
-        if not usb_conn:
-            usb_conn = hasattr(pyb.Pin.board, 'USB_HS_DP') and pyb.Pin.board.USB_HS_DP.value()
-        if not usb_conn:
-            usb_conn = hasattr(pyb.Pin.board, 'USB_DP') and pyb.Pin.board.USB_DP.value()
+        if d_series:  # Detect an active connection to the PC
+            usb_conn = pyb.USB_VCP().isconnected()
+        else:
+            usb_conn = pyb.Pin.board.USB_VBUS.value()  # USB physically connected to pyb V1.x
         if usb_conn:
             print('USB connection: rtc_time disabled.')
         else:
@@ -38,9 +43,43 @@ else:
 
 # For lowest power consumption set unused pins as inputs with pullups.
 # Note the 4K7 I2C pullups on X9 X10 Y9 Y10.
-for pin in [p for p in dir(pyb.Pin.board) if p[0] in 'XY']:
-    pin_x = pyb.Pin(pin, pyb.Pin.IN, pyb.Pin.PULL_UP)
+if d_series:
+    print('Running on Pyboard D')  # Investigate which pins we can do this to TODO
+else:
+    print('Running on Pyboard 1.x')
+    for pin in [p for p in dir(pyb.Pin.board) if p[0] in 'XY']:
+        pin_x = pyb.Pin(pin, pyb.Pin.IN, pyb.Pin.PULL_UP)
 # User code redefines any pins in use
+
+# sleep_ms is defined to stop things breaking if someone imports uasyncio.core
+# Power won't be saved if this is done.
+sleep_ms = utime.sleep_ms
+if use_utime:  # Run utime: Pyboard connected to PC via USB or alien platform
+    ticks_ms = utime.ticks_ms
+    ticks_add = utime.ticks_add
+    ticks_diff = utime.ticks_diff
+else:
+    rtc = pyb.RTC()
+    # dt: (year, month, day, weekday, hours, minutes, seconds, subseconds)
+    # weekday is 1-7 for Monday through Sunday.
+    if d_series:
+        # Subseconds are μs
+        def ticks_ms():
+            dt = rtc.datetime()
+            return ((dt[3] - 1)*86400000 + dt[4]*3600000 + dt[5]*60000 + dt[6]*1000 +
+                    int(dt[7] / 1000))
+    else:
+        # subseconds counts down from 255 to 0
+        def ticks_ms():
+            dt = rtc.datetime()
+            return ((dt[3] - 1)*86400000 + dt[4]*3600000 + dt[5]*60000 + dt[6]*1000 +
+                    int(_SS_TO_MS * (255 - dt[7])))
+
+    def ticks_add(a, b):
+        return (a + b) % _PERIOD
+
+    def ticks_diff(end, start):
+        return ((end - start + _PERIOD_2) % _PERIOD) - _PERIOD_2
 
 import uasyncio as asyncio
 
@@ -70,6 +109,7 @@ class Latency():
                 raise OSError('Event loop not instantiated.')
 
     def _run(self):
+        print('Low power mode is ON.')
         rtc = pyb.RTC()
         rtc.wakeup(self._t_ms)
         t_ms = self._t_ms
@@ -88,26 +128,3 @@ class Latency():
         if val is not None and not use_utime:
             self._t_ms = max(val, 0)
         return self._t_ms
-
-# sleep_ms is defined to stop things breaking if someone imports uasyncio.core
-# Power won't be saved if this is done.
-sleep_ms = utime.sleep_ms
-if use_utime:  # Run utime: Pyboard connected to PC via USB or alien platform
-    ticks_ms = utime.ticks_ms
-    ticks_add = utime.ticks_add
-    ticks_diff = utime.ticks_diff
-else:
-    rtc = pyb.RTC()
-    # dt: (year, month, day, weekday, hours, minutes, seconds, subseconds)
-    # weekday is 1-7 for Monday through Sunday.
-    # subseconds counts down from 255 to 0
-    def ticks_ms():
-        dt = rtc.datetime()
-        return ((dt[3] - 1)*86400000 + dt[4]*3600000 + dt[5]*60000 + dt[6]*1000 +
-                int(_SS_TO_MS * (255 - dt[7])))
-
-    def ticks_add(a, b):
-        return (a + b) % _PERIOD
-
-    def ticks_diff(end, start):
-        return ((end - start + _PERIOD_2) % _PERIOD) - _PERIOD_2

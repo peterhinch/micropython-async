@@ -1,13 +1,16 @@
-# lowpower.py Demo of using uasyncio to reduce Pyboard power consumption
+# lp_uart.py Demo of using uasyncio to reduce Pyboard power consumption
 # Author: Peter Hinch
 # Copyright Peter Hinch 2018 Released under the MIT license
 
-# The file rtc_time.py must be on the path.
+# The files rtc_time.py and rtc_time_cfg.py must be on the path.
 # Requires a link between X1 and X2.
-# Periodically sends a line on UART4 at 115200 baud.
-# This is received on UART4 and re-sent on UART2 (pin X3) at 9600 baud.
+# Periodically sends a line on UART4 at 9600 baud.
+# This is received on UART4 and re-sent on UART1 (pin Y1) at 115200 baud.
 
 import pyb
+import rtc_time_cfg
+rtc_time_cfg.enabled = True  # Must be done before importing uasyncio
+
 import uasyncio as asyncio
 try:
     if asyncio.version != 'fast_io':
@@ -38,8 +41,8 @@ async def receiver(uart_in, uart_out):
 def test(duration):
     if rtc_time.use_utime:  # Not running in low power mode
         pyb.LED(3).on()
-    uart2 = pyb.UART(2, 9600)
-    uart4 = pyb.UART(4, 115200)
+    uart2 = pyb.UART(1, 115200)
+    uart4 = pyb.UART(4, 9600)
     # Instantiate event loop before using it in Latency class
     loop = asyncio.get_event_loop()
     lp = rtc_time.Latency(50)  # ms
