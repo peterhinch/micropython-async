@@ -1,5 +1,6 @@
-# A low power usayncio adaptation for Pyboards
+# A low power usayncio adaptation
 
+This is specific to Pyboards including the D series.
 Release 0.11 9th April 2019
 
 API change: low power applications must now import `rtc_time_cfg` and set its
