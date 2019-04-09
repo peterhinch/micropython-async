@@ -1,6 +1,6 @@
-# A low power usayncio adaptation
+# A low power usayncio adaptation for Pyboards
 
-Release 0.11 8th April 2019
+Release 0.11 9th April 2019
 
 API change: low power applications must now import `rtc_time_cfg` and set its
 `enabled` flag.  
@@ -15,8 +15,9 @@ Now supports Pyboard D.
    3.2.1 [Consequences of stop mode](./README.md#321-consequences-of-stop-mode)  
     3.2.1.1 [Timing Accuracy and rollover](./README.md#3211-timing-accuracy-and-rollover)  
     3.2.1.2 [USB](./README.md#3212-usb)  
-   3.2.2 [Measured results](./README.md#322-measured-results)  
-   3.2.3 [Current waveforms](./README.md#323-current-waveforms)  
+   3.2.2 [Measured results Pyboard 1](./README.md#322-measured-results-pyboard-1)  
+   3.2.3 [Current waveforms Pyboard 1](./README.md#323-current-waveforms-pyboard-1)  
+   3.2.4 [Pyboard D measurements](./README.md#324-pyboard-d-measurements)  
  4. [The rtc_time module](./README.md#4-the-rtc_time-module)  
  5. [Application design](./README.md#5-application-design)  
   5.1 [Hardware](./README.md#51-hardware)  
@@ -190,7 +191,7 @@ adaptor.
 
 ###### [Contents](./README.md#a-low-power-usayncio-adaptation)
 
-### 3.2.2 Measured results
+### 3.2.2 Measured results Pyboard 1
 
 The `lpdemo.py` script consumes a mean current of 980μA with 100ms latency, and
 730μA with 200ms latency, while awaiting a button press.
@@ -219,7 +220,7 @@ A data logging application might tolerate latencies of many seconds while
 waiting for a long delay to expire: getting close to `ib` may be practicable
 for such applications during their waiting period.
 
-### 3.2.3 Current waveforms
+### 3.2.3 Current waveforms Pyboard 1
 
 Running `lpdemo.py` while it waits for a button press with latency = 200ms.  
 It consumes 380μA except for brief peaks while polling the switch.  
@@ -232,6 +233,13 @@ typical that experienced when Python code is running.
 Vertical 20mA/div  
 Horizontal 500μs/div  
 ![Image](./current1.png)  
+
+### 3.2.4 Pyboard D measurements
+
+As of this release the two demo applications consume around 3.3mA. This is high
+because the unused pins are floating. When I discover which pins can be set to
+input with pullups as per the Pyboard 1.x implementation I hope to see figures
+comparable to Pyboard 1.x.
 
 ###### [Contents](./README.md#a-low-power-usayncio-adaptation)
 

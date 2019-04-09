@@ -45,6 +45,8 @@ else:
 # Note the 4K7 I2C pullups on X9 X10 Y9 Y10.
 if d_series:
     print('Running on Pyboard D')  # Investigate which pins we can do this to TODO
+    #for pin in [p for p in dir(pyb.Pin.board) if p[0] in 'XYW']:
+        #pin_x = pyb.Pin(pin, pyb.Pin.IN, pyb.Pin.PULL_UP)
 else:
     print('Running on Pyboard 1.x')
     for pin in [p for p in dir(pyb.Pin.board) if p[0] in 'XY']:

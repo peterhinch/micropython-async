@@ -13,7 +13,7 @@ rtc_time_cfg.enabled = True  # Must be done before importing uasyncio
 
 import uasyncio as asyncio
 try:
-    if asyncio.version != 'fast_io':
+    if asyncio.version[0] != 'fast_io':
         raise AttributeError
 except AttributeError:
     raise OSError('This requires fast_io fork of uasyncio.')

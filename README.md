@@ -13,7 +13,7 @@ This comprises two parts.
  replacement for the official version providing bug fixes, additional
  functionality and, in certain respects, higher performance.
  2. An optional extension module enabling the [fast_io](./FASTPOLL.md) version
- to run with very low power draw.
+ to run with very low power draw. This is Pyboard-only including Pyboard D.
 
 ## Resources for users of all versions
 

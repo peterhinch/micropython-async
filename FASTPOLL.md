@@ -19,7 +19,8 @@ This version has the following features relative to official V2.0:
  whereby bidirectional devices such as UARTS can fail to handle concurrent
  input and output is fixed.
  * It is compatible with `rtc_time.py` for micro-power applications documented
- [here](./lowpower/README.md).
+ [here](./lowpower/README.md). This is a Pyboard-only extension (including
+ Pyboard D).
  * An assertion failure is produced if `create_task` or `run_until_complete`
  is called with a generator function
  [PR292](https://github.com/micropython/micropython-lib/pull/292). This traps
