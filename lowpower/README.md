@@ -139,6 +139,14 @@ before yielding with a zero delay. The duration of the `stop` condition
 full speed. The `yield` allows each pending task to run once before the
 scheduler is again paused (if `latency` > 0).
 
+The line
+```python
+rtc_time_cfg.enabled = True
+```
+must be issued before importing `uasyncio` and before importing any modules
+which use it, otherwise low-power mode will not be engaged. It is wise to do
+this at the start of application code.
+
 ###### [Contents](./README.md#a-low-power-usayncio-adaptation)
 
 ### 3.2.1 Consequences of stop mode
@@ -147,15 +155,15 @@ scheduler is again paused (if `latency` > 0).
 
 A minor limitation is that the Pyboard 1.x RTC cannot resolve times of less
 than 4ms so there is a theoretical reduction in the accuracy of delays. This
-does not apply to the Pyboard D. In practice this is somewhat academic. As
-explained in the [tutorial](../TUTORIAL.md), issuing
+does not apply to the Pyboard D. This is somewhat academic. As explained in the
+[tutorial](../TUTORIAL.md), issuing
 
 ```python
 await asyncio.sleep_ms(t)
 ```
 
 specifies a minimum delay: the maximum may be substantially higher depending on
-the behaviour of other tasks.
+the behaviour of other tasks. Also the `latency` value will be added to `t`.
 
 RTC time rollover is at 7 days. The maximum supported `asyncio.sleep()` value
 is 302399999 seconds (3.5 days - 1s).
@@ -166,7 +174,14 @@ Programs using `pyb.stop` disable the USB connection to the PC. This is
 inconvenient for debugging so `rtc_time.py` detects an active USB connection
 and disables power saving. This enables an application to be developed normally
 via a USB connected PC. The board can then be disconnected from the PC and run
-from a separate power source for power measurements.
+from a separate power source for power measurements, the application being
+started by `main.py`.
+
+An active USB connection is one where a PC application is accessing the port:
+an unused port can power the Pyboard and the library will assume low-power
+mode. If the Pyboard is booted in safe mode to bypass `main.py` and the
+application is started at the REPL, USB detection will disable low power mode
+to keep the connection open.
 
 Applications can detect which timebase is in use by issuing:
 

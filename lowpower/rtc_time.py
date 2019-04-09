@@ -1,6 +1,6 @@
 # rtc_time.py Pyboard-only RTC based timing for low power uasyncio
 # Author: Peter Hinch
-# Copyright Peter Hinch 2018 Released under the MIT license
+# Copyright Peter Hinch 2018-2019 Released under the MIT license
 
 # Code based on extmod/utime_mphal.c
 # millisecs roll over on 7 days rather than 12.42757 days
@@ -29,11 +29,8 @@ if sys.platform == 'pyboard':
     if mode is None:  # USB is disabled
         use_utime = False  # use RTC timebase
     elif 'VCP' in mode:  # User has enabled VCP in boot.py
-        if d_series:  # Detect an active connection to the PC
-            usb_conn = pyb.USB_VCP().isconnected()
-        else:
-            usb_conn = pyb.Pin.board.USB_VBUS.value()  # USB physically connected to pyb V1.x
-        if usb_conn:
+        # Detect an active connection (not just a power source)
+        if pyb.USB_VCP().isconnected():  # USB will work normally
             print('USB connection: rtc_time disabled.')
         else:
             pyb.usb_mode(None)  # Save power
