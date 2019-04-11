@@ -14,12 +14,12 @@ import utime
 from os import uname
 from rtc_time_cfg import enabled
 if not enabled:
-    print('rtc_time module has not been enabled.')
-    sys.exit(0)
+    raise ImportError('rtc_time is not enabled.')
 
-_PERIOD = const(604800000)  # ms in 7 days
-_PERIOD_2 = const(302400000)  # half period
-_SS_TO_MS = 1000/256  # Subsecs to ms
+# sleep_ms is defined to stop things breaking if someone imports uasyncio.core
+# Power won't be saved if this is done.
+sleep_ms = utime.sleep_ms
+
 d_series = uname().machine[:5] == 'PYBD_'
 use_utime = True  # Assume the normal utime timebase
 
@@ -39,25 +39,37 @@ else:
     raise OSError('rtc_time.py is Pyboard-specific.')
 
 # For lowest power consumption set unused pins as inputs with pullups.
-# Note the 4K7 I2C pullups on X9 X10 Y9 Y10.
+# Note the 4K7 I2C pullups on X9 X10 Y9 Y10 (Pyboard 1.x).
 if d_series:
     print('Running on Pyboard D')  # Investigate which pins we can do this to TODO
-    #for pin in [p for p in dir(pyb.Pin.board) if p[0] in 'XYW']:
-        #pin_x = pyb.Pin(pin, pyb.Pin.IN, pyb.Pin.PULL_UP)
+#    pinlist = [p for p in dir(pyb.Pin.board) if p.startswith('W') and p[1].isdigit() and p[-1].isdigit()]
+#    sorted(pinlist, key=lambda s: int(s[1:]))
+    #pinlist = ['W3', 'W5', 'W6', 'W7', 'W8', 'W9', 'W10', 'W11', 'W12', 'W14', 'W15',
+            #'W16', 'W17', 'W18', 'W19', 'W20', 'W22', 'W23', 'W24', 'W25',
+            #'W26', 'W27', 'W28', 'W29', 'W30', 'W32', 'W33', 'W34', 'W43', 'W45',
+            #'W46', 'W47', 'W49', 'W50', 'W51', 'W52', 'W53', 'W54', 'W55', 'W56',
+            #'W57', 'W58', 'W59', 'W60', 'W61', 'W62', 'W63', 'W64', 'W65', 'W66',
+            #'W67', 'W68', 'W70', 'W71', 'W72', 'W73', 'W74']
+    # sorted([p for p in dir(pyb.Pin.board) if p[0] in 'XY' and p[-1].isdigit()], key=lambda x: int(x[1:]) if x[0]=='X' else int(x[1:])+100)
+    pinlist = ['X1', 'X2', 'X3', 'X4', 'X5', 'X6', 'X7', 'X8', 'X9', 'X10', 'X11', 'X12',
+                'Y3', 'Y4', 'Y5', 'Y6', 'Y7', 'Y8', 'Y9', 'Y10', 'Y11', 'Y12']
+    for pin in pinlist:
+        pin_x = pyb.Pin(pin, pyb.Pin.IN, pyb.Pin.PULL_UP)
+    pyb.Pin('EN_3V3').off()
 else:
     print('Running on Pyboard 1.x')
     for pin in [p for p in dir(pyb.Pin.board) if p[0] in 'XY']:
         pin_x = pyb.Pin(pin, pyb.Pin.IN, pyb.Pin.PULL_UP)
 # User code redefines any pins in use
 
-# sleep_ms is defined to stop things breaking if someone imports uasyncio.core
-# Power won't be saved if this is done.
-sleep_ms = utime.sleep_ms
-if use_utime:  # Run utime: Pyboard connected to PC via USB or alien platform
+if use_utime:
     ticks_ms = utime.ticks_ms
     ticks_add = utime.ticks_add
     ticks_diff = utime.ticks_diff
-else:
+else:   # All conditions met for low power operation
+    _PERIOD = const(604800000)  # ms in 7 days
+    _PERIOD_2 = const(302400000)  # half period
+    _SS_TO_MS = 1000/256  # Subsecs to ms
     rtc = pyb.RTC()
     # dt: (year, month, day, weekday, hours, minutes, seconds, subseconds)
     # weekday is 1-7 for Monday through Sunday.
@@ -82,9 +94,6 @@ else:
 
 import uasyncio as asyncio
 
-# Common version has a needless dict: https://www.python.org/dev/peps/pep-0318/#examples
-# https://stackoverflow.com/questions/6760685/creating-a-singleton-in-python
-# Resolved: https://forum.micropython.org/viewtopic.php?f=2&t=5033&p=28824#p28824
 def singleton(cls):
     instance = None
     def getinstance(*args, **kwargs):
@@ -124,6 +133,7 @@ class Latency():
                     rtc.wakeup(None)
 
     def value(self, val=None):
-        if val is not None and not use_utime:
+        v = self._t_ms
+        if val is not None:
             self._t_ms = max(val, 0)
-        return self._t_ms
+        return v

@@ -1,10 +1,12 @@
 # A low power usayncio adaptation
 
-Release 0.11 9th April 2019
+Release 0.11 11th April 2019
 
-API change: low power applications must now import `rtc_time_cfg` and set its
+API changes: low power applications must now import `rtc_time_cfg` and set its
 `enabled` flag.  
-This is specific to Pyboards including the D series.
+`Latency` class: Constructor requires event loop arg.  
+
+This module is specific to Pyboards including the D series.
 
  1. [Introduction](./README.md#1-introduction)  
  2. [Installation](./README.md#2-installation)  
@@ -252,10 +254,10 @@ Horizontal 500μs/div
 
 ### 3.2.4 Pyboard D measurements
 
-As of this release the two demo applications consume around 3.3mA. This is high
-because the unused pins are floating. When I discover which pins can be set to
-input with pullups as per the Pyboard 1.x implementation I hope to see figures
-comparable to Pyboard 1.x.
+As of this release the `lpdemo.py` script consumes around 1.1mA. I believe this
+can be reduced because some unused pins are floating. When I discover which
+pins can be set to input with pullups as per the Pyboard 1.x implementation I
+hope to see figures comparable to Pyboard 1.x.
 
 ###### [Contents](./README.md#a-low-power-usayncio-adaptation)
 
@@ -283,12 +285,12 @@ reason is explained in the code comments. It is recommended to use the `utime`
 method explicitly if needed.
 
 Latency Class:  
- * Constructor: Positional arg `t_ms=100`. Period for which the scheduler
- enters `stop` i.e. initial latency period.
- * Method: `value` Arg `val=None`. Controls period for which scheduler stops.
- It returns the period in ms. If the default `None` is passed the value is
- unchanged. If 0 is passed the scheduler runs at full speed. A value > 0 sets
- the stop period in ms.
+ * Constructor: Positional args `loop` - the event loop, `t_ms=100` - period
+ for which the scheduler  enters `stop` i.e. initial latency period.
+ * Method: `value` Arg `val=None`. Controls period for which scheduler
+ stops. It returns the period in ms prior to any change in value. If the
+ default `None` is passed the value is unchanged. If 0 is passed the scheduler
+ runs at full speed. A value > 0 sets the stop period in ms.
 
 The higher the value, the greater the latency experienced by other tasks and
 by I/O. Smaller values will result in higher power consumption with other tasks
@@ -298,7 +300,7 @@ The class is a singleton consequently there is no need to pass an instance
 around or to make it global. Once instantiated, latency may be changed by
 
 ```python
-rtc_time.Latency().value(t)
+rtc_time.Latency(t)
 ```
 
 ###### [Contents](./README.md#a-low-power-usayncio-adaptation)
