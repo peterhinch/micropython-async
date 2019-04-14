@@ -12,8 +12,9 @@
 import sys
 import utime
 from os import uname
-from rtc_time_cfg import enabled
-if not enabled:
+from rtc_time_cfg import enabled, disable_3v3, disable_leds
+
+if not enabled:  # uasyncio traps this and uses utime
     raise ImportError('rtc_time is not enabled.')
 
 # sleep_ms is defined to stop things breaking if someone imports uasyncio.core
@@ -41,21 +42,41 @@ else:
 # For lowest power consumption set unused pins as inputs with pullups.
 # Note the 4K7 I2C pullups on X9 X10 Y9 Y10 (Pyboard 1.x).
 if d_series:
-    print('Running on Pyboard D')  # Investigate which pins we can do this to TODO
-#    pinlist = [p for p in dir(pyb.Pin.board) if p.startswith('W') and p[1].isdigit() and p[-1].isdigit()]
-#    sorted(pinlist, key=lambda s: int(s[1:]))
-    #pinlist = ['W3', 'W5', 'W6', 'W7', 'W8', 'W9', 'W10', 'W11', 'W12', 'W14', 'W15',
-            #'W16', 'W17', 'W18', 'W19', 'W20', 'W22', 'W23', 'W24', 'W25',
-            #'W26', 'W27', 'W28', 'W29', 'W30', 'W32', 'W33', 'W34', 'W43', 'W45',
-            #'W46', 'W47', 'W49', 'W50', 'W51', 'W52', 'W53', 'W54', 'W55', 'W56',
-            #'W57', 'W58', 'W59', 'W60', 'W61', 'W62', 'W63', 'W64', 'W65', 'W66',
-            #'W67', 'W68', 'W70', 'W71', 'W72', 'W73', 'W74']
-    # sorted([p for p in dir(pyb.Pin.board) if p[0] in 'XY' and p[-1].isdigit()], key=lambda x: int(x[1:]) if x[0]=='X' else int(x[1:])+100)
-    pinlist = ['X1', 'X2', 'X3', 'X4', 'X5', 'X6', 'X7', 'X8', 'X9', 'X10', 'X11', 'X12',
-                'Y3', 'Y4', 'Y5', 'Y6', 'Y7', 'Y8', 'Y9', 'Y10', 'Y11', 'Y12']
-    for pin in pinlist:
-        pin_x = pyb.Pin(pin, pyb.Pin.IN, pyb.Pin.PULL_UP)
-    pyb.Pin('EN_3V3').off()
+    print('Running on Pyboard D')
+    if not use_utime:
+        def low_power_pins():
+            pins = [
+                # user IO pins
+                'A0', 'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9', 'A10', 'A11', 'A12', 'A13', 'A14', 'A15',
+                'B0', 'B1', 'B3', 'B4', 'B5', 'B7', 'B8', 'B9', 'B10', 'B11', 'B12', 'B13',
+                'C0', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6',
+                'D0', 'D3', 'D8', 'D9',
+                'E0', 'E1', 'E12', 'E14', 'E15',
+                'F1', 'F6', 'F7', 'F8', 'F9', 'F10', 'F11', 'F13', 'F14', 'F15',
+                'H2', 'H3', 'H5', 'H6', 'H7', 'H8',
+                'I0', 'I1',
+
+                # internal pins
+                'D1', 'D14', 'D15',
+                'F0', 'F12',
+                'G0', 'G1', 'G2', 'G3', 'G4', 'G5', #'G6',
+                'H4', 'H9', 'H10', 'H11', 'H12', 'H13', 'H14', 'H15',
+                'I2', 'I3',
+            ]
+            pins_led = ['F3', 'F4', 'F5',]
+            pins_sdmmc = ['D6', 'D7', 'G9', 'G10', 'G11', 'G12']
+            pins_wlan = ['D2', 'D4', 'I7', 'I8', 'I9', 'I11']
+            pins_bt = ['D5', 'D10', 'E3', 'E4', 'E5', 'E6', 'G8', 'G13', 'G14', 'G15', 'I4', 'I5', 'I6', 'I10']
+            pins_qspi1 = ['B2', 'B6', 'D11', 'D12', 'D13', 'E2']
+            pins_qspi2 = ['E7', 'E8', 'E9', 'E10', 'E11', 'E13']
+            for p in pins:
+                pyb.Pin(p, pyb.Pin.IN, pyb.Pin.PULL_DOWN)
+            if disable_3v3:
+                pyb.Pin('EN_3V3', pyb.Pin.IN, None)
+            if disable_leds:
+                for p in pins_led:
+                    pyb.Pin(p, pyb.Pin.IN, pyb.Pin.PULL_UP)
+        low_power_pins()
 else:
     print('Running on Pyboard 1.x')
     for pin in [p for p in dir(pyb.Pin.board) if p[0] in 'XY']:
