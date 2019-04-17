@@ -17,7 +17,7 @@ try:
         raise AttributeError
 except AttributeError:
     raise OSError('This requires fast_io fork of uasyncio.')
-import rtc_time
+from rtc_time import Latency, use_utime
 
 # Stop the test after a period
 async def killer(duration):
@@ -39,13 +39,13 @@ async def receiver(uart_in, uart_out):
         await swriter.awrite(res)
 
 def test(duration):
-    if rtc_time.use_utime:  # Not running in low power mode
+    if use_utime:  # Not running in low power mode
         pyb.LED(3).on()
     uart2 = pyb.UART(1, 115200)
     uart4 = pyb.UART(4, 9600)
     # Instantiate event loop before using it in Latency class
     loop = asyncio.get_event_loop()
-    lp = rtc_time.Latency(50)  # ms
+    lp = Latency(50)  # ms
     loop.create_task(sender(uart4))
     loop.create_task(receiver(uart4, uart2))
     loop.run_until_complete(killer(duration))

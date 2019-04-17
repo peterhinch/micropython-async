@@ -13,7 +13,7 @@ try:
         raise AttributeError
 except AttributeError:
     raise OSError('This requires fast_io fork of uasyncio.')
-import rtc_time
+from rtc_time import Latency
 
 class Button(aswitch.Switch):
     def __init__(self, pin):
@@ -35,7 +35,7 @@ def start(loop, leds, tims):
     running = True
     coros = []
     # Demo: assume app requires higher speed (not true in this instance)
-    rtc_time.Latency().value(50)
+    Latency(50)
     # Here you might apply power to external hardware
     for x, led in enumerate(leds):  # Create a coroutine for each LED
         coros.append(toggle(led, tims[x]))
@@ -50,7 +50,7 @@ def stop(leds, coros):
     # Remove power from external hardware
     for led in leds:
         led.off()
-    rtc_time.Latency().value(200)  # Slow down scheduler to conserve power
+    Latency(200)  # Slow down scheduler to conserve power
 
 async def monitor(loop, button):
     leds = [LED(x) for x in (1, 2, 3)]  # Create list of LED's and times

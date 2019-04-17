@@ -115,23 +115,24 @@ else:   # All conditions met for low power operation
 
 import uasyncio as asyncio
 
-def singleton(cls):
+def functor(cls):
     instance = None
     def getinstance(*args, **kwargs):
         nonlocal instance
         if instance is None:
             instance = cls(*args, **kwargs)
-        return instance
+            return instance
+        return instance(*args, **kwargs)
     return getinstance
 
-@singleton
-class Latency():
+@functor
+class Latency:
     def __init__(self, t_ms=100):
         if use_utime:  # Not in low power mode: t_ms stays zero
             self._t_ms = 0
         else:
             if asyncio.got_event_loop():
-                self._t_ms = t_ms
+                self._t_ms = max(t_ms, 0)
                 loop = asyncio.get_event_loop()
                 loop.create_task(self._run())
             else:
@@ -145,16 +146,17 @@ class Latency():
         while True:
             if t_ms > 0:
                 pyb.stop()
+            # Pending tasks run once, may change self._t_ms
             yield
-            if t_ms != self._t_ms:
+            if t_ms != self._t_ms:  # Has changed: update wakeup
                 t_ms = self._t_ms
                 if t_ms > 0:
                     rtc.wakeup(t_ms)
                 else:
                     rtc.wakeup(None)
 
-    def value(self, val=None):
+    def __call__(self, t_ms=None):
         v = self._t_ms
-        if val is not None:
-            self._t_ms = max(val, 0)
+        if t_ms is not None:
+            self._t_ms = max(t_ms, 0)
         return v

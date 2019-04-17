@@ -1,10 +1,10 @@
 # A low power usayncio adaptation
 
-Release 0.11 11th April 2019
+Release 0.12 15th April 2019
 
 API changes: low power applications must now import `rtc_time_cfg` and set its
 `enabled` flag.  
-`Latency` class: Constructor requires event loop arg.  
+`Latency` is now a functor rather than a class.  
 
 This module is specific to Pyboards including the D series.
 
@@ -129,10 +129,10 @@ try:
         raise AttributeError
 except AttributeError:
     raise OSError('This requires fast_io fork of uasyncio.')
-import rtc_time
+from rtc_time import Latency
  # Instantiate event loop with any args before running code that uses it
 loop = asyncio.get_event_loop()
-rtc_time.Latency(100)  # Define latency in ms
+Latency(100)  # Define latency in ms
 ```
 
 The `Latency` class has a continuously running loop that executes `pyb.stop`
@@ -300,7 +300,7 @@ The class is a singleton consequently there is no need to pass an instance
 around or to make it global. Once instantiated, latency may be changed by
 
 ```python
-rtc_time.Latency(t)
+Latency(t)
 ```
 
 ###### [Contents](./README.md#a-low-power-usayncio-adaptation)
@@ -321,10 +321,10 @@ try:
 except AttributeError:
     raise OSError('This requires fast_io fork of uasyncio.')
  # Do this import before configuring any pins or I/O:
-import rtc_time
+from rtc_time import Latency
  # Instantiate event loop with any args before running code that uses it:
 loop = asyncio.get_event_loop()
-lp = rtc_time.Latency(100)  # Define latency in ms
+Latency(100)  # Define latency in ms
  # Run application code
 ```
 
