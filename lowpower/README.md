@@ -1,6 +1,6 @@
 # A low power usayncio adaptation
 
-Release 0.12 15th April 2019
+Release 0.12 23rd April 2019
 
 API changes: low power applications must now import `rtc_time_cfg` and set its
 `enabled` flag.  
@@ -75,12 +75,27 @@ tested. Copy the file `rtc_time.py` to the device so that it is on `sys.path`.
  very low power is consumed. A normally open pushbutton should be connected
  between `X1` and `Gnd`. This program is intended as a basic template for
  similar applications.
+ * `howlow.py` A lower power version of the above. Polls the switch every 200ms
+ rather than running debouncing code.
  * `lp_uart.py` Send and receive messages on UART4, echoing received messages
  to UART1 at a different baudrate. This consumes about 1.4mA and serves to
- demonstrate that interrupt-driven devices operate correctly.
+ demonstrate that interrupt-driven devices operate correctly. Requires a link
+ between pins X1 and X2 to enable UART 4 to receive data via a loopback.
+ * `mqtt_log.py` A publish-only MQTT application for Pyboard D. See below.
 
-The test program `lp_uart.py` requires a link between pins X1 and X2 to enable
-UART 4 to receive data via a loopback.
+`mqtt_log.py` requires the `umqtt.simple`  library. This may be installed with
+[upip_m](https://github.com/peterhinch/micropython-samples/tree/master/micropip).
+```
+>>> upip_m.install('micropython-umqtt.simple')
+```
+This test is "experimental". Pyboard D support for low power WiFi is currently
+incomplete. I have seen anomolous results where power was low initially before
+jumping to ~30mA after a few hours. The application continued to run, but the
+evidence suggested that the WiFi chip was consuming power. See Damien's comment
+in [this issue](https://github.com/micropython/micropython/issues/4686).  
+An option would be to shut down the WiFi chip after each connection. The need
+periodically to reconnect would consume power, but in applications which log at
+low rates this should avoid the above issue. Or wait for the firmware to mature.
 
 ###### [Contents](./README.md#a-low-power-usayncio-adaptation)
 
@@ -135,11 +150,14 @@ loop = asyncio.get_event_loop()
 Latency(100)  # Define latency in ms
 ```
 
-The `Latency` class has a continuously running loop that executes `pyb.stop`
-before yielding with a zero delay. The duration of the `stop` condition
-(`latency`) can be dynamically varied. If zeroed the scheduler will run at
-full speed. The `yield` allows each pending task to run once before the
-scheduler is again paused (if `latency` > 0).
+`Latency` is a functor: its only interface is with function call syntax, which
+takes a single argument being the `lightsleep` duration in ms. If the lowpower
+mode is in operation the first call instantiates a coroutine with a
+continuously running loop that executes `pyb.stop` before yielding with a zero
+delay. The duration of the `lightsleep` condition can be dynamically varied by
+further `Latency(time_in_ms)` calls. If the arg is zero the scheduler will run
+at full speed. The `yield` allows each pending task to run once before the
+scheduler is again paused (if the current latency value is > 0).
 
 The line
 ```python
@@ -392,15 +410,32 @@ async def bar():
 
 the 10ms sleep will be >=200ms dependent on other application tasks.
 
-Latency may be changed dynamically by using the `value` method of the `Latency`
-instance. A typical application (as in `lpdemo.py`) might wait on a "Start"
-button with a high latency value, before running the application code with a
-lower (or zero) latency. On completion it could revert to waiting for "Start"
-with high latency to conserve battery.
+Latency may be changed dynamically by issuing `Latency(time_in_ms)`. A typical
+application (as in `howlow.py`) might wait on a "Start" button with a high
+latency value, before running the application code with a lower (or zero)
+latency. On completion it could revert to waiting for "Start" with high latency
+to conserve battery. Logging applications might pause for a duration or wait on
+a specific RTC time with a high latency value.
+
+Pyboard D users should note that firmware support for low power WiFi is
+incomplete. Consider turning off the WiFi chip when not in use:
+```
+sta_if = network.WLAN()
+while True:
+    # Wait for trigger
+    sta_if.active(True)  # Enable WiFi
+    sta_if.connect(SSID, PW)
+    # Use the network
+    sta_if.deinit()  # Turns off WiFi chip
+```
+[ref](https://github.com/micropython/micropython/issues/4681)
 
 ###### [Contents](./README.md#a-low-power-usayncio-adaptation)
 
 # 6. Note on the design
+
+This module uses the old `pyb` in preference to `machine`. This is because the
+Pyboard 1.x `machine` module does not have an `RTC` class.
 
 The `rtc_time` module represents a compromise designed to minimise changes to
 `uasyncio`. The aim is to have zero effect on the performance of applications
