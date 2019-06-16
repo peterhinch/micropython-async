@@ -6,11 +6,7 @@
 # On my SF_2W board consumption while paused was 170μA.
 
 # Test reception e.g. with:
-# mosquitto_sub -h 192.168.0.33 -t result
-
-SERVER = '192.168.0.33'  # *** Adapt for local conditions ***
-SSID = 'misspiggy'
-PW = '6163VMiqSTyx'
+# mosquitto_sub -h 192.168.0.10 -t result
 
 import rtc_time_cfg
 rtc_time_cfg.enabled = True
@@ -19,6 +15,7 @@ from pyb import LED, RTC
 from umqtt.simple import MQTTClient
 import network
 import ujson
+from local import SERVER, SSID, PW  # Local configuration: change this file
 
 import uasyncio as asyncio
 try:
@@ -42,7 +39,7 @@ async def main(loop):
     sta_if = network.WLAN()
     sta_if.active(True)
     sta_if.connect(SSID, PW)
-    while sta_if.status() == 1:
+    while sta_if.status() in (1, 2):  # https://github.com/micropython/micropython/issues/4682
         await asyncio.sleep(1)
         grn.toggle()
     if sta_if.isconnected():
