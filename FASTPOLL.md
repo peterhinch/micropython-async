@@ -30,6 +30,8 @@ This version has the following features relative to official V2.0:
  * `run_until_complete(coro())` now returns the value returned by `coro()` as
  per CPython
  [micropython-lib PR270](https://github.com/micropython/micropython-lib/pull/270).
+ * The `StreamReader` class now has a `readinto(buf, n=0)` method to enable
+ allocations to be reduced.
 
 Note that priority device drivers are written by using the officially supported
 technique for writing stream I/O drivers. Code using such drivers will run
@@ -64,6 +66,9 @@ formerly provided by `asyncio_priority.py` is now implemented.
   3.1 [Fast IO](./FASTPOLL.md#31-fast-io)  
   3.2 [Low Priority](./FASTPOLL.md#32-low-priority)  
   3.3 [Other Features](./FASTPOLL.md#33-other-features)  
+   3.3.1 [Version](./FASTPOLL.md#331-version)  
+   3.3.2 [got_event_loop](./FASTPOLL.md#332-got_event_loop)  
+   3.3.3 [StreamReader readinto method](./FASTPOLL.md#333-streamreader-readinto-method)  
   3.4 [Low priority yield](./FASTPOLL.md#34-low-priority-yield)  
    3.4.1 [Task Cancellation and Timeouts](./FASTPOLL.md#341-task-cancellation-and-timeouts)  
   3.5 [Low priority callbacks](./FASTPOLL.md#35-low-priority-callbacks)  
@@ -347,9 +352,13 @@ See [Low priority callbacks](./FASTPOLL.md#35-low-priority-callbacks)
 
 ## 3.3 Other Features
 
+### 3.3.1 Version
+
 Variable:  
- * `version` Returns a 2-tuple. Current contents ('fast_io', '0.24'). Enables
+ * `version` Returns a 2-tuple. Current contents ('fast_io', '0.25'). Enables
  the presence and realease state of this version to be determined at runtime.
+
+### 3.3.2 got_event_loop
 
 Function:
  * `got_event_loop()` No arg. Returns a `bool`: `True` if the event loop has
@@ -373,6 +382,31 @@ loop = asyncio.get_event_loop(runq_len=40, waitq_len=40)
 ```
 This is mainly for retro-fitting to existing classes and functions. The
 preferred approach is to pass the event loop to classes as a constructor arg.
+
+### 3.3.3 StreamReader readinto method
+
+The purpose of this asynchronous method is to be a non-allocating complement to
+the `StreamReader.read` method, enabling data to be read into a pre-existing
+buffer. It assumes that the device driver providing the data has a `readinto`
+method.
+
+`StreamReader.readinto(buf, n=0)` args:  
+`buf` the buffer to read into.  
+`n=0` the maximum number of bytes to read - default the buffer size.
+available it will be placed in the buffer. The return value is the number of
+bytes read. The default maximum is the buffer size, otherwise the value of `n`.
+
+The method will pause (allowing other coros to run) until data is available.
+
+This method calls the synchronous `readinto` method of the data source. This
+may take one arg (the buffer) or two (the buffer followed by the maximum number
+of bytes to read). If `StreamReader.readinto` is launched with a single arg,
+the `readinto` method will receive that one arg.
+
+It is the reponsibility of the device `readinto` method to validate the args,
+to populate the buffer and to return the number of bytes read. It should return
+"immediately" with as much data as is available. It will only be called when
+the `ioctl` method indicates that read data is ready.
 
 ###### [Contents](./FASTPOLL.md#contents)
 

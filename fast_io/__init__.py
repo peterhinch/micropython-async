@@ -164,29 +164,18 @@ class StreamReader:
         # PollEventLoop._unregister
         return res  # Next iteration raises StopIteration and returns result
 
-    def readinto(self, buf, n=0):  # Experimental and not yet tested TODO
-        if DEBUG and __debug__:
-            log.debug("StreamReader.readinto() START")
-
+    def readinto(self, buf, n=0):  # See comments in .read
         while True:
             yield IORead(self.polls)
-            if DEBUG and __debug__:
-                log.debug("StreamReader.readinto() ... just after IORead")
             if n:
-                res = self.ios.readinto(buf, n)  # Call the device's readinto method
+                res = self.ios.readinto(buf, n)  # Call device's readinto method
             else:
                 res = self.ios.readinto(buf)
             if res is not None:
                 break
-            # This should not happen for real sockets, but can easily
-            # happen for stream wrappers (ssl, websockets, etc.)
             #log.warn("Empty read")
-        yield IOReadDone(self.polls)  # uasyncio.core calls remove_reader
-        if DEBUG and __debug__:
-            log.debug("StreamReader.readinto() ... just after IOReadDone")
-        # This de-registers device as a read device with poll via
-        # PollEventLoop._unregister
-        return res  # Next iteration raises StopIteration and returns result
+        yield IOReadDone(self.polls)
+        return res
 
     def readexactly(self, n):
         buf = b""
