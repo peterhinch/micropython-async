@@ -393,10 +393,12 @@ method.
 `StreamReader.readinto(buf, n=0)` args:  
 `buf` the buffer to read into.  
 `n=0` the maximum number of bytes to read - default the buffer size.
-available it will be placed in the buffer. The return value is the number of
-bytes read. The default maximum is the buffer size, otherwise the value of `n`.
 
 The method will pause (allowing other coros to run) until data is available.
+
+Available data will be placed in the buffer. The return value is the number of
+bytes read. The default maximum number of bytes is limited to the buffer size,
+otherwise to the value of `n`.
 
 This method calls the synchronous `readinto` method of the data source. This
 may take one arg (the buffer) or two (the buffer followed by the maximum number
