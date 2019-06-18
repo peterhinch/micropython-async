@@ -67,7 +67,7 @@ formerly provided by `asyncio_priority.py` is now implemented.
   3.2 [Low Priority](./FASTPOLL.md#32-low-priority)  
   3.3 [Other Features](./FASTPOLL.md#33-other-features)  
    3.3.1 [Version](./FASTPOLL.md#331-version)  
-   3.3.2 [got_event_loop](./FASTPOLL.md#332-got_event_loop)  
+   3.3.2 [Check event loop status](./FASTPOLL.md#332-check-event-loop-status)  
    3.3.3 [StreamReader readinto method](./FASTPOLL.md#333-streamreader-readinto-method)  
   3.4 [Low priority yield](./FASTPOLL.md#34-low-priority-yield)  
    3.4.1 [Task Cancellation and Timeouts](./FASTPOLL.md#341-task-cancellation-and-timeouts)  
@@ -314,7 +314,7 @@ Arguments to `get_event_loop()`:
 
 Device drivers which are to be capable of running at high priority should be
 written to use stream I/O: see
-[Writing streaming device drivers](./TUTORIAL.md#54-writing-streaming-device-drivers).
+[Writing streaming device drivers](./TUTORIAL.md#64-writing-streaming-device-drivers).
 
 The `fast_io` version will schedule I/O whenever the `ioctl` reports a ready
 status. This implies that devices which become ready very soon after being
@@ -358,30 +358,31 @@ Variable:
  * `version` Returns a 2-tuple. Current contents ('fast_io', '0.25'). Enables
  the presence and realease state of this version to be determined at runtime.
 
-### 3.3.2 got_event_loop
+### 3.3.2 Check event loop status
 
-Function:
- * `got_event_loop()` No arg. Returns a `bool`: `True` if the event loop has
- been instantiated. Enables code using the event loop to raise an exception if
- the event loop was not instantiated:
-```python
-class Foo():
-    def __init__(self):
-        if asyncio.got_event_loop():
-            loop = asyncio.get_event_loop()
-            loop.create_task(self._run())
-        else:
-            raise OSError('Foo class requires an event loop instance')
-```
-This avoids subtle errors:
+The way `uasyncio` works can lead to subtle bugs. The first call to
+`get_event_loop` instantiates the event loop and determines the size of its
+queues. Hence the following code will not behave as expected:
 ```python
 import uasyncio as asyncio
 bar = Bar()  # Constructor calls get_event_loop()
 # and renders these args inoperative
 loop = asyncio.get_event_loop(runq_len=40, waitq_len=40)
 ```
-This is mainly for retro-fitting to existing classes and functions. The
-preferred approach is to pass the event loop to classes as a constructor arg.
+CPython V3.7 provides a function `get_running_loop` which enables the current
+loop to be retrieved, raising a `RuntimeError` if one has not been
+instantiated. This is provided in `fast_io`. In the above sample the `Bar`
+constructor call `get_running_loop` to avoid inadvertently instantiating an
+event loop with default args.
+
+Function:
+ * `get_running_loop` No arg. Returns the event loop or raises a `RuntimeError`
+ if one has not been instantiated.
+
+Function:
+ * `got_event_loop()` No arg. Returns a `bool`: `True` if the event loop has
+ been instantiated. This is retained for compatibility: `get_running_loop` is
+ preferred.
 
 ### 3.3.3 StreamReader readinto method
 
