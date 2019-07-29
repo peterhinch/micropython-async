@@ -372,7 +372,7 @@ loop = asyncio.get_event_loop(runq_len=40, waitq_len=40)
 CPython V3.7 provides a function `get_running_loop` which enables the current
 loop to be retrieved, raising a `RuntimeError` if one has not been
 instantiated. This is provided in `fast_io`. In the above sample the `Bar`
-constructor call `get_running_loop` to avoid inadvertently instantiating an
+constructor can call `get_running_loop` to avoid inadvertently instantiating an
 event loop with default args.
 
 Function:

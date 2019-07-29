@@ -94,23 +94,60 @@ CPython V3.5 and above.
 
 ## 0.1 Installing uasyncio on bare metal
 
-If a release build of firmware is used no installation is necessary as uasyncio
-is compiled into the build. The current release build (V1.9.10) now supports
-asynchronous stream I/O.
+It is recommended to use MicroPython firmware V1.11 or later. On many platforms
+no installation is necessary as `uasyncio` is compiled into the build. Test by
+issuing
+```python
+import uasyncio
+```
+at the REPL.
 
-The following instructions cover the case where a release build is not used.
-The instructions have changed as the version on PyPi is no longer compatible
-with official MicroPython firmware.
+The following instructions cover cases where modules are not pre-installed. The
+`queues` and `synchro` modules are optional, but are required to run all the
+examples below.
 
-The following instructions describe copying the bare minimum of files to a
-target device, also the case where `uasyncio` is to be frozen into a compiled
-build as bytecode. For the latest release compatible with official firmware
+#### Hardware with internet connectivity
+
+On hardware with an internet connection and running firmware V1.11 or greater
+installation may be done using `upip`, which is pre-installed. After ensuring
+that the device is connected to your network issue:
+```python
+import upip
+upip.install('micropython-uasyncio')
+upip.install('micropython-uasyncio.synchro')
+upip.install('micropython-uasyncio.queues')
+```
+Error meesages from `upip` are not too helpful. If you get an obscure error,
+double check your internet connection.
+
+#### Hardware without internet connectivity (micropip)
+
+On hardware which lacks an internet connection (such as a Pyboard V1.x) the
+easiest way is to run `micropip.py` on a PC to install to a directory of your
+choice, then to copy the resultant directory structure to the target hardware.
+The `micropip.py` utility runs under Python 3.2 or above and runs under Linux,
+Windows and OSX. It may be found
+[here](https://github.com/peterhinch/micropython-samples/tree/master/micropip).
+
+Typical invocation:
+```bash
+$ micropip.py install -p ~/rats micropython-uasyncio
+$ micropip.py install -p ~/rats micropython-uasyncio.synchro
+$ micropip.py install -p ~/rats micropython-uasyncio.queues
+```
+
+#### Hardware without internet connectivity (copy source)
+
+If `micropip.py` is not to be used the files should be copied from source. The
+following instructions describe copying the bare minimum of files to a target
+device, also the case where `uasyncio` is to be frozen into a compiled build as
+bytecode. For the latest release compatible with official firmware
 files must be copied from the official
 [micropython-lib](https://github.com/micropython/micropython-lib).
 
 Clone the library to a PC with
-```
-git clone https://github.com/micropython/micropython-lib.git
+```bash
+$ git clone https://github.com/micropython/micropython-lib.git
 ```
 On the target hardware create a `uasyncio` directory (optionally under a
 directory `lib`) and copy the following files to it:
@@ -118,9 +155,6 @@ directory `lib`) and copy the following files to it:
  * `uasyncio.core/uasyncio/core.py`
  * `uasyncio.synchro/uasyncio/synchro.py`
  * `uasyncio.queues/uasyncio/queues.py`
-
-The `queues` and `synchro` modules are optional, but are required to run all
-the examples below.
 
 The `uasyncio` modules may be frozen as bytecode in the usual way, by placing
 the `uasyncio` directory and its contents in the port's `modules` directory and

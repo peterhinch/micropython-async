@@ -45,9 +45,10 @@ This comprises two parts.
  
 # 2. Version and installation of uasyncio
 
-Paul Sokolovsky (`uasyncio` author) has released `uasyncio` V2.2.1. This version
-is on PyPi and requires his [Pycopy](https://github.com/pfalcon/micropython)
-fork of MicroPython firmware. His `uasyncio` code may also be found in
+Paul Sokolovsky (`uasyncio` author) has released versions of `uasyncio` which
+supercede the official version. His latest version is that on PyPi and requires
+his [Pycopy](https://github.com/pfalcon/micropython) fork of MicroPython
+firmware. His `uasyncio` code may also be found in
 [his fork of micropython-lib](https://github.com/pfalcon/micropython-lib).
 
 I support only the official build of MicroPython. The library code guaranteed
@@ -58,12 +59,14 @@ CPython).
 Most documentation and code in this repository assumes the current official
 version of `uasyncio`. This is V2.0 from
 [micropython-lib](https://github.com/micropython/micropython-lib).
-If release build of MicroPython V1.10 or later is used, V2.0 is incorporated
-and no installation is required. Some examples illustrate the features of the
-`fast_io` fork and therefore require this version.
+It is recommended to use MicroPython firmware V1.11 or later. On many platforms
+`uasyncio` is incorporated and no installation is required.
+
+Some examples illustrate features of the `fast_io` fork and therefore require
+this version.
 
 See [tutorial](./TUTORIAL.md#installing-uasyncio-on-bare-metal) for
-installation instructions where a realease build is not used.
+installation instructions where `uasyncio` is not pre-installed.
 
 # 3. uasyncio development state
 
