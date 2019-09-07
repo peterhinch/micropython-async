@@ -559,6 +559,9 @@ await asyn.Cancellable(print_nums, 5)  # single arg to print_nums.
 loop = asyncio.get_event_loop()
 loop.create_task(asyn.Cancellable(print_nums, 42)())  # Note () syntax.
 ```
+**NOTE** A coro declared with `@asyn.cancellable` must only be launched using
+the above syntax options. Treating it as a conventional coro will result in
+`tuple index out of range` errors or other failures.
 
 The following will cancel any tasks still running, pausing until cancellation
 is complete:
