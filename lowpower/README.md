@@ -64,7 +64,8 @@ Some general notes on low power Pyboard applications may be found
 # 2. Installation
 
 Ensure that the version of `uasyncio` in this repository is installed and
-tested. Copy the file `rtc_time.py` to the device so that it is on `sys.path`.
+tested. Copy the files `rtc_time.py` and `rtc_time_cfg.py` to the device so
+that they are on `sys.path`.
 
 ## 2.1 Files
 
