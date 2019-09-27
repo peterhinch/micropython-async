@@ -21,7 +21,7 @@ if not enabled:  # uasyncio traps this and uses utime
 # Power won't be saved if this is done.
 sleep_ms = utime.sleep_ms
 
-d_series = uname().machine[:5] == 'PYBD_'
+d_series = uname().machine[:4] == 'PYBD'
 use_utime = True  # Assume the normal utime timebase
 
 if sys.platform == 'pyboard':
@@ -41,6 +41,9 @@ else:
 
 # For lowest power consumption set unused pins as inputs with pullups.
 # Note the 4K7 I2C pullups on X9 X10 Y9 Y10 (Pyboard 1.x).
+
+# Pulling Pyboard D pins should be disabled if using WiFi as it now seems to
+# interfere with it. Although until issue #5152 is fixed it's broken anyway.
 if d_series:
     print('Running on Pyboard D')
     if not use_utime:

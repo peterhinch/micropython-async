@@ -50,8 +50,10 @@ async def main(loop):
         Latency(2000)
         count = 0
         while True:
+            print('Publish')
             publish(ujson.dumps([count, rtc.datetime()]))
             count += 1
+            print('Wait 2 mins')
             await asyncio.sleep(120)  # 2 mins
     else:  # Fail to connect
         red.on()

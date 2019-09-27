@@ -85,10 +85,15 @@ that they are on `sys.path`.
  * `mqtt_log.py` A publish-only MQTT application for Pyboard D. See below.
 
 `mqtt_log.py` requires the `umqtt.simple`  library. This may be installed with
-[upip_m](https://github.com/peterhinch/micropython-samples/tree/master/micropip).
+upip. See [Installing library modules](https://github.com/peterhinch/micropython-samples/tree/master/micropip).
 ```
->>> upip_m.install('micropython-umqtt.simple')
+>>> import upip
+>>> upip.install('micropython-umqtt.simple')
 ```
+Owing to [this issue](https://github.com/micropython/micropython/issues/5152)
+this test is currently broken and I suspect that any usage of WiFi in low power
+mode will fail.
+
 This test is "experimental". Pyboard D support for low power WiFi is currently
 incomplete. I have seen anomolous results where power was low initially before
 jumping to ~30mA after a few hours. The application continued to run, but the
