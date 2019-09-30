@@ -707,15 +707,15 @@ The `NamedTask` constructor takes the name, the coro, plus any user positional
 or keyword args. The resultant instance can be scheduled in the usual ways:
 
 ```python
-await NamedTask('my foo', foo, 1, 2)  # Pause until complete or killed
+await asyn.NamedTask('my foo', foo, 1, 2)  # Pause until complete or killed
 loop = asyncio.get_event_loop()  # Or schedule and continue:
-loop.create_task(NamedTask('my nums', foo, 10, 11)())  # Note () syntax.
+loop.create_task(asyn.NamedTask('my nums', foo, 10, 11)())  # Note () syntax.
 ```
 
 Cancellation is performed with:
 
 ```python
-await NamedTask.cancel('my foo')
+await asyn.NamedTask.cancel('my foo')
 ```
 
 When cancelling a task there is no need to check if the task is still running:
