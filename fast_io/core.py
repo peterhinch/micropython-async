@@ -8,7 +8,7 @@
 # Code at https://github.com/peterhinch/micropython-async.git
 # fork: peterhinch/micropython-lib branch: uasyncio-io-fast-and-rw
 
-version = ('fast_io', '0.25')
+version = ('fast_io', '0.26')
 try:
     import rtc_time as time  # Low power timebase using RTC
 except ImportError:

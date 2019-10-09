@@ -11,6 +11,7 @@
 import uerrno
 import uselect as select
 import usocket as _socket
+import sys
 from uasyncio.core import *
 
 DEBUG = 0
@@ -23,8 +24,7 @@ def set_debug(val):
         import logging
         log = logging.getLogger("uasyncio")
 
-# add_writer causes read failure if passed the same sock instance as was passed
-# to add_reader. Cand we fix this by maintaining two object maps?
+
 class PollEventLoop(EventLoop):
 
     def __init__(self, runq_len=16, waitq_len=16, fast_io=0, lp_len=0):
@@ -61,7 +61,11 @@ class PollEventLoop(EventLoop):
     def add_reader(self, sock, cb, *args):
         if DEBUG and __debug__:
             log.debug("add_reader%s", (sock, cb, args))
-        self._register(sock, select.POLLIN)
+        # HACK This should read
+        # self._register(sock, select.POLLIN)
+        # Temporary workround for https://github.com/micropython/micropython/issues/5172
+        # The following is not compliant with POSIX or with the docs
+        self._register(sock, select.POLLIN | select.POLLHUP | select.POLLERR)  # t35tB0t add HUP and ERR to force LWIP revents
         if args:
             self.rdobjmap[id(sock)] = (cb, args)
         else:
@@ -75,7 +79,11 @@ class PollEventLoop(EventLoop):
     def add_writer(self, sock, cb, *args):
         if DEBUG and __debug__:
             log.debug("add_writer%s", (sock, cb, args))
-        self._register(sock, select.POLLOUT)
+        # HACK Should read
+        # self._register(sock, select.POLLOUT)
+        # Temporary workround for https://github.com/micropython/micropython/issues/5172
+        # The following is not compliant with POSIX or with the docs
+        self._register(sock, select.POLLOUT | select.POLLHUP | select.POLLERR)  # t35tB0t add HUP and ERR to force LWIP revents
         if args:
             self.wrobjmap[id(sock)] = (cb, args)
         else:
@@ -181,12 +189,20 @@ class StreamReader:
         buf = b""
         while n:
             yield IORead(self.polls)
+            # socket may become unreadable inbetween
+            # subsequent readline may return None
             res = self.ios.read(n)
-            assert res is not None
-            if not res:
-                break
-            buf += res
-            n -= len(res)
+            # returns none if socket not readable vs no data b''
+            if res is None:
+                if DEBUG and __debug__:
+                    log.debug('WARNING: socket write returned type(None)')
+                # socket may be in HUP or ERR state, so loop back ask poller
+                continue
+            else:
+                if not res:  # All done
+                    break
+                buf += res
+                n -= len(res)
         yield IOReadDone(self.polls)
         return buf
 
@@ -196,13 +212,20 @@ class StreamReader:
         buf = b""
         while True:
             yield IORead(self.polls)
+            # socket may become unreadable inbetween
+            # subsequent readline may return None
             res = self.ios.readline()
-            assert res is not None
-            if not res:
-                break
-            buf += res
-            if buf[-1] == 0x0a:
-                break
+            if res is None:
+                if DEBUG and __debug__:
+                    log.debug('WARNING: socket read returned type(None)')
+                # socket may be in HUP or ERR state, so loop back and ask poller
+                continue
+            else:
+                if not res:
+                    break
+                buf += res
+                if buf[-1] == 0x0a:
+                    break
         if DEBUG and __debug__:
             log.debug("StreamReader.readline(): %s", buf)
         yield IOReadDone(self.polls)
@@ -233,24 +256,31 @@ class StreamWriter:
         if DEBUG and __debug__:
             log.debug("StreamWriter.awrite(): spooling %d bytes", sz)
         while True:
+            # Check socket write status first
+            yield IOWrite(self.s)
+            # socket may become unwritable inbetween
+            # subsequent writes may return None
             res = self.s.write(buf, off, sz)
+            if res is None:
+                if DEBUG and __debug__:
+                    log.debug('WARNING: socket write returned type(None)')
+                # socket may be in HUP or ERR state, so loop back and ask poller
+                continue
             # If we spooled everything, return immediately
             if res == sz:
                 if DEBUG and __debug__:
                     log.debug("StreamWriter.awrite(): completed spooling %d bytes", res)
-                yield IOWriteDone(self.s)  # remove_writer de-registers device as a writer
-                return
-            if res is None:
-                res = 0
+                break
             if DEBUG and __debug__:
                 log.debug("StreamWriter.awrite(): spooled partial %d bytes", res)
             assert res < sz
             off += res
             sz -= res
             yield IOWrite(self.s)
-            #assert s2.fileno() == self.s.fileno()
             if DEBUG and __debug__:
                 log.debug("StreamWriter.awrite(): can write more")
+        # remove_writer de-registers device as a writer
+        yield IOWriteDone(self.s)
 
     # Write piecewise content from iterable (usually, a generator)
     def awriteiter(self, iterable):
@@ -308,18 +338,39 @@ def start_server(client_coro, host, port, backlog=10):
     s.setsockopt(_socket.SOL_SOCKET, _socket.SO_REUSEADDR, 1)
     s.bind(ai[-1])
     s.listen(backlog)
-    while True:
-        if DEBUG and __debug__:
-            log.debug("start_server: Before accept")
-        yield IORead(s)
-        if DEBUG and __debug__:
-            log.debug("start_server: After iowait")
-        s2, client_addr = s.accept()
-        s2.setblocking(False)
-        if DEBUG and __debug__:
-            log.debug("start_server: After accept: %s", s2)
-        extra = {"peername": client_addr}
-        yield client_coro(StreamReader(s2), StreamWriter(s2, extra))
+    try:
+        while True:
+            try:
+                if DEBUG and __debug__:
+                    log.debug("start_server: Before accept")
+                yield IORead(s)
+                if DEBUG and __debug__:
+                    log.debug("start_server: After iowait")
+                s2, client_addr = s.accept()
+                s2.setblocking(False)
+                if DEBUG and __debug__:
+                    log.debug("start_server: After accept: %s", s2)
+                extra = {"peername": client_addr}
+                # Detach the client_coro: put it on runq
+                yield client_coro(StreamReader(s2), StreamWriter(s2, extra))
+                s2 = None
+
+            except Exception as e:
+                if len(e.args)==0:
+                    # This happens but shouldn't. Firmware bug?
+                    # Handle exception as an unexpected unknown error:
+                    # collect details here then close try to continue running
+                    print('start_server:Unknown error: continuing')
+                    sys.print_exception(e)
+                if not uerrno.errorcode.get(e.args[0], False):
+                    # Handle exception as internal error: close and terminate
+                    # handler (user must trap or crash)
+                    print('start_server:Unexpected error: terminating')
+                    raise
+    finally:
+        if s2:
+            s2.close()
+        s.close()
 
 
 import uasyncio.core
