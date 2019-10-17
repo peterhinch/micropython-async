@@ -12,7 +12,7 @@
 import sys
 import utime
 from os import uname
-from rtc_time_cfg import enabled, disable_3v3, disable_leds
+from rtc_time_cfg import enabled, disable_3v3, disable_leds, disable_pins
 
 if not enabled:  # uasyncio traps this and uses utime
     raise ImportError('rtc_time is not enabled.')
@@ -72,8 +72,9 @@ if d_series:
             pins_bt = ['D5', 'D10', 'E3', 'E4', 'E5', 'E6', 'G8', 'G13', 'G14', 'G15', 'I4', 'I5', 'I6', 'I10']
             pins_qspi1 = ['B2', 'B6', 'D11', 'D12', 'D13', 'E2']
             pins_qspi2 = ['E7', 'E8', 'E9', 'E10', 'E11', 'E13']
-            for p in pins:
-                pyb.Pin(p, pyb.Pin.IN, pyb.Pin.PULL_DOWN)
+            if disable_pins:
+                for p in pins:
+                    pyb.Pin(p, pyb.Pin.IN, pyb.Pin.PULL_DOWN)
             if disable_3v3:
                 pyb.Pin('EN_3V3', pyb.Pin.IN, None)
             if disable_leds:

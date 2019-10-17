@@ -1,6 +1,6 @@
 # A low power usayncio adaptation
 
-Release 0.12 23rd April 2019
+Release 0.13 17th Oct 2019
 
 API changes: low power applications must now import `rtc_time_cfg` and set its
 `enabled` flag.  
@@ -21,6 +21,7 @@ This module is specific to Pyboards including the D series.
    3.2.3 [Current waveforms Pyboard 1](./README.md#323-current-waveforms-pyboard-1)  
    3.2.4 [Pyboard D measurements](./README.md#324-pyboard-d-measurements)  
  4. [The rtc_time module](./README.md#4-the-rtc_time-module)  
+  4.1 [rtc_time_cfg](./README.md#41-rtc_time_cfg)  
  5. [Application design](./README.md#5-application-design)  
   5.1 [Hardware](./README.md#51-hardware)  
   5.2 [Application Code](./README.md#52-application-code)  
@@ -326,6 +327,22 @@ around or to make it global. Once instantiated, latency may be changed by
 ```python
 Latency(t)
 ```
+
+## 4.1 rtc_time_cfg
+
+This consists of the following:
+```python
+enabled = False
+disable_3v3 = False
+disable_leds = False
+disable_pins = False
+```
+These variables may selectively be set `True` by the application prior to
+importing `uasyncio`. Setting `enabled` is mandatory if low power mode is to be
+engaged. The other variables control the 3.3V regulator, the LED drivers and
+GPIO pins: the latter may be set to inputs with pulldown resistors to minimise
+current draw. Unfortunately at the time of writing this feature seems to have
+a fatal effect. I am investigating.
 
 ###### [Contents](./README.md#a-low-power-usayncio-adaptation)
 
