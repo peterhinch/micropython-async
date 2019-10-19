@@ -45,53 +45,6 @@ def launch(func, tup_args):
         loop = asyncio.get_event_loop()
         loop.create_task(res)
 
-
-class Delay_ms(object):
-    def __init__(self, func=None, args=(), can_alloc=True, duration=1000):
-        self.func = func
-        self.args = args
-        self.can_alloc = can_alloc
-        self.duration = duration  # Default duration
-        self.tstop = None  # Not running
-        self.loop = asyncio.get_event_loop()
-        if not can_alloc:
-            self.loop.create_task(self._run())
-
-    async def _run(self):
-        while True:
-            if self.tstop is None:  # Not running
-                await asyncio.sleep_ms(0)
-            else:
-                await self.killer()
-
-    def stop(self):
-        self.tstop = None
-
-    def trigger(self, duration=0):  # Update end time
-        if duration <= 0:
-            duration = self.duration
-        if self.can_alloc and self.tstop is None:  # No killer task is running
-            self.tstop = time.ticks_add(time.ticks_ms(), duration)
-            # Start a task which stops the delay after its period has elapsed
-            self.loop.create_task(self.killer())
-        self.tstop = time.ticks_add(time.ticks_ms(), duration)
-
-    def running(self):
-        return self.tstop is not None
-
-    __call__ = running
-
-    async def killer(self):
-        twait = time.ticks_diff(self.tstop, time.ticks_ms())
-        while twait > 0:  # Must loop here: might be retriggered
-            await asyncio.sleep_ms(twait)
-            if self.tstop is None:
-                break  # Return if stop() called during wait
-            twait = time.ticks_diff(self.tstop, time.ticks_ms())
-        if self.tstop is not None and self.func is not None:
-            launch(self.func, self.args)  # Timed out: execute callback
-        self.tstop = None  # Not running
-
 class Switch(object):
     debounce_ms = 50
     def __init__(self, pin):
@@ -127,21 +80,18 @@ class Switch(object):
             # Ignore further state changes until switch has settled
             await asyncio.sleep_ms(Switch.debounce_ms)
 
-class Pushbutton(object):
+class Pushbutton:
     debounce_ms = 50
     long_press_ms = 1000
     double_click_ms = 400
+
     def __init__(self, pin, suppress=False):
-        self.pin = pin # Initialise for input
-        self._supp = suppress
-        self._dblpend = False  # Doubleclick waiting for 2nd click
-        self._dblran = False  # Doubleclick executed user function
-        self._tf = False
-        self._ff = False
-        self._df = False
-        self._lf = False
-        self._ld = False  # Delay_ms instance for long press
-        self._dd = False  # Ditto for doubleclick
+        self.pin = pin
+        self._supp = suppress  # don't call release func after long press
+        self._tf = None  # pressed function
+        self._ff = None  # released function
+        self._df = None  # double pressed function
+        self._lf = None  # long pressed function
         self.sense = pin.value()  # Convert from electrical to logical value
         self.state = self.rawstate()  # Initial state
         loop = asyncio.get_event_loop()
@@ -171,49 +121,62 @@ class Pushbutton(object):
     def __call__(self):
         return self.state
 
-    def _ddto(self):  # Doubleclick timeout: no doubleclick occurred
-        self._dblpend = False
-        if self._supp and not self.state:
-            if not self._ld or (self._ld and not self._ld()):
-                launch(self._ff, self._fa)
-
     async def buttoncheck(self):
-        if self._lf:  # Instantiate timers if funcs exist
-            self._ld = Delay_ms(self._lf, self._la)
-        if self._df:
-            self._dd = Delay_ms(self._ddto)
+        t_change = None
+        supp = False
+        clicks = 0
+        lpr = False  # long press ran
+        ####
+        # local functions for performance improvements
+        deb = self.debounce_ms
+        dcms = self.double_click_ms
+        lpms = self.long_press_ms
+        raw = self.rawstate
+        ticks_diff = time.ticks_diff
+        ticks_ms = time.ticks_ms
+        ###
+        # Note: Using explicit "if var is True/False" instead of "if (not) var"
+        #       because it is a bit faster
+        ###
         while True:
-            state = self.rawstate()
-            # State has changed: act on it now.
-            if state != self.state:
+            state = raw()
+            if state is False and self.state is False and self._supp and \
+                    ticks_diff(ticks_ms(), t_change) > dcms and clicks > 0 and self._ff:
+                clicks = 0
+                launch(self._ff, self._fa)
+            elif state is True and self.state is True:
+                if clicks > 0 and ticks_diff(ticks_ms(), t_change) > dcms:
+                    # double click timeout
+                    clicks = 0
+                if self._lf and lpr is False:  # check long press
+                    if ticks_diff(ticks_ms(), t_change) >= lpms:
+                        lpr = True
+                        clicks = 0
+                        if self._supp is True:
+                            supp = True
+                        launch(self._lf, self._la)
+            elif state != self.state:  # state changed
+                lpr = False
                 self.state = state
-                if state:  # Button pressed: launch pressed func
-                    if self._tf:
-                        launch(self._tf, self._ta)
-                    if self._lf:  # There's a long func: start long press delay
-                        self._ld.trigger(Pushbutton.long_press_ms)
+                if state is True:  # Button pressed: launch pressed func
+                    if ticks_diff(ticks_ms(), t_change) > dcms:
+                        clicks = 0
                     if self._df:
-                        if self._dd():  # Second click: timer running
-                            self._dd.stop()
-                            self._dblpend = False
-                            self._dblran = True  # Prevent suppressed launch on release
-                            launch(self._df, self._da)
-                        else:
-                            # First click: start doubleclick timer
-                            self._dd.trigger(Pushbutton.double_click_ms)
-                            self._dblpend = True  # Prevent suppressed launch on release
-                else:  # Button release. Is there a release func?
-                    if self._ff:
-                        if self._supp:
-                            d = self._ld 
-                            # If long delay exists, is running and doubleclick status is OK
-                            if not self._dblpend and not self._dblran:
-                                if (d and d()) or not d:
-                                    launch(self._ff, self._fa)
-                        else:
-                            launch(self._ff, self._fa)
-                    if self._ld:
-                        self._ld.stop()  # Avoid interpreting a second click as a long push
-                    self._dblran = False
+                        clicks += 1
+                    if clicks == 2:  # double click
+                        clicks = 0
+                        if self._supp is True:
+                            supp = True
+                        launch(self._df, self._da)
+                    elif self._tf:
+                        launch(self._tf, self._ta)
+                else:  # Button released. launch release func
+                    if supp is True:
+                        supp = False
+                    elif clicks and self._supp > 0:
+                        pass
+                    elif self._ff:  # not after a long press with suppress
+                        launch(self._ff, self._fa)
+                t_change = ticks_ms()
             # Ignore state changes until switch has settled
-            await asyncio.sleep_ms(Pushbutton.debounce_ms)
+            await asyncio.sleep_ms(deb)
