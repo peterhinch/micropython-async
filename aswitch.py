@@ -135,9 +135,6 @@ class Pushbutton:
         ticks_diff = time.ticks_diff
         ticks_ms = time.ticks_ms
         ###
-        # Note: Using explicit "if var is True/False" instead of "if (not) var"
-        #       because it is a bit faster
-        ###
         while True:
             state = raw()
             if state is False and self.state is False and self._supp and \
