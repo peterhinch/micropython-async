@@ -13,7 +13,16 @@ helptext = '''
 Test using switch or pushbutton between X1 and gnd.
 Ground pin X2 to terminate test.
 Soft reset (ctrl-D) after each test.
+
 '''
+tests = '''
+Available tests:
+test_sw Switch test
+test_swcb Switch with callback
+test_btn Pushutton launching coros
+test_btncb Pushbutton launching callbacks
+'''
+print(tests)
 
 # Pulse an LED (coroutine)
 async def pulse(led, ms):
@@ -33,8 +42,13 @@ async def killer():
 
 # Test for the Switch class passing coros
 def test_sw():
+    s = '''
+close pulses green
+open pulses red
+'''
     print('Test of switch scheduling coroutines.')
     print(helptext)
+    print(s)
     pin = Pin('X1', Pin.IN, Pin.PULL_UP)
     red = LED(1)
     green = LED(2)
@@ -47,8 +61,13 @@ def test_sw():
 
 # Test for the switch class with a callback
 def test_swcb():
+    s = '''
+close toggles red
+open toggles green
+'''
     print('Test of switch executing callbacks.')
     print(helptext)
+    print(s)
     pin = Pin('X1', Pin.IN, Pin.PULL_UP)
     red = LED(1)
     green = LED(2)
@@ -62,8 +81,15 @@ def test_swcb():
 # Test for the Pushbutton class (coroutines)
 # Pass True to test suppress
 def test_btn(suppress=False, lf=True, df=True):
+    s = '''
+press pulses red
+release pulses green
+double click pulses yellow
+long press pulses blue
+'''
     print('Test of pushbutton scheduling coroutines.')
     print(helptext)
+    print(s)
     pin = Pin('X1', Pin.IN, Pin.PULL_UP)
     red = LED(1)
     green = LED(2)
@@ -83,8 +109,15 @@ def test_btn(suppress=False, lf=True, df=True):
 
 # Test for the Pushbutton class (callbacks)
 def test_btncb():
+    s = '''
+press toggles red
+release toggles green
+double click toggles yellow
+long press toggles blue
+'''
     print('Test of pushbutton executing callbacks.')
     print(helptext)
+    print(s)
     pin = Pin('X1', Pin.IN, Pin.PULL_UP)
     red = LED(1)
     green = LED(2)

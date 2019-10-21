@@ -46,53 +46,63 @@ def launch(func, tup_args):
         loop.create_task(res)
 
 
-class Delay_ms(object):
+class Delay_ms:
+    verbose = False
     def __init__(self, func=None, args=(), can_alloc=True, duration=1000):
         self.func = func
         self.args = args
         self.can_alloc = can_alloc
         self.duration = duration  # Default duration
-        self.tstop = None  # Not running
+        self._tstop = None  # Killer not running
+        self._running = False  # Timer not running
         self.loop = asyncio.get_event_loop()
         if not can_alloc:
             self.loop.create_task(self._run())
 
     async def _run(self):
         while True:
-            if self.tstop is None:  # Not running
+            if not self._running:  # timer not running
                 await asyncio.sleep_ms(0)
             else:
-                await self.killer()
+                await self._killer()
 
     def stop(self):
-        self.tstop = None
+        self._running = False
+        # If uasyncio is ever fixed we should cancel .killer
 
     def trigger(self, duration=0):  # Update end time
+        self._running = True
         if duration <= 0:
             duration = self.duration
-        if self.can_alloc and self.tstop is None:  # No killer task is running
-            self.tstop = time.ticks_add(time.ticks_ms(), duration)
-            # Start a task which stops the delay after its period has elapsed
-            self.loop.create_task(self.killer())
-        self.tstop = time.ticks_add(time.ticks_ms(), duration)
+        tn = time.ticks_add(time.ticks_ms(), duration)  # new end time
+        self.verbose and self._tstop is not None and self._tstop > tn \
+            and print("Warning: can't reduce Delay_ms time.")
+        # Start killer if can allocate and killer is not running
+        sk = self.can_alloc and self._tstop is None
+        # The following indicates ._killer is running: it will be
+        # started either here or in ._run
+        self._tstop = tn
+        if sk:  # ._killer stops the delay when its period has elapsed
+            self.loop.create_task(self._killer())
 
     def running(self):
-        return self.tstop is not None
+        return self._running
 
     __call__ = running
 
-    async def killer(self):
-        twait = time.ticks_diff(self.tstop, time.ticks_ms())
+    async def _killer(self):
+        twait = time.ticks_diff(self._tstop, time.ticks_ms())
         while twait > 0:  # Must loop here: might be retriggered
             await asyncio.sleep_ms(twait)
-            if self.tstop is None:
+            if self._tstop is None:
                 break  # Return if stop() called during wait
-            twait = time.ticks_diff(self.tstop, time.ticks_ms())
-        if self.tstop is not None and self.func is not None:
+            twait = time.ticks_diff(self._tstop, time.ticks_ms())
+        if self._running and self.func is not None:
             launch(self.func, self.args)  # Timed out: execute callback
-        self.tstop = None  # Not running
+        self._tstop = None  # killer not running
+        self._running = False  # timer is stopped
 
-class Switch(object):
+class Switch:
     debounce_ms = 50
     def __init__(self, pin):
         self.pin = pin # Should be initialised for input with pullup
@@ -127,7 +137,9 @@ class Switch(object):
             # Ignore further state changes until switch has settled
             await asyncio.sleep_ms(Switch.debounce_ms)
 
-class Pushbutton(object):
+# An alternative Pushbutton solution with lower RAM use is available here
+# https://github.com/kevinkk525/pysmartnode/blob/dev/pysmartnode/utils/abutton.py
+class Pushbutton:
     debounce_ms = 50
     long_press_ms = 1000
     double_click_ms = 400

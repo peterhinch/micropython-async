@@ -156,6 +156,9 @@ loop = asyncio.get_event_loop()
 loop.run_until_complete(my_app())  # Run main application code
 ```
 
+An alternative Pushbutton class with lower RAM usage is available
+[here](https://github.com/kevinkk525/pysmartnode/blob/dev/pysmartnode/utils/abutton.py).
+
 ### 3.2.1 The suppress constructor argument
 
 When the button is pressed `press_func` runs immediately. This minimal latency
@@ -207,11 +210,17 @@ Methods:
 
  1. `trigger` optional argument `duration=0`. A timeout will occur after
  `duration` ms unless retriggered. If no arg is passed the period will be that
- of the `duration` passed to the constructor.
+ of the `duration` passed to the constructor. See Class variable below.
  2. `stop` No argument. Cancels the timeout, setting the `running` status
  `False`. The timer can be restarted by issuing `trigger` again.
  3. `running` No argument. Returns the running status of the object.
  4. `__call__` Alias for running.
+
+Class variable:
+
+ 1. `verbose=False` If `True` a warning will be printed if a running timer is
+ retriggered with a time value shorter than the time currently outstanding.
+ Such an operation has no effect owing to the design of `uasyncio`.
 
 If the `trigger` method is to be called from an interrupt service routine the
 `can_alloc` constructor arg should be `False`. This causes the delay object
@@ -229,7 +238,7 @@ import uasyncio as asyncio
 from aswitch import Pushbutton, Delay_ms
 
 async def my_app():
-    await asyncio.sleep(60)  # Dummy
+    await asyncio.sleep(60)  # Run for 1 minute
 
 pin = Pin('X1', Pin.IN, Pin.PULL_UP)  # Pushbutton to gnd
 red = LED(1)
