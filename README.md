@@ -8,7 +8,7 @@ contains an optional `fast_io` variant of `uasyncio`.
 
 Damien has completely rewritten `uasyncio`. Its release is likely to be
 imminent, see
-[PR5332](https://github.com/micropython/micropython/pull/5332) and [section 3.1](./README.md#31-the-new_version).
+[PR5332](https://github.com/micropython/micropython/pull/5332) and [below](./README.md#31-the-new_version).
 
 ## The fast_io variant
 
