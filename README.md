@@ -8,7 +8,7 @@ contains an optional `fast_io` variant of `uasyncio`.
 
 Damien has completely rewritten `uasyncio`. Its release is likely to be
 imminent, see
-[PR5332](https://github.com/micropython/micropython/pull/5332) and [section 3.1](./README.md##31-the-new_version).
+[PR5332](https://github.com/micropython/micropython/pull/5332) and [section 3.1](./README.md#31-the-new_version).
 
 ## The fast_io variant
 
@@ -90,7 +90,7 @@ following features will involve minor changes to application code:
  this is in accord with CPython where `yield` will produce a syntax error.
  * Awaitable classes: currently under discussion. The `__iter__` method works
  but `yield` should be replaced by `await asyncio.sleep_ms(0)`. As yet I have
- found no way to write an awaitable classes compatible with the new `uasyncio`
+ found no way to write an awaitable class compatible with the new `uasyncio`
  and which does not throw syntax errors under CPython 3.8/`asyncio`.
 
 ### 3.1.1 Implications for this repository
