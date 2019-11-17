@@ -6,6 +6,10 @@ code size and high performance on bare metal targets. This repository provides
 documentation, tutorial material and code to aid in its effective use. It also
 contains an optional `fast_io` variant of `uasyncio`.
 
+Damien has completely rewritten `uasyncio`. Its release is likely to be
+imminent, see
+[PR5332](https://github.com/micropython/micropython/pull/5332) and [section 3.1](./README.md##31-the-new_version).
+
 ## The fast_io variant
 
 This comprises two parts.  
@@ -70,6 +74,78 @@ installation instructions where `uasyncio` is not pre-installed.
 
 # 3. uasyncio development state
 
+## 3.1 The new version
+
+This complete rewrite of `uasyncio` supports CPython 3.8 syntax. A design aim
+is that it should be be a compatible subset of `asyncio`. Many applications
+using the coding style advocated in the tutorial will work unchanged. The
+following features will involve minor changes to application code:
+
+ * Task cancellation: `cancel` is now a method of a `Task` instance.
+ * Event loop methods: `call_at`, `call_later`, `call_later_ms`  and
+ `call_soon` are no longer supported. In CPython docs these are
+ [lightly deprecated](https://docs.python.org/3/library/asyncio-eventloop.html#preface)
+ in application code; there are simple workrounds.
+ * `yield` in coroutines should be replaced by `await asyncio.sleep_ms(0)`:
+ this is in accord with CPython where `yield` will produce a syntax error.
+ * Awaitable classes: currently under discussion. The `__iter__` method works
+ but `yield` should be replaced by `await asyncio.sleep_ms(0)`. As yet I have
+ found no way to write an awaitable classes compatible with the new `uasyncio`
+ and which does not throw syntax errors under CPython 3.8/`asyncio`.
+
+### 3.1.1 Implications for this repository
+
+It is planned to retain V2 under a different name. The new version fixes bugs
+which have been outstanding for a long time. In my view V2 is best viewed as
+deprecated. I will retain V2-specific code and docs in a separate directory,
+with the rest of this repo being adapted for the new version.
+
+#### 3.1.1.1 Tutorial
+
+This requires only minor changes.
+
+#### 3.1.1.2 Fast I/O
+
+The `fast_io` fork is incompatible and will be relegated to the V2 directory.
+
+The new version's design greatly simplifies the implementation of fast I/O:
+I therefore hope the new `uasyncio` will include it. The other principal aims
+were to provide workrounds for bugs now fixed. If `uasyncio` includes fast I/O
+there is no reason to fork the new version; other `fast_io` features will be
+lost unless Damien sees fit to implement them. The low priority task option is
+little used and arguably is ill-conceived: I will not be advocating for its
+inclusion.
+
+#### 3.1.1.3 Synchronisation Primitives
+
+The CPython `asyncio` library supports these synchronisation primitives:
+ * `Lock` - already incorporated in new `uasyncio`.
+ * `Event` - already incorporated.
+ * `gather` - already incorporated.
+ * `Semaphore` and `BoundedSemaphore`. My classes work under new version.
+ * `Condition`. Works under new version.
+ * `Queue`. This was implemented by Paul Sokolvsky in `uasyncio.queues`.
+ 
+Incorporating these will produce more efficient implementations; my solutions
+were designed to work with stock `uasyncio` V2.
+
+The `Event` class in `asyn.py` provides a nonstandard option to supply a data
+value to the `.set` method and to retrieve this with `.value`. It is also an
+awaitable class. I will support these by subclassing the native `Event`.
+
+The following work under new and old versions:
+ * `Barrier` (now adapted).
+ * `Delay_ms` (this and the following in aswitch.py)
+ * `Switch`
+ * `Pushbutton`
+
+The following were workrounds for bugs and omissions in V2 which are now fixed.
+They will be removed.  
+ * The cancellation decorators and classes (cancellation works as per CPython).
+ * The nonstandard support for `gather` (now properly supported).
+
+## 3.2 The current version V2.0
+
 These notes are intended for users familiar with `asyncio` under CPython.
 
 The MicroPython language is based on CPython 3.4. The `uasyncio` library
@@ -99,13 +175,13 @@ It supports millisecond level timing with the following:
 
 Classes `Task` and `Future` are not supported.
 
-## 3.1 Asynchronous I/O
+## 3.2.1 Asynchronous I/O
 
 Asynchronous I/O (`StreamReader` and `StreamWriter` classes) support devices
 with streaming drivers, such as UARTs and sockets. It is now possible to write
 streaming device drivers in Python.
 
-## 3.2 Time values
+## 3.2.2 Time values
 
 For timing asyncio uses floating point values of seconds. The `uasyncio.sleep`
 method accepts floats (including sub-second values) or integers. Note that in

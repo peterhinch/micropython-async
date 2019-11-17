@@ -40,7 +40,7 @@ ack_test()  Test event acknowledge.
 event_test()  Test Event and Lock objects.
 barrier_test()  Test the Barrier class.
 semaphore_test(bounded=False)  Test Semaphore or BoundedSemaphore.
-condition_test()  Test the Condition class.
+condition_test(new=False)  Test the Condition class. Set arg True for new uasyncio.
 gather_test()  Test the  Gather class
 
 Recommended to issue ctrl-D after running each test.
@@ -287,13 +287,6 @@ async def cond01():
         with await cond:
             cond.notify(2)  # Notify 2 tasks
 
-async def cond02(n, barrier):
-    with await cond:
-        print('cond02', n, 'Awaiting notification.')
-        await cond.wait()
-        print('cond02', n, 'triggered. tim =', tim)
-        barrier.trigger()
-
 @asyn.cancellable
 async def cond03():  # Maintain a count of seconds
     global tim
@@ -301,6 +294,26 @@ async def cond03():  # Maintain a count of seconds
     while True:
         await asyncio.sleep(1)
         tim += 1
+
+async def cond01_new():
+    while True:
+        await asyncio.sleep(2)
+        with await cond:
+            cond.notify(2)  # Notify 2 tasks
+
+async def cond03_new():  # Maintain a count of seconds
+    global tim
+    await asyncio.sleep(0.5)
+    while True:
+        await asyncio.sleep(1)
+        tim += 1
+
+async def cond02(n, barrier):
+    with await cond:
+        print('cond02', n, 'Awaiting notification.')
+        await cond.wait()
+        print('cond02', n, 'triggered. tim =', tim)
+        barrier.trigger()
 
 def predicate():
     return tim >= 8 # 12
@@ -312,11 +325,15 @@ async def cond04(n, barrier):
         print('cond04', n, 'triggered. tim =', tim)
         barrier.trigger()
 
-async def cond_go(loop):
+async def cond_go(loop, new):
     ntasks = 7
     barrier = asyn.Barrier(ntasks + 1)
-    loop.create_task(asyn.Cancellable(cond01)())
-    loop.create_task(asyn.Cancellable(cond03)())
+    if new:
+        t1 = asyncio.create_task(cond01_new())
+        t3 = asyncio.create_task(cond03_new())
+    else:
+        loop.create_task(asyn.Cancellable(cond01)())
+        loop.create_task(asyn.Cancellable(cond03)())
     for n in range(ntasks):
         loop.create_task(cond02(n, barrier))
     await barrier  # All instances of cond02 have completed
@@ -325,10 +342,15 @@ async def cond_go(loop):
     loop.create_task(cond04(99, barrier))
     await barrier
     # cancel continuously running coros.
-    await asyn.Cancellable.cancel_all()
+    if new:
+        t1.cancel()
+        t3.cancel()
+        await asyncio.sleep_ms(0)
+    else:
+        await asyn.Cancellable.cancel_all()
     print('Done.')
 
-def condition_test():
+def condition_test(new=False):
     printexp('''cond02 0 Awaiting notification.
 cond02 1 Awaiting notification.
 cond02 2 Awaiting notification.
@@ -348,7 +370,7 @@ cond04 99 triggered. tim = 9
 Done.
 ''', 13)
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(cond_go(loop))
+    loop.run_until_complete(cond_go(loop, new))
 
 # ************ Gather test ************
 

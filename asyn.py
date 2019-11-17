@@ -154,7 +154,7 @@ class Barrier():
         while True:  # Wait until last waiting thread changes the direction
             if direction != self._down:
                 return
-            yield
+            await asyncio.sleep_ms(0)
 
     __iter__ = __await__
 
@@ -201,7 +201,7 @@ class Semaphore():
 
     async def acquire(self):
         while self._count == 0:
-            yield
+            await asyncio.sleep_ms(0)
         self._count -= 1
 
     def release(self):
