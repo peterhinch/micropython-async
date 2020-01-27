@@ -5,7 +5,7 @@
 # Docstrings removed because of question marks over their use in resource
 # constrained systems e.g. https://github.com/micropython/micropython/pull/3748
 
-# Copyright (c) 2018 Peter Hinch
+# Copyright (c) 2018-2020 Peter Hinch
 # Released under the MIT License (MIT) - see LICENSE file
 
 # astests.py runs under CPython but not MicroPython because mktime is missing
