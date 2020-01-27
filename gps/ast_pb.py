@@ -1,7 +1,7 @@
 # ast_pb.py
 # Basic test/demo of AS_GPS class (asynchronous GPS device driver)
 # Runs on a Pyboard with GPS data on pin X2.
-# Copyright (c) Peter Hinch 2018
+# Copyright (c) Peter Hinch 2018-2020
 # Released under the MIT License (MIT) - see LICENSE file
 # Test asynchronous GPS device driver as_pyGPS
 
