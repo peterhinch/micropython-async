@@ -192,6 +192,9 @@ class AS_GPS(object):
     # Update takes a line of text
     async def _update(self, line):
         line = line.rstrip()  # Copy line
+        # Basic integrity check: may have received partial line e.g on power up
+        if not line.startswith('$') or not '*' in line or len(line) > self._SENTENCE_LIMIT:
+            return
         if self.FULL_CHECK:  # 9ms on Pyboard
             try:
                 next(c for c in line if ord(c) < 10 or ord(c) > 126)
@@ -199,8 +202,6 @@ class AS_GPS(object):
             except StopIteration:
                 pass  # All good
             await asyncio.sleep(0)
-            if len(line) > self._SENTENCE_LIMIT or not '*' in line:
-                return  # Too long or malformed
 
         a = line.split(',')
         segs = a[:-1] + a[-1].split('*')
