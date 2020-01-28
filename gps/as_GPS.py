@@ -195,13 +195,9 @@ class AS_GPS(object):
         # Basic integrity check: may have received partial line e.g on power up
         if not line.startswith('$') or not '*' in line or len(line) > self._SENTENCE_LIMIT:
             return
-        if self.FULL_CHECK:  # 9ms on Pyboard
-            try:
-                next(c for c in line if ord(c) < 10 or ord(c) > 126)
-                return  # Bad character received
-            except StopIteration:
-                pass  # All good
-            await asyncio.sleep(0)
+        # 2.4ms on Pyboard:
+        if self.FULL_CHECK and not all(10 <= ord(c) <= 126 for c in line):
+            return  # Bad character received
 
         a = line.split(',')
         segs = a[:-1] + a[-1].split('*')
@@ -214,9 +210,10 @@ class AS_GPS(object):
             await asyncio.sleep(0)
 
         self.clean_sentences += 1  # Sentence is good but unparsed.
-        seg0 = segs[0][1:]  # discard $
-        segx = seg0[2:]  # Discard 1st 2 chars
+        segs[0] = segs[0][1:]  # discard $
         segs = segs[:-1]  # and checksum
+        seg0 = segs[0]  # e.g. GPGLL
+        segx = seg0[2:]  # e.g. GLL
         if seg0.startswith('G') and segx in self.supported_sentences:
             try:
                 s_type = self.supported_sentences[segx](segs)  # Parse
