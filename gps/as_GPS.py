@@ -24,7 +24,7 @@ except ImportError:
 from math import modf
 
 # Float conversion tolerant of empty field
-gfloat = lambda x : float(x) if x else 0.0
+# gfloat = lambda x : float(x) if x else 0.0
 
 # Angle formats
 DD = const(1)
@@ -249,12 +249,12 @@ class AS_GPS(object):
         # Latitude
         l_string = gps_segments[idx_lat]
         lat_degs = int(l_string[0:2])
-        lat_mins = gfloat(l_string[2:])
+        lat_mins = float(l_string[2:])
         lat_hemi = gps_segments[idx_lat + 1]
         # Longitude
         l_string = gps_segments[idx_long]
         lon_degs = int(l_string[0:3])
-        lon_mins = gfloat(l_string[3:])
+        lon_mins = float(l_string[3:])
         lon_hemi = gps_segments[idx_long + 1]
 
         if lat_hemi not in 'NS'or lon_hemi not in 'EW':
@@ -281,7 +281,7 @@ class AS_GPS(object):
         # Secs from MTK3339 chip is a float but others may return only 2 chars
         # for integer secs. If a float keep epoch as integer seconds and store
         # the fractional part as integer ms (ms since midnight fits 32 bits).
-        fss, fsecs = modf(gfloat(utc_string[4:]))
+        fss, fsecs = modf(float(utc_string[4:]))
         secs = int(fsecs)
         self.msecs = int(fss * 1000)
         d = int(date_string[0:2])  # day
@@ -322,12 +322,12 @@ class AS_GPS(object):
         # Can raise ValueError.
         self._fix(gps_segments, 3, 5)
         # Speed
-        spd_knt = gfloat(gps_segments[7])
+        spd_knt = float(gps_segments[7])
         # Course
-        course = gfloat(gps_segments[8])
+        course = float(gps_segments[8])
         # Add Magnetic Variation if firmware supplies it
         if gps_segments[10]:
-            mv = gfloat(gps_segments[10])
+            mv = float(gps_segments[10])  # Float conversions can throw ValueError, caught by caller.
             if gps_segments[11] not in ('EW'):
                 raise ValueError
             self.magvar = mv if gps_segments[11] == 'E' else -mv
@@ -352,8 +352,8 @@ class AS_GPS(object):
     # Chip sends VTG messages with meaningless data before getting a fix.
     def _gpvtg(self, gps_segments):  # Parse VTG sentence
         self._valid &= ~VTG
-        course = gfloat(gps_segments[1])
-        spd_knt = gfloat(gps_segments[5])
+        course = float(gps_segments[1])
+        spd_knt = float(gps_segments[5])
         self._speed = spd_knt
         self.course = course
         self._valid |= VTG
@@ -364,7 +364,7 @@ class AS_GPS(object):
         # Number of Satellites in Use
         satellites_in_use = int(gps_segments[7])
         # Horizontal Dilution of Precision
-        hdop = gfloat(gps_segments[8])
+        hdop = float(gps_segments[8])
         # Get Fix Status
         fix_stat = int(gps_segments[6])
 
@@ -373,8 +373,8 @@ class AS_GPS(object):
             # Longitude / Latitude
             self._fix(gps_segments, 2, 4)
             # Altitude / Height Above Geoid
-            altitude = gfloat(gps_segments[9])
-            geoid_height = gfloat(gps_segments[11])
+            altitude = float(gps_segments[9])
+            geoid_height = float(gps_segments[11])
             # Update Object Data
             self.altitude = altitude
             self.geoid_height = geoid_height
@@ -399,9 +399,9 @@ class AS_GPS(object):
             else:
                 break
         # PDOP,HDOP,VDOP
-        pdop = gfloat(gps_segments[15])
-        hdop = gfloat(gps_segments[16])
-        vdop = gfloat(gps_segments[17])
+        pdop = float(gps_segments[15])
+        hdop = float(gps_segments[16])
+        vdop = float(gps_segments[17])
 
         # If Fix is GOOD, update fix timestamp
         if fix_type <= self._NO_FIX:  # Deviation from Michael McCoy's logic. Is this right?
