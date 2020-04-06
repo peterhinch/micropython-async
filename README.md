@@ -6,20 +6,23 @@ code size and high performance on bare metal targets. This repository provides
 documentation, tutorial material and code to aid in its effective use. It also
 contains an optional `fast_io` variant of `uasyncio`.
 
-Damien has completely rewritten `uasyncio`. Its release is likely to be
-imminent, see
+Damien has completely rewritten `uasyncio`. V3.0 now been released, see
 [PR5332](https://github.com/micropython/micropython/pull/5332) and [below](./README.md#31-the-new-version).
 
-## The fast_io variant
+#### NOTE ON NEW RELEASE
 
-This comprises two parts.  
- 1. The [fast_io](./FASTPOLL.md) version of `uasyncio` is a "drop in"
- replacement for the official version providing bug fixes, additional
- functionality and, in certain respects, higher performance.
- 2. An optional extension module enabling the [fast_io](./FASTPOLL.md) version
- to run with very low power draw. This is Pyboard-only including Pyboard D.
+The material in this repo largely relates to the old version V2.0 and I intend
+a substantial revision. I believe most of the material in the tutorial is still
+valid as it aims to be CPython compatible. I also expect the example scripts to
+work, based on testing with pre-release versions.
 
-## Resources for users of all versions
+There is currently no support for fast I/O scheduling: I/O is scheduled in
+round robin fashion with other tasks. There are situations where this is too
+slow, for example in I2S applications and ones involving multiple fast I/O
+streams. In these applications there is still a use case for the fast_io
+version. I hope that the new version acquires a facility to prioritise I/O.
+
+## Resources
 
  * [A tutorial](./TUTORIAL.md) An introductory tutorial on asynchronous
  programming and the use of the `uasyncio` library.
@@ -44,33 +47,27 @@ This comprises two parts.
  * [Communication between devices](./syncom_as/README.md) Enables MicroPython
  boards to communicate without using a UART. This is hardware agnostic but
  slower than the I2C version.
- * [Under the hood](./UNDER_THE_HOOD.md) A guide to help understand the
- `uasyncio` code. For scheduler geeks and those wishing to modify `uasyncio`.
+ 
+## Resources specific to V2.0
+
+### The fast_io variant
+
+This comprises two parts.  
+ 1. The [fast_io](./FASTPOLL.md) version of `uasyncio` is a "drop in"
+ replacement for the official version 2 providing bug fixes, additional
+ functionality and, in certain respects, higher performance.
+ 2. An optional extension module enabling the [fast_io](./FASTPOLL.md) version
+ to run with very low power draw. This is Pyboard-only including Pyboard D.
+
+### Under the hood
+
+[Under the hood](./UNDER_THE_HOOD.md) A guide to help understand the V2
+`uasyncio` code. For scheduler geeks and those wishing to modify `uasyncio`.
  
 # 2. Version and installation of uasyncio
 
-Paul Sokolovsky (`uasyncio` author) has released versions of `uasyncio` which
-supercede the official version. His latest version is that on PyPi and requires
-his [Pycopy](https://github.com/pfalcon/micropython) fork of MicroPython
-firmware. His `uasyncio` code may also be found in
-[his fork of micropython-lib](https://github.com/pfalcon/micropython-lib).
-
-I support only the official build of MicroPython. The library code guaranteed
-to work with this build is in [micropython-lib](https://github.com/micropython/micropython-lib).
-Most of the resources in here should work with Paul's forks (most work with
-CPython).
-
-Most documentation and code in this repository assumes the current official
-version of `uasyncio`. This is V2.0 from
-[micropython-lib](https://github.com/micropython/micropython-lib).
-It is recommended to use MicroPython firmware V1.11 or later. On many platforms
-`uasyncio` is incorporated and no installation is required.
-
-Some examples illustrate features of the `fast_io` fork and therefore require
-this version.
-
-See [tutorial](./TUTORIAL.md#installing-uasyncio-on-bare-metal) for
-installation instructions where `uasyncio` is not pre-installed.
+The new release of `uasyncio` is pre-installed in current daily firmware 
+builds.
 
 # 3. uasyncio development state
 
@@ -97,12 +94,8 @@ following features will involve minor changes to application code:
 
 It is planned to retain V2 under a different name. The new version fixes bugs
 which have been outstanding for a long time. In my view V2 is best viewed as
-deprecated. I will retain V2-specific code and docs in a separate directory,
-with the rest of this repo being adapted for the new version.
-
-#### 3.1.1.1 Tutorial
-
-This requires only minor changes.
+deprecated. I will support V3 in a separate directory, the resources in this
+directory being retained for existing applications and users of V2 and fast_io.
 
 #### 3.1.1.2 Fast I/O
 

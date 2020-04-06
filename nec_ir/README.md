@@ -10,14 +10,14 @@ The driver and test programs run on the Pyboard and ESP8266.
 
 # Files
 
- 1. ``aremote.py`` The device driver.
- 2. ``art.py`` A test program to characterise a remote.
- 3. ``art1.py`` Control an onboard LED using a remote. The data and addresss
+ 1. `aremote.py` The device driver.
+ 2. `art.py` A test program to characterise a remote.
+ 3. `art1.py` Control an onboard LED using a remote. The data and addresss
  values need changing to match your characterised remote.
 
 # Dependencies
 
-The driver requires the ``uasyncio`` library and the file ``asyn.py`` from this
+The driver requires the `uasyncio` library and the file `asyn.py` from this
 repository.
 
 # Usage
@@ -36,10 +36,10 @@ Data values are 8 bit. Addresses may be 8 or 16 bit depending on whether the
 remote uses extended addressing.
 
 If a button is held down a repeat code is sent. In this event the driver
-returns a data value of ``REPEAT`` and the address associated with the last
+returns a data value of `REPEAT` and the address associated with the last
 valid data block.
 
-To characterise a remote run ``art.py`` and note the data value for each button
+To characterise a remote run `art.py` and note the data value for each button
 which is to be used. If the address is less than 256, extended addressing is
 not in use.
 
@@ -48,7 +48,7 @@ not in use.
 IR reception is inevitably subject to errors, notably if the remote is operated
 near the limit of its range, if it is not pointed at the receiver or if its
 batteries are low. So applications must check for, and usually ignore, errors.
-These are flagged by data values < ``REPEAT``.
+These are flagged by data values < `REPEAT`.
 
 On the ESP8266 there is a further source of errors. This results from the large
 and variable interrupt latency of the device which can exceed the pulse
@@ -62,9 +62,9 @@ Users tend to press the key again if no acknowledgement is received.
 
 The constructor takes the following positional arguments.
 
- 1. ``pin`` A ``Pin`` instance for the decoder chip.
- 2. ``cb`` The user callback function.
- 3. ``extended`` Set ``False`` to enable extra error checking if the remote
+ 1. `pin` A `Pin` instance for the decoder chip.
+ 2. `cb` The user callback function.
+ 3. `extended` Set `False` to enable extra error checking if the remote
  returns an 8 bit address.
  4. Further arguments, if provided, are passed to the callback.
 
@@ -72,11 +72,11 @@ The callback receives the following positional arguments:
 
  1. The data value returned from the remote.
  2. The address value returned from the remote.
- 3. Any further arguments provided to the ``NEC_IR`` constructor.
+ 3. Any further arguments provided to the `NEC_IR` constructor.
 
 Negative data values are used to signal repeat codes and transmission errors.
 
-The test program ``art1.py`` provides an example of a minimal application.
+The test program `art1.py` provides an example of a minimal application.
 
 # How it works
 
@@ -103,7 +103,7 @@ interrupt in a burst sets an event, passing the time of the state change. A
 coroutine waits on the event, yields for the duration of a data burst, then
 decodes the stored data before calling the user-specified callback.
 
-Passing the time to the ``Event`` instance enables the coro to compensate for
+Passing the time to the `Event` instance enables the coro to compensate for
 any asyncio latency when setting its delay period.
 
 The algorithm promotes interrupt handler speed over RAM use: the 276 bytes used
@@ -115,19 +115,19 @@ in the interrupt service routine.
 Data values passed to the callback are normally positive. Negative values
 indicate a repeat code or an error.
 
-``REPEAT`` A repeat code was received.
+`REPEAT` A repeat code was received.
 
-Any data value < ``REPEAT`` denotes an error. In general applications do not
+Any data value < `REPEAT` denotes an error. In general applications do not
 need to decode these, but they may be of use in debugging. For completeness
 they are listed below.
 
-``BADSTART`` A short (<= 4ms) start pulse was received. May occur due to IR
+`BADSTART` A short (<= 4ms) start pulse was received. May occur due to IR
 interference, e.g. from fluorescent lights. The TSOP4838 is prone to producing
 200µs pulses on occasion, especially when using the ESP8266.  
-``BADBLOCK`` A normal data block: too few edges received. Occurs on the ESP8266
+`BADBLOCK` A normal data block: too few edges received. Occurs on the ESP8266
 owing to high interrupt latency.  
-``BADREP`` A repeat block: an incorrect number of edges were received.  
-``OVERRUN`` A normal data block: too many edges received.  
-``BADDATA`` Data did not match check byte.  
-``BADADDR`` Where ``extended`` is ``False`` the 8-bit address is checked
+`BADREP` A repeat block: an incorrect number of edges were received.  
+`OVERRUN` A normal data block: too many edges received.  
+`BADDATA` Data did not match check byte.  
+`BADADDR` Where `extended` is `False` the 8-bit address is checked
 against the check byte. This code is returned on failure.  
