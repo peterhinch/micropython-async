@@ -1,28 +1,43 @@
-# 1. Asynchronous programming in MicroPython
+# Asynchronous programming in MicroPython
 
 CPython supports asynchronous programming via the `asyncio` library.
 MicroPython provides `uasyncio` which is a subset of this, optimised for small
 code size and high performance on bare metal targets. This repository provides
-documentation, tutorial material and code to aid in its effective use. It also
-contains an optional `fast_io` variant of `uasyncio`.
+documentation, tutorial material and code to aid in its effective use.
 
-Damien has completely rewritten `uasyncio`. V3.0 now been released, see
-[PR5332](https://github.com/micropython/micropython/pull/5332) and [below](./README.md#31-the-new-version).
+## uasyncio versions
 
-#### NOTE ON NEW RELEASE
+Damien has completely rewritten `uasyncio` which has been released as V3.0. See
+[PR5332](https://github.com/micropython/micropython/pull/5332).
 
-The material in this repo largely relates to the old version V2.0 and I intend
-a substantial revision. I believe most of the material in the tutorial is still
-valid as it aims to be CPython compatible. I also expect the example scripts to
-work, based on testing with pre-release versions.
+There is currently a choice to be made over whether to run V2 or V3. To run V2,
+ensure your firmware build is official MicroPython V1.12 and follow the
+`uasyncio` installation instructions in [the V2 tutorial](./TUTORIAL.md). For
+V3, install the latest daily build which includes `uasyncio`.
 
-There is currently no support for fast I/O scheduling: I/O is scheduled in
-round robin fashion with other tasks. There are situations where this is too
-slow, for example in I2S applications and ones involving multiple fast I/O
-streams. In these applications there is still a use case for the fast_io
-version. I hope that the new version acquires a facility to prioritise I/O.
+Resources for V3 and an updated tutorial may be found in the v3 directory. 
 
-## Resources
+### [Go to V3 docs](./v3/README.md)
+
+The remainder of this document is for users of V2 and its `fast_io` variant. 
+
+# 1. uasyncio V2
+
+This repo also contains an optional `fast_io` variant of `uasyncio` V2. This
+variant offers high I/O performance and also includes workrounds for many of
+the bugs in V2. (Bugs properly fixed in V3.)
+
+## Reasons for running V2
+
+In general I recommend V3, especially for new projects. It is better in every
+respect bar one: the `fast_io` variant of V2 currently offers superior I/O
+performance, relative both to V2 and V3.
+
+The main reason for running official V2 is that many existing libraries have
+not yet been ported to V3. Some will run without change, but those using more
+advanced features of `uasyncio` may not.
+
+## 1.1 Resources
 
  * [A tutorial](./TUTORIAL.md) An introductory tutorial on asynchronous
  programming and the use of the `uasyncio` library.
@@ -48,9 +63,7 @@ version. I hope that the new version acquires a facility to prioritise I/O.
  boards to communicate without using a UART. This is hardware agnostic but
  slower than the I2C version.
  
-## Resources specific to V2.0
-
-### The fast_io variant
+## 1.2 The fast_io variant
 
 This comprises two parts.  
  1. The [fast_io](./FASTPOLL.md) version of `uasyncio` is a "drop in"
@@ -59,85 +72,73 @@ This comprises two parts.
  2. An optional extension module enabling the [fast_io](./FASTPOLL.md) version
  to run with very low power draw. This is Pyboard-only including Pyboard D.
 
-### Under the hood
+Official `uasyncio` suffers from high levels of latency when scheduling I/O in
+typical applications. It also has an issue which can cause bidirectional
+devices such as UART's to block. The `fast_io` version fixes the bug. It also
+provides a facility for reducing I/O latency which can substantially improve
+the performance of stream I/O drivers. It provides other features aimed at
+providing greater control over scheduling behaviour.
+
+To take advantage of the reduced latency device drivers should be written to
+employ stream I/O. To operate at low latency they are simply run under the
+`fast_io` version. The [tutorial](./TUTORIAL.md#64-writing-streaming-device-drivers)
+has details of how to write streaming drivers.
+
+The current `fast_io` version 0.24 fixes an issue with task cancellation and
+timeouts. In `uasyncio` version 2.0, where a coroutine is waiting on a
+`sleep()` or on I/O, a timeout or cancellation is deferred until the coroutine
+is next scheduled. This introduces uncertainty into when the coroutine is
+stopped.
+
+## 1.2.1 A Pyboard-only low power module
+
+This is documented [here](./lowpower/README.md). In essence a Python file is
+placed on the device which configures the `fast_io` version of `uasyncio` to
+reduce power consumption at times when it is not busy. This provides a means of
+using `uasyncio` in battery powered projects. This is decidedly experimental:
+hopefully `uasyncio` V3 will introduce power saving in a less hacky manner.
+
+## 1.3 Under the hood
 
 [Under the hood](./UNDER_THE_HOOD.md) A guide to help understand the V2
 `uasyncio` code. For scheduler geeks and those wishing to modify `uasyncio`.
- 
-# 2. Version and installation of uasyncio
 
-The new release of `uasyncio` is pre-installed in current daily firmware 
-builds.
+## 1.4 Synchronisation Primitives
 
-# 3. uasyncio development state
-
-## 3.1 The new version
-
-This complete rewrite of `uasyncio` supports CPython 3.8 syntax. A design aim
-is that it should be be a compatible subset of `asyncio`. Many applications
-using the coding style advocated in the tutorial will work unchanged. The
-following features will involve minor changes to application code:
-
- * Task cancellation: `cancel` is now a method of a `Task` instance.
- * Event loop methods: `call_at`, `call_later`, `call_later_ms`  and
- `call_soon` are no longer supported. In CPython docs these are
- [lightly deprecated](https://docs.python.org/3/library/asyncio-eventloop.html#preface)
- in application code; there are simple workrounds.
- * `yield` in coroutines should be replaced by `await asyncio.sleep_ms(0)`:
- this is in accord with CPython where `yield` will produce a syntax error.
- * Awaitable classes: currently under discussion. The `__iter__` method works
- but `yield` should be replaced by `await asyncio.sleep_ms(0)`. As yet I have
- found no way to write an awaitable class compatible with the new `uasyncio`
- and which does not throw syntax errors under CPython 3.8/`asyncio`.
-
-### 3.1.1 Implications for this repository
-
-It is planned to retain V2 under a different name. The new version fixes bugs
-which have been outstanding for a long time. In my view V2 is best viewed as
-deprecated. I will support V3 in a separate directory, the resources in this
-directory being retained for existing applications and users of V2 and fast_io.
-
-#### 3.1.1.2 Fast I/O
-
-The `fast_io` fork is incompatible and will be relegated to the V2 directory.
-
-The new version's design greatly simplifies the implementation of fast I/O:
-I therefore hope the new `uasyncio` will include it. The other principal aims
-were to provide workrounds for bugs now fixed. If `uasyncio` includes fast I/O
-there is no reason to fork the new version; other `fast_io` features will be
-lost unless Damien sees fit to implement them. The low priority task option is
-little used and arguably is ill-conceived: I will not be advocating for its
-inclusion.
-
-#### 3.1.1.3 Synchronisation Primitives
+All solutions listed below work with stock `uasyncio` V2 or `fast_io`.
 
 The CPython `asyncio` library supports these synchronisation primitives:
- * `Lock` - already incorporated in new `uasyncio`.
- * `Event` - already incorporated.
- * `gather` - already incorporated.
- * `Semaphore` and `BoundedSemaphore`. My classes work under new version.
- * `Condition`. Works under new version.
+ * `Lock`
+ * `Event`
+ * `gather`
+ * `Semaphore` and `BoundedSemaphore`.
+ * `Condition`.
  * `Queue`. This was implemented by Paul Sokolvsky in `uasyncio.queues`.
- 
-Incorporating these will produce more efficient implementations; my solutions
-were designed to work with stock `uasyncio` V2.
+
+See [CPython docs](https://docs.python.org/3/library/asyncio-sync.html).
+
+The file `asyn.py` contains implementations of these, also
+ * `Barrier` An additional synchronisation primitive.
+ * Cancellation decorators and classes: these are workrounds for the bug where
+ in V2 cancellation does not occur promptly.
+ * Support for `gather`.
 
 The `Event` class in `asyn.py` provides a nonstandard option to supply a data
 value to the `.set` method and to retrieve this with `.value`. It is also an
-awaitable class. I will support these by subclassing the native `Event`.
+awaitable class.
 
-The following work under new and old versions:
- * `Barrier` (now adapted).
- * `Delay_ms` (this and the following in aswitch.py)
- * `Switch`
+#### These are documented [here](./PRIMITIVES.md)
+
+## 1.5 Switches, Pushbuttons and Timeouts
+
+The file `aswitch.py` provides support for:
+ * `Delay_ms` A software retriggerable monostable or watchdog.
+ * `Switch` Debounced switch and pushbutton classes with callbacks.
  * `Pushbutton`
 
-The following were workrounds for bugs and omissions in V2 which are now fixed.
-They will be removed.  
- * The cancellation decorators and classes (cancellation works as per CPython).
- * The nonstandard support for `gather` (now properly supported).
+#### It is documented [here](./DRIVERS.md)
 
-## 3.2 The current version V2.0
+# 2. Version 2.0 usage notes
 
 These notes are intended for users familiar with `asyncio` under CPython.
 
@@ -168,13 +169,13 @@ It supports millisecond level timing with the following:
 
 Classes `Task` and `Future` are not supported.
 
-## 3.2.1 Asynchronous I/O
+## 2.1 Asynchronous I/O
 
 Asynchronous I/O (`StreamReader` and `StreamWriter` classes) support devices
 with streaming drivers, such as UARTs and sockets. It is now possible to write
 streaming device drivers in Python.
 
-## 3.2.2 Time values
+## 2.2 Time values
 
 For timing asyncio uses floating point values of seconds. The `uasyncio.sleep`
 method accepts floats (including sub-second values) or integers. Note that in
@@ -186,45 +187,3 @@ millisecond level functions (with integer arguments) employed where necessary.
 The `loop.time` method returns an integer number of milliseconds whereas
 CPython returns a floating point number of seconds. `call_at` follows the
 same convention.
-
-# 4. The "fast_io" version.
-
-Official `uasyncio` suffers from high levels of latency when scheduling I/O in
-typical applications. It also has an issue which can cause bidirectional
-devices such as UART's to block. The `fast_io` version fixes the bug. It also
-provides a facility for reducing I/O latency which can substantially improve
-the performance of stream I/O drivers. It provides other features aimed at
-providing greater control over scheduling behaviour.
-
-To take advantage of the reduced latency device drivers should be written to
-employ stream I/O. To operate at low latency they are simply run under the
-`fast_io` version. The [tutorial](./TUTORIAL.md#64-writing-streaming-device-drivers)
-has details of how to write streaming drivers.
-
-The current `fast_io` version 0.24 fixes an issue with task cancellation and
-timeouts. In `uasyncio` version 2.0, where a coroutine is waiting on a
-`sleep()` or on I/O, a timeout or cancellation is deferred until the coroutine
-is next scheduled. This introduces uncertainty into when the coroutine is
-stopped. This issue is also addressed in Paul Sokolovsky's fork.
-
-## 4.1 A Pyboard-only low power module
-
-This is documented [here](./lowpower/README.md). In essence a Python file is
-placed on the device which configures the `fast_io` version of `uasyncio` to
-reduce power consumption at times when it is not busy. This provides a means of
-using `uasyncio` in battery powered projects.
-
-# 5. The asyn.py library
-
-This library ([docs](./PRIMITIVES.md)) provides 'micro' implementations of the
-`asyncio` synchronisation primitives.
-[CPython docs](https://docs.python.org/3/library/asyncio-sync.html)
-
-It also supports a `Barrier` class to facilitate coroutine synchronisation.
-
-Coroutine cancellation is performed in an efficient manner in `uasyncio`. The
-`asyn` library uses this, further enabling the cancelling coro to pause until
-cancellation is complete. It also provides a means of checking the 'running'
-status of individual coroutines.
-
-A lightweight implementation of `asyncio.gather` is provided.
