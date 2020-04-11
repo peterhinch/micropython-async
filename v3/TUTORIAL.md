@@ -1230,7 +1230,7 @@ queued for execution.
 
 During development it is often best if untrapped exceptions stop the program
 rather than merely halting a single task. This can be achieved by setting a
-global exception handler.
+global exception handler. This debug aid is not CPython compatible:
 ```python
 import uasyncio as asyncio
 import sys
@@ -1239,16 +1239,15 @@ def _handle_exception(loop, context):
     print('Global handler')
     sys.print_exception(context["exception"])
     #loop.stop()
-    sys.exit()  # Drastic, but loop.stop() does not currently work
-
-loop = asyncio.get_event_loop()
-loop.set_exception_handler(_handle_exception)
+    sys.exit()  # Drastic - loop.stop() does not work when used this way
 
 async def bar():
     await asyncio.sleep(0)
     1/0  # Crash
 
 async def main():
+    loop = asyncio.get_event_loop()
+    loop.set_exception_handler(_handle_exception)
     asyncio.create_task(bar())
     for _ in range(5):
         print('Working')
