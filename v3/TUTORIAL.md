@@ -1171,24 +1171,52 @@ asyncio.run(bar())
 
 ###### [Contents](./TUTORIAL.md#contents)
 
-# 5 Exceptions timeouts and cancellation
+# 5. Exceptions timeouts and cancellation
 
 These topics are related: `uasyncio` enables the cancellation of tasks, and the
-application of a timeout to a task, by throwing an exception to the task in a
-special way.
+application of a timeout to a task, by throwing an exception to the task.
 
 ## 5.1 Exceptions
 
-Where an exception occurs in a task, it should be trapped either in that task
-or in a task which is awaiting its completion. This ensures that the exception
-is not propagated to the scheduler. If this occurred the scheduler would stop
-running, passing the exception to the code which started the scheduler.
-Consequently, to avoid stopping the scheduler, tasks launched with
-`asyncio.create_task()` must trap any exceptions internally.
+Consider a task `foo` created with `asyncio.create_task(foo())`. This task
+might `await` other tasks, with potential nesting. If an exception occurs, it
+will propagate up the chain until it reaches `foo`. This behaviour is as per
+function calls: the exception propagates up the call chain until trapped. If
+the exception is not trapped, the `foo` task stops with a traceback. Crucially
+other tasks continue to run.
 
-Using `throw` or `close` to throw an exception to a task is unwise. It subverts
-`uasyncio` by forcing the task to run, and possibly terminate, when it is still
-queued for execution.
+This does not apply to the main task started with `asyncio.run`. If an
+exception propagates to that task, the scheduler will stop. This can be
+demonstrated as follows:
+
+```python
+import uasyncio as asyncio
+
+async def bar():
+    await asyncio.sleep(0)
+    1/0
+
+async def foo():
+    await asyncio.sleep(0)
+    print('Running bar')
+    await bar()
+    print('Does not print')  # Because bar() raised an exception
+
+async def main():
+    asyncio.create_task(foo())
+    for _ in range(5):
+        print('Working')  # Carries on after the exception
+        await asyncio.sleep(0.5)
+    1/0  # Stops the scheduler
+    await asyncio.sleep(0)
+    print('This never happens')
+    await asyncio.sleep(0)
+
+asyncio.run(main())
+```
+If `main` issued `await foo()` rather than `create_task(foo())` the exception
+would propagate to `main`. Being untrapped, the scheduler and hence the script
+would stop.
 
 There is a "gotcha" illustrated by this code sample. If allowed to run to
 completion it works as expected.
@@ -1229,6 +1257,12 @@ outermost scope. This is because `uasyncio.sleep` causes execution to be
 transferred to the scheduler. Consequently applications requiring cleanup code
 in response to a keyboard interrupt should trap the exception at the outermost
 scope.
+
+#### Warning
+
+Using `throw` or `close` to throw an exception to a coro is unwise. It subverts
+`uasyncio` by forcing the coro to run, and possibly terminate, when it is still
+queued for execution.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
