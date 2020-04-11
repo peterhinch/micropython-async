@@ -41,9 +41,11 @@ now complete scripts which can be cut and pasted at the REPL.
   4.3 [Asynchronous context managers](./TUTORIAL.md#43-asynchronous-context-managers)  
  5. [Exceptions timeouts and cancellation](./TUTORIAL.md#5-exceptions-timeouts-and-cancellation)  
   5.1 [Exceptions](./TUTORIAL.md#51-exceptions)  
+   5.1.1 [Global exception handler](./TUTORIAL.md#511-global-exception-handler)  
+   5.1.2 [Keyboard interrupts](./TUTORIAL.md#512-keyboard-interrupts)  
   5.2 [Cancellation and Timeouts](./TUTORIAL.md#52-cancellation-and-timeouts)  
    5.2.1 [Task cancellation](./TUTORIAL.md#521-task-cancellation)  
-   5.2.2 [Coroutines with timeouts](./TUTORIAL.md#522-tasks-with-timeouts)  
+   5.2.2 [Tasks with timeouts](./TUTORIAL.md#522-tasks-with-timeouts)  
  6. [Interfacing hardware](./TUTORIAL.md#6-interfacing-hardware)  
   6.1 [Timing issues](./TUTORIAL.md#61-timing-issues)  
   6.2 [Polling hardware with a task](./TUTORIAL.md#62-polling-hardware-with-a-task)  
@@ -1171,7 +1173,7 @@ asyncio.run(bar())
 
 ###### [Contents](./TUTORIAL.md#contents)
 
-# 5. Exceptions timeouts and cancellation
+# 5 Exceptions timeouts and cancellation
 
 These topics are related: `uasyncio` enables the cancellation of tasks, and the
 application of a timeout to a task, by throwing an exception to the task.
@@ -1194,7 +1196,7 @@ import uasyncio as asyncio
 
 async def bar():
     await asyncio.sleep(0)
-    1/0
+    1/0  # Crash
 
 async def foo():
     await asyncio.sleep(0)
@@ -1218,8 +1220,47 @@ If `main` issued `await foo()` rather than `create_task(foo())` the exception
 would propagate to `main`. Being untrapped, the scheduler and hence the script
 would stop.
 
-There is a "gotcha" illustrated by this code sample. If allowed to run to
-completion it works as expected.
+#### Warning
+
+Using `throw` or `close` to throw an exception to a task is unwise. It subverts
+`uasyncio` by forcing the task to run, and possibly terminate, when it is still
+queued for execution.
+
+### 5.1.1 Global exception handler
+
+During development it is often best if untrapped exceptions stop the program
+rather than merely halting a single task. This can be achieved by setting a
+global exception handler.
+```python
+import uasyncio as asyncio
+import sys
+
+def _handle_exception(loop, context):
+    print('Global handler')
+    sys.print_exception(context["exception"])
+    #loop.stop()
+    sys.exit()  # Drastic, but loop.stop() does not currently work
+
+loop = asyncio.get_event_loop()
+loop.set_exception_handler(_handle_exception)
+
+async def bar():
+    await asyncio.sleep(0)
+    1/0  # Crash
+
+async def main():
+    asyncio.create_task(bar())
+    for _ in range(5):
+        print('Working')
+        await asyncio.sleep(0.5)
+
+asyncio.run(main())
+```
+
+### 5.1.2 Keyboard interrupts
+
+There is a "gotcha" illustrated by the following code sample. If allowed to run
+to completion it works as expected.
 
 ```python
 import uasyncio as asyncio
@@ -1258,22 +1299,20 @@ transferred to the scheduler. Consequently applications requiring cleanup code
 in response to a keyboard interrupt should trap the exception at the outermost
 scope.
 
-#### Warning
-
-Using `throw` or `close` to throw an exception to a coro is unwise. It subverts
-`uasyncio` by forcing the coro to run, and possibly terminate, when it is still
-queued for execution.
-
 ###### [Contents](./TUTORIAL.md#contents)
 
 ## 5.2 Cancellation and Timeouts
 
 Cancellation and timeouts work by throwing an exception to the task. Unless
 explicitly trapped this is transparent to the user: the task simply stops when
-next scheduled. However it is possible to trap the exception, for example to
-perform cleanup code in a `finally` clause. The exception thrown to the coro
-cannot be explicitly trapped (in CPython or MicroPython): `try-finally` must be
-used.
+next scheduled. It is possible to trap the exception, for example to perform
+cleanup code, typically in a `finally` clause. The exception thrown to the task
+is `uasyncio.CancelledError` in both cancellation and timeout. There is no way
+for the task to distinguish between these two cases.
+
+The `uasyncio.CancelledError` can be trapped, but it is wise to re-raise it: if
+the task is `await`ed, the exception can be trapped in the outer scope to
+determne the reason for the task's ending.
 
 ## 5.2.1 Task cancellation
 
@@ -1297,6 +1336,7 @@ async def bar():
     await asyncio.sleep(0)
     print('foo is now cancelled.')
     await asyncio.sleep(4)  # Proof!
+
 asyncio.run(bar())
 ```
 The exception may be trapped as follows
@@ -1310,8 +1350,11 @@ async def foo():
     try:
         while True:
             await printit()
-    finally:
-        print('Cancelled')
+    except asyncio.CancelledError:
+        print('Trapped cancelled error.')
+        raise  # Enable check in outer scope
+    finally:  # Usual way to do cleanup
+        print('Cancelled - finally')
 
 async def bar():
     foo_task = asyncio.create_task(foo())
@@ -1322,21 +1365,16 @@ async def bar():
 asyncio.run(bar())
 ```
 
-**Note** It is bad practice to issue the `close` or `throw` methods of a
-de-scheduled task. This subverts the scheduler by causing the task to execute
-code even though descheduled. This is likely to have unwanted consequences.
-
 ###### [Contents](./TUTORIAL.md#contents)
 
-## 5.2.2 Coroutines with timeouts
+## 5.2.2 Tasks with timeouts
 
 Timeouts are implemented by means of `uasyncio` methods `.wait_for()` and
 `.wait_for_ms()`. These take as arguments a task and a timeout in seconds or ms
-respectively. If the timeout expires an exception is thrown to the task, while
-the caller receives a `TimeoutError`. Trapping the exception in the task is
-optional. The caller must trap the `TimeoutError` otherwise the exception will
-interrupt program execution. The exception thrown to the coro cannot be
-explicitly trapped (in CPython or MicroPython): `try-finally` must be used.
+respectively. If the timeout expires a `uasyncio.CancelledError` is thrown to
+the task, while the caller receives a `TimeoutError`. Trapping the exception in
+the task is optional. The caller must trap the `TimeoutError` otherwise the
+exception will interrupt program execution.
 
 ```python
 import uasyncio as asyncio
@@ -1347,14 +1385,17 @@ async def forever():
         while True:
             await asyncio.sleep_ms(300)
             print('Got here')
-    finally:  # Optional error trapping
-        print('forever timed out')  # And return
+    except asyncio.CancelledError:  # Task sees CancelledError
+        print('Trapped cancelled error.')
+        raise
+    finally:  # Usual way to do cleanup
+        print('forever timed out')
 
 async def foo():
     try:
         await asyncio.wait_for(forever(), 3)
     except asyncio.TimeoutError:  # Mandatory error trapping
-        print('foo got timeout')
+        print('foo got timeout')  # Caller sees TimeoutError
     await asyncio.sleep(2)
 
 asyncio.run(foo())
