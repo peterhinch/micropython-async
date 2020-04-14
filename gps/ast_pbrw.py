@@ -20,7 +20,7 @@ import as_rwGPS
 
 # Avoid multiple baudrates. Tests use 9600 or 19200 only.
 BAUDRATE = 19200
-red, green, yellow, blue = pyb.LED(1), pyb.LED(2), pyb.LED(3), pyb.LED(4)
+red, green, yellow = pyb.LED(1), pyb.LED(2), pyb.LED(3)
 ntimeouts = 0
 
 def callback(gps, _, timer):
@@ -89,7 +89,6 @@ async def date(gps):
     while True:
         await asyncio.sleep(4)
         await gps.data_received(date=True)
-        blue.toggle()
         print('***** DATE AND TIME *****')
         print('Data is Valid:', hex(gps._valid))
         print('UTC Time:', gps.utc)

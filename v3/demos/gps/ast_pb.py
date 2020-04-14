@@ -7,7 +7,7 @@
 
 import pyb
 import uasyncio as asyncio
-import aswitch
+from primitives.delay_ms import Delay_ms
 import as_GPS
 
 red = pyb.LED(1)
@@ -84,7 +84,7 @@ async def gps_test():
     uart = pyb.UART(4, 9600, read_buf_len=200)
     # read_buf_len is precautionary: code runs reliably without it.)
     sreader = asyncio.StreamReader(uart)
-    timer = aswitch.Delay_ms(timeout)
+    timer = Delay_ms(timeout)
     sentence_count = 0
     gps = as_GPS.AS_GPS(sreader, local_offset=1, fix_cb=callback, fix_cb_args=(timer,))
     print('awaiting first fix')
@@ -92,7 +92,7 @@ async def gps_test():
     asyncio.create_task(stats(gps))
     asyncio.create_task(navigation(gps))
     asyncio.create_task(course(gps))
-    asyncio.create_task(date(gps))
+    await date(gps)
 
 
 asyncio.run(gps_test())

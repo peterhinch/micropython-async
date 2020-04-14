@@ -39,11 +39,11 @@ str_end = '''
 </Document></kml>
 '''
 
-red, green, yellow, blue = pyb.LED(1), pyb.LED(2), pyb.LED(3), pyb.LED(4)
+red, green, yellow = pyb.LED(1), pyb.LED(2), pyb.LED(3)
 sw = pyb.Switch()
 
 # Toggle the red LED
-def toggle_led(gps):
+def toggle_led(*_):
     red.toggle()
 
 async def log_kml(fn='/sd/log.kml', interval=10):
@@ -62,7 +62,6 @@ async def log_kml(fn='/sd/log.kml', interval=10):
             f.write(',')
             f.write(str(gps.altitude))
             f.write('\r\n')
-            blue.toggle()
             for _ in range(interval * 10):
                 await asyncio.sleep_ms(100)
                 if sw.value():

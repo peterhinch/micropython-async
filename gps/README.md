@@ -64,13 +64,21 @@ the Pyboard is run from a voltage >5V the Pyboard 3V3 pin should be used.
 | Vin | V+ or 3V3  |          |
 | Gnd | Gnd        |          |
 | PPS | X3         |    Y     |
-| Tx  | X2 (U4 rx) |    Y     |
-| Rx  | X1 (U4 tx) |          |
+| Tx  | X2 (U4 rx) |          |
+| Rx  | X1 (U4 tx) |    Y     |
 
 This is based on UART 4 as used in the test programs; any UART may be used. The
 UART Tx-GPS Rx connection is only necessary if using the read/write driver. The
 PPS connection is required only if using the timing driver `as_tGPS.py`. Any
 pin may be used.
+
+On the Pyboard D the 3.3V output is switched. Enable it with the following
+(typically in `main.py`):
+```python
+import time
+machine.Pin.board.EN_3V3.value(1)
+time.sleep(1)
+```
 
 ## 1.2 Basic Usage
 

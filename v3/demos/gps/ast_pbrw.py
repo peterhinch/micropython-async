@@ -1,26 +1,25 @@
 # ast_pb.py
 # Basic test/demo of AS_GPS class (asynchronous GPS device driver)
 # Runs on a Pyboard with GPS data on pin X2.
-# Copyright (c) Peter Hinch 2018
+# Copyright (c) Peter Hinch 2018-2020
 # Released under the MIT License (MIT) - see LICENSE file
 # Test asynchronous GPS device driver as_rwGPS
 
 # LED's:
 # Green indicates data is being received.
 # Red toggles on RMC message received.
-# Yellow and blue: coroutines have 4s loop delay.
+# Yellow: coroutine has 4s loop delay.
 # Yellow toggles on position reading.
-# Blue toggles on date valid.
 
 import pyb
 import uasyncio as asyncio
-import aswitch
+from primitives.delay_ms import Delay_ms
 import as_GPS
 import as_rwGPS
 
 # Avoid multiple baudrates. Tests use 9600 or 19200 only.
 BAUDRATE = 19200
-red, green, yellow, blue = pyb.LED(1), pyb.LED(2), pyb.LED(3), pyb.LED(4)
+red, green, yellow = pyb.LED(1), pyb.LED(2), pyb.LED(3)
 ntimeouts = 0
 
 def callback(gps, _, timer):
@@ -58,7 +57,7 @@ async def stats(gps):
         print('Sentences Parsed:', gps.parsed_sentences)
         print('CRC_Fails:', gps.crc_fails)
         print('Antenna status:', gps.antenna)
-        print('Firmware vesrion:', gps.version)
+        print('Firmware version:', gps.version)
         print('Enabled sentences:', gps.enabled)
         print()
 
@@ -89,7 +88,6 @@ async def date(gps):
     while True:
         await asyncio.sleep(4)
         await gps.data_received(date=True)
-        blue.toggle()
         print('***** DATE AND TIME *****')
         print('Data is Valid:', hex(gps._valid))
         print('UTC Time:', gps.utc)
@@ -136,7 +134,7 @@ async def gps_test():
     # read_buf_len is precautionary: code runs reliably without it.
     sreader = asyncio.StreamReader(uart)
     swriter = asyncio.StreamWriter(uart, {})
-    timer = aswitch.Delay_ms(cb_timeout)
+    timer = Delay_ms(cb_timeout)
     sentence_count = 0
     gps = as_rwGPS.GPS(sreader, swriter, local_offset=1, fix_cb=callback,
                        fix_cb_args=(timer,),  msg_cb = message_cb)
@@ -152,7 +150,7 @@ async def gps_test():
     asyncio.create_task(course(gps))
     asyncio.create_task(date(gps))
     await gps.data_received(True, True, True, True)  # all messages
-    asyncio.create_task(change_status(gps, uart))
+    await change_status(gps, uart)
 
 async def shutdown():
     # Normally UART is already at BAUDRATE. But if last session didn't restore
@@ -167,5 +165,7 @@ async def shutdown():
 
 try:
     asyncio.run(gps_test())
+except KeyboardInterrupt:
+    print('Interrupted')
 finally:
     asyncio.run(shutdown())

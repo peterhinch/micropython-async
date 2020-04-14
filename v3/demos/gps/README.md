@@ -7,6 +7,8 @@ based on this excellent library [micropyGPS].
 The code in this V3 repo has been ported to uasyncio V3. Some modules can run
 under CPython: doing so will require Python V3.8 or later.
 
+**UNDER REVIEW: API MAY CHANGE**
+
 ## 1.1 Driver characteristics
 
  * Asynchronous: UART messaging is handled as a background task allowing the
@@ -67,13 +69,21 @@ the Pyboard is run from a voltage >5V the Pyboard 3V3 pin should be used.
 | Vin | V+ or 3V3  |          |
 | Gnd | Gnd        |          |
 | PPS | X3         |    Y     |
-| Tx  | X2 (U4 rx) |    Y     |
-| Rx  | X1 (U4 tx) |          |
+| Tx  | X2 (U4 rx) |          |
+| Rx  | X1 (U4 tx) |    Y     |
 
 This is based on UART 4 as used in the test programs; any UART may be used. The
 UART Tx-GPS Rx connection is only necessary if using the read/write driver. The
 PPS connection is required only if using the timing driver `as_tGPS.py`. Any
 pin may be used.
+
+On the Pyboard D the 3.3V output is switched. Enable it with the following
+(typically in `main.py`):
+```python
+import time
+machine.Pin.board.EN_3V3.value(1)
+time.sleep(1)
+```
 
 ## 1.2 Basic Usage
 
@@ -160,7 +170,7 @@ optionally be installed; this requires `aswitch.py` from the root of this
 repository.  
 For the [timing driver](./README.md#4-using-gps-for-accurate-timing)
 `as_tGPS.py` should also be copied across. The optional test program
-`as_GPS_time.py` requires `asyn.py` from the root of this repository.
+`as_GPS_time.py` requires the `primitives` package.
 
 ### 1.4.2 Python 3.8 or later
 
@@ -436,7 +446,6 @@ LED's:
  * Red: Toggles each time a GPS update occurs.
  * Green: ON if GPS data is being received, OFF if no data received for >10s.
  * Yellow: Toggles each 4s if navigation updates are being received.
- * Blue: Toggles each 4s if time updates are being received.
 
 ### 3.1.1 Usage example
 
@@ -635,13 +644,13 @@ import as_tGPS
 async def test():
     fstr = '{}ms Time: {:02d}:{:02d}:{:02d}:{:06d}'
     red = pyb.LED(1)
-    blue = pyb.LED(4)
+    green = pyb.LED(2)
     uart = pyb.UART(4, 9600, read_buf_len=200)
     sreader = asyncio.StreamReader(uart)
     pps_pin = pyb.Pin('X3', pyb.Pin.IN)
     gps_tim = as_tGPS.GPS_Timer(sreader, pps_pin, local_offset=1,
                              fix_cb=lambda *_: red.toggle(),
-                             pps_cb=lambda *_: blue.toggle())
+                             pps_cb=lambda *_: green.toggle())
     print('Waiting for signal.')
     await gps_tim.ready()  # Wait for GPS to get a signal
     await gps_tim.set_rtc()  # Set RTC from GPS

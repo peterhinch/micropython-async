@@ -2,17 +2,16 @@
 # Using GPS for precision timing and for calibrating Pyboard RTC
 
 # This is STM-specific: requires pyb module.
-# Requires asyn.py from this repo.
 
-# Copyright (c) 2018 Peter Hinch
+# Copyright (c) 2018-2020 Peter Hinch
 # Released under the MIT License (MIT) - see LICENSE file
 
 import uasyncio as asyncio
 import pyb
 import utime
 import math
-import asyn
 import as_tGPS
+from primitives.message import Message
 
 # Hardware assumptions. Change as required.
 PPS_PIN = pyb.Pin.board.X3
@@ -25,16 +24,16 @@ print('time(minutes=1) Print get_ms() and get_t_split values.')
 print('usec(minutes=1) Measure accuracy of usec timer.')
 print('Press ctrl-d to reboot after each test.')
 
-# Setup for tests. Red LED toggles on fix, blue on PPS interrupt.
+# Setup for tests. Red LED toggles on fix, green on PPS interrupt.
 async def setup():
     red = pyb.LED(1)
-    blue = pyb.LED(4)
+    green = pyb.LED(2)
     uart = pyb.UART(UART_ID, 9600, read_buf_len=200)
     sreader = asyncio.StreamReader(uart)
     pps_pin = pyb.Pin(PPS_PIN, pyb.Pin.IN)
     return as_tGPS.GPS_Timer(sreader, pps_pin, local_offset=1,
                              fix_cb=lambda *_: red.toggle(),
-                             pps_cb=lambda *_: blue.toggle())
+                             pps_cb=lambda *_: green.toggle())
 
 # Test terminator: task sets the passed event after the passed time.
 async def killer(end_event, minutes):
@@ -66,7 +65,7 @@ async def do_drift(minutes):
     gps = await setup()
     print('Waiting for time data.')
     await gps.ready()
-    terminate = asyn.Event()
+    terminate = asyncio.Event()
     asyncio.create_task(killer(terminate, minutes))
     print('Setting RTC.')
     await gps.set_rtc()
@@ -90,7 +89,7 @@ async def do_time(minutes):
     await gps.ready()
     print('Setting RTC.')
     await gps.set_rtc()
-    terminate = asyn.Event()
+    terminate = asyncio.Event()
     asyncio.create_task(killer(terminate, minutes))
     while not terminate.is_set():
         await asyncio.sleep(1)
@@ -115,7 +114,7 @@ us_acquired = None
 def us_cb(my_gps, tick, led):
     global us_acquired  # Time of previous PPS edge in ticks_us()
     if us_acquired is not None:
-        # Trigger event. Pass time between PPS measured by utime.ticks_us()
+        # Trigger Message. Pass time between PPS measured by utime.ticks_us()
         tick.set(utime.ticks_diff(my_gps.acquired, us_acquired))
     us_acquired = my_gps.acquired
     led.toggle()
@@ -123,16 +122,16 @@ def us_cb(my_gps, tick, led):
 # Setup initialises with above callback
 async def us_setup(tick):
     red = pyb.LED(1)
-    blue = pyb.LED(4)
+    yellow = pyb.LED(3)
     uart = pyb.UART(UART_ID, 9600, read_buf_len=200)
     sreader = asyncio.StreamReader(uart)
     pps_pin = pyb.Pin(PPS_PIN, pyb.Pin.IN)
     return as_tGPS.GPS_Timer(sreader, pps_pin, local_offset=1,
                              fix_cb=lambda *_: red.toggle(),
-                             pps_cb=us_cb, pps_cb_args=(tick, blue))
+                             pps_cb=us_cb, pps_cb_args=(tick, yellow))
 
 async def do_usec(minutes):
-    tick = asyn.Event()
+    tick = Message()
     print('Setting up GPS.')
     gps = await us_setup(tick)
     print('Waiting for time data.')
@@ -142,10 +141,10 @@ async def do_usec(minutes):
     sd = 0
     nsamples = 0
     count = 0
-    terminate = asyn.Event()
+    terminate = asyncio.Event()
     asyncio.create_task(killer(terminate, minutes))
     while not terminate.is_set():
-        await tick
+        await tick.wait()
         usecs = tick.value()
         tick.clear()
         err = 1000000 - usecs

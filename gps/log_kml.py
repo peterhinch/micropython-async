@@ -1,10 +1,12 @@
 # log_kml.py Log GPS data to a kml file for display on Google Earth
 
-# Copyright (c) Peter Hinch 2018
+# Copyright (c) Peter Hinch 2018-2020
 # MIT License (MIT) - see LICENSE file
 # Test program for asynchronous GPS device driver as_pyGPS
 # KML file format: https://developers.google.com/kml/documentation/kml_tut
 # http://www.toptechboy.com/arduino/lesson-25-display-your-gps-data-as-track-on-google-earth/
+
+# Remove blue LED for Pyboard D
 
 # Logging stops and the file is closed when the user switch is pressed.
 
@@ -39,11 +41,11 @@ str_end = '''
 </Document></kml>
 '''
 
-red, green, yellow, blue = pyb.LED(1), pyb.LED(2), pyb.LED(3), pyb.LED(4)
+red, green, yellow = pyb.LED(1), pyb.LED(2), pyb.LED(3)
 sw = pyb.Switch()
 
 # Toggle the red LED
-def toggle_led(gps):
+def toggle_led(*_):
     red.toggle()
 
 async def log_kml(fn='/sd/log.kml', interval=10):
@@ -62,7 +64,6 @@ async def log_kml(fn='/sd/log.kml', interval=10):
             f.write(',')
             f.write(str(gps.altitude))
             f.write('\r\n')
-            blue.toggle()
             for _ in range(interval * 10):
                 await asyncio.sleep_ms(100)
                 if sw.value():
