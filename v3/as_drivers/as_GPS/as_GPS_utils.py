@@ -4,7 +4,7 @@
 
 # Copyright (c) 2018 Peter Hinch
 # Released under the MIT License (MIT) - see LICENSE file
-from as_GPS import MDY, DMY, LONG
+from .as_GPS import MDY, DMY, LONG
 
 _DIRECTIONS = ('N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW',
                'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW')

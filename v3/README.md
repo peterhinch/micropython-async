@@ -1,4 +1,4 @@
-# 1, Guide to uasyncio V3
+# 1 Guide to uasyncio V3
 
 The new release of `uasyncio` is pre-installed in current daily firmware 
 builds. This complete rewrite of `uasyncio` supports CPython 3.8 syntax. A
@@ -7,11 +7,24 @@ design aim is that it should be be a compatible subset of `asyncio`.
 These notes and the tutorial should be read in conjunction with
 [the official docs](http://docs.micropython.org/en/latest/library/uasyncio.html)
 
-There is a new tutorial for V3.
+## 1.1 Resources for V3
 
-#### [V3 Tutorial](./TUTORIAL.md)
+This repo contains the following:
 
-# 2. Overview
+#### [V3 Tutorial](./docs/TUTORIAL.md)  
+#### Test/demo scripts  
+
+Documented in the tutorial.
+
+#### Synchronisation primitives  
+
+Documented in the tutorial.
+
+#### Asynchronous device drivers  
+The device drivers are in the process of being ported. Currently there is a
+[GPS driver](./docs/GPS.md).
+
+# 2 V3 Overview
 
 These notes are intended for users familiar with `asyncio` under CPython.
 
@@ -34,7 +47,7 @@ The `uasyncio` library supports the following features:
 It supports millisecond level timing with the following:
  * `uasyncio.sleep_ms(time)`
 
-It includes the followiing CPython compatible synchronisation primitives:
+It includes the following CPython compatible synchronisation primitives:
  * `Event`.
  * `Lock`.
  * `gather`.
@@ -45,7 +58,7 @@ supported.
 The `Future` class is not supported, nor are the `event_loop` methods
 `call_soon`, `call_later`, `call_at`.
 
-# 3. Porting applications from V2
+# 3 Porting applications from V2
 
 Many applications using the coding style advocated in the V2 tutorial will work
 unchanged. However there are changes, firstly to `uasyncio` syntax and secondly
@@ -65,12 +78,12 @@ related to modules in this repository.
 
 It is possible to write an awaitable class with code portable between
 MicroPython and CPython 3.8. This is discussed
-[in the tutorial](./TUTORIAL.md#412-portable-code).
+[in the tutorial](./docs/TUTORIAL.md#412-portable-code).
 
 ## 3.2 Modules from this repository
 
 Modules `asyn.py` and `aswitch.py` are deprecated for V3 applications. See
-[the tutorial](./TUTORIAL.md) for V3 replacements.
+[the tutorial](./docs/TUTORIAL.md#3-synchronisation) for V3 replacements.
 
 ### 3.2.1 Synchronisation primitives
 
@@ -101,7 +114,7 @@ used with V3:
  * The nonstandard support for `gather` (now properly supported).
 
 The `Event` class in `asyn.py` is now replaced by `Message` - this is discussed
-in [the tutorial](./TUTORIAL.md).
+in [the tutorial](./docs/TUTORIAL.md#36-message).
 
 ### 3.2.3 Switches, Pushbuttons and delays (old aswitch.py)
 
@@ -114,7 +127,7 @@ New versions are provided in this repository. Classes:
  * `Switch` Debounced switch with close and open callbacks.
  * `Pushbutton` Pushbutton with double-click and long press callbacks.
 
-# 4. Outstanding issues with V3
+# 4 Outstanding issues with V3
 
 V3 is still a work in progress. The following is a list of issues which I hope
 will be addressed in due course.

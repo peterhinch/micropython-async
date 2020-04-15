@@ -8,7 +8,7 @@
 
 # Logging stops and the file is closed when the user switch is pressed.
 
-import as_GPS
+from .as_GPS import KML, AS_GPS
 import uasyncio as asyncio
 import pyb
 
@@ -50,15 +50,15 @@ async def log_kml(fn='/sd/log.kml', interval=10):
     yellow.on()  # Waiting for data
     uart = pyb.UART(4, 9600, read_buf_len=200)  # Data on X2
     sreader = asyncio.StreamReader(uart)
-    gps = as_GPS.AS_GPS(sreader, fix_cb=toggle_led)
+    gps = AS_GPS(sreader, fix_cb=toggle_led)
     await gps.data_received(True, True, True, True)
     yellow.off()
     with open(fn, 'w') as f:
         f.write(str_start)
         while not sw.value():
-            f.write(gps.longitude_string(as_GPS.KML))
+            f.write(gps.longitude_string(KML))
             f.write(',')
-            f.write(gps.latitude_string(as_GPS.KML))
+            f.write(gps.latitude_string(KML))
             f.write(',')
             f.write(str(gps.altitude))
             f.write('\r\n')

@@ -8,7 +8,7 @@
 import pyb
 import uasyncio as asyncio
 from primitives.delay_ms import Delay_ms
-import as_GPS
+from .as_GPS import DD, MPH, LONG, AS_GPS
 
 red = pyb.LED(1)
 green = pyb.LED(2)
@@ -52,8 +52,8 @@ async def navigation(gps):
         await gps.data_received(position=True)
         print('***** NAVIGATION DATA *****')
         print('Data is Valid:', gps._valid)
-        print('Longitude:', gps.longitude(as_GPS.DD))
-        print('Latitude', gps.latitude(as_GPS.DD))
+        print('Longitude:', gps.longitude(DD))
+        print('Latitude', gps.latitude(DD))
         print()
 
 async def course(gps):
@@ -62,7 +62,7 @@ async def course(gps):
         await gps.data_received(course=True)
         print('***** COURSE DATA *****')
         print('Data is Valid:', gps._valid)
-        print('Speed:', gps.speed_string(as_GPS.MPH))
+        print('Speed:', gps.speed_string(MPH))
         print('Course', gps.course)
         print('Compass Direction:', gps.compass_direction())
         print()
@@ -75,7 +75,7 @@ async def date(gps):
         print('Data is Valid:', gps._valid)
         print('UTC time:', gps.utc)
         print('Local time:', gps.local_time)
-        print('Date:', gps.date_string(as_GPS.LONG))
+        print('Date:', gps.date_string(LONG))
         print()
 
 async def gps_test():
@@ -86,7 +86,7 @@ async def gps_test():
     sreader = asyncio.StreamReader(uart)
     timer = Delay_ms(timeout)
     sentence_count = 0
-    gps = as_GPS.AS_GPS(sreader, local_offset=1, fix_cb=callback, fix_cb_args=(timer,))
+    gps = AS_GPS(sreader, local_offset=1, fix_cb=callback, fix_cb_args=(timer,))
     print('awaiting first fix')
     asyncio.create_task(sat_test(gps))
     asyncio.create_task(stats(gps))

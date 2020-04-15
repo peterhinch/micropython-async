@@ -1,4 +1,4 @@
-# 1. as_GPS
+# 1 as_GPS
 
 This repository offers a suite of asynchronous device drivers for GPS devices
 which communicate with the host via a UART. GPS [NMEA-0183] sentence parsing is
@@ -7,7 +7,8 @@ based on this excellent library [micropyGPS].
 The code in this V3 repo has been ported to uasyncio V3. Some modules can run
 under CPython: doing so will require Python V3.8 or later.
 
-**UNDER REVIEW: API MAY CHANGE**
+###### [Tutorial](./TUTORIAL.md#contents)  
+###### [Main V3 README](../README.md)
 
 ## 1.1 Driver characteristics
 
@@ -51,14 +52,18 @@ changes.
 
 ###### [Main README](../README.md)
 
-## 1.1 Overview
+## 1.3 Overview
 
 The `AS_GPS` object runs a coroutine which receives [NMEA-0183] sentences from
 the UART and parses them as they arrive. Valid sentences cause local bound
 variables to be updated. These can be accessed at any time with minimal latency
 to access data such as position, altitude, course, speed, time and date.
 
-### 1.1.1 Wiring
+###### [Top](./GPS.md#1-as_gps)
+
+# 2 Installation
+
+## 2.1 Wiring
 
 These notes are for the Adafruit Ultimate GPS Breakout. It may be run from 3.3V
 or 5V. If running the Pyboard from USB, GPS Vin may be wired to Pyboard V+. If
@@ -85,9 +90,25 @@ machine.Pin.board.EN_3V3.value(1)
 time.sleep(1)
 ```
 
-## 1.2 Basic Usage
+## 2.2 Library installation
 
-If running on a [MicroPython] target the `uasyncio` library must be installed.
+The library is implemented as a Python package and is in `as_drivers/as_GPS`.
+To install copy the following directories and their contents to the target
+hardware:  
+ 1. `as_drivers`
+ 2. `primitives`
+
+On platforms with an underlying OS such as the Raspberry Pi ensure that the
+directories are on the Python path and that the Python version is 3.8 or later.
+Code samples will need adaptation for the serial port.
+
+## 2.3 Dependency
+
+The library requires `uasyncio` V3 on MicroPython and `asyncio` on CPython.
+
+###### [Top](./GPS.md#1-as_gps)
+
+# 3 Basic Usage
 
 In the example below a UART is instantiated and an `AS_GPS` instance created.
 A callback is specified which will run each time a valid fix is acquired.
@@ -95,7 +116,7 @@ The test runs for 60 seconds once data has been received.
 
 ```python
 import uasyncio as asyncio
-import as_GPS
+import as_drivers.as_GPS as as_GPS
 from machine import UART
 def callback(gps, *_):  # Runs for each valid fix
     print(gps.latitude(), gps.longitude(), gps.altitude)
@@ -116,7 +137,7 @@ This example achieves the same thing without using a callback:
 
 ```python
 import uasyncio as asyncio
-import as_GPS
+import as_drivers.as_GPS as as_GPS
 from machine import UART
 
 uart = UART(4, 9600)
@@ -133,52 +154,24 @@ async def test():
 asyncio.run(test())
 ```
 
-## 1.3 Files
+## 3.1 Demo programs
 
-The following are relevant to the default read-only driver.
+This assumes a Pyboard 1.x or Pyboard D with GPS connected to UART 4 and prints
+received data:
+```python
+import as_drivers.as_gps.ast_pb
+```
 
- * `as_GPS.py` The library. Supports the `AS_GPS` class for read-only access to
- GPS hardware.
- * `as_GPS_utils.py` Additional formatted string methods for `AS_GPS`.
- * `ast_pb.py` Test/demo program: assumes a MicroPython hardware device with
- GPS connected to UART 4.
- * `log_kml.py` A simple demo which logs a route travelled to a .kml file which
- may be displayed on Google Earth.
+A simple demo which logs a route travelled to a .kml file which may be
+displayed on Google Earth. Logging stops when the user switch is pressed.
+Data is logged to `/sd/log.kml` at 10s intervals.
+```python
+import as_drivers.as_gps.log_kml
+```
 
-On RAM-constrained devices `as_GPS_utils.py` may be omitted in which case the
-`date_string` and `compass_direction` methods will be unavailable.
+###### [Top](./GPS.md#1-as_gps)
 
-Files for the read/write driver are listed
-[here](./README.md#31-files).  
-Files for the timing driver are listed
-[here](./README.md#41-files).
-
-## 1.4 Installation
-
-### 1.4.1 Micropython
-
-To install on "bare metal" hardware such as the Pyboard copy the files
-`as_GPS.py` and `as_GPS_utils.py` onto the device's filesystem and ensure that
-`uasyncio` is installed. The code was tested on the Pyboard with `uasyncio` V2
-and the Adafruit [Ultimate GPS Breakout] module. If memory errors are
-encountered on resource constrained devices install each file as a
-[frozen module].
-
-For the [read/write driver](./README.md#3-the-gps-class-read-write-driver) the
-file `as_rwGPS.py` must also be installed. The test/demo `ast_pbrw.py` may
-optionally be installed; this requires `aswitch.py` from the root of this
-repository.  
-For the [timing driver](./README.md#4-using-gps-for-accurate-timing)
-`as_tGPS.py` should also be copied across. The optional test program
-`as_GPS_time.py` requires the `primitives` package.
-
-### 1.4.2 Python 3.8 or later
-
-On platforms with an underlying OS such as the Raspberry Pi ensure that the
-required driver files are on the Python path and that the Python version is 3.8
-or later.
-
-# 2. The AS_GPS Class read-only driver
+# 4. The AS_GPS Class read-only driver
 
 Method calls and access to bound variables are nonblocking and return the most
 current data. This is updated transparently by a coroutine. In situations where
@@ -186,12 +179,12 @@ updates cannot be achieved, for example in buildings or tunnels, values will be
 out of date. The action to take (if any) is application dependent.
 
 Three mechanisms exist for responding to outages.  
- * Check the `time_since_fix` method [section 2.2.3](./README.md#223-time-and-date).
+ * Check the `time_since_fix` method [section 2.2.3](./GPS.md#423-time-and-date).
  * Pass a `fix_cb` callback to the constructor (see below).
  * Cause a coroutine to pause until an update is received: see
- [section 2.3.1](./README.md#231-data-validity). This ensures current data.
+ [section 4.3.1](./GPS.md#431-data-validity). This ensures current data.
 
-## 2.1 Constructor
+## 4.1 Constructor
 
 Mandatory positional arg:
  * `sreader` This is a `StreamReader` instance associated with the UART.
@@ -208,7 +201,7 @@ Notes:
 `local_offset` will alter the date when time passes the 00.00.00 boundary.  
 If `sreader` is `None` a special test mode is engaged (see `astests.py`).
 
-### 2.1.1 The fix callback
+### 4.1.1 The fix callback
 
 This receives the following positional args:
  1. The GPS instance.
@@ -226,9 +219,9 @@ of RMC and VTG messages:
 gps = as_GPS.AS_GPS(sreader, fix_cb=callback, cb_mask= as_GPS.RMC | as_GPS.VTG)
 ```
 
-## 2.2 Public Methods
+## 4.2 Public Methods
 
-### 2.2.1 Location
+### 4.2.1 Location
 
  * `latitude` Optional arg `coord_format=as_GPS.DD`. Returns the most recent
  latitude.  
@@ -264,7 +257,7 @@ gps = as_GPS.AS_GPS(sreader, fix_cb=callback, cb_mask= as_GPS.RMC | as_GPS.VTG)
  `as_GPS.KML` returns decimal degrees, +ve in eastern hemisphere and -ve in
  western, intended for logging to Google Earth compatible kml files.
 
-### 2.2.2 Course
+### 4.2.2 Course
 
  * `speed` Optional arg `unit=as_GPS.KPH`. Returns the current speed in the
  specified units. Options: `as_GPS.KPH`, `as_GPS.MPH`, `as_GPS.KNOT`.
@@ -275,7 +268,7 @@ gps = as_GPS.AS_GPS(sreader, fix_cb=callback, cb_mask= as_GPS.RMC | as_GPS.VTG)
  * `compass_direction` No args. Returns current course as a string e.g. 'ESE'
  or 'NW'. Note that this requires the file `as_GPS_utils.py`.
 
-### 2.2.3 Time and date
+### 4.2.3 Time and date
 
  * `time_since_fix` No args. Returns time in milliseconds since last valid fix.
 
@@ -289,9 +282,9 @@ gps = as_GPS.AS_GPS(sreader, fix_cb=callback, cb_mask= as_GPS.RMC | as_GPS.VTG)
  `as_GPS.LONG` returns a string of form 'January 1st, 2014'.
  Note that this requires the file `as_GPS_utils.py`.
 
-## 2.3 Public coroutines
+## 4.3 Public coroutines
 
-### 2.3.1 Data validity
+### 4.3.1 Data validity
 
 On startup after a cold start it may take time before valid data is received.
 During and shortly after an outage messages will be absent. To avoid reading
@@ -311,7 +304,7 @@ while True:
 No option is provided for satellite data: this functionality is provided by the
 `get_satellite_data` coroutine.
 
-### 2.3.2 Satellite Data
+### 4.3.2 Satellite Data
 
 Satellite data requires multiple sentences from the GPS and therefore requires
 a coroutine which will pause execution until a complete set of data has been
@@ -334,7 +327,7 @@ Note that if the GPS module does not support producing GSV sentences this
 coroutine will pause forever. It can also pause for arbitrary periods if
 satellite reception is blocked, such as in a building.
 
-## 2.4 Public bound variables/properties
+## 4.4 Public bound variables/properties
 
 These are updated whenever a sentence of the relevant type has been correctly
 received from the GPS unit. For crucial navigation data the `time_since_fix`
@@ -342,7 +335,7 @@ method may be used to determine how current these values are.
 
 The sentence type which updates a value is shown in brackets e.g. (GGA).
 
-### 2.4.1 Position/course
+### 4.4.1 Position/course
 
  * `course` Track angle in degrees. (VTG).
  * `altitude` Metres above mean sea level. (GGA).
@@ -351,7 +344,7 @@ The sentence type which updates a value is shown in brackets e.g. (GGA).
  * `magvar` Magnetic variation. Degrees. -ve == West. Current firmware does not
  produce this data: it will always read zero.
 
-### 2.4.2 Statistics and status
+### 4.4.2 Statistics and status
 
 The following are counts since instantiation.  
  * `crc_fails` Usually 0 but can occur on baudrate change.
@@ -360,14 +353,14 @@ The following are counts since instantiation.
  * `unsupported_sentences` This is incremented if a sentence is received which
  has a valid format and checksum, but is not supported by the class. This
  value will also increment if these are supported in a subclass. See
- [section 6](./README.md#6-developer-notes).
+ [section 8](./GPS.md#8-developer-notes).
 
-### 2.4.3 Date and time
+### 4.4.3 Date and time
 
  * `utc` (property) [hrs: int, mins: int, secs: int] UTC time e.g.
  [23, 3, 58]. Note the integer seconds value. The MTK3339 chip provides a float
  buts its value is always an integer. To achieve accurate subsecond timing see
- [section 4](./README.md#4-using-gps-for-accurate-timing).
+ [section 6](./GPS.md#6-using-gps-for-accurate-timing).
  * `local_time` (property) [hrs: int, mins: int, secs: int] Local time.
  * `date` (property) [day: int, month: int, year: int] e.g. [23, 3, 18]
  * `local_offset` Local time offset in hrs as specified to constructor.
@@ -379,7 +372,7 @@ messages. If a nonzero `local_offset` value is specified the `date` value will
 update when local time passes midnight (local time and date are computed from
 `epoch_time`).
 
-### 2.4.4 Satellite data
+### 4.4.4 Satellite data
 
  * `satellites_in_view` No. of satellites in view. (GSV).
  * `satellites_in_use` No. of satellites in use. (GGA).
@@ -391,7 +384,7 @@ update when local time passes midnight (local time and date are computed from
 Dilution of Precision (DOP) values close to 1.0 indicate excellent quality
 position data. Increasing values indicate decreasing precision.
 
-## 2.5 Subclass hooks
+## 4.5 Subclass hooks
 
 The following public methods are null. They are intended for optional
 overriding in subclasses. Or monkey patching if you like that sort of thing.
@@ -409,13 +402,15 @@ and subsequent characters are stripped from the last. Thus if the string
 was received `reparse` would see  
 `['GPGGA','123519','4807.038','N','01131.000','E','1','08','0.9','545.4','M','46.9','M','','']`
 
-## 2.6 Public class variable
+## 4.6 Public class variable
 
  * `FULL_CHECK` Default `True`. If set `False` disables CRC checking and other
  basic checks on received sentences. If GPS is linked directly to the target
  (rather than via long cables) these checks are arguably not neccessary.
 
-# 3. The GPS class read-write driver
+###### [Top](./GPS.md#1-as_gps)
+
+# 5. The GPS class read-write driver
 
 This is a subclass of `AS_GPS` and supports all its public methods, coroutines
 and bound variables. It provides support for sending PMTK command packets to
@@ -429,37 +424,36 @@ GPS modules based on the MTK3329/MTK3339 chip. These include:
 A subset of the PMTK packet types is supported but this may be extended by
 subclassing.
 
-## 3.1 Files
+## 5.1 Test script
 
- * `as_rwGPS.py` Supports the `GPS` class. This subclass of `AS_GPS` enables
- writing PMTK packets.
- * `as_GPS.py` The library containing the `AS_GPS` base class.
- * `as_GPS_utils.py` Additional formatted string methods.
- * `ast_pbrw.py` Test script which changes various attributes.
- 
+This assumes a Pyboard 1.x or Pyboard D with GPS on UART 4. To run issue:
+```python
+import as_drivers.as_gps.ast_pbrw
+```
+
 The test script will pause until a fix has been achieved. After that changes
-are made for about 1 minute, after which it runs indefinitely reporting data at
-the REPL and on the LEDs. It may be interrupted with `ctrl-c` when the default
-baudrate will be restored.  
+are made for about 1 minute reporting data at the REPL and on the LEDs. On
+completion (or `ctrl-c`) a factory reset is performed to restore the default
+baudrate.  
 
 LED's:
  * Red: Toggles each time a GPS update occurs.
  * Green: ON if GPS data is being received, OFF if no data received for >10s.
  * Yellow: Toggles each 4s if navigation updates are being received.
 
-### 3.1.1 Usage example
+## 5.2 Usage example
 
 This reduces to 2s the interval at which the GPS sends messages:
 
 ```python
 import uasyncio as asyncio
-import as_rwGPS
+from as_drivers.as_GPS.as_rwGPS import GPS
 from machine import UART
 
 uart = UART(4, 9600)
 sreader = asyncio.StreamReader(uart)  # Create a StreamReader
 swriter = asyncio.StreamWriter(uart, {})
-gps = as_rwGPS.GPS(sreader, swriter)  # Instantiate GPS
+gps = GPS(sreader, swriter)  # Instantiate GPS
 
 async def test():
     print('waiting for GPS data')
@@ -472,7 +466,7 @@ async def test():
 asyncio.run(test())
 ```
 
-## 3.2 GPS class Constructor
+## 5.3 GPS class Constructor
 
 This takes two mandatory positional args:
  * `sreader` This is a `StreamReader` instance associated with the UART.
@@ -498,18 +492,18 @@ first is 'version', 'enabled' or 'antenna' followed by the value of the
 relevant bound variable e.g. `['antenna', 3]`.
 
 For unhandled messages text strings are as received, processed as per
-[section 2.5](./README.md#25-subclass-hooks).
+[section 4.5](./GPS.md#45-subclass-hooks).
 
 The args presented to the fix callback are as described in
-[section 2.1](./README.md#21-constructor).
+[section 4.1](./GPS.md#41-constructor).
 
-## 3.3 Public coroutines
+## 5.4 Public coroutines
 
  * `baudrate` Arg: baudrate. Must be 4800, 9600, 14400, 19200, 38400, 57600
  or 115200. See below.
  * `update_interval` Arg: interval in ms. Default 1000. Must be between 100
  and 10000. If the rate is to be increased see
- [notes on timing](./README.md#7-notes-on-timing).
+ [notes on timing](GPS.md#9-notes-on-timing).
  * `enable` Determine the frequency with which each sentence type is sent. A
  value of 0 disables a sentence, a value of 1 causes it to be sent with each
  received position fix. A value of N causes it to be sent once every N fixes.  
@@ -546,17 +540,16 @@ response of the unit to subsequent commands. If possible issue it after all
 other commands have been sent. I have also observed issues which can only be
 cleared by power cycling the GPS.
 
-### 3.3.1 Changing baudrate
+### 5.4.1 Changing baudrate
 
 I have experienced failures on a Pyboard V1.1 at baudrates higher than 19200.
-Under investigation.                                                          **TODO UPDATE THIS**
+This may be a problem with my GPS hardware (see below).
 
-Further, there are problems (at least with my GPS firmware build
-['AXN_2.31_3339_13101700', '5632', 'PA6H', '1.0']) whereby setting baudrates
-only works for certain rates. 19200, 38400, 57600 and 115200 work. 4800
-sets 115200. Importantly 9600 does nothing. This means that the only way to
-restore the default is to perform a `FULL_COLD_START`. The test programs do
-this.
+Further, there are problems (at least with my GPS firmware build) where setting
+baudrates only works for certain rates. This is clearly an issue with the GPS
+unit; rates of 19200, 38400, 57600 and 115200 work. Setting 4800 sets 115200.
+Importantly 9600 does nothing. Hence the only way to restore the default is to
+perform a `FULL_COLD_START`. The test programs do this. 
 
 If you change the GPS baudrate the UART should be re-initialised immediately
 after the `baudrate` coroutine terminates:
@@ -567,18 +560,19 @@ async def change_status(gps, uart):
     uart.init(19200)
 ```
 
-At risk of stating the obvious to seasoned programmers, if your application
-changes the GPS unit's baudrate and you interrupt it with ctrl-c, the GPS will
-still be running at the new baudrate. Your application may need to be designed
-to reflect this: see `ast_pbrw.py` which uses try-finally to reset the baudrate
-in the event that the program terminates due to an exception or otherwise.
+At risk of stating the obvious to seasoned programmers, say your application
+changes the GPS unit's baudrate. If interrupted (with a bug or `ctrl-c`) the
+GPS will still be running at the new baudrate. The application may need to be
+designed to reflect this: see `ast_pbrw.py` which uses `try-finally` to reset
+the baudrate in the event that the program terminates due to an exception or
+otherwise.
 
 Particular care needs to be used if a backup battery is employed as the GPS
 will then remember its baudrate over a power cycle.
 
-See also [notes on timing](./README.md#7-notes-on-timing).
+See also [notes on timing](./GPS.md#9-notes-on-timing).
 
-## 3.4 Public bound variables
+## 5.5 Public bound variables
 
 These are updated when a response to a command is received. The time taken for
 this to occur depends on the GPS unit. One solution is to implement a message
@@ -594,7 +588,7 @@ measured in seconds) polls the value, returning it when it changes.
  2 Internal antenna.  
  3 External antenna.  
 
-## 3.5 The parse method (developer note)
+## 5.6 The parse method (developer note)
 
 The null `parse` method in the base class is overridden. It intercepts the
 single response to `VERSION` and `ENABLE` commands and updates the above bound
@@ -604,9 +598,11 @@ callback with the `GPS` instance followed by a list of sentence segments
 followed by any args specified in the constructor.
 
 Other `PMTK` messages are passed to the optional message callback as described
-[in section 3.2](./README.md#32-gps-class-constructor).
+[in section 5.3](GPS.md#53-gps-class-constructor).
 
-# 4. Using GPS for accurate timing
+###### [Top](./GPS.md#1-as_gps)
+
+# 6. Using GPS for accurate timing
 
 Many GPS chips (e.g. MTK3339) provide a PPS signal which is a pulse occurring
 at 1s intervals whose leading edge is a highly accurate UTC time reference.
@@ -618,28 +614,30 @@ On STM platforms such as the Pyboard it may be used to set and to calibrate the
 realtime clock (RTC). This functionality is not currently portable to other
 chips.
 
-See [Absolute accuracy](./README.md#45-absolute-accuracy) for a discussion of
+See [Absolute accuracy](GPS.md#91-absolute-accuracy) for a discussion of
 the absolute accuracy provided by this module (believed to be on the order of
 +-70μs).
 
 Two classes are provided: `GPS_Timer` for read-only access to the GPS device
 and `GPS_RWTimer` for read/write access.
 
-## 4.1 Files
+## 6.1 Test scripts
 
- * `as_GPS.py` The library containing the base class.
- * `as_GPS_utils.py` Additional formatted string methods for `AS_GPS`.
- * `as_rwGPS.py` Required if using the read/write variant.
- * `as_tGPS.py` The library. Provides `GPS_Timer` and `GPS_RWTimer` classes.
  * `as_GPS_time.py` Test scripts for read only driver.
  * `as_rwGPS_time.py` Test scripts for read/write driver.
 
-### 4.1.1 Usage example
+On import, these will list available tests. Example usage:
+```python
+import as_drivers.as_GPS.as_GPS_time as test
+test.usec()
+```
+
+## 6.2 Usage example
 
 ```python
 import uasyncio as asyncio
 import pyb
-import as_tGPS
+import as_drivers.as_GPS.as_tGPS as as_tGPS
 
 async def test():
     fstr = '{}ms Time: {:02d}:{:02d}:{:02d}:{:06d}'
@@ -663,20 +661,20 @@ async def test():
 asyncio.run(test())
 ```
 
-## 4.2 GPS_Timer and GPS_RWTimer classes
+## 6.3 GPS_Timer and GPS_RWTimer classes
 
 These classes inherit from `AS_GPS` and `GPS` respectively, with read-only and
 read/write access to the GPS hardware. All public methods and bound variables of
 the base classes are supported. Additional functionality is detailed below.
 
-### 4.2.1 GPS_Timer class Constructor
+### 6.3.1 GPS_Timer class Constructor
 
 Mandatory positional args:
  * `sreader` The `StreamReader` instance associated with the UART.
  * `pps_pin` An initialised input `Pin` instance for the PPS signal.
 
 Optional positional args:
- * `local_offset` See [base class](./README.md#21-constructor) for details of
+ * `local_offset` See [base class](GPS.md#41-constructor) for details of
  these args.
  * `fix_cb`
  * `cb_mask`
@@ -688,7 +686,7 @@ Optional positional args:
  receives the `GPS_Timer` instance as the first arg, followed by any args in
  the tuple.
 
-### 4.2.2 GPS_RWTimer class Constructor
+### 6.3.2 GPS_RWTimer class Constructor
 
 This takes three mandatory positional args:
  * `sreader` The `StreamReader` instance associated with the UART.
@@ -696,7 +694,7 @@ This takes three mandatory positional args:
  * `pps_pin` An initialised input `Pin` instance for the PPS signal.
 
 Optional positional args:
- * `local_offset` See [base class](./README.md#32-gps-class-constructor) for
+ * `local_offset` See [base class](GPS.md#41-constructor) for
  details of these args.
  * `fix_cb`
  * `cb_mask`
@@ -710,7 +708,7 @@ Optional positional args:
  receives the `GPS_RWTimer` instance as the first arg, followed by any args in
  the tuple.
 
-## 4.3 Public methods
+## 6.4 Public methods
 
 The methods that return an accurate GPS time of day run as fast as possible. To
 achieve this they avoid allocation and dispense with error checking: these
@@ -728,10 +726,10 @@ target supporting `machine.ticks_us`.
  * `close` No args. Shuts down the PPS pin interrupt handler. Usage is optional
  but in test situations avoids the ISR continuing to run after termination.
 
-See [Absolute accuracy](./README.md#45-absolute-accuracy) for a discussion of
+See [Absolute accuracy](GPS.md#91-absolute-accuracy) for a discussion of
 the accuracy of these methods.
 
-## 4.4 Public coroutines
+## 6.5 Public coroutines
 
 All MicroPython targets:  
  * `ready` No args. Pauses until a valid time/date message and PPS signal have
@@ -760,7 +758,7 @@ Crystal oscillator frequency has a small temperature dependence; consequently
 the optimum calibration factor has a similar dependence. For best results allow
 the hardware to reach working temperature before calibrating.
 
-## 4.5 Absolute accuracy
+## 6.6 Absolute accuracy
 
 The claimed absolute accuracy of the leading edge of the PPS signal is +-10ns.
 In practice this is dwarfed by errors including latency in the MicroPython VM.
@@ -768,9 +766,15 @@ Nevertheless the `get_ms` method can be expected to provide 1 digit (+-1ms)
 accuracy and the `get_t_split` method should provide accuracy on the order of
 -5μs +65μs (standard deviation). This is based on a Pyboard running at 168MHz.
 The reasoning behind this is discussed in
-[section 7](./README.md#7-notes-on-timing).
+[section 9](./GPS.md#9-notes-on-timing).
 
-## 4.6 Test/demo program as_GPS_time.py
+## 6.7 Test/demo program as_GPS_time.py
+
+Run by issuing
+```python
+import as_drivers.as_GPS.as_GPS_time as test
+test.time()  # e.g.
+```
 
 This comprises the following test functions. Reset the chip with ctrl-d between
 runs.
@@ -784,7 +788,7 @@ runs.
  some limits to the absolute accuracy of the `get_t_split` method as discussed
  above.
 
-# 5. Supported Sentences
+# 7. Supported Sentences
 
  * GPRMC  GP indicates NMEA sentence (US GPS system).
  * GLRMC  GL indicates GLONASS (Russian system).
@@ -802,11 +806,13 @@ runs.
  * GPGSV
  * GLGSV
 
-# 6 Developer notes
+###### [Top](./GPS.md#1-as_gps)
+
+# 8 Developer notes
 
 These notes are for those wishing to adapt these drivers.
 
-## 6.1 Subclassing
+## 8.1 Subclassing
 
 If support for further sentence types is required the `AS_GPS` class may be
 subclassed. If a correctly formed sentence with a valid checksum is received,
@@ -818,7 +824,7 @@ found in the `as_rwGPS.py` module.
 
 The `parse` method receives an arg `segs` being a list of strings. These are
 the parts of the sentence which were delimited by commas. See
-[section 2.5](./README.md#25-subclass-hooks) for details.
+[section 4.5](GPS.md#45-subclass-hooks) for details.
 
 The `parse` method should return `True` if the sentence was successfully
 parsed, otherwise `False`.
@@ -827,15 +833,23 @@ Where a sentence is successfully parsed by the driver, a null `reparse` method
 is called. It receives the same string list as `parse`. It may be overridden in
 a subclass, possibly to extract further information from the sentence.
 
-## 6.2 Special test programs
+## 8.2 Special test programs
 
 These tests allow NMEA parsing to be verified in the absence of GPS hardware:  
 
- * `astests.py` Test with synthetic data. Run on CPython 3.8+ or MicroPython.
  * `astests_pyb.py` Test with synthetic data on UART. GPS hardware replaced by
  a loopback on UART 4. Requires a Pyboard.
+ * `astests.py` Test with synthetic data. Run on CPython 3.8+ or MicroPython.
+ Run as follows:
 
-# 7. Notes on timing
+```python
+from as_drivers.as_GPS.astests import run_tests
+run_tests()
+```
+
+###### [Top](./GPS.md#1-as_gps)
+
+# 9. Notes on timing
 
 At the default 1s update rate the GPS hardware emits a PPS pulse followed by a
 set of messages. It then remains silent until the next PPS. At the default
@@ -860,7 +874,7 @@ seconds) as the fundamental time reference. This is updated by the RMC message.
 The `utc`, `date` and `localtime` properties convert this to usable values with
 the latter two using the `local_offset` value to ensure correct results.
 
-## 7.1 Absolute accuracy
+## 9.1 Absolute accuracy
 
 Without an atomic clock synchronised to a Tier 1 NTP server, absolute accuracy
 (Einstein notwithstanding :-)) is hard to prove. However if the manufacturer's
@@ -906,6 +920,49 @@ asynchronously to PPS: the interval will centre on 0.5s. The assumption is that
 inaccuracy in the `ticks_us` timer measured in μs is proportional to the
 duration over which it is measured.
 
+###### [Top](./GPS.md#1-as_gps)
+
+# 10 Files
+
+If space on the filesystem is limited, unneccessary files may be deleted. Many
+applications will not need the read/write or timing files.
+
+## 10.1 Basic files
+
+ * `as_GPS.py` The library. Supports the `AS_GPS` class for read-only access to
+ GPS hardware.
+ * `as_GPS_utils.py` Additional formatted string methods for `AS_GPS`.
+ * `ast_pb.py` Test/demo program: assumes a MicroPython hardware device with
+ GPS connected to UART 4.
+ * `log_kml.py` A simple demo which logs a route travelled to a .kml file which
+ may be displayed on Google Earth.
+
+On RAM-constrained devices `as_GPS_utils.py` may be omitted in which case the
+`date_string` and `compass_direction` methods will be unavailable.
+
+## 10.2 Files for read/write operation
+
+ * `as_rwGPS.py` Supports the `GPS` class. This subclass of `AS_GPS` enables
+ writing PMTK packets.
+ * `as_rwGPS.py` Required if using the read/write variant.
+ * `ast_pbrw.py` Test/demo script.
+
+## 10.3 Files for timing applications
+ 
+ * `as_tGPS.py` The library. Provides `GPS_Timer` and `GPS_RWTimer` classes.
+ * `as_GPS_time.py` Test scripts for read only driver.
+ * `as_rwGPS_time.py` Test scripts for read/write driver.
+
+## 10.4 Special test programs
+
+These tests allow NMEA parsing to be verified in the absence of GPS hardware:  
+
+ * `astests.py` Test with synthetic data. Run on PC under CPython 3.8+ or MicroPython.
+ * `astests_pyb.py` Test with synthetic data on UART. GPS hardware replaced by
+ a loopback on UART 4. Requires a Pyboard.
+
+# 11 References
+
 [MicroPython]:https://micropython.org/
 [frozen module]:https://learn.adafruit.com/micropython-basics-loading-modules/frozen-modules
 [NMEA-0183]:http://aprs.gids.nl/nmea/
@@ -914,3 +971,5 @@ duration over which it is measured.
 [MTK_command]:https://github.com/inmcm/MTK_commands
 [Ultimate GPS Breakout]:http://www.adafruit.com/product/746
 [micropyGPS]:https://github.com/inmcm/micropyGPS.git
+
+###### [Top](./GPS.md#1-as_gps)

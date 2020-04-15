@@ -1,4 +1,4 @@
-# ast_pb.py
+# ast_pbrw.py
 # Basic test/demo of AS_GPS class (asynchronous GPS device driver)
 # Runs on a Pyboard with GPS data on pin X2.
 # Copyright (c) Peter Hinch 2018-2020
@@ -14,8 +14,8 @@
 import pyb
 import uasyncio as asyncio
 from primitives.delay_ms import Delay_ms
-import as_GPS
-import as_rwGPS
+from .as_GPS import DD, LONG, MPH
+from .as_rwGPS import *
 
 # Avoid multiple baudrates. Tests use 9600 or 19200 only.
 BAUDRATE = 19200
@@ -69,8 +69,8 @@ async def navigation(gps):
         yellow.toggle()
         print('***** NAVIGATION DATA *****')
         print('Data is Valid:', hex(gps._valid))
-        print('Longitude:', gps.longitude(as_GPS.DD))
-        print('Latitude', gps.latitude(as_GPS.DD))
+        print('Longitude:', gps.longitude(DD))
+        print('Latitude', gps.latitude(DD))
         print()
 
 async def course(gps):
@@ -79,7 +79,7 @@ async def course(gps):
         await gps.data_received(course=True)
         print('***** COURSE DATA *****')
         print('Data is Valid:', hex(gps._valid))
-        print('Speed:', gps.speed_string(as_GPS.MPH))
+        print('Speed:', gps.speed_string(MPH))
         print('Course', gps.course)
         print('Compass Direction:', gps.compass_direction())
         print()
@@ -92,7 +92,7 @@ async def date(gps):
         print('Data is Valid:', hex(gps._valid))
         print('UTC Time:', gps.utc)
         print('Local time:', gps.local_time)
-        print('Date:', gps.date_string(as_GPS.LONG))
+        print('Date:', gps.date_string(LONG))
         print()
 
 async def change_status(gps, uart):
@@ -103,10 +103,10 @@ async def change_status(gps, uart):
     print('***** baudrate 19200 *****')
     await asyncio.sleep(5)  # Ensure baudrate is sorted
     print('***** Query VERSION *****')
-    await gps.command(as_rwGPS.VERSION)
+    await gps.command(VERSION)
     await asyncio.sleep(10)
     print('***** Query ENABLE *****')
-    await gps.command(as_rwGPS.ENABLE)
+    await gps.command(ENABLE)
     await asyncio.sleep(10)  # Allow time for 1st report
     await gps.update_interval(2000)
     print('***** Update interval 2s *****')
@@ -115,14 +115,14 @@ async def change_status(gps, uart):
     print('***** Disable satellite in view and channel messages *****')
     await asyncio.sleep(10)
     print('***** Query ENABLE *****')
-    await gps.command(as_rwGPS.ENABLE)
+    await gps.command(ENABLE)
 
 # See README.md re antenna commands
 #    await asyncio.sleep(10)
-#    await gps.command(as_rwGPS.ANTENNA)
+#    await gps.command(ANTENNA)
 #    print('***** Antenna reports requested *****')
 #    await asyncio.sleep(60)
-#    await gps.command(as_rwGPS.NO_ANTENNA)
+#    await gps.command(NO_ANTENNA)
 #    print('***** Antenna reports turned off *****')
 #    await asyncio.sleep(10)
 
@@ -136,12 +136,12 @@ async def gps_test():
     swriter = asyncio.StreamWriter(uart, {})
     timer = Delay_ms(cb_timeout)
     sentence_count = 0
-    gps = as_rwGPS.GPS(sreader, swriter, local_offset=1, fix_cb=callback,
+    gps = GPS(sreader, swriter, local_offset=1, fix_cb=callback,
                        fix_cb_args=(timer,),  msg_cb = message_cb)
     await asyncio.sleep(2)
-    await gps.command(as_rwGPS.DEFAULT_SENTENCES)
+    await gps.command(DEFAULT_SENTENCES)
     print('Set sentence frequencies to default')
-    #await gps.command(as_rwGPS.FULL_COLD_START)
+    #await gps.command(FULL_COLD_START)
     #print('Performed FULL_COLD_START')
     print('awaiting first fix')
     asyncio.create_task(sat_test(gps))
@@ -158,7 +158,7 @@ async def shutdown():
     # session with ctrl-c.
     uart.init(BAUDRATE)
     await asyncio.sleep(1)
-    await gps.command(as_rwGPS.FULL_COLD_START)
+    await gps.command(FULL_COLD_START)
     print('Factory reset')
     #print('Restoring default baudrate.')
     #await gps.baudrate(9600)

@@ -555,7 +555,7 @@ class AS_GPS(object):
         return self._time_diff(self._get_time(), self._fix_time)
 
     def compass_direction(self):  # Return cardinal point as string.
-        from as_GPS_utils import compass_direction
+        from .as_GPS_utils import compass_direction
         return compass_direction(self)
 
     def latitude_string(self, coord_format=DM):
@@ -611,5 +611,5 @@ class AS_GPS(object):
         return '{:02d}:{:02d}:{:02d}'.format(hrs, mins, secs)
 
     def date_string(self, formatting=MDY):
-        from as_GPS_utils import date_string
+        from .as_GPS_utils import date_string
         return date_string(self, formatting)

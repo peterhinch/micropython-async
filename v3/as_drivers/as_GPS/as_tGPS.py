@@ -2,7 +2,7 @@
 # This is STM-specific: requires pyb module.
 # Hence not as RAM-critical as as_GPS
 
-# Copyright (c) 2018 Peter Hinch
+# Copyright (c) 2018-2020 Peter Hinch
 # Released under the MIT License (MIT) - see LICENSE file
 # TODO Test machine version. Replace LED with callback. Update tests and doc.
 
@@ -17,8 +17,8 @@ except ImportError:
 import utime
 import micropython
 import gc
-import as_GPS
-import as_rwGPS
+from .as_GPS import RMC, AS_GPS
+from .as_rwGPS import GPS
 
 micropython.alloc_emergency_exception_buf(100)
 
@@ -31,17 +31,17 @@ def rtc_secs():
 
 # Constructor for GPS_Timer class
 def gps_ro_t_init(self, sreader, pps_pin, local_offset=0,
-                  fix_cb=lambda *_ : None, cb_mask=as_GPS.RMC, fix_cb_args=(),
+                  fix_cb=lambda *_ : None, cb_mask=RMC, fix_cb_args=(),
                   pps_cb=lambda *_ : None, pps_cb_args=()):
-    as_GPS.AS_GPS.__init__(self, sreader, local_offset, fix_cb, cb_mask, fix_cb_args)
+    AS_GPS.__init__(self, sreader, local_offset, fix_cb, cb_mask, fix_cb_args)
     self.setup(pps_pin, pps_cb, pps_cb_args)
 
 # Constructor for GPS_RWTimer class
 def gps_rw_t_init(self, sreader, swriter, pps_pin, local_offset=0,
-                  fix_cb=lambda *_ : None, cb_mask=as_GPS.RMC, fix_cb_args=(),
+                  fix_cb=lambda *_ : None, cb_mask=RMC, fix_cb_args=(),
                   msg_cb=lambda *_ : None, msg_cb_args=(),
                   pps_cb=lambda *_ : None, pps_cb_args=()):
-    as_rwGPS.GPS.__init__(self, sreader, swriter, local_offset, fix_cb, cb_mask, fix_cb_args,
+    GPS.__init__(self, sreader, swriter, local_offset, fix_cb, cb_mask, fix_cb_args,
                  msg_cb, msg_cb_args)
     self.setup(pps_pin, pps_cb, pps_cb_args)
 
@@ -236,5 +236,5 @@ class GPS_Tbase():
         self._time[3] = us + ims*1000
         return self._time
 
-GPS_Timer = type('GPS_Timer', (GPS_Tbase, as_GPS.AS_GPS), {'__init__': gps_ro_t_init})
-GPS_RWTimer = type('GPS_RWTimer', (GPS_Tbase, as_rwGPS.GPS), {'__init__': gps_rw_t_init})
+GPS_Timer = type('GPS_Timer', (GPS_Tbase, AS_GPS), {'__init__': gps_ro_t_init})
+GPS_RWTimer = type('GPS_RWTimer', (GPS_Tbase, GPS), {'__init__': gps_rw_t_init})

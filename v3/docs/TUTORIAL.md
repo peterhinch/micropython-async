@@ -46,6 +46,7 @@ now complete scripts which can be cut and pasted at the REPL.
   5.2 [Cancellation and Timeouts](./TUTORIAL.md#52-cancellation-and-timeouts)  
    5.2.1 [Task cancellation](./TUTORIAL.md#521-task-cancellation)  
    5.2.2 [Tasks with timeouts](./TUTORIAL.md#522-tasks-with-timeouts)  
+   5.2.3 [Cancelling running tasks](./TUTORIAL.md#523-cancelling-running-tasks) A "gotcha".
  6. [Interfacing hardware](./TUTORIAL.md#6-interfacing-hardware)  
   6.1 [Timing issues](./TUTORIAL.md#61-timing-issues)  
   6.2 [Polling hardware with a task](./TUTORIAL.md#62-polling-hardware-with-a-task)  
@@ -75,7 +76,7 @@ now complete scripts which can be cut and pasted at the REPL.
   8.6 [Communication](./TUTORIAL.md#86-communication)  
   8.7 [Polling](./TUTORIAL.md#87-polling)  
 
-###### [Main README](./README.md)
+###### [Main README](../README.md)
 
 # 0. Introduction
 
@@ -137,23 +138,46 @@ to your hardware.
 
 **Demo Programs**
 
-The first two are the most immediately rewarding as they produce visible
-results by accessing Pyboard hardware.
+The directory `as_demos` contains various demo programs implemented as a Python
+package. Copy the directory and its contents to the target hardware.
 
- 1. [aledflash.py](./demos/aledflash.py) Flashes three Pyboard LEDs
- asynchronously for 10s. The simplest uasyncio demo. Import it to run.
- 2. [apoll.py](./demos/apoll.py) A device driver for the Pyboard accelerometer.
- Demonstrates the use of a task to poll a device. Runs for 20s. Import it to
- run. Requires a Pyboard V1.x.
- 3. [roundrobin.py](./demos/roundrobin.py) Demo of round-robin scheduling. Also
- a benchmark of scheduling performance.
- 4. [auart.py](./demos/auart.py) Demo of streaming I/O via a Pyboard UART.
- 5. [auart_hd.py](./demos/auart_hd.py) Use of the Pyboard UART to communicate
+The first two are the most immediately rewarding as they produce visible
+results by accessing Pyboard hardware. With all demos, issue ctrl-d between
+runs to soft reset the hardware.
+
+#### aledflash.py
+
+Flashes three Pyboard LEDs asynchronously for 10s. The simplest uasyncio demo.
+```python
+import as_demos.aledflash
+```
+
+#### apoll.py
+
+A device driver for the Pyboard accelerometer. Demonstrates the use of a task
+to poll a device. Runs for 20s. Requires a Pyboard V1.x.
+```python
+import as_demos.apoll
+```
+
+#### roundrobin.py
+
+Demo of round-robin scheduling. Also a benchmark of scheduling performance.
+Runs for 5s.
+```python
+import as_demos.roundrobin
+```
+
+ 1. [aledflash.py](./as_demos/aledflash.py) 
+ 2. [apoll.py](./as_demos/apoll.py) 
+ 3. [roundrobin.py](./as_demos/roundrobin.py) 
+ 4. [auart.py](./as_demos/auart.py) Demo of streaming I/O via a Pyboard UART.
+ 5. [auart_hd.py](./as_demos/auart_hd.py) Use of the Pyboard UART to communicate
  with a device using a half-duplex protocol. Suits devices such as those using
  the 'AT' modem command set.
- 6. [iorw.py](./demos/iorw.py) Demo of a read/write device driver using the
+ 6. [iorw.py](./as_demos/iorw.py) Demo of a read/write device driver using the
  stream I/O mechanism. Requires a Pyboard.
- 7. [A driver for GPS modules](./demos/gps/README.md) Runs a background task to
+ 7. [A driver for GPS modules](./GPS.md) Runs a background task to
  read and decode NMEA sentences, providing constantly updated position, course,
  altitude and time/date information.
 
@@ -1400,6 +1424,27 @@ async def foo():
 asyncio.run(foo())
 ```
 
+## 5.2.3 Cancelling running tasks
+
+This useful technique can provoke counter intuitive behaviour. Consider a task
+`foo` created using `create_task`. Then tasks `bar`, `cancel_me` (and possibly
+others) are created with code like:
+```python
+async def bar():
+    await foo
+    # more code
+```
+All will pause waiting for `foo` to terminate. If any one of the waiting tasks
+is cancelled, the cancellation will propagate to `foo`. This would be expected
+behaviour if `foo` were a coro. The fact that it is a running task means that
+the cancellation impacts the tasks waiting on it; it actually causes their
+cancellation. Again, if `foo` were a coro and a task or coro was waiting on it,
+cancelling `foo` would be expected to propagate to the caller. In the context
+of running tasks, this may be unwelcome.
+
+The behaviour is "correct": CPython `asyncio` behaves identically. Ref
+[this forum thread](https://forum.micropython.org/viewtopic.php?f=2&t=8158).
+
 ###### [Contents](./TUTORIAL.md#contents)
 
 # 6 Interfacing hardware
@@ -1608,7 +1653,7 @@ provide a solution if the data source supports it.
 
 ### 6.3.1 A UART driver example
 
-The program [auart_hd.py](./demos/auart_hd.py) illustrates a method of
+The program [auart_hd.py](./as_demos/auart_hd.py) illustrates a method of
 communicating with a half duplex device such as one responding to the modem
 'AT' command set. Half duplex means that the device never sends unsolicited
 data: its transmissions are always in response to a command from the master.
@@ -1787,7 +1832,7 @@ class PinCall(io.IOBase):
 Once again latency can be high: if implemented fast I/O scheduling will improve
 this.
 
-The demo program [iorw.py](./demos/iorw.py) illustrates a complete example.
+The demo program [iorw.py](./as_demos/iorw.py) illustrates a complete example.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
@@ -1795,7 +1840,7 @@ The demo program [iorw.py](./demos/iorw.py) illustrates a complete example.
 
 **TODO** Not yet ported to V3.
 
-See [aremote.py](./nec_ir/aremote.py) documented [here](./nec_ir/README.md).
+See [aremote.py](./nec_ir/aremote.py) documented [here](./NEC_IR.md).
 The demo provides a complete device driver example: a receiver/decoder for an
 infra red remote controller. The following notes are salient points regarding
 its `asyncio` usage.
@@ -1812,10 +1857,8 @@ any `asyncio` latency when setting its delay period.
 
 ## 6.6 HTU21D environment sensor
 
-**TODO** Not yet ported to V3.
-
 This chip provides accurate measurements of temperature and humidity. The
-driver is documented [here](./htu21d/README.md). It has a continuously running
+driver is documented [here](./HTU21D.md). It has a continuously running
 task which updates `temperature` and `humidity` bound variables which may be
 accessed "instantly".
 
@@ -1823,6 +1866,10 @@ The chip takes on the order of 120ms to acquire both data items. The driver
 works asynchronously by triggering the acquisition and using
 `await asyncio.sleep(t)` prior to reading the data. This allows other tasks to
 run while acquisition is in progress.
+
+```python
+import as_drivers.htu21d.htu_test
+```
 
 # 7 Hints and tips
 

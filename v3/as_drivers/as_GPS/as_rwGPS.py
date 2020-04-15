@@ -7,7 +7,7 @@
 # Copyright (c) 2018 Peter Hinch
 # Released under the MIT License (MIT) - see LICENSE file
 
-import as_GPS
+import as_drivers.as_GPS as as_GPS
 try:
     from micropython import const
 except ImportError:

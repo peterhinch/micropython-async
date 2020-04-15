@@ -2,7 +2,7 @@
 import pyb
 import uasyncio as asyncio
 import utime
-import as_rwGPS
+import as_drivers.as_rwGPS as as_rwGPS
 # Outcome
 # Sleep Buffer
 # 0     None    OK, length limit 74

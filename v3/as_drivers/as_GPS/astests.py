@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.5
+#!/usr/bin/env python3.8
 # -*- coding: utf-8 -*-
 
 # astests.py
@@ -10,7 +10,7 @@
 # Released under the MIT License (MIT) - see LICENSE file
 # Run under CPython 3.5+ or MicroPython
 
-import as_GPS
+from .as_GPS import *
 try:
     import uasyncio as asyncio
 except ImportError:
@@ -45,7 +45,7 @@ async def run():
                 '$GPGLL,4250.5589,S,14718.5084,E,092204.999,A*2D\n',
                 '$GPGLL,0000.0000,N,00000.0000,E,235947.000,V*2D\n']
 
-    my_gps = as_GPS.AS_GPS(None)
+    my_gps = AS_GPS(None)
     sentence = ''
     for sentence in test_RMC:
         my_gps._valid = 0
@@ -146,20 +146,20 @@ async def run():
         print('')
 
     print("Pretty Print Examples:")
-    print('Latitude (degs):', my_gps.latitude_string(as_GPS.DD))
-    print('Longitude (degs):', my_gps.longitude_string(as_GPS.DD))
-    print('Latitude (dms):', my_gps.latitude_string(as_GPS.DMS))
-    print('Longitude (dms):', my_gps.longitude_string(as_GPS.DMS))
-    print('Latitude (kml):', my_gps.latitude_string(as_GPS.KML))
-    print('Longitude (kml):', my_gps.longitude_string(as_GPS.KML))
+    print('Latitude (degs):', my_gps.latitude_string(DD))
+    print('Longitude (degs):', my_gps.longitude_string(DD))
+    print('Latitude (dms):', my_gps.latitude_string(DMS))
+    print('Longitude (dms):', my_gps.longitude_string(DMS))
+    print('Latitude (kml):', my_gps.latitude_string(KML))
+    print('Longitude (kml):', my_gps.longitude_string(KML))
     print('Latitude (degs, mins):', my_gps.latitude_string())
     print('Longitude (degs, mins):', my_gps.longitude_string())
-    print('Speed:', my_gps.speed_string(as_GPS.KPH), 'or',
-          my_gps.speed_string(as_GPS.MPH), 'or',
-          my_gps.speed_string(as_GPS.KNOT))
-    print('Date (Long Format):', my_gps.date_string(as_GPS.LONG))
-    print('Date (Short D/M/Y Format):', my_gps.date_string(as_GPS.DMY))
-    print('Date (Short M/D/Y Format):', my_gps.date_string(as_GPS.MDY))
+    print('Speed:', my_gps.speed_string(KPH), 'or',
+          my_gps.speed_string(MPH), 'or',
+          my_gps.speed_string(KNOT))
+    print('Date (Long Format):', my_gps.date_string(LONG))
+    print('Date (Short D/M/Y Format):', my_gps.date_string(DMY))
+    print('Date (Short M/D/Y Format):', my_gps.date_string(MDY))
     print('Time:', my_gps.time_string())
     print()
 

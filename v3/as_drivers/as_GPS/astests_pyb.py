@@ -11,7 +11,7 @@
 
 # Ported to uasyncio V3 OK.
 
-import as_GPS
+from .as_GPS import *
 from machine import UART
 import uasyncio as asyncio
 
@@ -49,7 +49,7 @@ async def run_tests():
 
 #                '$GPGLL,0000.0000,N,00000.0000,E,235947.000,V*2D\n',  # Will ignore this one
 
-    my_gps = as_GPS.AS_GPS(sreader, fix_cb=callback, fix_cb_args=(42,))
+    my_gps = AS_GPS(sreader, fix_cb=callback, fix_cb_args=(42,))
     sentence = ''
     for sentence in test_RMC:
         sentence_count += 1
@@ -124,20 +124,20 @@ async def run_tests():
         print('')
 
     print("Pretty Print Examples:")
-    print('Latitude (degs):', my_gps.latitude_string(as_GPS.DD))
-    print('Longitude (degs):', my_gps.longitude_string(as_GPS.DD))
-    print('Latitude (dms):', my_gps.latitude_string(as_GPS.DMS))
-    print('Longitude (dms):', my_gps.longitude_string(as_GPS.DMS))
-    print('Latitude (kml):', my_gps.latitude_string(as_GPS.KML))
-    print('Longitude (kml):', my_gps.longitude_string(as_GPS.KML))
+    print('Latitude (degs):', my_gps.latitude_string(DD))
+    print('Longitude (degs):', my_gps.longitude_string(DD))
+    print('Latitude (dms):', my_gps.latitude_string(DMS))
+    print('Longitude (dms):', my_gps.longitude_string(DMS))
+    print('Latitude (kml):', my_gps.latitude_string(KML))
+    print('Longitude (kml):', my_gps.longitude_string(KML))
     print('Latitude (degs, mins):', my_gps.latitude_string())
     print('Longitude (degs, mins):', my_gps.longitude_string())
-    print('Speed:', my_gps.speed_string(as_GPS.KPH), 'or',
-          my_gps.speed_string(as_GPS.MPH), 'or',
-          my_gps.speed_string(as_GPS.KNOT))
-    print('Date (Long Format):', my_gps.date_string(as_GPS.LONG))
-    print('Date (Short D/M/Y Format):', my_gps.date_string(as_GPS.DMY))
-    print('Date (Short M/D/Y Format):', my_gps.date_string(as_GPS.MDY))
+    print('Speed:', my_gps.speed_string(KPH), 'or',
+          my_gps.speed_string(MPH), 'or',
+          my_gps.speed_string(KNOT))
+    print('Date (Long Format):', my_gps.date_string(LONG))
+    print('Date (Short D/M/Y Format):', my_gps.date_string(DMY))
+    print('Date (Short M/D/Y Format):', my_gps.date_string(MDY))
     print('Time:', my_gps.time_string())
     print()
 
