@@ -55,6 +55,11 @@ def test():
         led(1)
     ir = NEC_IR(p, cb, True, led)  # Assume extended address mode r/c
     loop = asyncio.get_event_loop()
-    loop.run_forever()
+    try:
+        loop.run_forever()
+    except KeyboardInterrupt:
+        print('Interrupted')
+    finally:
+        asyncio.new_event_loop()  # Still need ctrl-d because of interrupt vector
 
 test()

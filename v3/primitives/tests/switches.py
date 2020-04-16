@@ -17,7 +17,6 @@ import uasyncio as asyncio
 helptext = '''
 Test using switch or pushbutton between X1 and gnd.
 Ground pin X2 to terminate test.
-Soft reset (ctrl-D) after each test.
 
 '''
 tests = '''
@@ -45,6 +44,16 @@ async def killer():
     while pin.value():
         await asyncio.sleep_ms(50)
 
+def run():
+    try:
+        asyncio.run(killer())
+    except KeyboardInterrupt:
+        print('Interrupted')
+    finally:
+        asyncio.new_event_loop()
+        print(tests)
+
+
 # Test for the Switch class passing coros
 def test_sw():
     s = '''
@@ -61,8 +70,7 @@ open pulses red
     # Register coros to launch on contact close and open
     sw.close_func(pulse, (green, 1000))
     sw.open_func(pulse, (red, 1000))
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(killer())
+    run()
 
 # Test for the switch class with a callback
 def test_swcb():
@@ -80,8 +88,7 @@ open toggles green
     # Register a coro to launch on contact close
     sw.close_func(toggle, (red,))
     sw.open_func(toggle, (green,))
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(killer())
+    run()
 
 # Test for the Pushbutton class (coroutines)
 # Pass True to test suppress
@@ -109,8 +116,7 @@ long press pulses blue
     if lf:
         print('Long press enabled')
         pb.long_func(pulse, (blue, 1000))
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(killer())
+    run()
 
 # Test for the Pushbutton class (callbacks)
 def test_btncb():
@@ -133,5 +139,4 @@ long press toggles blue
     pb.release_func(toggle, (green,))
     pb.double_func(toggle, (yellow,))
     pb.long_func(toggle, (blue,))
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(killer())
+    run()

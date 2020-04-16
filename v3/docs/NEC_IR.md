@@ -8,17 +8,32 @@ microcontroller.
 
 The driver and test programs run on the Pyboard and ESP8266.
 
-# Files
+## An alternative solution
 
- 1. `aremote.py` The device driver.
- 2. `art.py` A test program to characterise a remote.
- 3. `art1.py` Control an onboard LED using a remote. The data and addresss
- values need changing to match your characterised remote.
+This solution provides an example of an asynchronous device driver. A more
+complete IR solution may be found
+[here](https://github.com/peterhinch/micropython_ir). This supports other
+protocols and IR "blasting". It does not use `uasyncio` but is nonblocking and
+is compatible with `uasyncio` applications.
+
+# Demo scripts
+
+The following prints data and address values received from a remote. These
+values enable you to respond to individual butons.
+```python
+import as_drivers.nec_ir.art
+```
+
+Control an onboard LED using a remote. The data and addresss values must be
+changed to match your characterised remote.
+```python
+import as_drivers.nec_ir.art1
+```
 
 # Dependencies
 
-The driver requires the `uasyncio` library and the file `asyn.py` from this
-repository.
+The driver requires the `uasyncio` library and the `primitives` package from
+this repository.
 
 # Usage
 
@@ -131,3 +146,9 @@ owing to high interrupt latency.
 `BADDATA` Data did not match check byte.  
 `BADADDR` Where `extended` is `False` the 8-bit address is checked
 against the check byte. This code is returned on failure.  
+
+# Files
+
+ 1. `aremote.py` The device driver.
+ 2. `art.py` A test program to characterise a remote.
+ 3. `art1.py` 

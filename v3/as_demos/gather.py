@@ -18,8 +18,9 @@ async def foo(n):
         while True:
             await asyncio.sleep(1)
             n += 1
-    except Exception as e: #asyncio.TimeoutError:
-        print('foo timeout.', e)
+    except asyncio.CancelledError:
+        print('Trapped foo timeout.')
+        raise
     return n
 
 async def bar(n):
@@ -28,8 +29,9 @@ async def bar(n):
         while True:
             await asyncio.sleep(1)
             n += 1
-    except Exception as e:
-        print('bar stopped.', e)
+    except asyncio.CancelledError:  # Demo of trapping
+        print('Trapped bar cancellation.')
+        raise
     return n
 
 async def do_cancel(task):
@@ -37,13 +39,62 @@ async def do_cancel(task):
     print('About to cancel bar')
     task.cancel()
 
-async def main():
+async def main(rex):
     bar_task = asyncio.create_task(bar(70))  # Note args here
     tasks = []
     tasks.append(barking(21))
     tasks.append(asyncio.wait_for(foo(10), 7))
     asyncio.create_task(do_cancel(bar_task))
-    res = await asyncio.gather(*tasks)
+    try:
+        res = await asyncio.gather(*tasks, return_exceptions=rex)
+    except asyncio.TimeoutError:
+        print('foo timed out.')
+        res = 'No result'
     print('Result: ', res)
 
-asyncio.run(main())
+
+exp_false = '''Test runs for 10s. Expected output:
+
+Start cancellable bar()
+Start normal coro barking()
+Start timeout coro foo()
+About to cancel bar
+Trapped bar cancellation.
+Done barking.
+Trapped foo timeout.
+foo timed out.
+Result:  No result
+
+'''
+exp_true = '''Test runs for 10s. Expected output:
+
+Start cancellable bar()
+Start normal coro barking()
+Start timeout coro foo()
+About to cancel bar
+Trapped bar cancellation.
+Done barking.
+Trapped foo timeout.
+Result:  [42, TimeoutError()]
+
+'''
+
+def printexp(st):
+    print('\x1b[32m')
+    print(st)
+    print('\x1b[39m')
+
+def test(rex):
+    st = exp_true if rex else exp_false
+    printexp(st)
+    try:
+        asyncio.run(main(rex))
+    except KeyboardInterrupt:
+        print('Interrupted')
+    finally:
+        asyncio.new_event_loop()
+        print()
+        print('as_demos.gather.test() to run again.')
+        print('as_demos.gather.test(True) to see effect of return_exceptions.')
+
+test(rex=False)

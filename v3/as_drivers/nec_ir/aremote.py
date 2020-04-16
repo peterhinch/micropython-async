@@ -6,10 +6,10 @@
 
 from sys import platform
 import uasyncio as asyncio
-from asyn import Event
+from primitives.message import Message
 from micropython import const
 from array import array
-from utime import ticks_us, ticks_diff
+from utime import ticks_ms, ticks_us, ticks_diff
 if platform == 'pyboard':
     from pyb import Pin, ExtInt
 else:
@@ -41,7 +41,7 @@ _EDGECOUNT = const(68)  # No. of edges in data block
 # Value of 73 allows for up to 35ms latency.
 class NEC_IR():
     def __init__(self, pin, callback, extended, *args):  # Optional args for callback
-        self._ev_start = Event()
+        self._ev_start = Message()
         self._callback = callback
         self._extended = extended
         self._addr = 0
@@ -56,15 +56,13 @@ class NEC_IR():
             pin.irq(handler = self._cb_pin, trigger = (Pin.IRQ_FALLING | Pin.IRQ_RISING), hard = True)
         self._edge = 0
         self._ev_start.clear()
-        loop = asyncio.get_event_loop()
-        loop.create_task(self._run())
+        asyncio.create_task(self._run())
 
     async def _run(self):
-        loop = asyncio.get_event_loop()
         while True:
             await self._ev_start  # Wait until data collection has started
             # Compensate for asyncio latency
-            latency = ticks_diff(loop.time(), self._ev_start.value())
+            latency = ticks_diff(ticks_ms(), self._ev_start.value())
             await asyncio.sleep_ms(self.block_time - latency)  # Data block should have ended
             self._decode()  # decode, clear event, prepare for new rx, call cb
 
@@ -74,8 +72,7 @@ class NEC_IR():
         # On overrun ignore pulses until software timer times out
         if self._edge <= _EDGECOUNT:  # Allow 1 extra pulse to record overrun
             if not self._ev_start.is_set():  # First edge received
-                loop = asyncio.get_event_loop()
-                self._ev_start.set(loop.time())  # asyncio latency compensation
+                self._ev_start.set(ticks_ms())  # asyncio latency compensation
             self._times[self._edge] = t
             self._edge += 1
 

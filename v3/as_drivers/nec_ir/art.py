@@ -5,6 +5,7 @@
 # Copyright Peter Hinch 2017 Released under the MIT license
 
 # Run this to characterise a remote.
+# import as_drivers.nec_ir.art
 
 from sys import platform
 import uasyncio as asyncio
@@ -17,7 +18,7 @@ elif platform == 'esp8266' or ESP32:
 else:
     print('Unsupported platform', platform)
 
-from aremote import *
+from .aremote import *
 
 errors = {BADSTART : 'Invalid start pulse', BADBLOCK : 'Error: bad block',
           BADREP : 'Error: repeat', OVERRUN : 'Error: overrun',
@@ -33,6 +34,7 @@ def cb(data, addr):
 
 def test():
     print('Test for IR receiver. Assumes NEC protocol.')
+    print('ctrl-c to stop.')
     if platform == 'pyboard':
         p = Pin('X3', Pin.IN)
     elif platform == 'esp8266':
@@ -42,6 +44,11 @@ def test():
         p = Pin(23, Pin.IN)
     ir = NEC_IR(p, cb, True)  # Assume r/c uses extended addressing
     loop = asyncio.get_event_loop()
-    loop.run_forever()
+    try:
+        loop.run_forever()
+    except KeyboardInterrupt:
+        print('Interrupted')
+    finally:
+        asyncio.new_event_loop()  # Still need ctrl-d because of interrupt vector
 
 test()

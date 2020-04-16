@@ -1,1 +1,1 @@
-from .as_GPS import *
+from .aremote import *

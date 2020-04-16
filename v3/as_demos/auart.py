@@ -25,4 +25,13 @@ async def main():
     while True:
         await asyncio.sleep(1)
 
-asyncio.run(main())
+def test():
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print('Interrupted')
+    finally:
+        asyncio.new_event_loop()
+        print('as_demos.auart.test() to run again.')
+
+test()

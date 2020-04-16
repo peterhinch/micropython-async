@@ -68,7 +68,7 @@ class Master():
             await asyncio.sleep(1)  # Wait for 4s after last msg received
         return self.response
 
-async def test():
+async def main():
     print('This test takes 10s to complete.')
     master = Master()
     device = Device()
@@ -101,6 +101,14 @@ Timed out waiting for result.
     print(st)
     print('\x1b[39m')
 
-printexp()
-asyncio.run(test())
+def test():
+    printexp()
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print('Interrupted')
+    finally:
+        asyncio.new_event_loop()
+        print('as_demos.auart_hd.test() to run again.')
 
+test()

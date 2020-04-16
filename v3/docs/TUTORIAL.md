@@ -26,7 +26,6 @@ now complete scripts which can be cut and pasted at the REPL.
  3. [Synchronisation](./TUTORIAL.md#3-synchronisation)  
   3.1 [Lock](./TUTORIAL.md#31-lock)  
   3.2 [Event](./TUTORIAL.md#32-event)  
-   3.2.1 [The event's value](./TUTORIAL.md#321-the-events-value)  
   3.3 [gather](./TUTORIAL.md#33-gather)  
   3.4 [Semaphore](./TUTORIAL.md#34-semaphore)  
    3.4.1 [BoundedSemaphore](./TUTORIAL.md#341-boundedsemaphore)  
@@ -125,7 +124,7 @@ pitfalls associated with truly asynchronous threads of execution.
 
 ## 1.1 Modules
 
-**Primitives**
+### Primitives
 
 The directory `primitives` contains a collection of synchronisation primitives
 and classes for debouncing switches and pushbuttons, along with a software
@@ -136,7 +135,7 @@ events.
 These are implemented as a Python package: copy the `primitives` directory tree
 to your hardware.
 
-**Demo Programs**
+### Demo Programs
 
 The directory `as_demos` contains various demo programs implemented as a Python
 package. Copy the directory and its contents to the target hardware.
@@ -145,41 +144,39 @@ The first two are the most immediately rewarding as they produce visible
 results by accessing Pyboard hardware. With all demos, issue ctrl-d between
 runs to soft reset the hardware.
 
-#### aledflash.py
+ 1. [aledflash.py](./as_demos/aledflash.py) Flashes three Pyboard LEDs
+ asynchronously for 10s. Requires any Pyboard.
+ 2. [apoll.py](./as_demos/apoll.py) A device driver for the Pyboard
+ accelerometer. Demonstrates the use of a task to poll a device. Runs for 20s.
+ Requires a Pyboard V1.x.
+ 3. [roundrobin.py](./as_demos/roundrobin.py) Demo of round-robin scheduling.
+ Also a benchmark of scheduling performance. Runs for 5s on any target.
+ 4. [auart.py](./as_demos/auart.py) Demo of streaming I/O via a Pyboard UART.
+ Requires a link between X1 and X2.
+ 5. [auart_hd.py](./as_demos/auart_hd.py) Use of the Pyboard UART to communicate
+ with a device using a half-duplex protocol e.g. devices such as those using
+ the 'AT' modem command set. Link X1-X4, X2-X3.
+ 6. [gather.py](./as_demos/gether.py) Use of `gather`. Any target.
+ 7. [iorw.py](./as_demos/iorw.py) Demo of a read/write device driver using the
+ stream I/O mechanism. Requires a Pyboard.
 
-Flashes three Pyboard LEDs asynchronously for 10s. The simplest uasyncio demo.
+Demos are run using this pattern:
 ```python
 import as_demos.aledflash
 ```
 
-#### apoll.py
+### Device drivers
 
-A device driver for the Pyboard accelerometer. Demonstrates the use of a task
-to poll a device. Runs for 20s. Requires a Pyboard V1.x.
-```python
-import as_demos.apoll
-```
+These are installed by copying the `as_drivers` directory and contents to the
+target. They have their own documentation as follows:
 
-#### roundrobin.py
-
-Demo of round-robin scheduling. Also a benchmark of scheduling performance.
-Runs for 5s.
-```python
-import as_demos.roundrobin
-```
-
- 1. [aledflash.py](./as_demos/aledflash.py) 
- 2. [apoll.py](./as_demos/apoll.py) 
- 3. [roundrobin.py](./as_demos/roundrobin.py) 
- 4. [auart.py](./as_demos/auart.py) Demo of streaming I/O via a Pyboard UART.
- 5. [auart_hd.py](./as_demos/auart_hd.py) Use of the Pyboard UART to communicate
- with a device using a half-duplex protocol. Suits devices such as those using
- the 'AT' modem command set.
- 6. [iorw.py](./as_demos/iorw.py) Demo of a read/write device driver using the
- stream I/O mechanism. Requires a Pyboard.
- 7. [A driver for GPS modules](./GPS.md) Runs a background task to
+ 1. [A driver for GPS modules](./GPS.md) Runs a background task to
  read and decode NMEA sentences, providing constantly updated position, course,
  altitude and time/date information.
+ 2. [HTU21D](./HTU21D.md) An I2C temperature and humidity sensor. A task
+ periodically queries the sensor maintaining constantly available values.
+ 3. [NEC IR](./NEC_IR) A decoder for NEC IR remote controls. A callback occurs
+ whenever a valid signal is received.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
@@ -1838,12 +1835,10 @@ The demo program [iorw.py](./as_demos/iorw.py) illustrates a complete example.
 
 ## 6.5 A complete example: aremote.py
 
-**TODO** Not yet ported to V3.
-
-See [aremote.py](./nec_ir/aremote.py) documented [here](./NEC_IR.md).
-The demo provides a complete device driver example: a receiver/decoder for an
-infra red remote controller. The following notes are salient points regarding
-its `asyncio` usage.
+See [aremote.py](../as_drivers/nec_ir/aremote.py) documented
+[here](./NEC_IR.md). This is a complete device driver: a receiver/decoder for
+an infra red remote controller. The following notes are salient points
+regarding its `asyncio` usage.
 
 A pin interrupt records the time of a state change (in μs) and sets an event,
 passing the time when the first state change occurred. A task waits on the
@@ -1871,9 +1866,9 @@ run while acquisition is in progress.
 import as_drivers.htu21d.htu_test
 ```
 
-# 7 Hints and tips
-
 ###### [Contents](./TUTORIAL.md#contents)
+
+# 7 Hints and tips
 
 ## 7.1 Program hangs
 
@@ -1882,13 +1877,26 @@ hang the entire system. When developing it is useful to have a task which
 periodically toggles an onboard LED. This provides confirmation that the
 scheduler is running.
 
-###### [Contents](./TUTORIAL.md#contents)
-
 ## 7.2 uasyncio retains state
 
-When running programs using `uasyncio` at the REPL, issue a soft reset
-(ctrl-D) between runs. This is because `uasyncio` retains state between runs
-which can lead to confusing behaviour.
+If a `uasyncio` application terminates, state is retained. Embedded code seldom
+terminates, but in testing it is useful to re-run a script without the need for
+a soft reset. This may be done as follows:
+
+```python
+import uasyncio as asyncio
+
+async def main():
+    await asyncio.sleep(5)  # Dummy test script
+
+def test():
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:  # Trapping this is optional
+        print('Interrupted')  # or pass
+    finally:
+        asyncio.new_event_loop()  # Clear retained state
+```
 
 ###### [Contents](./TUTORIAL.md#contents)
 
@@ -2046,7 +2054,7 @@ asyncio.run(my_task())
 with:
 ```python
 loop = asyncio.get_event_loop()
-loop.run_forever(my_task())
+loop.run_until_complete(my_task())
 ```
 The `create_task` method is a member of the `event_loop` instance. Replace
 ```python
@@ -2068,6 +2076,10 @@ behavior. [reference](https://docs.python.org/3/library/asyncio-eventloop.html#a
 
 This doc offers better alternatives to `get_event_loop` if you can confine
 support to CPython V3.8+.
+
+There is an event loop method `run_forever` which takes no args and causes the
+event loop to run. This is supported by `uasyncio`. This has use cases, notably
+when all an application's tasks are instantiated in other modules.
 
 ## 7.8 Race conditions
 

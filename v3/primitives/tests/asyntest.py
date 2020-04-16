@@ -23,7 +23,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-# CPython 3.5 compatibility
+# CPython 3.8 compatibility
 # (ignore RuntimeWarning: coroutine '_g' was never awaited)
 # To run:
 # from primitives.tests.asyntest import test
@@ -48,8 +48,6 @@ test(4)  Test Semaphore
 test(5)  Test BoundedSemaphore.
 test(6)  Test the Condition class.
 test(7)  Test the Queue class.
-
-Recommended to issue ctrl-D after running each test.
 '''
     print('\x1b[32m')
     print(st)
@@ -386,19 +384,24 @@ Time to die...
     asyncio.run(queue_go(3))
 
 def test(n):
-    if n == 0:
-        print_tests()  # Print this list.
-    elif n == 1:
-        ack_test()  # Test message acknowledge.
-    elif n == 2:
-        msg_test()  # Test Messge and Lock objects.
-    elif n == 3:
-        barrier_test()  # Test the Barrier class.
-    elif n == 4:
-        semaphore_test(False) # Test Semaphore
-    elif n == 5:
-        semaphore_test(True)  # Test BoundedSemaphore.
-    elif n == 6:
-        condition_test()  # Test the Condition class.
-    elif n == 7:
-        queue_test()  # Test the Queue class.
+    try:
+        if n == 1:
+            ack_test()  # Test message acknowledge.
+        elif n == 2:
+            msg_test()  # Test Messge and Lock objects.
+        elif n == 3:
+            barrier_test()  # Test the Barrier class.
+        elif n == 4:
+            semaphore_test(False) # Test Semaphore
+        elif n == 5:
+            semaphore_test(True)  # Test BoundedSemaphore.
+        elif n == 6:
+            condition_test()  # Test the Condition class.
+        elif n == 7:
+            queue_test()  # Test the Queue class.
+    except KeyboardInterrupt:
+        print('Interrupted')
+        print('Interrupted')
+    finally:
+        asyncio.new_event_loop()
+        print_tests()

@@ -21,8 +21,12 @@ Documented in the tutorial.
 Documented in the tutorial.
 
 #### Asynchronous device drivers  
-The device drivers are in the process of being ported. Currently there is a
-[GPS driver](./docs/GPS.md).
+
+The device drivers are in the process of being ported. These currently
+comprise:
+
+ * [GPS driver](./docs/GPS.md) Includes various GPS utilities.
+ * [HTU21D](./docs/HTU21D.md) Temperature and humidity sensor.
 
 # 2 V3 Overview
 
