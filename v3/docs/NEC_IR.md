@@ -30,10 +30,17 @@ changed to match your characterised remote.
 import as_drivers.nec_ir.art1
 ```
 
+###### [Main V3 README](../README.md)
+
+# Installation
+
+Copy the `as_drivers/nec_ir` directory and contents to the target hardware.
+Copy `primitives` and contents to the target.
+
 # Dependencies
 
-The driver requires the `uasyncio` library and the `primitives` package from
-this repository.
+The driver requires the `uasyncio` V3 library and the `primitives` package
+from this repository.
 
 # Usage
 

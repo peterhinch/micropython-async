@@ -1696,13 +1696,14 @@ newline character. Required if you intend to use `StreamReader.readline()`
 Required to use `StreamReader.read()` or `StreamReader.readexactly()`  
 
 A writeable driver must provide this synchronous method:  
-`write` Args `buf`, `off`, `sz`. Arguments:  
-`buf` is the buffer to write.  
-`off` is the offset into the buffer of the first character to write.  
-`sz` is the requested number of characters to write.  
+`write` Arg `buf`: the buffer to write. This can be a `memoryview`.  
 It should return immediately. The return value is the number of characters
 actually written (may well be 1 if the device is slow). The `ioctl` method
 ensures that this is only called if the device is ready to accept data.
+
+Note that this has changed relative to `uasyncio` V2. Formerly `write` had
+two additional mandatory args. Existing code will fail because `Stream.drain`
+calls `write` with a single arg (which can be a `memoryview`).
 
 All devices must provide an `ioctl` method which polls the hardware to
 determine its ready status. A typical example for a read/write driver is:

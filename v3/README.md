@@ -22,11 +22,15 @@ Documented in the tutorial.
 
 #### Asynchronous device drivers  
 
-The device drivers are in the process of being ported. These currently
-comprise:
+These device drivers are intended as examples of asynchronous code which are
+useful in their own right:
 
  * [GPS driver](./docs/GPS.md) Includes various GPS utilities.
  * [HTU21D](./docs/HTU21D.md) Temperature and humidity sensor.
+ * [I2C](./docs/I2C.md) Use Pyboard I2C slave mode to implement a UART-like
+ asynchronous stream interface. Typical use: communication with ESP8266.
+ * [NEC IR](./docs/NEC_IR.md) A receiver for signals from IR remote controls
+ using the popular NEC protocol.
 
 # 2 V3 Overview
 
@@ -65,10 +69,12 @@ The `Future` class is not supported, nor are the `event_loop` methods
 # 3 Porting applications from V2
 
 Many applications using the coding style advocated in the V2 tutorial will work
-unchanged. However there are changes, firstly to `uasyncio` syntax and secondly
-related to modules in this repository.
+unchanged. However there are changes, firstly to `uasyncio` itself and secondly
+to modules in this repository.
 
-## 3.1 Syntax changes
+## 3.1 Changes to uasyncio
+
+### 3.1.1 Syntax changes
 
  * Task cancellation: `cancel` is now a method of a `Task` instance.
  * Event loop methods: `call_at`, `call_later`, `call_later_ms`  and
@@ -84,10 +90,16 @@ It is possible to write an awaitable class with code portable between
 MicroPython and CPython 3.8. This is discussed
 [in the tutorial](./docs/TUTORIAL.md#412-portable-code).
 
+### 3.1.2 Change to stream I/O
+
+Classes based on `uio.IOBase` will need changes to the `write` method. See
+[tutorial](./docs/TUTORIAL.md##64-writing-streaming-device-drivers).
+
 ## 3.2 Modules from this repository
 
 Modules `asyn.py` and `aswitch.py` are deprecated for V3 applications. See
-[the tutorial](./docs/TUTORIAL.md#3-synchronisation) for V3 replacements.
+[the tutorial](./docs/TUTORIAL.md#3-synchronisation) for V3 replacements which
+are more RAM-efficient.
 
 ### 3.2.1 Synchronisation primitives
 

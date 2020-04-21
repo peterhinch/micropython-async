@@ -50,7 +50,7 @@ changes.
  * Hooks are provided for user-designed subclassing, for example to parse
  additional message types.
 
-###### [Main README](../README.md)
+###### [Main V3 README](../README.md)
 
 ## 1.3 Overview
 
@@ -92,10 +92,9 @@ time.sleep(1)
 
 ## 2.2 Library installation
 
-The library is implemented as a Python package and is in `as_drivers/as_GPS`.
-To install copy the following directories and their contents to the target
-hardware:  
- 1. `as_drivers`
+The library is implemented as a Python package. To install copy the following
+directories and their contents to the target hardware:  
+ 1. `as_drivers/as_GPS`
  2. `primitives`
 
 On platforms with an underlying OS such as the Raspberry Pi ensure that the

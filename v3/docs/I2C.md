@@ -6,6 +6,9 @@ supporting `StreamReader` and `StreamWriter` classes. In doing so, it emulates
 the behaviour of a full duplex link despite the fact that the underlying I2C
 link is half duplex.
 
+This version is for `uasyncio` V3 which requires firmware V1.13 or later -
+until the release of V1.13 a daily build is required.
+
 One use case is to provide a UART-like interface to an ESP8266 while leaving
 the one functional UART free for the REPL.
 
@@ -27,6 +30,8 @@ application and is covered in detail
 
 ## Changes
 
+V0.18 Apr 2020 Ported to `uasyncio` V3. Convert to Python package. Test script
+pin numbers changed to be WBUS_DIP28 fiendly.
 V0.17 Dec 2018 Initiator: add optional "go" and "fail" user coroutines.  
 V0.16 Minor improvements and bugfixes. Eliminate `timeout` option which caused
 failures where `Responder` was a Pyboard.  
@@ -61,21 +66,32 @@ V0.1 Initial release.
  4. `i2c_resp.py` Responder test/demo to run on a Pyboard.
  5. `i2c_esp.py` Responder test/demo for ESP8266.
 
-Dependency:  
- 1. `uasyncio` Official library or my fork.
+#### Dependency:  
+ 1. `uasyncio` Official V3 library.
+
+#### Installation  
+Copy the `as_drivers/i2c` directory and contents to the target hardware.
+
+###### [Main V3 README](../README.md)
 
 # 2. Wiring
 
-| Pyboard | Target | Comment |
-|:-------:|:------:|:-------:|
-|  gnd    |  gnd   |         |
-|  sda    |  sda   | I2C     |
-|  scl    |  scl   | I2C     |
-|  sync   |  sync  | Any pin may be used. |
-|  ack    |  ack   | Any pin. |
-|  rs_out |  rst   | Optional reset link. |
+Pin numbers are for the test programs: these may be changed. I2C pin numbers
+may be changed by using soft I2C. In each case except `rs_out`, the two targets
+are connected by linking identically named pins.
 
-The `sync` and `ack` wires provide synchronisation: pins used are arbitrary. In
+ESP pins are labelled reference board pin no./WeMOS D1 Mini pin no.
+
+| Pyboard | Target | PB  | ESP  | Comment |
+|:-------:|:------:|:---:|:----:|:-------:|
+|  gnd    |  gnd   |     |      |         |
+|  sda    |  sda   | Y10 | 2/D4 | I2C     |
+|  scl    |  scl   | Y9  | 0/D3 | I2C     |
+|  syn    |  syn   | Y11 | 5/D1 | Any pin may be used. |
+|  ack    |  ack   | X6  | 4/D2 | Any pin. |
+|  rs_out |  rst   | Y12 |      | Optional reset link. |
+
+The `syn` and `ack` wires provide synchronisation: pins used are arbitrary. In
 addition provision may be made for the Pyboard to reset the target if it
 crashes and fails to respond. If this is required, link a Pyboard pin to the
 target's `reset` pin.
@@ -84,6 +100,12 @@ I2C requires the devices to be connected via short links and to share a common
 ground. The `sda` and `scl` lines also require pullup resistors. On the Pyboard
 V1.x these are fitted. If pins lacking these resistors are used, pullups to
 3.3V should be supplied. A typical value is 4.7KΩ.
+
+On the Pyboard D the 3.3V supply must be enabled with
+```python
+machine.Pin.board.EN_3V3.value(1)
+```
+This also enables the I2C pullups on the X side.
 
 ###### [Contents](./README.md#contents)
 
@@ -124,31 +146,43 @@ used.
 
 # 4. API
 
-The following scripts demonstrate basic usage. They may be copied and pasted at
-the REPL. They assume a Pyboard linked to an ESP8266 as follows:
+Demos and the scripts below assume a Pyboard linked to an ESP8266 as follows:
 
 | Pyboard | ESP8266 | Notes    |
 |:-------:|:-------:|:--------:|
 |  gnd    |  gnd    |          |
-|  X9     |  0      | I2C scl  |
-|  X10    |  2      | I2C sda  |
-|  X11    |  5      | syn      |
-|  X12    |  rst    | Optional |
-|  Y8     |  4      | ack      |
+|  Y9     |  0/D3   | I2C scl  |
+|  Y10    |  2/D4   | I2C sda  |
+|  Y11    |  5/D1   | syn      |
+|  Y12    |  rst    | Optional |
+|  X6     |  4/D2   | ack      |
 
+#### Running the demos
+
+On the ESP8266 issue:
+```python
+import as_drivers.i2c.i2c_esp
+```
+and on the Pyboard:
+```python
+import as_drivers.i2c.i2c_init
+```
+
+The following scripts demonstrate basic usage. They may be copied and pasted at
+the REPL.  
 On Pyboard:
 
 ```python
 import uasyncio as asyncio
 from pyb import I2C  # Only pyb supports slave mode
 from machine import Pin
-import asi2c_i
+from as_drivers.i2c.asi2c_i import Initiator
 
-i2c = I2C(1, mode=I2C.SLAVE)
-syn = Pin('X11')
-ack = Pin('Y8')
-rst = (Pin('X12'), 0, 200)
-chan = asi2c_i.Initiator(i2c, syn, ack, rst)
+i2c = I2C(2, mode=I2C.SLAVE)
+syn = Pin('Y11')
+ack = Pin('X6')
+rst = (Pin('Y12'), 0, 200)
+chan = Initiator(i2c, syn, ack, rst)
 
 async def receiver():
     sreader = asyncio.StreamReader(chan)
@@ -164,12 +198,13 @@ async def sender():
         n += 1
         await asyncio.sleep_ms(800)
 
-loop = asyncio.get_event_loop()
-loop.create_task(receiver())
-loop.create_task(sender())
+asyncio.create_task(receiver())
 try:
-    loop.run_forever()
+    asyncio.run(sender())
+except KeyboardInterrupt:
+    print('Interrupted')
 finally:
+    asyncio.new_event_loop()  # Still need ctrl-d because of interrupt vector
     chan.close()  # for subsequent runs
 ```
 
@@ -178,12 +213,12 @@ On ESP8266:
 ```python
 import uasyncio as asyncio
 from machine import Pin, I2C
-import asi2c
+from as_drivers.i2c.asi2c import Responder
 
 i2c = I2C(scl=Pin(0),sda=Pin(2))  # software I2C
 syn = Pin(5)
 ack = Pin(4)
-chan = asi2c.Responder(i2c, syn, ack)
+chan = Responder(i2c, syn, ack)
 
 async def receiver():
     sreader = asyncio.StreamReader(chan)
@@ -199,12 +234,13 @@ async def sender():
         n += 1
         await asyncio.sleep_ms(1500)
 
-loop = asyncio.get_event_loop()
-loop.create_task(receiver())
-loop.create_task(sender())
+asyncio.create_task(receiver())
 try:
-    loop.run_forever()
+    asyncio.run(sender())
+except KeyboardInterrupt:
+    print('Interrupted')
 finally:
+    asyncio.new_event_loop()  # Still need ctrl-d because of interrupt vector
     chan.close()  # for subsequent runs
 ```
 
@@ -226,7 +262,7 @@ Coroutine:
 
 ##### Constructor args:  
  1. `i2c` An `I2C` instance.
- 2. `pin` A `Pin` instance for the `sync` signal.
+ 2. `pin` A `Pin` instance for the `syn` signal.
  3. `pinack` A `Pin` instance for the `ack` signal.
  4. `reset=None` Optional tuple defining a reset pin (see below).
  5. `verbose=True` If `True` causes debug messages to be output.
@@ -241,7 +277,7 @@ The `reset` tuple consists of (`pin`, `level`, `time`). If provided, and the
 Pyboard or ESP8266 target with an active low reset might have:
 
 ```python
-(machine.Pin('X12'), 0, 200)
+(machine.Pin('Y12'), 0, 200)
 ```
 
 If the `Initiator` has no `reset` tuple and the `Responder` times out, an
@@ -313,7 +349,8 @@ completes.
 
 Typical usage:
 ```python
-chan = asi2c_i.Initiator(i2c, syn, ack, rst, verbose, self._go, (), self._fail)
+from as_drivers.i2c.asi2c_i import Initiator
+chan = Initiator(i2c, syn, ack, rst, verbose, self._go, (), self._fail)
 ```
 
 ###### [Contents](./README.md#contents)
@@ -322,16 +359,16 @@ chan = asi2c_i.Initiator(i2c, syn, ack, rst, verbose, self._go, (), self._fail)
 
 ##### Constructor args:
  1. `i2c` An `I2C` instance.
- 2. `pin` A `Pin` instance for the `sync` signal.
+ 2. `pin` A `Pin` instance for the `syn` signal.
  3. `pinack` A `Pin` instance for the `ack` signal.
  4. `verbose=True` If `True` causes debug messages to be output.
 
 `Pin` instances passed to the constructor must be instantiated by `machine`.
 
 ##### Class variables:
- 1. `addr=0x12` Address of I2C slave. This should be set before instantiating
- `Initiator` or `Responder`. If the default address (0x12) is to be overriden,
- `Initiator` application code must instantiate the I2C accordingly.
+ 1. `addr=0x12` Address of I2C slave. If the default address is to be changed,
+ it should be set before instantiating `Initiator` or `Responder`. `Initiator`
+ application code must then instantiate the I2C accordingly.
  2. `rxbufsize=200` Size of receive buffer. This should exceed the maximum
  message length. Consider reducing this in ESP8266 applications to save RAM.
 
