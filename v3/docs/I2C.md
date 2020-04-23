@@ -31,7 +31,7 @@ application and is covered in detail
 ## Changes
 
 V0.18 Apr 2020 Ported to `uasyncio` V3. Convert to Python package. Test script
-pin numbers changed to be WBUS_DIP28 fiendly.
+pin numbers changed to be WBUS_DIP28 fiendly.  
 V0.17 Dec 2018 Initiator: add optional "go" and "fail" user coroutines.  
 V0.16 Minor improvements and bugfixes. Eliminate `timeout` option which caused
 failures where `Responder` was a Pyboard.  

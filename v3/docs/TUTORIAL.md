@@ -112,7 +112,7 @@ print(uasyncio.__version__)
 ```
 Version 3 will print a version number. Older versions will throw an exception.
 
-###### [Main README](./README.md)
+###### [Main README](../README.md)
 
 # 1. Cooperative scheduling
 

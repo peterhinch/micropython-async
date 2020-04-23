@@ -1,4 +1,4 @@
-# 1 Guide to uasyncio V3
+# 1. Guide to uasyncio V3
 
 The new release of `uasyncio` is pre-installed in current daily firmware 
 builds. This complete rewrite of `uasyncio` supports CPython 3.8 syntax. A
@@ -28,11 +28,12 @@ useful in their own right:
  * [GPS driver](./docs/GPS.md) Includes various GPS utilities.
  * [HTU21D](./docs/HTU21D.md) Temperature and humidity sensor.
  * [I2C](./docs/I2C.md) Use Pyboard I2C slave mode to implement a UART-like
- asynchronous stream interface. Typical use: communication with ESP8266.
+ asynchronous stream interface. Uses: communication with ESP8266, or (with
+ coding) interface a Pyboard to I2C masters.
  * [NEC IR](./docs/NEC_IR.md) A receiver for signals from IR remote controls
  using the popular NEC protocol.
 
-# 2 V3 Overview
+# 2. V3 Overview
 
 These notes are intended for users familiar with `asyncio` under CPython.
 
@@ -66,7 +67,7 @@ supported.
 The `Future` class is not supported, nor are the `event_loop` methods
 `call_soon`, `call_later`, `call_at`.
 
-# 3 Porting applications from V2
+# 3. Porting applications from V2
 
 Many applications using the coding style advocated in the V2 tutorial will work
 unchanged. However there are changes, firstly to `uasyncio` itself and secondly
@@ -93,7 +94,7 @@ MicroPython and CPython 3.8. This is discussed
 ### 3.1.2 Change to stream I/O
 
 Classes based on `uio.IOBase` will need changes to the `write` method. See
-[tutorial](./docs/TUTORIAL.md##64-writing-streaming-device-drivers).
+[tutorial](./docs/TUTORIAL.md#64-writing-streaming-device-drivers).
 
 ## 3.2 Modules from this repository
 
@@ -143,7 +144,7 @@ New versions are provided in this repository. Classes:
  * `Switch` Debounced switch with close and open callbacks.
  * `Pushbutton` Pushbutton with double-click and long press callbacks.
 
-# 4 Outstanding issues with V3
+# 4. Outstanding issues with V3
 
 V3 is still a work in progress. The following is a list of issues which I hope
 will be addressed in due course.
