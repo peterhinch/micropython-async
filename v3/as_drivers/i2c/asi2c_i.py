@@ -86,8 +86,7 @@ class Initiator(Channel):
                     tstart = utime.ticks_us()
                     self._sendrx()
                     t = utime.ticks_diff(utime.ticks_us(), tstart)
-                except OSError as e:
-#                    print('OSError:', e)  # TEST
+                except OSError:  # Reboot remote.
                     break
                 await asyncio.sleep_ms(Initiator.t_poll)
                 self.block_max = max(self.block_max, t)  # self measurement
@@ -99,6 +98,16 @@ class Initiator(Channel):
             if self.reset is None:  # No means of recovery
                 raise OSError('Responder fail.')
 
+    def _send(self, d):
+        # CRITICAL TIMING. Trigger interrupt on responder immediately before
+        # send. Send must start before RX begins. Fast responders may need to
+        # do a short blocking wait to guarantee this.
+        self.own(1)  # Trigger interrupt.
+        self.i2c.send(d)  # Blocks until RX complete.
+        self.waitfor(1)
+        self.own(0)
+        self.waitfor(0)
+
     # Send payload length (may be 0) then payload (if any)
     def _sendrx(self, sn=bytearray(2), txnull=bytearray(2)):
         siz = self.txsiz if self.cantx else txnull
@@ -106,20 +115,9 @@ class Initiator(Channel):
             siz[1] |= 0x80  # Hold off further received data
         else:
             siz[1] &= 0x7f
-        # CRITICAL TIMING. Trigger interrupt on responder immediately before
-        # send. Send must start before RX begins. Fast responders may need to
-        # do a short blocking wait to guarantee this.
-        self.own(1)  # Trigger interrupt.
-        self.i2c.send(siz)  # Blocks until RX complete.
-        self.waitfor(1)
-        self.own(0)
-        self.waitfor(0)
+        self._send(siz)
         if self.txbyt and self.cantx:
-            self.own(1)
-            self.i2c.send(self.txbyt)
-            self.waitfor(1)
-            self.own(0)
-            self.waitfor(0)
+            self._send(self.txbyt)
             self._txdone()  # Invalidate source
         # Send complete
         self.waitfor(1)  # Wait for responder to request send
@@ -133,7 +131,6 @@ class Initiator(Channel):
         self.cantx = not bool(sn[1] & 0x80)
         if n:
             self.waitfor(1)  # Wait for responder to request send
-            # print('setting up receive', n,' bytes')
             self.own(1)  # Acknowledge
             mv = self.rx_mv[0: n]  # mv is a memoryview instance
             self.i2c.recv(mv)

@@ -376,6 +376,11 @@ chan = Initiator(i2c, syn, ack, rst, verbose, self._go, (), self._fail)
 
 # 5. Limitations
 
+Currently, on the ESP8266, the code is affected by
+[iss 5714](https://github.com/micropython/micropython/issues/5714). Unless the
+board is repeatedly pinged, the ESP8266 fails periodically and is rebooted by
+the Pyboard.
+
 ## 5.1 Blocking
 
 Exchanges of data occur via `Initiator._sendrx()`, a synchronous method. This

@@ -160,7 +160,7 @@ class Responder(Channel):
     # On Pyboard blocks for 380μs to 1.2ms for small amounts of data
     def _handler(self, _, sn=bytearray(2), txnull=bytearray(2)):
         addr = Responder.addr
-        self.rem.irq(handler=None, trigger=machine.Pin.IRQ_RISING)
+        self.rem.irq(handler=None)
         utime.sleep_us(_DELAY)  # Ensure Initiator has set up to write.
         self.i2c.readfrom_into(addr, sn)
         self.own(1)

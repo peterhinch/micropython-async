@@ -51,6 +51,7 @@ async def sender():
     swriter = asyncio.StreamWriter(chan, {})
     txdata = [0, 0]
     while True:
+        txdata[0] = gc.mem_free()
         await swriter.awrite(''.join((ujson.dumps(txdata), '\n')))
         txdata[1] += 1
         await asyncio.sleep_ms(1500)
