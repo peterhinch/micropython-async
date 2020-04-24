@@ -67,7 +67,7 @@ readings the class is awaitable and may be used as follows.
 ```python
 import uasyncio as asyncio
 from machine import Pin, I2C
-from .htu21d_mc import HTU21D
+from as_drivers.htu21d import HTU21D
 
 htu = HTU21D(I2C(1))  # Pyboard scl=X9 sda=X10
 

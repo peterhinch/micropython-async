@@ -11,16 +11,20 @@ These notes and the tutorial should be read in conjunction with
 
 This repo contains the following:
 
-#### [V3 Tutorial](./docs/TUTORIAL.md)  
-#### Test/demo scripts  
+### [V3 Tutorial](./docs/TUTORIAL.md)  
+### Test/demo scripts  
 
 Documented in the tutorial.
 
-#### Synchronisation primitives  
+### Synchronisation primitives  
 
-Documented in the tutorial.
+Documented in the tutorial. Comprises:
+ * CPython primitives not yet officially supported.
+ * Two additional primitives `Barrier` and `Message`.
+ * Classes for interfacing switches and pushbuttons.
+ * A software retriggerable monostable timer class, similar to a watchdog.
 
-#### Asynchronous device drivers  
+### Asynchronous device drivers  
 
 These device drivers are intended as examples of asynchronous code which are
 useful in their own right:
@@ -32,6 +36,8 @@ useful in their own right:
  coding) interface a Pyboard to I2C masters.
  * [NEC IR](./docs/NEC_IR.md) A receiver for signals from IR remote controls
  using the popular NEC protocol.
+ * [HD44780](./docs/hd44780.md) Driver for common character based LCD displays
+ based on the Hitachi HD44780 controller.
 
 # 2. V3 Overview
 
