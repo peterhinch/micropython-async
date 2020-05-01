@@ -292,8 +292,10 @@ async def foo(delay_secs):
 ```
 
 A coro can allow other coroutines to run by means of the `await coro`
-statement. A coro must contain at least one `await` statement. This causes
-`coro` to run to completion before execution passes to the next instruction.
+statement. A coro usually contains a `await` statement. The `await` causes 
+the called `coro` to run to completion before execution passes to the next
+instruction.
+
 Consider these lines of code:
 
 ```python
