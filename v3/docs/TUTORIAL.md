@@ -1606,13 +1606,14 @@ demonstrates concurrent I/O on one UART. To run, link Pyboard pins X1 and X2
 
 ```python
 import uasyncio as asyncio
-from pyb import UART
+from machine import UART
 uart = UART(4, 9600)
 
 async def sender():
     swriter = asyncio.StreamWriter(uart, {})
     while True:
-        await swriter.awrite('Hello uart\n')
+        swriter.write('Hello uart\n')
+        await swriter.drain()  # Transmission starts now.
         await asyncio.sleep(2)
 
 async def receiver():
@@ -1633,6 +1634,10 @@ async def main():
 
 asyncio.run(main())
 ```
+Writing to a `StreamWriter` occurs in two stages. The synchronous `.write`
+method concatenates data for later transmission. The asynchronous `.drain`
+causes transmission. To avoid allocation call `.drain` after each call to
+`.write`.
 
 The mechanism works because the device driver (written in C) implements the
 following methods: `ioctl`, `read`, `readline` and `write`. See

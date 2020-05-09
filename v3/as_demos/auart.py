@@ -4,13 +4,14 @@
 # Link X1 and X2 to test.
 
 import uasyncio as asyncio
-from pyb import UART
+from machine import UART
 uart = UART(4, 9600)
 
 async def sender():
     swriter = asyncio.StreamWriter(uart, {})
     while True:
-        await swriter.awrite('Hello uart\n')
+        swriter.write('Hello uart\n')
+        await swriter.drain()
         await asyncio.sleep(2)
 
 async def receiver():
