@@ -1,3 +1,8 @@
+# message.py
+
+# Copyright (c) 2018-2020 Peter Hinch
+# Released under the MIT License (MIT) - see LICENSE file
+
 try:
     import uasyncio as asyncio
 except ImportError:

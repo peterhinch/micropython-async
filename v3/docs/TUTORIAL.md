@@ -4,11 +4,8 @@ This tutorial is intended for users having varying levels of experience with
 asyncio and includes a section for complete beginners. It is for use with the
 new version of `uasyncio`, currently V3.0.0.
 
-#### WARNING currently this is a work in progress.
-
-This is a work in progress, with some sections being so marked. There will be
-typos and maybe errors - please report errors of fact! Most code samples are
-now complete scripts which can be cut and pasted at the REPL.
+Most code samples are now complete scripts which can be cut and pasted at the
+REPL.
 
 # Contents
 
@@ -126,14 +123,16 @@ pitfalls associated with truly asynchronous threads of execution.
 
 ### Primitives
 
-The directory `primitives` contains a collection of synchronisation primitives
-and classes for debouncing switches and pushbuttons, along with a software
-retriggerable delay class. Pushbuttons are a generalisation of switches with
-logical rather than physical status along with double-clicked and long pressed
-events.
+The directory `primitives` contains a Python package containing the following:
+ * Synchronisation primitives: "micro" versions of CPython's classes.
+ * Additional Python primitives including an ISR-compatible version of `Event`
+ and a software retriggerable delay class.
+ * Primitives for interfacing hardware. These comprise classes for debouncing
+ switches and pushbuttonsand an asynchronous ADC class. These are documented
+ [here](./DRIVERS.md).
 
-These are implemented as a Python package: copy the `primitives` directory tree
-to your hardware.
+To install this Python package copy the `primitives` directory tree and its
+contents to your hardware's filesystem.
 
 ### Demo Programs
 
@@ -480,12 +479,16 @@ the following classes:
  in a similar (but not identical) way to `gather`.
  * `Delay_ms` A useful software-retriggerable monostable, akin to a watchdog.
  Calls a user callback if not cancelled or regularly retriggered.
+
+The following hardware-related classes are documented [here](./DRIVERS.md):
  * `Switch` A debounced switch with open and close user callbacks.
  * `Pushbutton` Debounced pushbutton with callbacks for pressed, released, long
  press or double-press.
+ * `AADC` Asynchronous ADC. Supports pausing a task until the value read from
+ an ADC goes outside defined bounds.
 
-To install these priitives, copy the `primitives` directory and contents to the
-target. A primitive is loaded by issuing (for example):
+To install these primitives, copy the `primitives` directory and contents to
+the target. A primitive is loaded by issuing (for example):
 ```python
 from primitives.semaphore import Semaphore, BoundedSemaphore
 from primitives.pushbutton import Pushbutton
@@ -1532,8 +1535,8 @@ The example `apoll.py` demonstrates this approach by polling the Pyboard
 accelerometer at 100ms intervals. It performs some simple filtering to ignore
 noisy samples and prints a message every two seconds if the board is not moved.
 
-Further examples may be found in `aswitch.py` which provides drivers for
-switch and pushbutton devices.
+Further examples may be found in the primitives directory, notably `switch.py`
+and `pushbutton.py`: drivers for switch and pushbutton devices.
 
 An example of a driver for a device capable of reading and writing is shown
 below. For ease of testing Pyboard UART 4 emulates the notional device. The

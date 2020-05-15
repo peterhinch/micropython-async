@@ -1,4 +1,8 @@
 # queue.py: adapted from uasyncio V2
+
+# Copyright (c) 2018-2020 Peter Hinch
+# Released under the MIT License (MIT) - see LICENSE file
+
 # Code is based on Paul Sokolovsky's work.
 # This is a temporary solution until uasyncio V3 gets an efficient official version
 

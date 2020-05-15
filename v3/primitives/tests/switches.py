@@ -1,8 +1,9 @@
 # Test/demo programs for Switch and Pushbutton classes
 # Tested on Pyboard but should run on other microcontroller platforms
 # running MicroPython with uasyncio library.
-# Author: Peter Hinch.
-# Copyright Peter Hinch 2017-2020 Released under the MIT license.
+
+# Copyright (c) 2018-2020 Peter Hinch
+# Released under the MIT License (MIT) - see LICENSE file
 
 # To run:
 # from primitives.tests.switches import *
