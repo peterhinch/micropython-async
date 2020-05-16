@@ -13,7 +13,7 @@ async def signal():  # Could use write_timed but this prints values
     v = 0
     while True:
         if not v & 0xf:
-            print('write', v)
+            print('write', v << 4)  # Make value u16 as per ADC read
         dac.write(v)
         v += 1
         v %= 4096
@@ -25,11 +25,11 @@ async def adctest():
     await asyncio.sleep(0)
     adc.sense(normal=False)  # Wait until ADC gets to 5000
     value =  await adc(5000, 10000)
-    print('Received', value >> 4, value)  # Reduce to 12 bits
+    print('Received', value, adc.read_u16(True))  # Reduce to 12 bits
     adc.sense(normal=True)  # Now print all changes > 2000
     while True:
         value = await adc(2000)  # Trigger if value changes by 2000
-        print('Received', value >> 4, value)
+        print('Received', value, adc.read_u16(True))
 
 st = '''This test requires a Pyboard with pins X1 and X5 linked.
 A sawtooth waveform is applied to the ADC. Initially the test waits

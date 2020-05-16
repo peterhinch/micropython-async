@@ -29,6 +29,8 @@ REPL.
   3.5 [Queue](./TUTORIAL.md#35-queue)  
   3.6 [Message](./TUTORIAL.md#36-message)  
   3.7 [Barrier](./TUTORIAL.md#37-barrier)  
+  3.8 [Synchronising to hardware](./TUTORIAL.md#38-synchronising-to-hardware)
+  Debouncing switches and pushbuttons. Taming ADC's.  
  4. [Designing classes for asyncio](./TUTORIAL.md#4-designing-classes-for-asyncio)  
   4.1 [Awaitable classes](./TUTORIAL.md#41-awaitable-classes)  
    4.1.1 [Use in context managers](./TUTORIAL.md#411-use-in-context-managers)  
@@ -460,6 +462,14 @@ compete to access a single resource. These are discussed
 [in section 7.8](./TUTORIAL.md#78-race-conditions). Another hazard is the
 "deadly embrace" where two tasks each wait on the other's completion.
 
+Another synchronisation issue arises with producer and consumer tasks. The
+producer generates data which the consumer uses. Asyncio provides the `Queue`
+object. The producer puts data onto the queue while the consumer waits for its
+arrival (with other tasks getting scheduled for the duration). The `Queue`
+guarantees that items are removed in the order in which they were received.
+Alternatively a `Barrier` instance can be used if the producer must wait
+until the consumer is ready to access the data.
+
 In simple applications communication may be achieved with global flags or bound
 variables. A more elegant approach is to use synchronisation primitives.
 CPython provides the following classes:  
@@ -472,41 +482,29 @@ CPython provides the following classes:
  * `Queue`. In this repository.
 
 As the table above indicates, not all are yet officially supported. In the
-interim, implementations may be found in the `primitives` directory, along with
-the following classes:
+interim, implementations may be found in the `primitives` directory. The
+following classes which are non-standard, are also in that directory:
  * `Message` An ISR-friendly `Event` with an optional data payload.
  * `Barrier` Based on a Microsoft class, enables multiple coros to synchronise
  in a similar (but not identical) way to `gather`.
  * `Delay_ms` A useful software-retriggerable monostable, akin to a watchdog.
  Calls a user callback if not cancelled or regularly retriggered.
 
-The following hardware-related classes are documented [here](./DRIVERS.md):
- * `Switch` A debounced switch with open and close user callbacks.
- * `Pushbutton` Debounced pushbutton with callbacks for pressed, released, long
- press or double-press.
- * `AADC` Asynchronous ADC. Supports pausing a task until the value read from
- an ADC goes outside defined bounds.
+A further set of primitives for synchronising hardware are detailed in
+[section 3.8](./TUTORIAL.md#38-synchronising-to-hardware).
 
-To install these primitives, copy the `primitives` directory and contents to
-the target. A primitive is loaded by issuing (for example):
+To install the primitives, copy the `primitives` directory and contents to the
+target. A primitive is loaded by issuing (for example):
 ```python
 from primitives.semaphore import Semaphore, BoundedSemaphore
-from primitives.pushbutton import Pushbutton
+from primitives.queue import Queue
 ```
 When `uasyncio` acquires an official version (which will be more efficient) the
-invocation line alone should be changed:
+invocation lines alone should be changed:
 ```python
 from uasyncio import Semaphore, BoundedSemaphore
+from uasyncio import Queue
 ```
-
-Another synchronisation issue arises with producer and consumer tasks. The
-producer generates data which the consumer uses. Asyncio provides the `Queue`
-object. The producer puts data onto the queue while the consumer waits for its
-arrival (with other tasks getting scheduled for the duration). The `Queue`
-guarantees that items are removed in the order in which they were received.
-Alternatively a `Barrier` instance can be used if the producer must wait
-until the consumer is ready to access the data.
-
 The following provides a discussion of the primitives.
 
 ###### [Contents](./TUTORIAL.md#contents)
@@ -898,8 +896,8 @@ tested in slow time by the task.
 ## 3.7 Barrier
 
 I implemented this unofficial primitive before `uasyncio` had support for
-`gather`. It is based on a Microsoft primitive. I doubt there is a role for it
-in new applications but I will leave it in place to avoid breaking code.
+`gather`. It is based on a Microsoft primitive. In most cases `gather` is to be
+preferred as its implementation is more efficient.
 
 It two uses. Firstly it can cause a task to pause until one or more other tasks
 have terminated. For example an application might want to shut down various
@@ -971,6 +969,18 @@ asyncio.run(main())
 multiple instances of `report` print their result and pause until the other
 instances are also complete and waiting on `barrier`. At that point the
 callback runs. On its completion the tasks resume.
+
+###### [Contents](./TUTORIAL.md#contents)
+
+## 3.8 Synchronising to hardware
+
+The following hardware-related classes are documented [here](./DRIVERS.md):
+ * `Switch` A debounced switch which can trigger open and close user callbacks.
+ * `Pushbutton` Debounced pushbutton with callbacks for pressed, released, long
+ press or double-press.
+ * `AADC` Asynchronous ADC. A task can pause until the value read from an ADC
+ goes outside defined bounds. Bounds can be absolute or relative to the current
+ value.
 
 ###### [Contents](./TUTORIAL.md#contents)
 

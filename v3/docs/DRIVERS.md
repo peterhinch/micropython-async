@@ -237,8 +237,9 @@ determine the bounds for the ADC value.
  * Two args `lower` and `upper`: absolute bounds.
 
 Synchronous methods:
- * `read_u16` Get the current data from the ADC. Returns a 16-bit unsigned
- value as per `machine.ADC.read_u16`.
+ * `read_u16` arg `last=False` Get the current data from the ADC. If `last` is
+ `True` returns the last data read from the ADC. Returns a 16-bit unsigned int
+ as per `machine.ADC.read_u16`.
  * `sense(normal)` By default a task awaiting an `AADC` instance will pause
  until the value returned by the ADC exceeds the specified bounds. Issuing
  `sense(False)` inverts this logic: a task will pause until the ADC value is
