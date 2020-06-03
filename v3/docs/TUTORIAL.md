@@ -1709,7 +1709,8 @@ data is available. The methods should return as fast as possible with as much
 data as is available.
 
 `readline()` Return as many characters as are available up to and including any
-newline character. Required if you intend to use `StreamReader.readline()`  
+newline character. Required if you intend to use `StreamReader.readline()`.
+It should return a maximum of one line.  
 `read(n)` Return as many characters as are available but no more than `n`.
 Required to use `StreamReader.read()` or `StreamReader.readexactly()`  
 

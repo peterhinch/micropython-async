@@ -129,7 +129,7 @@ Constructor arguments:
 
  1. `pin` Mandatory. The initialised Pin instance.
  2. `suppress` Default `False`. See
- [4.2.1](./DRIVERS.md#421-the-suppress-constructor-argument).
+ [section 4.1.1](./DRIVERS.md#411-the-suppress-constructor-argument).
 
 Methods:
 
