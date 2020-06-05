@@ -29,7 +29,8 @@ REPL.
   3.5 [Queue](./TUTORIAL.md#35-queue)  
   3.6 [Message](./TUTORIAL.md#36-message)  
   3.7 [Barrier](./TUTORIAL.md#37-barrier)  
-  3.8 [Synchronising to hardware](./TUTORIAL.md#38-synchronising-to-hardware)
+  3.8 [Delay_ms](./TUTORIAL.md#38-delay_ms-class) Software retriggerable delay.  
+  3.9 [Synchronising to hardware](./TUTORIAL.md#39-synchronising-to-hardware)
   Debouncing switches and pushbuttons. Taming ADC's.  
  4. [Designing classes for asyncio](./TUTORIAL.md#4-designing-classes-for-asyncio)  
   4.1 [Awaitable classes](./TUTORIAL.md#41-awaitable-classes)  
@@ -491,7 +492,7 @@ following classes which are non-standard, are also in that directory:
  Calls a user callback if not cancelled or regularly retriggered.
 
 A further set of primitives for synchronising hardware are detailed in
-[section 3.8](./TUTORIAL.md#38-synchronising-to-hardware).
+[section 3.9](./TUTORIAL.md#38-synchronising-to-hardware).
 
 To install the primitives, copy the `primitives` directory and contents to the
 target. A primitive is loaded by issuing (for example):
@@ -972,7 +973,77 @@ callback runs. On its completion the tasks resume.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
-## 3.8 Synchronising to hardware
+## 3.8 Delay_ms class
+
+This implements the software equivalent of a retriggerable monostable or a
+watchdog timer. It has an internal boolean `running` state. When instantiated
+the `Delay_ms` instance does nothing, with `running` `False` until triggered.
+Then `running` becomes `True` and a timer is initiated. This can be prevented
+from timing out by triggering it again (with a new timeout duration). So long
+as it is triggered before the time specified in the preceeding trigger it will
+never time out.
+
+If it does time out the `running` state will revert to `False`. This can be
+interrogated by the object's `running()` method. In addition a **function** can
+be specified to the constructor. This will execute when a timeout occurs; where
+the **function** is a coroutine it will be converted to a `Task` and run
+asynchronously.
+
+Constructor arguments (defaults in brackets):
+
+ 1. `func` The **function** to call on timeout (default `None`).
+ 2. `args` A tuple of arguments for the **function** (default `()`).
+ 3. `can_alloc` Boolean, default `True`. See below.
+ 4. `duration` Integer, default 1000ms. The default timer period where no value
+ is passed to the `trigger` method.
+
+Methods:
+
+ 1. `trigger` optional argument `duration=0`. A timeout will occur after
+ `duration` ms unless retriggered. If no arg is passed the period will be that
+ of the `duration` passed to the constructor. See Class variable below.
+ 2. `stop` No argument. Cancels the timeout, setting the `running` status
+ `False`. The timer can be restarted by issuing `trigger` again.
+ 3. `running` No argument. Returns the running status of the object.
+ 4. `__call__` Alias for running.
+
+Class variable:
+
+ 1. `verbose=False` If `True` a warning will be printed if a running timer is
+ retriggered with a time value shorter than the time currently outstanding.
+ Such an operation has no effect owing to the design of `uasyncio`.
+
+If the `trigger` method is to be called from an interrupt service routine the
+`can_alloc` constructor arg should be `False`. This causes the delay object
+to use a slightly less efficient mode which avoids RAM allocation when
+`trigger` runs.
+
+In this example a 3 second timer starts when the button is pressed. If it is
+pressed repeatedly the timeout will not be triggered. If it is not pressed for
+3 seconds the timeout triggers and the LED lights.
+
+```python
+from pyb import LED
+from machine import Pin
+import uasyncio as asyncio
+from primitives.pushbutton import Pushbutton
+from primitives.delay_ms import Delay_ms
+
+async def my_app():
+    await asyncio.sleep(60)  # Run for 1 minute
+
+pin = Pin('X1', Pin.IN, Pin.PULL_UP)  # Pushbutton to gnd
+red = LED(1)
+pb = Pushbutton(pin)
+d = Delay_ms(lambda led: led.on(), (red,))
+pb.press_func(d.trigger, (3000,))  # Note how function and args are passed
+try:
+    asyncio.run(my_app())  # Run main application code
+finally:
+    asyncio.new_event_loop()  # Clear retained state
+```
+
+## 3.9 Synchronising to hardware
 
 The following hardware-related classes are documented [here](./DRIVERS.md):
  * `Switch` A debounced switch which can trigger open and close user callbacks.
