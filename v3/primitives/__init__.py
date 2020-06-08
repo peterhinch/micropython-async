@@ -14,6 +14,5 @@ type_coro = type(_g())
 def launch(func, tup_args):
     res = func(*tup_args)
     if isinstance(res, type_coro):
-        loop = asyncio.get_event_loop()
-        loop.create_task(res)
-
+        res = asyncio.create_task(res)
+    return res

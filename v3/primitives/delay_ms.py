@@ -2,64 +2,66 @@
 
 # Copyright (c) 2018-2020 Peter Hinch
 # Released under the MIT License (MIT) - see LICENSE file
+# Rewritten for uasyncio V3. Allows stop time to be brought forwards.
 
 import uasyncio as asyncio
-import utime as time
+from utime import ticks_add, ticks_diff, ticks_ms
+from micropython import schedule
 from . import launch
 # Usage:
 # from primitives.delay_ms import Delay_ms
 
 class Delay_ms:
     verbose = False
+    # can_alloc retained to avoid breaking code. Now unsed.
     def __init__(self, func=None, args=(), can_alloc=True, duration=1000):
-        self.func = func
-        self.args = args
-        self.can_alloc = can_alloc
-        self.duration = duration  # Default duration
-        self._tstop = None  # Killer not running
-        self._running = False  # Timer not running
-        if not can_alloc:
-            asyncio.create_task(self._run())
-
-    async def _run(self):
-        while True:
-            if not self._running:  # timer not running
-                await asyncio.sleep_ms(0)
-            else:
-                await self._killer()
+        self._func = func
+        self._args = args
+        self._duration = duration  # Default duration
+        self._tstop = None  # Stop time (ms). None signifies not running.
+        self._tsave = None  # Temporary storage for stop time
+        self._ktask = None  # timer task
+        self._do_trig = self._trig  # Avoid allocation in .trigger
 
     def stop(self):
-        self._running = False
-        # If uasyncio is ever fixed we should cancel .killer
+        if self._ktask is not None:
+            self._ktask.cancel()
 
     def trigger(self, duration=0):  # Update end time
-        self._running = True
-        if duration <= 0:
-            duration = self.duration
-        tn = time.ticks_add(time.ticks_ms(), duration)  # new end time
-        self.verbose and self._tstop is not None and self._tstop > tn \
-            and print("Warning: can't reduce Delay_ms time.")
-        # Start killer if can allocate and killer is not running
-        sk = self.can_alloc and self._tstop is None
-        # The following indicates ._killer is running: it will be
-        # started either here or in ._run
-        self._tstop = tn
-        if sk:  # ._killer stops the delay when its period has elapsed
-            asyncio.create_task(self._killer())
+        now = ticks_ms()
+        if duration <= 0:  # Use default set by constructor
+            duration = self._duration
+        is_running = self()
+        tstop = self._tstop  # Current stop time
+        # Retriggering normally just updates ._tstop for ._timer
+        self._tstop = ticks_add(now, duration)
+        # Identify special case where we are bringing the end time forward
+        can = is_running and duration < ticks_diff(tstop, now)
+        if not is_running or can:
+            schedule(self._do_trig, can)
 
-    def running(self):
-        return self._running
+    def _trig(self, can):
+        if can:
+            self._ktask.cancel()
+        self._ktask = asyncio.create_task(self._timer(can))
 
-    __call__ = running
+    def __call__(self):  # Current running status
+        return self._tstop is not None
 
-    async def _killer(self):
-        twait = time.ticks_diff(self._tstop, time.ticks_ms())
-        while twait > 0:  # Must loop here: might be retriggered
-            await asyncio.sleep_ms(twait)
-            if self._tstop is None:
-                break  # Return if stop() called during wait
-            twait = time.ticks_diff(self._tstop, time.ticks_ms())
-        if self._running and self.func is not None:
-            launch(self.func, self.args)  # Timed out: execute callback
-        self._tstop = None  # killer not running
-        self._running = False  # timer is stopped
+    running = __call__
+
+    async def _timer(self, restart):
+        if restart:  # Restore cached end time
+            self._tstop = self._tsave
+        try:
+            twait = ticks_diff(self._tstop, ticks_ms())
+            while twait > 0:  # Must loop here: might be retriggered
+                await asyncio.sleep_ms(twait)
+                twait = ticks_diff(self._tstop, ticks_ms())
+            if self._func is not None:
+                launch(self._func, self._args)  # Timed out: execute callback
+        finally:
+            self._tsave = self._tstop  # Save in case we restart.
+            self._tstop = None  # timer is stopped
+
+# TODO launch returns the Task: make this available?
