@@ -993,7 +993,7 @@ Constructor arguments (defaults in brackets):
 
  1. `func` The **function** to call on timeout (default `None`).
  2. `args` A tuple of arguments for the **function** (default `()`).
- 3. `can_alloc` Boolean, default `True`. See below.
+ 3. `can_alloc` Unused arg, retained to avoid breaking code.
  4. `duration` Integer, default 1000ms. The default timer period where no value
  is passed to the `trigger` method.
 
@@ -1001,44 +1001,37 @@ Methods:
 
  1. `trigger` optional argument `duration=0`. A timeout will occur after
  `duration` ms unless retriggered. If no arg is passed the period will be that
- of the `duration` passed to the constructor. See Class variable below.
+ of the `duration` passed to the constructor. The method can be called from a
+ hard or soft ISR. It is now valid for `duration` to be less than the current
+ time outstanding.
  2. `stop` No argument. Cancels the timeout, setting the `running` status
  `False`. The timer can be restarted by issuing `trigger` again.
  3. `running` No argument. Returns the running status of the object.
  4. `__call__` Alias for running.
 
-Class variable:
-
- 1. `verbose=False` If `True` a warning will be printed if a running timer is
- retriggered with a time value shorter than the time currently outstanding.
- Such an operation has no effect owing to the design of `uasyncio`.
-
-If the `trigger` method is to be called from an interrupt service routine the
-`can_alloc` constructor arg should be `False`. This causes the delay object
-to use a slightly less efficient mode which avoids RAM allocation when
-`trigger` runs.
-
-In this example a 3 second timer starts when the button is pressed. If it is
-pressed repeatedly the timeout will not be triggered. If it is not pressed for
-3 seconds the timeout triggers and the LED lights.
+In this example a `Delay_ms` instance is created with the default duration of
+1s. It is repeatedly triggered for 5 secs, preventing the callback from
+running. One second after the triggering ceases, the callback runs.
 
 ```python
-from pyb import LED
-from machine import Pin
 import uasyncio as asyncio
-from primitives.pushbutton import Pushbutton
 from primitives.delay_ms import Delay_ms
 
 async def my_app():
-    await asyncio.sleep(60)  # Run for 1 minute
+    print('Holding off callback')
+    for _ in range(10):  # Hold off for 5 secs
+        await asyncio.sleep_ms(500)
+        d.trigger()
+    print('Callback will run in 1s')
+    await asyncio.sleep(2)
+    print('Done')
 
-pin = Pin('X1', Pin.IN, Pin.PULL_UP)  # Pushbutton to gnd
-red = LED(1)
-pb = Pushbutton(pin)
-d = Delay_ms(lambda led: led.on(), (red,))
-pb.press_func(d.trigger, (3000,))  # Note how function and args are passed
+def callback(v):
+    print(v)
+
+d = Delay_ms(callback, ('Callback running',))
 try:
-    asyncio.run(my_app())  # Run main application code
+    asyncio.run(my_app())
 finally:
     asyncio.new_event_loop()  # Clear retained state
 ```
