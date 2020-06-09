@@ -12,8 +12,7 @@ from . import launch
 # from primitives.delay_ms import Delay_ms
 
 class Delay_ms:
-    verbose = False
-    # can_alloc retained to avoid breaking code. Now unsed.
+    verbose = False  # verbose and can_alloc retained to avoid breaking code.
     def __init__(self, func=None, args=(), can_alloc=True, duration=1000):
         self._func = func
         self._args = args
@@ -21,6 +20,7 @@ class Delay_ms:
         self._tstop = None  # Stop time (ms). None signifies not running.
         self._tsave = None  # Temporary storage for stop time
         self._ktask = None  # timer task
+        self._retrn = None  # Return value of launched callable
         self._do_trig = self._trig  # Avoid allocation in .trigger
 
     def stop(self):
@@ -31,6 +31,7 @@ class Delay_ms:
         now = ticks_ms()
         if duration <= 0:  # Use default set by constructor
             duration = self._duration
+        self._retrn = None
         is_running = self()
         tstop = self._tstop  # Current stop time
         # Retriggering normally just updates ._tstop for ._timer
@@ -50,6 +51,9 @@ class Delay_ms:
 
     running = __call__
 
+    def rvalue(self):
+        return self._retrn
+
     async def _timer(self, restart):
         if restart:  # Restore cached end time
             self._tstop = self._tsave
@@ -58,10 +62,8 @@ class Delay_ms:
             while twait > 0:  # Must loop here: might be retriggered
                 await asyncio.sleep_ms(twait)
                 twait = ticks_diff(self._tstop, ticks_ms())
-            if self._func is not None:
-                launch(self._func, self._args)  # Timed out: execute callback
+            if self._func is not None:  # Timed out: execute callback
+                self._retrn = launch(self._func, self._args)
         finally:
             self._tsave = self._tstop  # Save in case we restart.
             self._tstop = None  # timer is stopped
-
-# TODO launch returns the Task: make this available?

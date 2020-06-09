@@ -984,15 +984,15 @@ as it is triggered before the time specified in the preceeding trigger it will
 never time out.
 
 If it does time out the `running` state will revert to `False`. This can be
-interrogated by the object's `running()` method. In addition a **function** can
-be specified to the constructor. This will execute when a timeout occurs; where
-the **function** is a coroutine it will be converted to a `Task` and run
-asynchronously.
+interrogated by the object's `running()` method. In addition a `callable` can
+be specified to the constructor. A `callable` can be a callback or a coroutine.
+A callback will execute when a timeout occurs; where the `callable` is a
+coroutine it will be converted to a `Task` and run asynchronously.
 
 Constructor arguments (defaults in brackets):
 
- 1. `func` The **function** to call on timeout (default `None`).
- 2. `args` A tuple of arguments for the **function** (default `()`).
+ 1. `func` The `callable` to call on timeout (default `None`).
+ 2. `args` A tuple of arguments for the `callable` (default `()`).
  3. `can_alloc` Unused arg, retained to avoid breaking code.
  4. `duration` Integer, default 1000ms. The default timer period where no value
  is passed to the `trigger` method.
@@ -1008,6 +1008,9 @@ Methods:
  `False`. The timer can be restarted by issuing `trigger` again.
  3. `running` No argument. Returns the running status of the object.
  4. `__call__` Alias for running.
+ 5. `rvalue` No argument. If a timeout has occurred and a callback has run,
+ returns the return value of the callback. If a coroutine was passed, returns
+ the `Task` instance. This allows the `Task` to be cancelled or awaited.
 
 In this example a `Delay_ms` instance is created with the default duration of
 1s. It is repeatedly triggered for 5 secs, preventing the callback from

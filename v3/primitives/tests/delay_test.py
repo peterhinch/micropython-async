@@ -21,12 +21,12 @@ def printexp(exp, runtime=0):
 
 async def ctor_test():  # Constructor arg
     s = '''
-    Trigger 5 sec delay
-    Retrigger 5 sec delay
-    Callback should run
-    cb callback
-    Done
-    '''
+Trigger 5 sec delay
+Retrigger 5 sec delay
+Callback should run
+cb callback
+Done
+'''
     printexp(s, 12)
     def cb(v):
         print('cb', v)
@@ -45,36 +45,54 @@ async def ctor_test():  # Constructor arg
 
 async def launch_test():
     s = '''
-    Trigger 5 sec delay
-    Coroutine should run
-    Coroutine starts
-    Coroutine ends
-    Done
-    '''
-    printexp(s, 7)
-    async def cb(v):
+Trigger 5 sec delay
+Coroutine should run: run to completion.
+Coroutine starts
+Coroutine ends
+Coroutine should run: test cancellation.
+Coroutine starts
+Coroutine should run: test awaiting.
+Coroutine starts
+Coroutine ends
+Done
+'''
+    printexp(s, 20)
+    async def cb(v, ms):
         print(v, 'starts')
-        await asyncio.sleep(1)
+        await asyncio.sleep_ms(ms)
         print(v, 'ends')
 
-    d = Delay_ms(cb, ('coroutine',))
+    d = Delay_ms(cb, ('coroutine', 1000))
 
     print('Trigger 5 sec delay')
     d.trigger(5000)  # Test extending time
     await asyncio.sleep(4)
-    print('Coroutine should run')
+    print('Coroutine should run: run to completion.')
     await asyncio.sleep(3)
+    d = Delay_ms(cb, ('coroutine', 3000))
+    d.trigger(5000)
+    await asyncio.sleep(4)
+    print('Coroutine should run: test cancellation.')
+    await asyncio.sleep(2)
+    coro = d.rvalue()
+    coro.cancel()
+    d.trigger(5000)
+    await asyncio.sleep(4)
+    print('Coroutine should run: test awaiting.')
+    await asyncio.sleep(2)
+    coro = d.rvalue()
+    await coro
     print('Done')
 
 
 async def reduce_test():  # Test reducing a running delay
     s = '''
-    Trigger 5 sec delay
-    Callback should run
-    cb callback
-    Callback should run
-    Done
-    '''
+Trigger 5 sec delay
+Callback should run
+cb callback
+Callback should run
+Done
+'''
     printexp(s, 11)
     def cb(v):
         print('cb', v)
@@ -97,16 +115,18 @@ async def reduce_test():  # Test reducing a running delay
 
 async def stop_test():  # Test the .stop and .running methods
     s = '''
-    Trigger 5 sec delay
-    Running
-    Callback should run
-    cb callback
-    Callback should not run
-    Done
+Trigger 5 sec delay
+Running
+Callback should run
+cb callback
+Callback returned 42
+Callback should not run
+Done
     '''
     printexp(s, 12)
     def cb(v):
         print('cb', v)
+        return 42
 
     d = Delay_ms(cb, ('callback',))
 
@@ -117,6 +137,7 @@ async def stop_test():  # Test the .stop and .running methods
         print('Running')
     print('Callback should run')
     await asyncio.sleep(2)
+    print('Callback returned', d.rvalue())
     d.trigger(3000)
     await asyncio.sleep(1)
     d.stop()
@@ -131,11 +152,11 @@ async def stop_test():  # Test the .stop and .running methods
 async def isr_test():  # Test trigger from hard ISR
     from pyb import Timer
     s = '''
-    Timer holds off cb for 5 secs
-    cb should now run
-    cb callback
-    Done
-    '''
+Timer holds off cb for 5 secs
+cb should now run
+cb callback
+Done
+'''
     printexp(s, 6)
     def cb(v):
         print('cb', v)
@@ -159,7 +180,7 @@ delay_test.test(n)
 where n is a test number. Avaliable tests:
 \x1b[32m
 0 Test triggering from a hard ISR (Pyboard only)
-1 Test the .stop method
+1 Test the .stop method and callback return value.
 2 Test reducing the duration of a running timer
 3 Test delay defined by constructor arg
 4 Test triggering a Task
