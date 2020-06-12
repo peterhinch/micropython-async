@@ -896,13 +896,13 @@ tested in slow time by the task.
 
 ## 3.7 Barrier
 
-I implemented this unofficial primitive before `uasyncio` had support for
-`gather`. It is based on a Microsoft primitive. In most cases `gather` is to be
-preferred as its implementation is more efficient.
+This is an unofficial primitive and has no analog in CPython asyncio. It is
+based on a Microsoft primitive. While similar in purpose to `gather` there
+are differences described below.
 
-It two uses. Firstly it can cause a task to pause until one or more other tasks
+It two uses. Firstly it can allow a task to pause until one or more other tasks
 have terminated. For example an application might want to shut down various
-peripherals before issuing a sleep period. The task wanting to sleep initiates
+peripherals before starting a sleep period. The task wanting to sleep initiates
 several shut down tasks and waits until they have triggered the barrier to
 indicate completion.
 
@@ -911,6 +911,17 @@ example producer and consumer coros can synchronise at a point where the
 producer has data available and the consumer is ready to use it. At that point
 in time the `Barrier` can optionally run a callback before releasing the
 barrier to allow all waiting coros to continue.
+
+The key difference between `Barrier` and `gather` is symmetry: `gather` is
+asymmetrical. One task owns the `gather` and awaits completion of a set of
+tasks. By contrast `Barrier` can be used symmetrically with member tasks
+pausing until all have reached the barrier. This makes it suited for use in
+the looping constructs common in firmware applications.
+
+`gather` provides ready access to return values. The `Barrier` class cannot
+because passing the barrier does not imply return. 
+
+Currently `gather` is more efficient; I plan to fix this.
 
 Constructor.  
 Mandatory arg:  
@@ -925,9 +936,9 @@ Public synchronous methods:
  * `trigger` No args. The barrier records that the coro has passed the critical
  point. Returns "immediately".
 
-The callback can be a function or a coro. In most applications a function will
-be used as this can be guaranteed to run to completion beore the barrier is
-released.
+The callback can be a function or a coro. Typically a function will be used; it
+must run to completion beore the barrier is released. A coro will be promoted
+to a `Task` and run asynchronously.
 
 Participant coros issue `await my_barrier` whereupon execution pauses until all
 other participants are also waiting on it. At this point any callback will run
