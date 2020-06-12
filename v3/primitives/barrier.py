@@ -27,29 +27,31 @@ class Barrier():
         self._func = func
         self._args = args
         self._reset(True)
+        self._res = None
 
     def __await__(self):
-        self._update()
-        if self._at_limit():  # All other threads are also at limit
-            if self._func is not None:
-                launch(self._func, self._args)
-            self._reset(not self._down)  # Toggle direction to release others
+        if self.trigger():
             return
 
         direction = self._down
-        while True:  # Wait until last waiting thread changes the direction
+        while True:  # Wait until last waiting task changes the direction
             if direction != self._down:
                 return
             await asyncio.sleep_ms(0)
 
     __iter__ = __await__
 
+    def result(self):
+        return self._res
+
     def trigger(self):
         self._update()
-        if self._at_limit():  # All other threads are also at limit
+        if self._at_limit():  # All other tasks are also at limit
             if self._func is not None:
-                launch(self._func, self._args)
+                self._res = launch(self._func, self._args)
             self._reset(not self._down)  # Toggle direction to release others
+            return True
+        return False
 
     def _reset(self, down):
         self._down = down

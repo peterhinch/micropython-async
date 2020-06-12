@@ -24,11 +24,12 @@ def print_tests():
 test(0)  Print this list.
 test(1)  Test message acknowledge.
 test(2)  Test Messge and Lock objects.
-test(3)  Test the Barrier class.
-test(4)  Test Semaphore
-test(5)  Test BoundedSemaphore.
-test(6)  Test the Condition class.
-test(7)  Test the Queue class.
+test(3)  Test the Barrier class with callback.
+test(4)  Test the Barrier class with coroutine.
+test(5)  Test Semaphore
+test(6)  Test BoundedSemaphore.
+test(7)  Test the Condition class.
+test(8)  Test the Queue class.
 '''
     print('\x1b[32m')
     print(st)
@@ -185,6 +186,49 @@ def barrier_test():
     for _ in range(3):
         asyncio.create_task(report(barrier))
     asyncio.run(killer(2))
+
+# ************ Barrier test 1 ************
+
+async def my_coro(text):
+    try:
+        await asyncio.sleep_ms(0)
+        while True:
+            await asyncio.sleep(1)
+            print(text)
+    except asyncio.CancelledError:
+        print('my_coro was cancelled.')
+
+async def report1(barrier, x):
+    await asyncio.sleep(x)
+    print('report instance', x, 'waiting')
+    await barrier
+    print('report instance', x, 'done')
+
+async def bart():
+    barrier = Barrier(4, my_coro, ('my_coro running',))
+    for x in range(3):
+        asyncio.create_task(report1(barrier, x))
+    await barrier
+    # Must yield before reading result(). Here we wait long enough for
+    await asyncio.sleep_ms(1500)  # coro to print
+    barrier.result().cancel()
+    await asyncio.sleep(2)
+
+def barrier_test1():
+    printexp('''Running (runtime = 5s):
+report instance 0 waiting
+report instance 1 waiting
+report instance 2 waiting
+report instance 2 done
+report instance 1 done
+report instance 0 done
+my_coro running
+my_coro was cancelled.
+
+Exact report instance done sequence may vary, but 3 instances should report
+done before my_coro runs.
+''', 5)
+    asyncio.run(bart())
 
 # ************ Semaphore test ************
 
@@ -373,12 +417,14 @@ def test(n):
         elif n == 3:
             barrier_test()  # Test the Barrier class.
         elif n == 4:
-            semaphore_test(False) # Test Semaphore
+            barrier_test1()  # Test the Barrier class.
         elif n == 5:
-            semaphore_test(True)  # Test BoundedSemaphore.
+            semaphore_test(False) # Test Semaphore
         elif n == 6:
-            condition_test()  # Test the Condition class.
+            semaphore_test(True)  # Test BoundedSemaphore.
         elif n == 7:
+            condition_test()  # Test the Condition class.
+        elif n == 8:
             queue_test()  # Test the Queue class.
     except KeyboardInterrupt:
         print('Interrupted')

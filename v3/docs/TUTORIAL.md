@@ -927,7 +927,7 @@ Constructor.
 Mandatory arg:  
  * `participants` The number of coros which will use the barrier.  
 Optional args:  
- * `func` Callback to run. Default `None`.  
+ * `func` Callback or coroutine to run. Default `None`.  
  * `args` Tuple of args for the callback. Default `()`.
 
 Public synchronous methods:  
@@ -935,10 +935,17 @@ Public synchronous methods:
  barrier, or if at least one non-waiting coro has not triggered it.
  * `trigger` No args. The barrier records that the coro has passed the critical
  point. Returns "immediately".
+ * `result` No args. If a callback was provided, returns the return value from
+ the callback. If a coro, returns the `Task` instance. See below.
 
 The callback can be a function or a coro. Typically a function will be used; it
 must run to completion beore the barrier is released. A coro will be promoted
-to a `Task` and run asynchronously.
+to a `Task` and run asynchronously. The `Task` may be retrieved (e.g. for
+cancellation) using the `result` method.
+
+If a coro waits on a barrier, it should issue an `await` prior to accessing the
+`result` method. To guarantee that the callback has run it is necessary to wait
+until all participant coros have passed the barrier.
 
 Participant coros issue `await my_barrier` whereupon execution pauses until all
 other participants are also waiting on it. At this point any callback will run
