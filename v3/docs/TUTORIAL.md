@@ -896,32 +896,34 @@ tested in slow time by the task.
 
 ## 3.7 Barrier
 
-This is an unofficial primitive and has no analog in CPython asyncio. It is
-based on a Microsoft primitive. While similar in purpose to `gather` there
+This is an unofficial primitive and has no counterpart in CPython asyncio. It
+is based on a Microsoft primitive. While similar in purpose to `gather` there
 are differences described below.
 
-It two uses. Firstly it can allow a task to pause until one or more other tasks
-have terminated. For example an application might want to shut down various
-peripherals before starting a sleep period. The task wanting to sleep initiates
-several shut down tasks and waits until they have triggered the barrier to
-indicate completion.
-
-Secondly it enables multiple coros to rendezvous at a particular point. For
-example producer and consumer coros can synchronise at a point where the
-producer has data available and the consumer is ready to use it. At that point
-in time the `Barrier` can optionally run a callback before releasing the
+Its principal purpose is to cause multiple coros to rendezvous at a particular
+point. For example producer and consumer coros can synchronise at a point where
+the producer has data available and the consumer is ready to use it. At that
+point in time the `Barrier` can optionally run a callback before releasing the
 barrier to allow all waiting coros to continue.
+
+Secondly it can allow a task to pause until one or more other tasks have
+terminated or passed a particular point. For example an application might want
+to shut down various peripherals before starting a sleep period. The task
+wanting to sleep initiates several shut down tasks and waits until they have
+triggered the barrier to indicate completion. This use case may be better
+served by `gather`.
 
 The key difference between `Barrier` and `gather` is symmetry: `gather` is
 asymmetrical. One task owns the `gather` and awaits completion of a set of
 tasks. By contrast `Barrier` can be used symmetrically with member tasks
 pausing until all have reached the barrier. This makes it suited for use in
-the looping constructs common in firmware applications.
+the `while True:` constructs common in firmware applications. Use of `gather`
+would imply instantiating a set of tasks on every pass of the loop.
 
-`gather` provides ready access to return values. The `Barrier` class cannot
-because passing the barrier does not imply return. 
+`gather` provides access to return values; irrelevant to `Barrier` because
+passing a barrier does not imply return. 
 
-Currently `gather` is more efficient; I plan to fix this.
+Currently `gather` is more efficient.
 
 Constructor.  
 Mandatory arg:  
