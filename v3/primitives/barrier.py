@@ -2,6 +2,8 @@
 # Copyright (c) 2018-2020 Peter Hinch
 # Released under the MIT License (MIT) - see LICENSE file
 
+# Now uses Event rather than polling.
+
 try:
     import uasyncio as asyncio
 except ImportError:
@@ -14,13 +16,6 @@ from . import launch
 # At that point the callback is executed. Then the barrier is 'opened' and
 # execution of all participants resumes.
 
-# The nowait arg is to support task cancellation. It enables usage where one or
-# more coros can register that they have reached the barrier without waiting
-# for it. Any coros waiting normally on the barrier will pause until all
-# non-waiting coros have passed the barrier and all waiting ones have reached
-# it. The use of nowait promotes efficiency by enabling tasks which have been
-# cancelled to leave the task queue as soon as possible.
-
 class Barrier():
     def __init__(self, participants, func=None, args=()):
         self._participants = participants
@@ -28,6 +23,7 @@ class Barrier():
         self._args = args
         self._reset(True)
         self._res = None
+        self._evt = asyncio.Event()
 
     def __await__(self):
         if self.trigger():
@@ -37,7 +33,8 @@ class Barrier():
         while True:  # Wait until last waiting task changes the direction
             if direction != self._down:
                 return
-            await asyncio.sleep_ms(0)
+            await self._evt.wait()
+            self._evt.clear()
 
     __iter__ = __await__
 
@@ -45,7 +42,10 @@ class Barrier():
         return self._res
 
     def trigger(self):
-        self._update()
+        self._count += -1 if self._down else 1
+        if self._count < 0 or self._count > self._participants:
+            raise ValueError('Too many tasks accessing Barrier')
+        self._evt.set()
         if self._at_limit():  # All other tasks are also at limit
             if self._func is not None:
                 self._res = launch(self._func, self._args)
@@ -67,8 +67,3 @@ class Barrier():
     def _at_limit(self):  # Has count reached up or down limit?
         limit = 0 if self._down else self._participants
         return self._count == limit
-
-    def _update(self):
-        self._count += -1 if self._down else 1
-        if self._count < 0 or self._count > self._participants:
-            raise ValueError('Too many tasks accessing Barrier')

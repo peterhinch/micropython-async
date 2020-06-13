@@ -23,14 +23,18 @@ class Queue:
     def __init__(self, maxsize=0):
         self.maxsize = maxsize
         self._queue = []
+        self._evput = asyncio.Event()  # Triggered by put, tested by get
+        self._evget = asyncio.Event()  # Triggered by get, tested by put
 
     def _get(self):
+        self._evget.set()
         return self._queue.pop(0)
 
     async def get(self):  #  Usage: item = await queue.get()
-        while self.empty():
+        if self.empty():
             # Queue is empty, put the calling Task on the waiting queue
-            await asyncio.sleep_ms(0)
+            await self._evput.wait()
+            self._evput.clear()
         return self._get()
 
     def get_nowait(self):  # Remove and return an item from the queue.
@@ -40,12 +44,14 @@ class Queue:
         return self._get()
 
     def _put(self, val):
+        self._evput.set()
         self._queue.append(val)
 
     async def put(self, val):  # Usage: await queue.put(item)
-        while self.qsize() >= self.maxsize and self.maxsize:
+        if self.qsize() >= self.maxsize and self.maxsize:
             # Queue full
-            await asyncio.sleep_ms(0)
+            await self._evget.wait()
+            self._evget.clear()
             # Task(s) waiting to get from queue, schedule first Task
         self._put(val)
 

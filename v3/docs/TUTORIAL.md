@@ -500,8 +500,8 @@ target. A primitive is loaded by issuing (for example):
 from primitives.semaphore import Semaphore, BoundedSemaphore
 from primitives.queue import Queue
 ```
-When `uasyncio` acquires an official version (which will be more efficient) the
-invocation lines alone should be changed:
+When `uasyncio` acquires official versions of the CPython primitives the
+invocation lines alone should be changed. e.g. :
 ```python
 from uasyncio import Semaphore, BoundedSemaphore
 from uasyncio import Queue
@@ -848,7 +848,7 @@ asyncio.run(queue_go(4))
 
 ## 3.6 Message
 
-This is an unofficial primitive and has no analog in CPython asyncio.
+This is an unofficial primitive and has no counterpart in CPython asyncio.
 
 This is a minor adaptation of the `Event` class. It provides the following:
  * `.set()` has an optional data payload.
@@ -910,8 +910,8 @@ Secondly it can allow a task to pause until one or more other tasks have
 terminated or passed a particular point. For example an application might want
 to shut down various peripherals before starting a sleep period. The task
 wanting to sleep initiates several shut down tasks and waits until they have
-triggered the barrier to indicate completion. This use case may be better
-served by `gather`.
+triggered the barrier to indicate completion. This use case may also be served
+by `gather`.
 
 The key difference between `Barrier` and `gather` is symmetry: `gather` is
 asymmetrical. One task owns the `gather` and awaits completion of a set of
@@ -921,9 +921,8 @@ the `while True:` constructs common in firmware applications. Use of `gather`
 would imply instantiating a set of tasks on every pass of the loop.
 
 `gather` provides access to return values; irrelevant to `Barrier` because
-passing a barrier does not imply return. 
-
-Currently `gather` is more efficient.
+passing a barrier does not imply return. `Barrier` now has an efficient
+implementation using `Event` to suspend waiting tasks.
 
 Constructor.  
 Mandatory arg:  
