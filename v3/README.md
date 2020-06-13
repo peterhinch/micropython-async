@@ -1,8 +1,9 @@
 # 1. Guide to uasyncio V3
 
 The new release of `uasyncio` is pre-installed in current daily firmware 
-builds. This complete rewrite of `uasyncio` supports CPython 3.8 syntax. A
-design aim is that it should be be a compatible subset of `asyncio`.
+builds and will be found in release builds starting with V1.13. This complete
+rewrite of `uasyncio` supports CPython 3.8 syntax. A design aim is that it
+should be be a compatible subset of `asyncio`.
 
 These notes and the tutorial should be read in conjunction with
 [the official docs](http://docs.micropython.org/en/latest/library/uasyncio.html)
@@ -121,15 +122,15 @@ The CPython `asyncio` library supports these synchronisation primitives:
  * `Condition`. In this repository.
  * `Queue`. In this repository.
 
-I am hoping that the above will be replaced by more efficient official built-in
-versions. To date those listed as "already incorporated" have been and should
-be used.
+The above unofficial primitives are CPython compatible. Using future official
+versions will require a change to the import statement only.
 
 ### 3.2.2 Synchronisation primitives (old asyn.py)
 
 Applications using `asyn.py` should no longer import that module. Equivalent
 functionality may now be found in the `primitives` directory: this is
-implemented as a Python package enabling RAM savings.
+implemented as a Python package enabling RAM savings. The new versions are also
+more efficient, replacing polling with the new `Event` class.
 
 These features in `asyn.py` were workrounds for bugs in V2 and should not be
 used with V3:
