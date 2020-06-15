@@ -25,7 +25,7 @@ async def foo(n):
 
 
 async def main(delay):
-    print('Testing for {} seconds'.format(period))
+    print('Testing for {} seconds'.format(delay))
     await asyncio.sleep(delay)
 
 
