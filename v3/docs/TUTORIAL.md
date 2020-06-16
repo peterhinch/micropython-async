@@ -13,6 +13,9 @@ REPL.
   0.1 [Installing uasyncio on bare metal](./TUTORIAL.md#01-installing-uasyncio-on-bare-metal)  
  1. [Cooperative scheduling](./TUTORIAL.md#1-cooperative-scheduling)  
   1.1 [Modules](./TUTORIAL.md#11-modules)  
+   1.1.1 [Primitives](./TUTORIAL.md#111-primitives)  
+   1.1.2 [Demo programs](./TUTORIAL.md#112-demo-programs)  
+   1.1.3 [Device drivers](./TUTORIAL.md#113-device-drivers)  
  2. [uasyncio](./TUTORIAL.md#2-uasyncio)  
   2.1 [Program structure](./TUTORIAL.md#21-program-structure)  
   2.2 [Coroutines and Tasks](./TUTORIAL.md#22-coroutines-and-tasks)  
@@ -124,7 +127,7 @@ pitfalls associated with truly asynchronous threads of execution.
 
 ## 1.1 Modules
 
-### Primitives
+### 1.1.1 Primitives
 
 The directory `primitives` contains a Python package containing the following:
  * Synchronisation primitives: "micro" versions of CPython's classes.
@@ -137,7 +140,7 @@ The directory `primitives` contains a Python package containing the following:
 To install this Python package copy the `primitives` directory tree and its
 contents to your hardware's filesystem.
 
-### Demo Programs
+### 1.1.2 Demo programs
 
 The directory `as_demos` contains various demo programs implemented as a Python
 package. Copy the directory and its contents to the target hardware.
@@ -146,28 +149,29 @@ The first two are the most immediately rewarding as they produce visible
 results by accessing Pyboard hardware. With all demos, issue ctrl-d between
 runs to soft reset the hardware.
 
- 1. [aledflash.py](./as_demos/aledflash.py) Flashes three Pyboard LEDs
+ 1. [aledflash.py](../as_demos/aledflash.py) Flashes three Pyboard LEDs
  asynchronously for 10s. Requires any Pyboard.
- 2. [apoll.py](./as_demos/apoll.py) A device driver for the Pyboard
+ 2. [apoll.py](../as_demos/apoll.py) A device driver for the Pyboard
  accelerometer. Demonstrates the use of a task to poll a device. Runs for 20s.
  Requires a Pyboard V1.x.
- 3. [roundrobin.py](./as_demos/roundrobin.py) Demo of round-robin scheduling.
+ 3. [roundrobin.py](../as_demos/roundrobin.py) Demo of round-robin scheduling.
  Also a benchmark of scheduling performance. Runs for 5s on any target.
- 4. [auart.py](./as_demos/auart.py) Demo of streaming I/O via a Pyboard UART.
+ 4. [auart.py](../as_demos/auart.py) Demo of streaming I/O via a Pyboard UART.
  Requires a link between X1 and X2.
- 5. [auart_hd.py](./as_demos/auart_hd.py) Use of the Pyboard UART to communicate
+ 5. [auart_hd.py](../as_demos/auart_hd.py) Use of the Pyboard UART to communicate
  with a device using a half-duplex protocol e.g. devices such as those using
  the 'AT' modem command set. Link X1-X4, X2-X3.
- 6. [gather.py](./as_demos/gether.py) Use of `gather`. Any target.
- 7. [iorw.py](./as_demos/iorw.py) Demo of a read/write device driver using the
+ 6. [gather.py](../as_demos/gather.py) Use of `gather`. Any target.
+ 7. [iorw.py](../as_demos/iorw.py) Demo of a read/write device driver using the
  stream I/O mechanism. Requires a Pyboard.
+ 8. [rate.py](../as_demos/rate.py) Benchmark for uasyncio. Any target.
 
 Demos are run using this pattern:
 ```python
 import as_demos.aledflash
 ```
 
-### Device drivers
+### 1.1.3 Device drivers
 
 These are installed by copying the `as_drivers` directory and contents to the
 target. They have their own documentation as follows:
@@ -177,8 +181,13 @@ target. They have their own documentation as follows:
  altitude and time/date information.
  2. [HTU21D](./HTU21D.md) An I2C temperature and humidity sensor. A task
  periodically queries the sensor maintaining constantly available values.
- 3. [NEC IR](./NEC_IR) A decoder for NEC IR remote controls. A callback occurs
+ 3. [NEC IR](./NEC_IR.md) A decoder for NEC IR remote controls. A callback occurs
  whenever a valid signal is received.
+ 4. [HD44780](./hd44780.md) Driver for common character based LCD displays
+ based on the Hitachi HD44780 controller
+ 5. [I2C](./I2C.md) Use Pyboard I2C slave mode to implement a UART-like
+ asynchronous stream interface. Uses: communication with ESP8266,
+ or (with coding) interface a Pyboard to I2C masters.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
