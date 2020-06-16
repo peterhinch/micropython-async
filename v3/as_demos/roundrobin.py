@@ -26,7 +26,7 @@ async def foo(n):
 async def main(delay):
     for n in range(1, 4):
         asyncio.create_task(foo(n))
-    print('Testing for {} seconds'.format(period))
+    print('Testing for {:d} seconds'.format(delay))
     await asyncio.sleep(delay)
 
 
