@@ -103,6 +103,32 @@ MicroPython and CPython 3.8. This is discussed
 Classes based on `uio.IOBase` will need changes to the `write` method. See
 [tutorial](./docs/TUTORIAL.md#64-writing-streaming-device-drivers).
 
+### 3.1.3 Early task creation
+
+It is [bad practice](https://github.com/micropython/micropython/issues/6174)
+to create tasks before issuing `asyncio.run()`. CPython 3.8 throws if you do.
+Such code can be ported by wrapping functions that create tasks in a
+coroutine as below.
+
+There is a subtlety affecting code that creates tasks early:
+`loop.run_forever()` did just that, never returning and scheduling all created
+tasks. By contrast `asyncio.run(coro())` terminates when the coro does. Typical
+firmware applications run forever so the coroutine started by `.run()` must
+`await` a continuously running task. This may imply exposing an asynchronous
+method which runs forever:
+
+```python
+async def main():
+   obj = MyObject()  # Constructor creates tasks
+   await obj.run_forever()  # Never terminates
+
+def run():  # Entry point
+    try:
+        asyncio.run(main())
+    finally:
+        asyncio.new_event_loop()
+```
+
 ## 3.2 Modules from this repository
 
 Modules `asyn.py` and `aswitch.py` are deprecated for V3 applications. See
