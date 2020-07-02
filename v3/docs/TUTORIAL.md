@@ -13,22 +13,23 @@ REPL.
   0.1 [Installing uasyncio on bare metal](./TUTORIAL.md#01-installing-uasyncio-on-bare-metal)  
  1. [Cooperative scheduling](./TUTORIAL.md#1-cooperative-scheduling)  
   1.1 [Modules](./TUTORIAL.md#11-modules)  
-   1.1.1 [Primitives](./TUTORIAL.md#111-primitives)  
-   1.1.2 [Demo programs](./TUTORIAL.md#112-demo-programs)  
-   1.1.3 [Device drivers](./TUTORIAL.md#113-device-drivers)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.1.1 [Primitives](./TUTORIAL.md#111-primitives)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.1.2 [Demo programs](./TUTORIAL.md#112-demo-programs)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.1.3 [Device drivers](./TUTORIAL.md#113-device-drivers)  
  2. [uasyncio](./TUTORIAL.md#2-uasyncio)  
   2.1 [Program structure](./TUTORIAL.md#21-program-structure)  
   2.2 [Coroutines and Tasks](./TUTORIAL.md#22-coroutines-and-tasks)  
-   2.2.1 [Queueing a task for scheduling](./TUTORIAL.md#221-queueing-a-task-for-scheduling)  
-   2.2.2 [Running a callback function](./TUTORIAL.md#222-running-a-callback-function)  
-   2.2.3 [Notes](./TUTORIAL.md#223-notes) Coros as bound methods. Returning values.  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2.1 [Queueing a task for scheduling](./TUTORIAL.md#221-queueing-a-task-for-scheduling)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2.2 [Running a callback function](./TUTORIAL.md#222-running-a-callback-function)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2.3 [Notes](./TUTORIAL.md#223-notes) Coros as bound methods. Returning values.  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2.4 [A typical firmware app](./TUTORIAL.md#224-a-typical-firmware-app) Avoiding a minor error  
   2.3 [Delays](./TUTORIAL.md#23-delays)  
  3. [Synchronisation](./TUTORIAL.md#3-synchronisation)  
   3.1 [Lock](./TUTORIAL.md#31-lock)  
   3.2 [Event](./TUTORIAL.md#32-event)  
   3.3 [gather](./TUTORIAL.md#33-gather)  
   3.4 [Semaphore](./TUTORIAL.md#34-semaphore)  
-   3.4.1 [BoundedSemaphore](./TUTORIAL.md#341-boundedsemaphore)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.4.1 [BoundedSemaphore](./TUTORIAL.md#341-boundedsemaphore)  
   3.5 [Queue](./TUTORIAL.md#35-queue)  
   3.6 [Message](./TUTORIAL.md#36-message)  
   3.7 [Barrier](./TUTORIAL.md#37-barrier)  
@@ -37,23 +38,23 @@ REPL.
   Debouncing switches and pushbuttons. Taming ADC's.  
  4. [Designing classes for asyncio](./TUTORIAL.md#4-designing-classes-for-asyncio)  
   4.1 [Awaitable classes](./TUTORIAL.md#41-awaitable-classes)  
-   4.1.1 [Use in context managers](./TUTORIAL.md#411-use-in-context-managers)  
-   4.1.2 [Portable code](./TUTORIAL.md#412-portable-code)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.1.1 [Use in context managers](./TUTORIAL.md#411-use-in-context-managers)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.1.2 [Portable code](./TUTORIAL.md#412-portable-code)  
   4.2 [Asynchronous iterators](./TUTORIAL.md#42-asynchronous-iterators)  
   4.3 [Asynchronous context managers](./TUTORIAL.md#43-asynchronous-context-managers)  
  5. [Exceptions timeouts and cancellation](./TUTORIAL.md#5-exceptions-timeouts-and-cancellation)  
   5.1 [Exceptions](./TUTORIAL.md#51-exceptions)  
-   5.1.1 [Global exception handler](./TUTORIAL.md#511-global-exception-handler)  
-   5.1.2 [Keyboard interrupts](./TUTORIAL.md#512-keyboard-interrupts)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5.1.1 [Global exception handler](./TUTORIAL.md#511-global-exception-handler)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5.1.2 [Keyboard interrupts](./TUTORIAL.md#512-keyboard-interrupts)  
   5.2 [Cancellation and Timeouts](./TUTORIAL.md#52-cancellation-and-timeouts)  
-   5.2.1 [Task cancellation](./TUTORIAL.md#521-task-cancellation)  
-   5.2.2 [Tasks with timeouts](./TUTORIAL.md#522-tasks-with-timeouts)  
-   5.2.3 [Cancelling running tasks](./TUTORIAL.md#523-cancelling-running-tasks) A "gotcha".
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5.2.1 [Task cancellation](./TUTORIAL.md#521-task-cancellation)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5.2.2 [Tasks with timeouts](./TUTORIAL.md#522-tasks-with-timeouts)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5.2.3 [Cancelling running tasks](./TUTORIAL.md#523-cancelling-running-tasks) A "gotcha".
  6. [Interfacing hardware](./TUTORIAL.md#6-interfacing-hardware)  
   6.1 [Timing issues](./TUTORIAL.md#61-timing-issues)  
   6.2 [Polling hardware with a task](./TUTORIAL.md#62-polling-hardware-with-a-task)  
   6.3 [Using the stream mechanism](./TUTORIAL.md#63-using-the-stream-mechanism)  
-   6.3.1 [A UART driver example](./TUTORIAL.md#631-a-uart-driver-example)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6.3.1 [A UART driver example](./TUTORIAL.md#631-a-uart-driver-example)  
   6.4 [Writing streaming device drivers](./TUTORIAL.md#64-writing-streaming-device-drivers)  
   6.5 [A complete example: aremote.py](./TUTORIAL.md#65-a-complete-example-aremotepy)
   A driver for an IR remote control receiver.  
@@ -66,7 +67,7 @@ REPL.
   7.4 [Testing](./TUTORIAL.md#74-testing)  
   7.5 [A common error](./TUTORIAL.md#75-a-common-error) This can be hard to find.  
   7.6 [Socket programming](./TUTORIAL.md#76-socket-programming)  
-   7.6.1 [WiFi issues](./TUTORIAL.md#761-wifi-issues)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;7.6.1 [WiFi issues](./TUTORIAL.md#761-wifi-issues)  
   7.7 [CPython compatibility and the event loop](./TUTORIAL.md#77-cpython-compatibility-and-the-event-loop) Compatibility with CPython 3.5+  
   7.8 [Race conditions](./TUTORIAL.md#78-race-conditions)  
  8. [Notes for beginners](./TUTORIAL.md#8-notes-for-beginners)  
@@ -435,6 +436,32 @@ async def main():
     print(res)
 
 asyncio.run(main())
+```
+
+###### [Contents](./TUTORIAL.md#contents)
+
+### 2.2.4 A typical firmware app
+
+It is bad practice to create a task prior to issuing `asyncio.run()`. CPython
+will throw an exception in this case. MicroPython
+[does not](https://github.com/micropython/micropython/issues/6174) but it's
+wise to avoid doing this.
+
+Most firmware applications run forever. For this to occur, the coro passed to
+`asyncio.run()` must not terminate. This suggests the following application
+structure:
+```python
+import uasyncio as asyncio
+from my_app import MyClass
+
+async def main():
+    my_class = MyClass()  # Constructor might create tasks
+    asyncio.create_task(my_class.foo())  # Or you might do this
+    await my_class.run_forever()  # Non-terminating method
+try:
+    asyncio.run(main())
+finally:
+    asyncio.new_event_loop()  # Clear retained state
 ```
 
 ###### [Contents](./TUTORIAL.md#contents)
@@ -1049,6 +1076,7 @@ import uasyncio as asyncio
 from primitives.delay_ms import Delay_ms
 
 async def my_app():
+    d = Delay_ms(callback, ('Callback running',))
     print('Holding off callback')
     for _ in range(10):  # Hold off for 5 secs
         await asyncio.sleep_ms(500)
@@ -1060,7 +1088,6 @@ async def my_app():
 def callback(v):
     print(v)
 
-d = Delay_ms(callback, ('Callback running',))
 try:
     asyncio.run(my_app())
 finally:
