@@ -271,3 +271,34 @@ The `AADC` class uses the `uasyncio` stream I/O mechanism. This is not the most
 obvious design. It was chosen because the plan for `uasyncio` is that it will
 include an option for prioritising I/O. I wanted this class to be able to use
 this for applications requiring rapid response.
+
+# 6. Additional functions
+
+These comprise `launch` and `set_global_exception` imported as follows:
+```python
+from primitives import launch, set_global_exception
+```
+
+`launch` enables a function to accept a coro or a callback interchangeably. It
+accepts the callable plus a tuple of args. If a callback is passed, `launch`
+runs it and returns the callback's return value. If a coro is passed, it is
+converted to a `task` and run asynchronously. The return value is the `task`
+instance. A usage example is in `primitives/switch.py`.
+
+`set_global_exception` is a convenience funtion to enable a global exception
+handler. This simplifies debugging. The function takes no args. It is called as
+follows:
+
+```python
+import uasyncio as asyncio
+from primitives import set_global_exception
+
+async def main():
+    set_global_exception()
+    # Main body of application code omitted
+
+try:
+    asyncio.run(main())
+finally:
+    asyncio.new_event_loop()  # Clear retained state
+```

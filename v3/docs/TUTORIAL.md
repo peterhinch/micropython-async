@@ -342,31 +342,12 @@ asyncio.run(main())
  CPython the `run` call does not terminate.
  * `await`  Arg: the task or coro to run. If a coro is passed it must be
  specified with function call syntax. Starts the task ASAP. The awaiting task
- blocks until the awaited one has run to completion.
+ blocks until the awaited one has run to completion. As described
+ [in section 2.2](./TUTORIAL.md#22-coroutines-and-tasks) it is possible to
+ `await` a task which has already been started. In this instance the `await` is
+ on the `task` object (function call syntax is not used).
 
 The above are compatible with CPython 3.8 or above.
-
-It is possible to `await` a task which has already been started:
-```python
-import uasyncio as asyncio
-async def bar(x):
-    count = 0
-    for _ in range(5):
-        count += 1
-        print('Instance: {} count: {}'.format(x, count))
-        await asyncio.sleep(1)  # Pause 1s
-
-async def main():
-    my_task =  asyncio.create_task(bar(1))
-    print('Task is running')
-    await asyncio.sleep(2)  # Do something else
-    print('Awaiting task')
-    await my_task  # If the task has already finished, this returns immediately
-    return 10
-
-a = asyncio.run(main())
-print(a)
-```
 
 ###### [Contents](./TUTORIAL.md#contents)
 
@@ -416,10 +397,11 @@ retrieve the returned data issue:
 result = await my_task()
 ```
 
-It is possible to await completion of multiple asynchronously running tasks,
-accessing the return value of each. This is done by `uasyncio.gather` which
-launches a number of tasks and pauses until the last terminates. It returns a
-list containing the data returned by each task:
+It is possible to await completion of a set of multiple asynchronously running
+tasks, accessing the return value of each. This is done by
+[uasyncio.gather](./TUTORIAL.md#33-gather) which launches the tasks and pauses
+until the last terminates. It returns a list containing the data returned by
+each task:
 ```python
 import uasyncio as asyncio
 
@@ -442,19 +424,41 @@ asyncio.run(main())
 
 ### 2.2.4 A typical firmware app
 
+Most firmware applications run forever. This requires the coro passed to
+`asyncio.run()` to `await` a non-terminating coro.
+
+To ease debugging, and for CPython compatibility, some "boilerplate" code is
+suggested in the sample below.
+
+By default an exception in a task will not stop the application as a whole from
+running. This can make debugging difficult. The fix shown below is discussed
+[in 5.1.1](./TUTORIAL.md#511-global-exception-handler).
+
 It is bad practice to create a task prior to issuing `asyncio.run()`. CPython
 will throw an exception in this case. MicroPython
 [does not](https://github.com/micropython/micropython/issues/6174) but it's
 wise to avoid doing this.
 
-Most firmware applications run forever. For this to occur, the coro passed to
-`asyncio.run()` must not terminate. This suggests the following application
-structure:
+Lastly, `uasyncio` retains state. This means that, by default, you need to
+reboot between runs of an application. This can be fixed with the
+`new_event_loop` method discussed
+[in 7.2](./TUTORIAL.md#72-uasyncio-retains-state).
+
+These considerations suggest the following application structure:
 ```python
 import uasyncio as asyncio
 from my_app import MyClass
 
+def set_global_exception():
+    def handle_exception(loop, context):
+        import sys
+        sys.print_exception(context["exception"])
+        sys.exit()
+    loop = asyncio.get_event_loop()
+    loop.set_exception_handler(handle_exception)
+
 async def main():
+    set_global_exception()  # Debug aid
     my_class = MyClass()  # Constructor might create tasks
     asyncio.create_task(my_class.foo())  # Or you might do this
     await my_class.run_forever()  # Non-terminating method
@@ -528,7 +532,7 @@ following classes which are non-standard, are also in that directory:
  Calls a user callback if not cancelled or regularly retriggered.
 
 A further set of primitives for synchronising hardware are detailed in
-[section 3.9](./TUTORIAL.md#38-synchronising-to-hardware).
+[section 3.9](./TUTORIAL.md#39-synchronising-to-hardware).
 
 To install the primitives, copy the `primitives` directory and contents to the
 target. A primitive is loaded by issuing (for example):
@@ -888,8 +892,8 @@ This is an unofficial primitive and has no counterpart in CPython asyncio.
 
 This is a minor adaptation of the `Event` class. It provides the following:
  * `.set()` has an optional data payload.
- * `.set()` is capable of being called from an interrupt service routine - a
- feature not yet available in the more efficient official `Event`.
+ * `.set()` is capable of being called from a hard or soft interrupt service
+ routine - a feature not yet available in the more efficient official `Event`.
  * It is an awaitable class.
 
 The `.set()` method can accept an optional data value of any type. A task
