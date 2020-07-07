@@ -1,4 +1,4 @@
-# 1. Introduction
+# 0. Introduction
 
 Drivers for switches and pushbuttons are provided, plus a retriggerable delay
 class. The switch and button drivers support debouncing. The switch driver
@@ -10,6 +10,22 @@ events.
 
 The asynchronous ADC supports pausing a task until the value read from an ADC
 goes outside defined bounds.
+
+# 1. Contents
+
+ 1. [Contents](./DRIVERS.md#1-contents)  
+ 2. [Installation and usage](./DRIVERS.md#2-installation-and-usage)  
+ 3. [Interfacing switches](./DRIVERS.md#3-interfacing-switches) Switch debouncer with callbacks.  
+  3.1 [Switch class](./DRIVERS.md#31-switch-class)  
+ 4. [Interfacing pushbuttons](./DRIVERS.md#4-interfacing-pushbuttons) Extends Switch for long and double click events  
+  4.1 [Pushbutton class](./DRIVERS.md#41-pushbutton-class)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.1.1 [The suppress constructor argument](./DRIVERS.md#411-the-suppress-constructor-argument)  
+ 5. [ADC monitoring](./DRIVERS.md#5-ADC monitoring) Pause until an ADC goes out of bounds  
+  5.1 [AADC class](./DRIVERS.md#51--aadc-class)  
+  5.2 [Design note](./DRIVERS.md#52-design-note)  
+ 6. [Additional functions](./DRIVERS.md#6-additional-functions)  
+  6.1 [launch](./DRIVERS.md#61-launch) Run a coro or callback interchangeably  
+  6.2 [set_global_exception](,.DRIVERS.md#62-set_global_exception) Simplify debugging with a global exception handler  
 
 ###### [Tutorial](./TUTORIAL.md#contents)
 
@@ -38,11 +54,13 @@ from primitives.tests.adctest import test
 test()
 ```
 
-# 3. primitives.switch
+###### [Contents](./DRIVERS.md#1-contents)
 
-This module provides the `Switch` class. This supports debouncing a normally
-open switch connected between a pin and ground. Can run callbacks or schedule
-coros on contact closure and/or opening.
+# 3. Interfacing switches
+
+The `primitives.switch` module provides the `Switch` class. This supports
+debouncing a normally open switch connected between a pin and ground. Can run
+callbacks or schedule coros on contact closure and/or opening.
 
 In the following text the term `callable` implies a Python `callable`: namely a
 function, bound method, coroutine or bound coroutine. The term implies that any
@@ -102,11 +120,14 @@ sw.close_func(pulse, (red, 1000))  # Note how coro and args are passed
 asyncio.run(my_app())  # Run main application code
 ```
 
-# 4. primitives.pushbutton
+###### [Contents](./DRIVERS.md#1-contents)
 
-The `Pushbutton` class is generalisation of `Switch` to support normally open
-or normally closed switches connected to ground or 3V3. Can run a `callable` on
-on press, release, double-click or long press events.
+# 4. Interfacing pushbuttons
+
+The `primitives.pushbutton` module provides the `Pushbutton` class. This is a
+generalisation of `Switch` to support normally open or normally closed switches
+connected to ground or 3V3. Can run a `callable` on on press, release,
+double-click or long press events.
 
 ## 4.1 Pushbutton class
 
@@ -172,8 +193,10 @@ pb.press_func(toggle, (red,))  # Note how function and args are passed
 asyncio.run(my_app())  # Run main application code
 ```
 
-An alternative Pushbutton class with lower RAM usage is available
-[here](https://github.com/kevinkk525/pysmartnode/blob/dev/pysmartnode/utils/abutton.py).
+An alternative, compatible `Pushbutton` implementation is available
+[here](https://github.com/kevinkk525/pysmartnode/blob/dev/pysmartnode/utils/abutton.py):
+this implementation avoids the use of the `Delay_ms` class to minimise the
+number of coroutines.
 
 ### 4.1.1 The suppress constructor argument
 
@@ -198,15 +221,16 @@ set, `release_func` will be launched as follows:
  4. If `double_func` exists and a double click occurs, `release_func` will not
  be launched.
 
+###### [Contents](./DRIVERS.md#1-contents)
 
-# 5. primitives.aadc
+# 5. ADC monitoring
 
-The `AADC` (asynchronous ADC) class provides for coroutines which pause until
-the value returned by an ADC goes outside predefined bounds. The bounds can be
-absolute or relative to the current value. The data from ADC's is usually
-noisy. Relative bounds provide a simple (if crude) means of eliminating this.
-Absolute bounds can be used to raise an alarm, or log data, if the value goes
-out of range. Typical usage:
+The `primitives.aadc` module provides the `AADC` (asynchronous ADC) class. This
+provides for coroutines which pause until the value returned by an ADC goes
+outside predefined bounds. Bounds may be absolute or relative to the current
+value. Data from ADC's is usually noisy. Relative bounds provide a simple (if
+crude) means of eliminating this. Absolute bounds can be used to raise an alarm
+or log data, if the value goes out of range. Typical usage:
 ```python
 import uasyncio as asyncio
 from machine import ADC
@@ -272,21 +296,30 @@ obvious design. It was chosen because the plan for `uasyncio` is that it will
 include an option for prioritising I/O. I wanted this class to be able to use
 this for applications requiring rapid response.
 
+###### [Contents](./DRIVERS.md#1-contents)
+
 # 6. Additional functions
 
-These comprise `launch` and `set_global_exception` imported as follows:
-```python
-from primitives import launch, set_global_exception
-```
+## 6.1 Launch
 
+Importe as follows:
+```python
+from primitives import launch
+```
 `launch` enables a function to accept a coro or a callback interchangeably. It
 accepts the callable plus a tuple of args. If a callback is passed, `launch`
 runs it and returns the callback's return value. If a coro is passed, it is
 converted to a `task` and run asynchronously. The return value is the `task`
 instance. A usage example is in `primitives/switch.py`.
 
+## 6.2 set_global_exception
+
+Import as follows:
+```python
+from primitives import set_global_exception
+```
 `set_global_exception` is a convenience funtion to enable a global exception
-handler. This simplifies debugging. The function takes no args. It is called as
+handler to simplify debugging. The function takes no args. It is called as
 follows:
 
 ```python
@@ -302,3 +335,10 @@ try:
 finally:
     asyncio.new_event_loop()  # Clear retained state
 ```
+This is explained in the tutorial. In essence if an exception occurs in a task,
+the default behaviour is for the task to stop but for the rest of the code to
+continue to run. This means that the failure can be missed and the sequence of
+events can be hard to deduce. A global handler ensures that the entire
+application stops allowing the traceback and other debug prints to be studied.
+
+###### [Contents](./DRIVERS.md#1-contents)
