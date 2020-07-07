@@ -20,12 +20,12 @@ goes outside defined bounds.
  4. [Interfacing pushbuttons](./DRIVERS.md#4-interfacing-pushbuttons) Extends Switch for long and double click events  
   4.1 [Pushbutton class](./DRIVERS.md#41-pushbutton-class)  
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.1.1 [The suppress constructor argument](./DRIVERS.md#411-the-suppress-constructor-argument)  
- 5. [ADC monitoring](./DRIVERS.md#5-ADC monitoring) Pause until an ADC goes out of bounds  
-  5.1 [AADC class](./DRIVERS.md#51--aadc-class)  
+ 5. [ADC monitoring](./DRIVERS.md#5-adc-monitoring) Pause until an ADC goes out of bounds  
+  5.1 [AADC class](./DRIVERS.md#51-aadc-class)  
   5.2 [Design note](./DRIVERS.md#52-design-note)  
  6. [Additional functions](./DRIVERS.md#6-additional-functions)  
   6.1 [launch](./DRIVERS.md#61-launch) Run a coro or callback interchangeably  
-  6.2 [set_global_exception](,.DRIVERS.md#62-set_global_exception) Simplify debugging with a global exception handler  
+  6.2 [set_global_exception](./DRIVERS.md#62-set_global_exception) Simplify debugging with a global exception handler  
 
 ###### [Tutorial](./TUTORIAL.md#contents)
 
