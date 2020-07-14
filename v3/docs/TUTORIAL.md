@@ -2477,6 +2477,11 @@ The initial reaction of beginners to the idea of cooperative multi-tasking is
 often one of disappointment. Surely pre-emptive is better? Why should I have to
 explicitly yield control when the Python virtual machine can do it for me?
 
+My background is in hardware interfacing: I am not a web developer. I found
+[this video](https://www.youtube.com/watch?v=kdzL3r-yJZY) to be an interesting
+beginner-level introduction to asynchronous web programming which discusses the
+relative merits of cooperative and pre-emptive scheduling in that environment.
+
 When it comes to embedded systems the cooperative model has two advantages.
 Firstly, it is lightweight. It is possible to have large numbers of tasks
 because unlike descheduled threads, paused tasks contain little state.
