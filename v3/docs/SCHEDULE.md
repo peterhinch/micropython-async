@@ -1,3 +1,5 @@
+# 0. Contents
+
  1. [Scheduling tasks](./SCHEDULE.md#1-scheduling-tasks)  
  2. [Overview](./SCHEDULE.md#2-overview)  
  3. [Installation](./SCHEDULE.md#3-installation)  
@@ -47,7 +49,7 @@ function takes a `cron` instance and a callback and causes that callback to run
 at the times specified by the `cron`. A coroutine may be substituted for the
 callback - at the specified times it will be promoted to a `Task` and run.
 
-##### [Top](./SCHEDULE.md#1-scheduling-tasks)
+##### [Top](./SCHEDULE.md#0-contents)
 
 # 3. Installation
 
@@ -77,7 +79,7 @@ numbers are shown as inclusive ranges.
  5. `month=None` Months (1..12).
  6. `wday=None` Weekday (0..6 Mon..Sun).
 
-##### [Top](./SCHEDULE.md#1-scheduling-tasks)
+##### [Top](./SCHEDULE.md#0-contents)
 
 ## 4.1 Time specifiers
 
@@ -114,7 +116,7 @@ now = int(time.time())  # Unix build returns a float here
 tnext = min(cron1(now), cron2(now), cron3(now))  # Seconds until 1st event
 ```
 
-##### [Top](./SCHEDULE.md#1-scheduling-tasks)
+##### [Top](./SCHEDULE.md#0-contents)
 
 ## 4.3 How it works
 
@@ -166,7 +168,7 @@ my_cron(month=(2, 7, 10), hrs=1, mins=59)  # moves forward 1 day
 t_wait = my_cron(time.time())  # but month may be disallowed
 ```
 
-##### [Top](./SCHEDULE.md#1-scheduling-tasks)
+##### [Top](./SCHEDULE.md#0-contents)
 
 ## 4.5 Limitations
 
@@ -205,7 +207,7 @@ adapt `cron.py` to account for this: its design focus is small lightweight code
 to run on bare metal targets. I could adapt `crontest.py` but it would surely
 fail in other countries.
 
-##### [Top](./SCHEDULE.md#1-scheduling-tasks)
+##### [Top](./SCHEDULE.md#0-contents)
 
 # 5. The schedule function
 
@@ -263,7 +265,7 @@ finally:
     _ = asyncio.new_event_loop()
 ```
 
-##### [Top](./SCHEDULE.md#1-scheduling-tasks)
+##### [Top](./SCHEDULE.md#0-contents)
 
 # 6. Use in synchronous code
 
@@ -325,7 +327,7 @@ is also more versatile because the advanced features of `uasyncio` are
 available to the application. The above code is incompatible with `uasyncio`
 because of the blocking calls to `time.sleep`.
 
-##### [Top](./SCHEDULE.md#1-scheduling-tasks)
+##### [Top](./SCHEDULE.md#0-contents)
 
 # 7. Hardware timing limitations
 
@@ -342,4 +344,4 @@ Boards with internet connectivity can periodically synchronise to an NTP server
 but this carries a risk of sudden jumps in the system time which may disrupt
 `uasyncio` and the scheduler.
 
-##### [Top](./SCHEDULE.md#1-scheduling-tasks)
+##### [Top](./SCHEDULE.md#0-contents)
