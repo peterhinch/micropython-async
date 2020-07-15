@@ -20,6 +20,7 @@ goes outside defined bounds.
  4. [Interfacing pushbuttons](./DRIVERS.md#4-interfacing-pushbuttons) Extends Switch for long and double click events  
   4.1 [Pushbutton class](./DRIVERS.md#41-pushbutton-class)  
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.1.1 [The suppress constructor argument](./DRIVERS.md#411-the-suppress-constructor-argument)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.1.2 [The sense constructor argument](./DRIVERS.md#412-the-sense-constructor-argument)  
  5. [ADC monitoring](./DRIVERS.md#5-adc-monitoring) Pause until an ADC goes out of bounds  
   5.1 [AADC class](./DRIVERS.md#51-aadc-class)  
   5.2 [Design note](./DRIVERS.md#52-design-note)  
@@ -196,7 +197,7 @@ pb.press_func(toggle, (red,))  # Note how function and args are passed
 asyncio.run(my_app())  # Run main application code
 ```
 
-An alternative, compatible `Pushbutton` implementation is available
+An alternative `Pushbutton` implementation is available
 [here](https://github.com/kevinkk525/pysmartnode/blob/dev/pysmartnode/utils/abutton.py):
 this implementation avoids the use of the `Delay_ms` class to minimise the
 number of coroutines.
