@@ -2,17 +2,18 @@
  2. [Overview](./SCHEDULE.md#2-overview)  
  3. [Installation](./SCHEDULE.md#3-installation)  
  4. [The cron object](./SCHEDULE.md#4-the-cron-object)  
-  4.1 [Time specifiers](./SCHEDULE.md#41-time-specifiers)..
+  4.1 [Time specifiers](./SCHEDULE.md#41-time-specifiers)  
   4.2 [The time to an event](./SCHEDULE.md#42-the-time-to-an-event)  
   4.3 [How it works](./SCHEDULE.md#43-how-it-works)  
   4.4 [Calendar behaviour](./SCHEDULE.md#44-calendar-behaviour)  
   4.5 [Limitations](./SCHEDULE.md#45-limitations)  
   4.6 [The Unix build](./SCHEDULE.md#46-the-unix-build)  
- 5. [The schedule function](./SCHEDULE.md#5-the schedule-function)  
- 6. [Use in synchronous code](./SCHEDULE.md#6-use-in-synchronous-code)  
+ 5. [The schedule function](./SCHEDULE.md#5-the-schedule-function) The primary interface for uasyncio  
+ 6. [Use in synchronous code](./SCHEDULE.md#6-use-in-synchronous-code) If you really must  
+ 7. [Hardware timing limitations](./SCHEDULE,md#7-hardware-timing-limitations)  
 
-###### [Tutorial](./TUTORIAL.md#contents)  
-###### [Main V3 README](../README.md)
+##### [Tutorial](./TUTORIAL.md#contents)  
+##### [Main V3 README](../README.md)
 
 # 1. Scheduling tasks
 
@@ -46,6 +47,8 @@ function takes a `cron` instance and a callback and causes that callback to run
 at the times specified by the `cron`. A coroutine may be substituted for the
 callback - at the specified times it will be promoted to a `Task` and run.
 
+##### [Top](./SCHEDULE.md#1-scheduling-tasks)
+
 # 3. Installation
 
 Copy the `sched` directory and contents to the target's filesystem. It requires
@@ -73,6 +76,8 @@ numbers are shown as inclusive ranges.
  4. `mday=None` Day of month (1..31).
  5. `month=None` Months (1..12).
  6. `wday=None` Weekday (0..6 Mon..Sun).
+
+##### [Top](./SCHEDULE.md#1-scheduling-tasks)
 
 ## 4.1 Time specifiers
 
@@ -108,6 +113,8 @@ cron3 = cron(wday=(0, 4))  # 3am every Monday and Friday
 now = int(time.time())  # Unix build returns a float here
 tnext = min(cron1(now), cron2(now), cron3(now))  # Seconds until 1st event
 ```
+
+##### [Top](./SCHEDULE.md#1-scheduling-tasks)
 
 ## 4.3 How it works
 
@@ -159,6 +166,8 @@ my_cron(month=(2, 7, 10), hrs=1, mins=59)  # moves forward 1 day
 t_wait = my_cron(time.time())  # but month may be disallowed
 ```
 
+##### [Top](./SCHEDULE.md#1-scheduling-tasks)
+
 ## 4.5 Limitations
 
 The `cron` code has a resolution of 1 second. It is intended for scheduling
@@ -174,10 +183,6 @@ depends on the complexity of the time specifiers.
 On hardware platforms the MicroPython `time` module does not handle daylight
 saving time. Scheduled times are relative to system time. This does not apply
 to the Unix build.
-
-It has been tested on ESP8266 but this platform has poor time stability so is
-not well suited to long term timing applications. On my reference board timing
-drifted by 1.4mins/hr, an error of 2.3%.
 
 ## 4.6 The Unix build
 
@@ -199,6 +204,8 @@ time. On bare hardware MicroPython has no provision for DST. I do not plan to
 adapt `cron.py` to account for this: its design focus is small lightweight code
 to run on bare metal targets. I could adapt `crontest.py` but it would surely
 fail in other countries.
+
+##### [Top](./SCHEDULE.md#1-scheduling-tasks)
 
 # 5. The schedule function
 
@@ -255,6 +262,8 @@ try:
 finally:
     _ = asyncio.new_event_loop()
 ```
+
+##### [Top](./SCHEDULE.md#1-scheduling-tasks)
 
 # 6. Use in synchronous code
 
@@ -315,3 +324,22 @@ In my opinion the asynchronous version is cleaner and easier to understand. It
 is also more versatile because the advanced features of `uasyncio` are
 available to the application. The above code is incompatible with `uasyncio`
 because of the blocking calls to `time.sleep`.
+
+##### [Top](./SCHEDULE.md#1-scheduling-tasks)
+
+# 7. Hardware timing limitations
+
+The code has been tested on Pyboard 1.x, Pyboard D, ESP32 and ESP8266. All
+except ESP8266 have good timing performance. Pyboards can be calibrated to
+timepiece precision using a cheap DS3231 and
+[this utility](https://github.com/peterhinch/micropython-samples/tree/master/DS3231).
+
+The ESP8266 has poor time stability so is not well suited to long term timing
+applications. On my reference board timing drifted by 1.4mins/hr, an error of
+2.3%.
+
+Boards with internet connectivity can periodically synchronise to an NTP server
+but this carries a risk of sudden jumps in the system time which may disrupt
+`uasyncio` and the scheduler.
+
+##### [Top](./SCHEDULE.md#1-scheduling-tasks)
