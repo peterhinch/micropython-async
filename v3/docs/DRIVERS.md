@@ -154,7 +154,7 @@ Constructor arguments:
  2. `suppress` Default `False`. See
  [section 4.1.1](./DRIVERS.md#411-the-suppress-constructor-argument).
  3. `sense` Default `None`. See
- [section 4.1.1](./DRIVERS.md#412-the-sense-constructor-argument).
+ [section 4.1.2](./DRIVERS.md#412-the-sense-constructor-argument).
 
 Methods:
 
