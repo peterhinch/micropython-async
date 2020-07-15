@@ -25,6 +25,12 @@ Documented in the tutorial. Comprises:
  * Classes for interfacing switches and pushbuttons.
  * A software retriggerable monostable timer class, similar to a watchdog.
 
+### A scheduler
+
+This [lightweight scheduler](./docs/SCHEDULE.md) enables tasks to be scheduled
+at future times. These can be assigned in a flexible way: a task might run at
+4.10am on Monday and Friday if there's no "r" in the month.
+
 ### Asynchronous device drivers  
 
 These device drivers are intended as examples of asynchronous code which are
