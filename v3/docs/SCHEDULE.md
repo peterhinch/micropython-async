@@ -3,7 +3,7 @@
  1. [Scheduling tasks](./SCHEDULE.md#1-scheduling-tasks)  
  2. [Overview](./SCHEDULE.md#2-overview)  
  3. [Installation](./SCHEDULE.md#3-installation)  
- 4. [The cron object](./SCHEDULE.md#4-the-cron-object)  
+ 4. [The cron object](./SCHEDULE.md#4-the-cron-object) How to specify times and dates  
   4.1 [Time specifiers](./SCHEDULE.md#41-time-specifiers)  
   4.2 [The time to an event](./SCHEDULE.md#42-the-time-to-an-event)  
   4.3 [How it works](./SCHEDULE.md#43-how-it-works)  
@@ -11,8 +11,8 @@
   4.5 [Limitations](./SCHEDULE.md#45-limitations)  
   4.6 [The Unix build](./SCHEDULE.md#46-the-unix-build)  
  5. [The schedule function](./SCHEDULE.md#5-the-schedule-function) The primary interface for uasyncio  
- 6. [Use in synchronous code](./SCHEDULE.md#6-use-in-synchronous-code) If you really must  
- 7. [Hardware timing limitations](./SCHEDULE.md#7-hardware-timing-limitations)  
+ 6. [Hardware timing limitations](./SCHEDULE.md#6-hardware-timing-limitations)  
+ 7. [Use in synchronous code](./SCHEDULE.md#7-use-in-synchronous-code) If you really must  
 
 ##### [Tutorial](./TUTORIAL.md#contents)  
 ##### [Main V3 README](../README.md)
@@ -64,10 +64,24 @@ move to the parent directory of `sched` and issue:
 ```
 Adapt the destination as appropriate for your hardware.
 
+The following files are installed in the `sched` directory.
+ 1. `cron.py` Computes time to next event.
+ 2. `sched.py` The `uasyncio` `schedule` function: schedule a callback or coro.
+ 3. `primitives/__init__.py` Necessary for `sched.py`.
+ 4. `asynctest.py` Demo of asynchronous scheduling.
+ 5. `synctest.py` Synchronous scheduling demo. For `uasyncio` phobics only.
+ 6. `crontest.py` A test for `cron.py` code.
+ 7. `__init__.py` Empty file for Python package.
+
+The `crontest` script is only of interest to those wishing to adapt `cron.py`.
+To run error-free a bare metal target should be used for the reason discussed
+[here](./SCHEDULE.md#46-the-unix-build).
+
 # 4. The cron object
 
 This is a closure. It accepts a time specification for future events. Each call
-returns the number of seconds to wait for the next event to occur.
+when passed the current time returns the number of seconds to wait for the next
+event to occur.
 
 It takes the following keyword-only args. A flexible set of data types are
 accepted. These are known as `Time specifiers` and described below. Valid
@@ -148,7 +162,7 @@ the month.
 
 Specifying `wday=d` and `mday=n` where n > 22 could result in a day beyond the
 end of the month. It's not obvious what constitutes rational behaviour in this
-pathological corner case: a `ValueError` will result.
+pathological corner case. Validation will throw a `ValueError` in this case.
 
 ### 4.4.2 Time causing month rollover
 
@@ -165,7 +179,7 @@ will change to the next valid month. This code, run at 9am on 31st July, would
 aim to run the event at 1.59 on 1st October.
 ```python
 my_cron(month=(2, 7, 10), hrs=1, mins=59)  # moves forward 1 day
-t_wait = my_cron(time.time())  # but month may be disallowed
+t_wait = my_cron(time.time())  # Next month is disallowed so jumps to October
 ```
 
 ##### [Top](./SCHEDULE.md#0-contents)
@@ -184,14 +198,14 @@ depends on the complexity of the time specifiers.
 
 On hardware platforms the MicroPython `time` module does not handle daylight
 saving time. Scheduled times are relative to system time. This does not apply
-to the Unix build.
+to the Unix build where daylight saving needs to be considered.
 
 ## 4.6 The Unix build
 
-Asynchronous use requires `uasyncio` V3, so ensure this is installed on a Linux
-box.
+Asynchronous use requires `uasyncio` V3, so ensure this is installed on the
+Linux target.
 
-The synchronous and asynchronous demos run under the Unix build: it should be
+The synchronous and asynchronous demos run under the Unix build. The module is
 usable on Linux provided the daylight saving time (DST) constraints below are
 met.
 
@@ -200,12 +214,10 @@ and duplicates when they go back. Scheduling those times will fail. A solution
 is to avoid scheduling the times in your region where this occurs (01.00.00 to
 02.00.00 in March and October here).
 
-The `crontest.py` test program produces failures under Unix. Most of these
-result from the fact that the Unix `localtime` function handles daylight saving
-time. On bare hardware MicroPython has no provision for DST. I do not plan to
-adapt `cron.py` to account for this: its design focus is small lightweight code
-to run on bare metal targets. I could adapt `crontest.py` but it would surely
-fail in other countries.
+The `crontest.py` test program produces failures under Unix. These result from
+the fact that the Unix `localtime` function handles daylight saving time. The
+purpose of `crontest.py` is to check `cron` code. It should be run on bare
+metal targets.
 
 ##### [Top](./SCHEDULE.md#0-contents)
 
@@ -267,11 +279,29 @@ finally:
 
 ##### [Top](./SCHEDULE.md#0-contents)
 
-# 6. Use in synchronous code
+# 6. Hardware timing limitations
+
+The code has been tested on Pyboard 1.x, Pyboard D, ESP32 and ESP8266. All
+except ESP8266 have good timing performance. Pyboards can be calibrated to
+timepiece precision using a cheap DS3231 and
+[this utility](https://github.com/peterhinch/micropython-samples/tree/master/DS3231).
+
+The ESP8266 has poor time stability so is not well suited to long term timing
+applications. On my reference board timing drifted by 1.4mins/hr, an error of
+2.3%.
+
+Boards with internet connectivity can periodically synchronise to an NTP server
+but this carries a risk of sudden jumps in the system time which may disrupt
+`uasyncio` and the scheduler.
+
+##### [Top](./SCHEDULE.md#0-contents)
+
+# 7. Use in synchronous code
 
 It is possible to use the `cron` closure in synchronous code. This involves
-writing an event loop, an example of which is illustrated below. In this
-example a task list entry is a tuple with the following contents.
+the mildly masochistic task of writing an event loop, an example of which is
+illustrated below. In this example a task list entry is a tuple with the
+following contents.
  1. The `cron` instance.
  2. The callback to run.
  3. A tuple of arguments for the callback.
@@ -312,7 +342,7 @@ def main():
         for task in (t for t in tasks if t[0](now) == deltat):  # Tasks with same delta t
             to_run.append(task)
             task[4] = True  # Has been scheduled
-        # Remove on-shot tasks which have been scheduled
+        # Remove one-shot tasks which have been scheduled
         tasks = [t for t in tasks if not (t[3] and t[4])]
         sleep(deltat)
         for tsk in to_run:
@@ -325,23 +355,6 @@ main()
 In my opinion the asynchronous version is cleaner and easier to understand. It
 is also more versatile because the advanced features of `uasyncio` are
 available to the application. The above code is incompatible with `uasyncio`
-because of the blocking calls to `time.sleep`.
-
-##### [Top](./SCHEDULE.md#0-contents)
-
-# 7. Hardware timing limitations
-
-The code has been tested on Pyboard 1.x, Pyboard D, ESP32 and ESP8266. All
-except ESP8266 have good timing performance. Pyboards can be calibrated to
-timepiece precision using a cheap DS3231 and
-[this utility](https://github.com/peterhinch/micropython-samples/tree/master/DS3231).
-
-The ESP8266 has poor time stability so is not well suited to long term timing
-applications. On my reference board timing drifted by 1.4mins/hr, an error of
-2.3%.
-
-Boards with internet connectivity can periodically synchronise to an NTP server
-but this carries a risk of sudden jumps in the system time which may disrupt
-`uasyncio` and the scheduler.
+because of the blocking calls to `time.sleep()`.
 
 ##### [Top](./SCHEDULE.md#0-contents)
