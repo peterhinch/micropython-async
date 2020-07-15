@@ -10,7 +10,7 @@
   4.6 [The Unix build](./SCHEDULE.md#46-the-unix-build)  
  5. [The schedule function](./SCHEDULE.md#5-the-schedule-function) The primary interface for uasyncio  
  6. [Use in synchronous code](./SCHEDULE.md#6-use-in-synchronous-code) If you really must  
- 7. [Hardware timing limitations](./SCHEDULE,md#7-hardware-timing-limitations)  
+ 7. [Hardware timing limitations](./SCHEDULE.md#7-hardware-timing-limitations)  
 
 ##### [Tutorial](./TUTORIAL.md#contents)  
 ##### [Main V3 README](../README.md)
