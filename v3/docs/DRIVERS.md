@@ -133,8 +133,9 @@ double-click or long press events.
 
 This can support normally open or normally closed switches, connected to `gnd`
 (with a pullup) or to `3V3` (with a pull-down). The `Pin` object should be
-initialised appropriately. The assumption is that on instantiation the button
-is not pressed.
+initialised appropriately. The default state of the switch can be passed in the
+optional "sense" parameter on the constructor, otherwise the assumption is that
+on instantiation the button is not pressed.
 
 The Pushbutton class uses logical rather than physical state: a button's state
 is considered `True` if pressed, otherwise `False` regardless of its physical
@@ -151,6 +152,8 @@ Constructor arguments:
  1. `pin` Mandatory. The initialised Pin instance.
  2. `suppress` Default `False`. See
  [section 4.1.1](./DRIVERS.md#411-the-suppress-constructor-argument).
+ 3. `sense` Default `None`. See
+ [section 4.1.1](./DRIVERS.md#412-the-sense-constructor-argument).
 
 Methods:
 
@@ -220,6 +223,14 @@ set, `release_func` will be launched as follows:
  launched, `release_func` will not be launched.
  4. If `double_func` exists and a double click occurs, `release_func` will not
  be launched.
+
+### 4.1.2 The sense constructor argument
+
+When the pin value changes, the new value is compared with `sense` to determine
+if the button is closed or open. This is to allow the designer to specify if
+the `closed` state of the button is active `high` or active `low`.
+
+This parameter will default to the current value of `pin` for convienence.
 
 ###### [Contents](./DRIVERS.md#1-contents)
 
