@@ -15,6 +15,10 @@ ensure your firmware build is official MicroPython V1.12 and follow the
 `uasyncio` installation instructions in [the V2 tutorial](./TUTORIAL.md). For
 V3, install the latest daily build which includes `uasyncio`.
 
+I strongly recommend V3 unless you need the `fast_io` variant of V2. When V3
+acquires this ability (it is planned) and appears in a release build I expect
+to obsolete all V2 material in this repo.
+
 Resources for V3 and an updated tutorial may be found in the v3 directory. 
 
 ### [Go to V3 docs](./v3/README.md)

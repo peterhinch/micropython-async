@@ -13,22 +13,23 @@ REPL.
   0.1 [Installing uasyncio on bare metal](./TUTORIAL.md#01-installing-uasyncio-on-bare-metal)  
  1. [Cooperative scheduling](./TUTORIAL.md#1-cooperative-scheduling)  
   1.1 [Modules](./TUTORIAL.md#11-modules)  
-   1.1.1 [Primitives](./TUTORIAL.md#111-primitives)  
-   1.1.2 [Demo programs](./TUTORIAL.md#112-demo-programs)  
-   1.1.3 [Device drivers](./TUTORIAL.md#113-device-drivers)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.1.1 [Primitives](./TUTORIAL.md#111-primitives)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.1.2 [Demo programs](./TUTORIAL.md#112-demo-programs)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.1.3 [Device drivers](./TUTORIAL.md#113-device-drivers)  
  2. [uasyncio](./TUTORIAL.md#2-uasyncio)  
   2.1 [Program structure](./TUTORIAL.md#21-program-structure)  
   2.2 [Coroutines and Tasks](./TUTORIAL.md#22-coroutines-and-tasks)  
-   2.2.1 [Queueing a task for scheduling](./TUTORIAL.md#221-queueing-a-task-for-scheduling)  
-   2.2.2 [Running a callback function](./TUTORIAL.md#222-running-a-callback-function)  
-   2.2.3 [Notes](./TUTORIAL.md#223-notes) Coros as bound methods. Returning values.  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2.1 [Queueing a task for scheduling](./TUTORIAL.md#221-queueing-a-task-for-scheduling)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2.2 [Running a callback function](./TUTORIAL.md#222-running-a-callback-function)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2.3 [Notes](./TUTORIAL.md#223-notes) Coros as bound methods. Returning values.  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2.4 [A typical firmware app](./TUTORIAL.md#224-a-typical-firmware-app) Avoiding a minor error  
   2.3 [Delays](./TUTORIAL.md#23-delays)  
  3. [Synchronisation](./TUTORIAL.md#3-synchronisation)  
   3.1 [Lock](./TUTORIAL.md#31-lock)  
   3.2 [Event](./TUTORIAL.md#32-event)  
   3.3 [gather](./TUTORIAL.md#33-gather)  
   3.4 [Semaphore](./TUTORIAL.md#34-semaphore)  
-   3.4.1 [BoundedSemaphore](./TUTORIAL.md#341-boundedsemaphore)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.4.1 [BoundedSemaphore](./TUTORIAL.md#341-boundedsemaphore)  
   3.5 [Queue](./TUTORIAL.md#35-queue)  
   3.6 [Message](./TUTORIAL.md#36-message)  
   3.7 [Barrier](./TUTORIAL.md#37-barrier)  
@@ -37,23 +38,23 @@ REPL.
   Debouncing switches and pushbuttons. Taming ADC's.  
  4. [Designing classes for asyncio](./TUTORIAL.md#4-designing-classes-for-asyncio)  
   4.1 [Awaitable classes](./TUTORIAL.md#41-awaitable-classes)  
-   4.1.1 [Use in context managers](./TUTORIAL.md#411-use-in-context-managers)  
-   4.1.2 [Portable code](./TUTORIAL.md#412-portable-code)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.1.1 [Use in context managers](./TUTORIAL.md#411-use-in-context-managers)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.1.2 [Portable code](./TUTORIAL.md#412-portable-code)  
   4.2 [Asynchronous iterators](./TUTORIAL.md#42-asynchronous-iterators)  
   4.3 [Asynchronous context managers](./TUTORIAL.md#43-asynchronous-context-managers)  
  5. [Exceptions timeouts and cancellation](./TUTORIAL.md#5-exceptions-timeouts-and-cancellation)  
   5.1 [Exceptions](./TUTORIAL.md#51-exceptions)  
-   5.1.1 [Global exception handler](./TUTORIAL.md#511-global-exception-handler)  
-   5.1.2 [Keyboard interrupts](./TUTORIAL.md#512-keyboard-interrupts)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5.1.1 [Global exception handler](./TUTORIAL.md#511-global-exception-handler)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5.1.2 [Keyboard interrupts](./TUTORIAL.md#512-keyboard-interrupts)  
   5.2 [Cancellation and Timeouts](./TUTORIAL.md#52-cancellation-and-timeouts)  
-   5.2.1 [Task cancellation](./TUTORIAL.md#521-task-cancellation)  
-   5.2.2 [Tasks with timeouts](./TUTORIAL.md#522-tasks-with-timeouts)  
-   5.2.3 [Cancelling running tasks](./TUTORIAL.md#523-cancelling-running-tasks) A "gotcha".
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5.2.1 [Task cancellation](./TUTORIAL.md#521-task-cancellation)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5.2.2 [Tasks with timeouts](./TUTORIAL.md#522-tasks-with-timeouts)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5.2.3 [Cancelling running tasks](./TUTORIAL.md#523-cancelling-running-tasks) A "gotcha".
  6. [Interfacing hardware](./TUTORIAL.md#6-interfacing-hardware)  
   6.1 [Timing issues](./TUTORIAL.md#61-timing-issues)  
   6.2 [Polling hardware with a task](./TUTORIAL.md#62-polling-hardware-with-a-task)  
   6.3 [Using the stream mechanism](./TUTORIAL.md#63-using-the-stream-mechanism)  
-   6.3.1 [A UART driver example](./TUTORIAL.md#631-a-uart-driver-example)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6.3.1 [A UART driver example](./TUTORIAL.md#631-a-uart-driver-example)  
   6.4 [Writing streaming device drivers](./TUTORIAL.md#64-writing-streaming-device-drivers)  
   6.5 [A complete example: aremote.py](./TUTORIAL.md#65-a-complete-example-aremotepy)
   A driver for an IR remote control receiver.  
@@ -66,7 +67,7 @@ REPL.
   7.4 [Testing](./TUTORIAL.md#74-testing)  
   7.5 [A common error](./TUTORIAL.md#75-a-common-error) This can be hard to find.  
   7.6 [Socket programming](./TUTORIAL.md#76-socket-programming)  
-   7.6.1 [WiFi issues](./TUTORIAL.md#761-wifi-issues)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;7.6.1 [WiFi issues](./TUTORIAL.md#761-wifi-issues)  
   7.7 [CPython compatibility and the event loop](./TUTORIAL.md#77-cpython-compatibility-and-the-event-loop) Compatibility with CPython 3.5+  
   7.8 [Race conditions](./TUTORIAL.md#78-race-conditions)  
  8. [Notes for beginners](./TUTORIAL.md#8-notes-for-beginners)  
@@ -341,31 +342,12 @@ asyncio.run(main())
  CPython the `run` call does not terminate.
  * `await`  Arg: the task or coro to run. If a coro is passed it must be
  specified with function call syntax. Starts the task ASAP. The awaiting task
- blocks until the awaited one has run to completion.
+ blocks until the awaited one has run to completion. As described
+ [in section 2.2](./TUTORIAL.md#22-coroutines-and-tasks) it is possible to
+ `await` a task which has already been started. In this instance the `await` is
+ on the `task` object (function call syntax is not used).
 
 The above are compatible with CPython 3.8 or above.
-
-It is possible to `await` a task which has already been started:
-```python
-import uasyncio as asyncio
-async def bar(x):
-    count = 0
-    for _ in range(5):
-        count += 1
-        print('Instance: {} count: {}'.format(x, count))
-        await asyncio.sleep(1)  # Pause 1s
-
-async def main():
-    my_task =  asyncio.create_task(bar(1))
-    print('Task is running')
-    await asyncio.sleep(2)  # Do something else
-    print('Awaiting task')
-    await my_task  # If the task has already finished, this returns immediately
-    return 10
-
-a = asyncio.run(main())
-print(a)
-```
 
 ###### [Contents](./TUTORIAL.md#contents)
 
@@ -415,10 +397,11 @@ retrieve the returned data issue:
 result = await my_task()
 ```
 
-It is possible to await completion of multiple asynchronously running tasks,
-accessing the return value of each. This is done by `uasyncio.gather` which
-launches a number of tasks and pauses until the last terminates. It returns a
-list containing the data returned by each task:
+It is possible to await completion of a set of multiple asynchronously running
+tasks, accessing the return value of each. This is done by
+[uasyncio.gather](./TUTORIAL.md#33-gather) which launches the tasks and pauses
+until the last terminates. It returns a list containing the data returned by
+each task:
 ```python
 import uasyncio as asyncio
 
@@ -435,6 +418,54 @@ async def main():
     print(res)
 
 asyncio.run(main())
+```
+
+###### [Contents](./TUTORIAL.md#contents)
+
+### 2.2.4 A typical firmware app
+
+Most firmware applications run forever. This requires the coro passed to
+`asyncio.run()` to `await` a non-terminating coro.
+
+To ease debugging, and for CPython compatibility, some "boilerplate" code is
+suggested in the sample below.
+
+By default an exception in a task will not stop the application as a whole from
+running. This can make debugging difficult. The fix shown below is discussed
+[in 5.1.1](./TUTORIAL.md#511-global-exception-handler).
+
+It is bad practice to create a task prior to issuing `asyncio.run()`. CPython
+will throw an exception in this case. MicroPython
+[does not](https://github.com/micropython/micropython/issues/6174) but it's
+wise to avoid doing this.
+
+Lastly, `uasyncio` retains state. This means that, by default, you need to
+reboot between runs of an application. This can be fixed with the
+`new_event_loop` method discussed
+[in 7.2](./TUTORIAL.md#72-uasyncio-retains-state).
+
+These considerations suggest the following application structure:
+```python
+import uasyncio as asyncio
+from my_app import MyClass
+
+def set_global_exception():
+    def handle_exception(loop, context):
+        import sys
+        sys.print_exception(context["exception"])
+        sys.exit()
+    loop = asyncio.get_event_loop()
+    loop.set_exception_handler(handle_exception)
+
+async def main():
+    set_global_exception()  # Debug aid
+    my_class = MyClass()  # Constructor might create tasks
+    asyncio.create_task(my_class.foo())  # Or you might do this
+    await my_class.run_forever()  # Non-terminating method
+try:
+    asyncio.run(main())
+finally:
+    asyncio.new_event_loop()  # Clear retained state
 ```
 
 ###### [Contents](./TUTORIAL.md#contents)
@@ -501,7 +532,7 @@ following classes which are non-standard, are also in that directory:
  Calls a user callback if not cancelled or regularly retriggered.
 
 A further set of primitives for synchronising hardware are detailed in
-[section 3.9](./TUTORIAL.md#38-synchronising-to-hardware).
+[section 3.9](./TUTORIAL.md#39-synchronising-to-hardware).
 
 To install the primitives, copy the `primitives` directory and contents to the
 target. A primitive is loaded by issuing (for example):
@@ -861,8 +892,8 @@ This is an unofficial primitive and has no counterpart in CPython asyncio.
 
 This is a minor adaptation of the `Event` class. It provides the following:
  * `.set()` has an optional data payload.
- * `.set()` is capable of being called from an interrupt service routine - a
- feature not yet available in the more efficient official `Event`.
+ * `.set()` is capable of being called from a hard or soft interrupt service
+ routine - a feature not yet available in the more efficient official `Event`.
  * It is an awaitable class.
 
 The `.set()` method can accept an optional data value of any type. A task
@@ -1049,6 +1080,7 @@ import uasyncio as asyncio
 from primitives.delay_ms import Delay_ms
 
 async def my_app():
+    d = Delay_ms(callback, ('Callback running',))
     print('Holding off callback')
     for _ in range(10):  # Hold off for 5 secs
         await asyncio.sleep_ms(500)
@@ -1060,7 +1092,6 @@ async def my_app():
 def callback(v):
     print(v)
 
-d = Delay_ms(callback, ('Callback running',))
 try:
     asyncio.run(my_app())
 finally:
@@ -2445,6 +2476,11 @@ required, especially one below a few ms, it may be necessary to use
 The initial reaction of beginners to the idea of cooperative multi-tasking is
 often one of disappointment. Surely pre-emptive is better? Why should I have to
 explicitly yield control when the Python virtual machine can do it for me?
+
+My background is in hardware interfacing: I am not a web developer. I found
+[this video](https://www.youtube.com/watch?v=kdzL3r-yJZY) to be an interesting
+beginner-level introduction to asynchronous web programming which discusses the
+relative merits of cooperative and pre-emptive scheduling in that environment.
 
 When it comes to embedded systems the cooperative model has two advantages.
 Firstly, it is lightweight. It is possible to have large numbers of tasks
