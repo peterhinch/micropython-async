@@ -153,7 +153,7 @@ Constructor arguments:
  1. `pin` Mandatory. The initialised Pin instance.
  2. `suppress` Default `False`. See
  [section 4.1.1](./DRIVERS.md#411-the-suppress-constructor-argument).
- 3. `sense` Default `None`. See
+ 3. `sense` Default `None`. Option to define electrical connection. See
  [section 4.1.2](./DRIVERS.md#412-the-sense-constructor-argument).
 
 Methods:
@@ -227,11 +227,20 @@ set, `release_func` will be launched as follows:
 
 ### 4.1.2 The sense constructor argument
 
+In most applications it can be assumed that, at power-up, pushbuttons are not
+pressed. The default `None` value uses this assumption to assign the `False`
+(not pressed) state at power up. It therefore works with normally open or
+normally closed buttons wired to either supply rail. This without programmer
+intervention.
+
+In certain use cases this assumption does not hold, and `sense` must explicitly
+be specified. This defines the logical state at power-up regardless of whether,
+at that time, the button is pressed. Hence `sense=0` defines a button connected
+in such a way that when it is not pressed, the voltage on the pin is 0.
+
 When the pin value changes, the new value is compared with `sense` to determine
 if the button is closed or open. This is to allow the designer to specify if
 the `closed` state of the button is active `high` or active `low`.
-
-This parameter will default to the current value of `pin` for convienence.
 
 ###### [Contents](./DRIVERS.md#1-contents)
 
