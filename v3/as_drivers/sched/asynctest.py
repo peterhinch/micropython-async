@@ -5,7 +5,6 @@
 
 import uasyncio as asyncio
 from sched.sched import schedule
-from sched.cron import cron
 from time import localtime
 
 def foo(txt):  # Demonstrate callback
@@ -21,17 +20,14 @@ async def bar(txt):  # Demonstrate coro launch
 
 async def main():
     print('Asynchronous test running...')
-    cron4 = cron(hrs=None, mins=range(0, 60, 4))
-    asyncio.create_task(schedule(cron4, foo, ('every 4 mins',)))
+    asyncio.create_task(schedule(foo, 'every 4 mins', hrs=None, mins=range(0, 60, 4)))
 
-    cron5 = cron(hrs=None, mins=range(0, 60, 5))
-    asyncio.create_task(schedule(cron5, foo, ('every 5 mins',)))
+    asyncio.create_task(schedule(foo, 'every 5 mins', hrs=None, mins=range(0, 60, 5)))
 
-    cron3 = cron(hrs=None, mins=range(0, 60, 3))  # Launch a coroutine
-    asyncio.create_task(schedule(cron3, bar, ('every 3 mins',)))
+    # Launch a coroutine
+    asyncio.create_task(schedule(bar, 'every 3 mins', hrs=None, mins=range(0, 60, 3)))
 
-    cron2 = cron(hrs=None, mins=range(0, 60, 2))
-    asyncio.create_task(schedule(cron2, foo, ('one shot',), True))
+    asyncio.create_task(schedule(foo, 'one shot', hrs=None, mins=range(0, 60, 2), times=1))
     await asyncio.sleep(900)  # Quit after 15 minutes
 
 try:

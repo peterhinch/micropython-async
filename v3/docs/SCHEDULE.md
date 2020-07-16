@@ -3,14 +3,16 @@
  1. [Scheduling tasks](./SCHEDULE.md#1-scheduling-tasks)  
  2. [Overview](./SCHEDULE.md#2-overview)  
  3. [Installation](./SCHEDULE.md#3-installation)  
- 4. [The cron object](./SCHEDULE.md#4-the-cron-object) How to specify times and dates  
+ 4. [The schedule function](./SCHEDULE.md#4-the-schedule-function) The primary interface for uasyncio  
   4.1 [Time specifiers](./SCHEDULE.md#41-time-specifiers)  
-  4.2 [The time to an event](./SCHEDULE.md#42-the-time-to-an-event)  
-  4.3 [How it works](./SCHEDULE.md#43-how-it-works)  
-  4.4 [Calendar behaviour](./SCHEDULE.md#44-calendar-behaviour)  
-  4.5 [Limitations](./SCHEDULE.md#45-limitations)  
-  4.6 [The Unix build](./SCHEDULE.md#46-the-unix-build)  
- 5. [The schedule function](./SCHEDULE.md#5-the-schedule-function) The primary interface for uasyncio  
+  4.2 [Calendar behaviour](./SCHEDULE.md#42-calendar-behaviour) Calendars can be tricky...  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.2.1 [Behaviour of mday and wday values](./SCHEDULE.md#421-behaviour-of-mday-and-wday-values)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.2.2 [Time causing month rollover](./SCHEDULE.md#422-time-causing-month-rollover)  
+  4.3 [Limitations](./SCHEDULE.md#43-limitations)  
+  4.4 [The Unix build](./SCHEDULE.md#44-the-unix-build)  
+ 5. [The cron object](./SCHEDULE.md#5-the-cron-object) For hackers and synchronous coders  
+  5.1 [The time to an event](./SCHEDULE.md#51-the-time-to-an-event)  
+  5.2 [How it works](./SCHEDULE.md#52-how-it-works)  
  6. [Hardware timing limitations](./SCHEDULE.md#6-hardware-timing-limitations)  
  7. [Use in synchronous code](./SCHEDULE.md#7-use-in-synchronous-code) If you really must  
 
@@ -39,15 +41,18 @@ and the Unix build (the latter is subject to a minor local time issue).
 
 # 2. Overview
 
-There are two components, the `cron` object (in `sched/cron.py`) and the
-`schedule` function (in `sched/sched.py`). The user creates `cron` instances,
-passing arguments specifying time intervals. The `cron` instance may be run at
-any time and will return the time in seconds to the next scheduled event.
+The `schedule` function (`sched/sched.py`) is the interface for use with
+`uasyncio`. The function takes a callback and causes that callback to run at
+specified times. A coroutine may be substituted for the callback - at the
+specified times it will be promoted to a `Task` and run.
 
-The `schedule` function is an optional component for use with `uasyncio`. The
-function takes a `cron` instance and a callback and causes that callback to run
-at the times specified by the `cron`. A coroutine may be substituted for the
-callback - at the specified times it will be promoted to a `Task` and run.
+The `schedule` function instantiates a `cron` object (in `sched/cron.py`). This
+is the core of the scheduler: it is a closure created with a time specifier and
+returning the time to the next scheduled event. Users of `uasyncio` do not need
+to deal with `cron` instances.
+
+This library can also be used in synchronous code, in which case `cron`
+instances must explicitly be created.
 
 ##### [Top](./SCHEDULE.md#0-contents)
 
@@ -77,21 +82,67 @@ The `crontest` script is only of interest to those wishing to adapt `cron.py`.
 To run error-free a bare metal target should be used for the reason discussed
 [here](./SCHEDULE.md#46-the-unix-build).
 
-# 4. The cron object
+# 4. The schedule function
 
-This is a closure. It accepts a time specification for future events. Each call
-when passed the current time returns the number of seconds to wait for the next
-event to occur.
+This enables a callback or coroutine to be run at intervals. The callable can
+be specified to run once only. `schedule` is an asynchronous function.
 
-It takes the following keyword-only args. A flexible set of data types are
-accepted. These are known as `Time specifiers` and described below. Valid
-numbers are shown as inclusive ranges.
+Positional args:
+ 1. `func` The callable (callback or coroutine) to run.
+ 2. Any further positional args are passed to the callable.
+
+Keyword-only args. Args 1..6 are
+[Time specifiers](./SCHEDULE.md#41-time-specifiers): a variety of data types
+may be passed, but all ultimately produce integers (or `None`). Valid numbers
+are shown as inclusive ranges.
  1. `secs=0` Seconds (0..59).
  2. `mins=0` Minutes (0..59).
  3. `hrs=3` Hours (0..23).
  4. `mday=None` Day of month (1..31).
  5. `month=None` Months (1..12).
  6. `wday=None` Weekday (0..6 Mon..Sun).
+ 7. `times=None` If an integer `n` is passed the callable will be run at the
+ next `n` scheduled times. Hence a value of 1 specifies a one-shot event.
+
+The `schedule` function only terminates if `times` is not `None`, and then
+typically after a long time. Consequently `schedule` is usually started with
+`asyncio.create_task`, as in the following example where a callback is
+scheduled at various times. The code below may be run by issuing
+```python
+import sched.asynctest
+```
+This is the demo code.
+```python
+import uasyncio as asyncio
+from sched.sched import schedule
+from time import localtime
+
+def foo(txt):  # Demonstrate callback
+    yr, mo, md, h, m, s, wd = localtime()[:7]
+    fst = 'Callback {} {:02d}:{:02d}:{:02d} on {:02d}/{:02d}/{:02d}'
+    print(fst.format(txt, h, m, s, md, mo, yr))
+
+async def bar(txt):  # Demonstrate coro launch
+    yr, mo, md, h, m, s, wd = localtime()[:7]
+    fst = 'Coroutine {} {:02d}:{:02d}:{:02d} on {:02d}/{:02d}/{:02d}'
+    print(fst.format(txt, h, m, s, md, mo, yr))
+    await asyncio.sleep(0)
+
+async def main():
+    print('Asynchronous test running...')
+    asyncio.create_task(schedule(foo, 'every 4 mins', hrs=None, mins=range(0, 60, 4)))
+    asyncio.create_task(schedule(foo, 'every 5 mins', hrs=None, mins=range(0, 60, 5)))
+    # Launch a coroutine
+    asyncio.create_task(schedule(bar, 'every 3 mins', hrs=None, mins=range(0, 60, 3)))
+    # Launch a one-shot task
+    asyncio.create_task(schedule(foo, 'one shot', hrs=None, mins=range(0, 60, 2), times=1))
+    await asyncio.sleep(900)  # Quit after 15 minutes
+
+try:
+    asyncio.run(main())
+finally:
+    _ = asyncio.new_event_loop()
+```
 
 ##### [Top](./SCHEDULE.md#0-contents)
 
@@ -105,8 +156,8 @@ The args may be of the following types.
  `wday=range(0, 5)` specifies weekdays. Tuples, lists, ranges or sets may be
  passed.
 
-Legal ranges are listed above. Basic validation is done when a `cron` is
-instantiated.
+Legal integer values are listed above. Basic validation is done as soon as
+`schedule` is run.
 
 Note the implications of the `None` wildcard. Setting `mins=None` will schedule
 the event to occur on every minute (equivalent to `*` in a Unix cron table).
@@ -115,38 +166,13 @@ events must be at least two seconds apart.
 
 Default values schedule an event every day at 03.00.00.
 
-## 4.2 The time to an event
-
-When the `cron` instance is run, it must be passed a time value (normally the
-time now as returned by `time.time()`). The instance returns the number of
-seconds to the first event matching the specifier.
-
-```python
-from sched.cron import cron
-cron1 = cron(hrs=None, mins=range(0, 60, 15))  # Every 15 minutes of every day
-cron2 = cron(mday=25, month=12, hrs=9)  # 9am every Christmas day
-cron3 = cron(wday=(0, 4))  # 3am every Monday and Friday
-now = int(time.time())  # Unix build returns a float here
-tnext = min(cron1(now), cron2(now), cron3(now))  # Seconds until 1st event
-```
-
-##### [Top](./SCHEDULE.md#0-contents)
-
-## 4.3 How it works
-
-When a cron instance is run it seeks a future time and date relative to the
-passed time value. This will be the soonest matching the specifier. A `cron`
-instance is a conventional function and does not store state. Repeated calls
-will return the same value if passed the same time value (`now` in the above
-example).
-
-## 4.4 Calendar behaviour
+## 4.2 Calendar behaviour
 
 Specifying a day in the month which exceeds the length of a specified month
 (e.g. `month=(2, 6, 7), mday=30`) will produce a `ValueError`. February is
 assumed to have 28 days.
 
-### 4.4.1 Behaviour of mday and wday values
+### 4.2.1 Behaviour of mday and wday values
 
 The following describes how to schedule something for (say) the second Sunday
 in a month, plus limitations of doing this.
@@ -164,30 +190,30 @@ Specifying `wday=d` and `mday=n` where n > 22 could result in a day beyond the
 end of the month. It's not obvious what constitutes rational behaviour in this
 pathological corner case. Validation will throw a `ValueError` in this case.
 
-### 4.4.2 Time causing month rollover
+### 4.2.2 Time causing month rollover
 
 The following describes behaviour which I consider correct.
 
 On the last day of the month there are circumstances where a time specifier can
-cause a day rollover. Consider application start. If a `cron` is run whose time
-specifier provides only times prior to the current time, its month increments
-and the day changes to the 1st. This is the soonest that the event can occur at
-the specified time.
+cause a day rollover. Consider application start. If a callback is scheduled
+with a time specifier offering only times prior to the current time, its month
+increments and the day changes to the 1st. This is the soonest that the event
+can occur at the specified time.
 
 Consider the case where the next month is disallowed. In this case the month
 will change to the next valid month. This code, run at 9am on 31st July, would
-aim to run the event at 1.59 on 1st October.
+aim to run `foo` at 1.59 on 1st October.
 ```python
-my_cron(month=(2, 7, 10), hrs=1, mins=59)  # moves forward 1 day
-t_wait = my_cron(time.time())  # Next month is disallowed so jumps to October
+asyncio.create_task(schedule(foo, month=(2, 7, 10), hrs=1, mins=59))
 ```
 
 ##### [Top](./SCHEDULE.md#0-contents)
 
-## 4.5 Limitations
+## 4.3 Limitations
 
-The `cron` code has a resolution of 1 second. It is intended for scheduling
-infrequent events (`uasyncio` is recommended for doing fast scheduling).
+The underlying `cron` code has a resolution of 1 second. The library is
+intended for scheduling infrequent events (`uasyncio` has its own approach to
+fast scheduling).
 
 Specifying `secs=None` will cause a `ValueError`. The minimum interval between
 scheduled events is 2 seconds. Attempts to schedule events with a shorter gap
@@ -200,7 +226,7 @@ On hardware platforms the MicroPython `time` module does not handle daylight
 saving time. Scheduled times are relative to system time. This does not apply
 to the Unix build where daylight saving needs to be considered.
 
-## 4.6 The Unix build
+## 4.4 The Unix build
 
 Asynchronous use requires `uasyncio` V3, so ensure this is installed on the
 Linux target.
@@ -221,61 +247,50 @@ metal targets.
 
 ##### [Top](./SCHEDULE.md#0-contents)
 
-# 5. The schedule function
+# 5. The cron object
 
-This enables a callback or coroutine to be run at intervals specified by a
-`cron` instance. An option for one-shot use is available. It is an asynchronous
-function. Positional args:
- 1. `fcron` A `cron` instance.
- 2. `routine` The callable (callback or coroutine) to run.
- 3. `args=()` A tuple of args for the callable.
- 4. `run_once=False` If `True` the callable will be run once only.
+This is the core of the scheduler. Users of `uasyncio` do not need to concern
+themseleves with it. It is documented for those wishing to modify the code and
+for those wanting to perform scheduling in synchronous code.
 
-The `schedule` function only terminates if `run_once=True`, and then typically
-after a long time. Usually `schedule` is started with `asyncio.create_task`, as
-in the following example where a callback is scheduled at various times. The
-code below may be run by issuing
+It is a closure whose creation accepts a time specification for future events.
+Each subsequent call is passed the current time and returns the number of
+seconds to wait for the next event to occur.
+
+It takes the following keyword-only args. A flexible set of data types are
+accepted namely [time specifiers](./SCHEDULE.md#41-time-specifiers). Valid
+numbers are shown as inclusive ranges.
+ 1. `secs=0` Seconds (0..59).
+ 2. `mins=0` Minutes (0..59).
+ 3. `hrs=3` Hours (0..23).
+ 4. `mday=None` Day of month (1..31).
+ 5. `month=None` Months (1..12).
+ 6. `wday=None` Weekday (0..6 Mon..Sun).
+
+## 5.1 The time to an event
+
+When the `cron` instance is run, it must be passed a time value (normally the
+time now as returned by `time.time()`). The instance returns the number of
+seconds to the first event matching the specifier.
+
 ```python
-import sched.asynctest
-```
-This is the demo code.
-```python
-import uasyncio as asyncio
-from sched.sched import schedule
 from sched.cron import cron
-from time import localtime
-
-def foo(txt):  # Demonstrate callback
-    yr, mo, md, h, m, s, wd = localtime()[:7]
-    fst = 'Callback {} {:02d}:{:02d}:{:02d} on {:02d}/{:02d}/{:02d}'
-    print(fst.format(txt, h, m, s, md, mo, yr))
-
-async def bar(txt):  # Demonstrate coro launch
-    yr, mo, md, h, m, s, wd = localtime()[:7]
-    fst = 'Coroutine {} {:02d}:{:02d}:{:02d} on {:02d}/{:02d}/{:02d}'
-    print(fst.format(txt, h, m, s, md, mo, yr))
-    await asyncio.sleep(0)
-
-async def main():
-    print('Asynchronous test running...')
-    cron4 = cron(hrs=None, mins=range(0, 60, 4))
-    asyncio.create_task(schedule(cron4, foo, ('every 4 mins',)))
-
-    cron5 = cron(hrs=None, mins=range(0, 60, 5))
-    asyncio.create_task(schedule(cron5, foo, ('every 5 mins',)))
-
-    cron3 = cron(hrs=None, mins=range(0, 60, 3))  # Launch a coroutine
-    asyncio.create_task(schedule(cron3, bar, ('every 3 mins',)))
-
-    cron2 = cron(hrs=None, mins=range(0, 60, 2))
-    asyncio.create_task(schedule(cron2, foo, ('one shot',), True))
-    await asyncio.sleep(900)  # Quit after 15 minutes
-
-try:
-    asyncio.run(main())
-finally:
-    _ = asyncio.new_event_loop()
+cron1 = cron(hrs=None, mins=range(0, 60, 15))  # Every 15 minutes of every day
+cron2 = cron(mday=25, month=12, hrs=9)  # 9am every Christmas day
+cron3 = cron(wday=(0, 4))  # 3am every Monday and Friday
+now = int(time.time())  # Unix build returns a float here
+tnext = min(cron1(now), cron2(now), cron3(now))  # Seconds until 1st event
 ```
+
+##### [Top](./SCHEDULE.md#0-contents)
+
+## 5.2 How it works
+
+When a cron instance is run it seeks a future time and date relative to the
+passed time value. This will be the soonest matching the specifier. A `cron`
+instance is a conventional function and does not store state. Repeated calls
+will return the same value if passed the same time value (`now` in the above
+example).
 
 ##### [Top](./SCHEDULE.md#0-contents)
 
@@ -354,7 +369,8 @@ main()
 
 In my opinion the asynchronous version is cleaner and easier to understand. It
 is also more versatile because the advanced features of `uasyncio` are
-available to the application. The above code is incompatible with `uasyncio`
-because of the blocking calls to `time.sleep()`.
+available to the application including cancellation of scheduled tasks. The
+above code is incompatible with `uasyncio` because of the blocking calls to
+`time.sleep()`.
 
 ##### [Top](./SCHEDULE.md#0-contents)

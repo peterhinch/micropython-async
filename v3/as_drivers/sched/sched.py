@@ -6,16 +6,18 @@
 import uasyncio as asyncio
 from sched.primitives import launch
 from time import time
+from sched.cron import cron
 
-async def schedule(fcron, routine, args=(), run_once=False):
+async def schedule(func, *args, times=None, **kwargs):
+    fcron = cron(**kwargs)
     maxt = 1000  # uasyncio can't handle arbitrarily long delays
-    done = False
-    while not done:
+    while times is None or times > 0:
         tw = fcron(int(time()))  # Time to wait (s)
         while tw > 0:  # While there is still time to wait
             tw = min(tw, maxt)
             await asyncio.sleep(tw)
             tw -= maxt
-        launch(routine, args)
-        done = run_once
+        launch(func, args)
+        if times is not None:
+            times -= 1
         await asyncio.sleep_ms(1200)  # ensure we're into next second
