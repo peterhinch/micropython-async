@@ -85,7 +85,8 @@ To run error-free a bare metal target should be used for the reason discussed
 # 4. The schedule function
 
 This enables a callback or coroutine to be run at intervals. The callable can
-be specified to run once only. `schedule` is an asynchronous function.
+be specified to run forever, once only or a fixed number of times. `schedule`
+is an asynchronous function.
 
 Positional args:
  1. `func` The callable (callback or coroutine) to run.
@@ -104,8 +105,11 @@ are shown as inclusive ranges.
  7. `times=None` If an integer `n` is passed the callable will be run at the
  next `n` scheduled times. Hence a value of 1 specifies a one-shot event.
 
-The `schedule` function only terminates if `times` is not `None`, and then
-typically after a long time. Consequently `schedule` is usually started with
+The `schedule` function only terminates if `times` is not `None`. In this case
+termination occurs after the last run of the callable and the return value is
+the value returned by that run of the callable.
+
+Because `schedule` does not terminate promptly it is usually started with
 `asyncio.create_task`, as in the following example where a callback is
 scheduled at various times. The code below may be run by issuing
 ```python

@@ -17,7 +17,8 @@ async def schedule(func, *args, times=None, **kwargs):
             tw = min(tw, maxt)
             await asyncio.sleep(tw)
             tw -= maxt
-        launch(func, args)
+        res = launch(func, args)
         if times is not None:
             times -= 1
         await asyncio.sleep_ms(1200)  # ensure we're into next second
+    return res
