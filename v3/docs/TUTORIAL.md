@@ -1242,7 +1242,7 @@ class AsyncIterable:
         self.data = (1, 2, 3, 4, 5)
         self.index = 0
 
-    async def __aiter__(self):
+    def __aiter__(self):  # See note below
         return self
 
     async def __anext__(self):
@@ -1266,6 +1266,9 @@ async def run():
         print(x)
 asyncio.run(run())
 ```
+The `__aiter__` method was formerly an asynchronous method. CPython 3.6 accepts
+synchronous or asynchronous methods. CPython 3.8 and MicroPython require
+synchronous code [ref](https://github.com/micropython/micropython/pull/6272).
 
 ###### [Contents](./TUTORIAL.md#contents)
 
