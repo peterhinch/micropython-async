@@ -838,12 +838,16 @@ These tests allow NMEA parsing to be verified in the absence of GPS hardware:
 
  * `astests_pyb.py` Test with synthetic data on UART. GPS hardware replaced by
  a loopback on UART 4. Requires a Pyboard.
- * `astests.py` Test with synthetic data. Run on CPython 3.8+ or MicroPython.
- Run as follows:
+ * `astests.py` Test with synthetic data. Run on a PC under CPython 3.8+ or
+ MicroPython. Run from the `v3` directory at the REPL as follows:
 
 ```python
 from as_drivers.as_GPS.astests import run_tests
 run_tests()
+```
+or at the command line:
+```bash
+$ micropython -m as_drivers.as_GPS.astests
 ```
 
 ###### [Top](./GPS.md#1-as_gps)
