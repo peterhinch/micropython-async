@@ -48,7 +48,7 @@ class Queue:
         self._queue.append(val)
 
     async def put(self, val):  # Usage: await queue.put(item)
-        if self.qsize() >= self.maxsize and self.maxsize:
+        if self.full():
             # Queue full
             self._evget.clear()
             await self._evget.wait()
@@ -56,7 +56,7 @@ class Queue:
         self._put(val)
 
     def put_nowait(self, val):  # Put an item into the queue without blocking.
-        if self.maxsize and self.qsize() >= self.maxsize:
+        if self.full():
             raise QueueFull()
         self._put(val)
 
@@ -67,10 +67,6 @@ class Queue:
         return len(self._queue) == 0
 
     def full(self):  # Return True if there are maxsize items in the queue.
-        # Note: if the Queue was initialized with maxsize=0 (the default),
-        # then full() is never True.
-
-        if self.maxsize <= 0:
-            return False
-        else:
-            return self.qsize() >= self.maxsize
+        # Note: if the Queue was initialized with maxsize=0 (the default) or
+        # any negative number, then full() is never True.
+        return self.maxsize > 0 and self.qsize() >= self.maxsize
