@@ -56,7 +56,7 @@ class Queue:
         self._put(val)
 
     def put_nowait(self, val):  # Put an item into the queue without blocking.
-        if self.qsize() >= self.maxsize and self.maxsize:
+        if self.maxsize and self.qsize() >= self.maxsize:
             raise QueueFull()
         self._put(val)
 
