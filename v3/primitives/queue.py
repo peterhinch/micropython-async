@@ -33,8 +33,8 @@ class Queue:
     async def get(self):  #  Usage: item = await queue.get()
         if self.empty():
             # Queue is empty, put the calling Task on the waiting queue
-            await self._evput.wait()
             self._evput.clear()
+            await self._evput.wait()
         return self._get()
 
     def get_nowait(self):  # Remove and return an item from the queue.
@@ -50,8 +50,8 @@ class Queue:
     async def put(self, val):  # Usage: await queue.put(item)
         if self.qsize() >= self.maxsize and self.maxsize:
             # Queue full
-            await self._evget.wait()
             self._evget.clear()
+            await self._evget.wait()
             # Task(s) waiting to get from queue, schedule first Task
         self._put(val)
 
