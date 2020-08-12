@@ -1,7 +1,7 @@
 # userver.py Demo of simple uasyncio-based echo server
 
 # Released under the MIT licence
-# Copyright (c) Peter Hinch 2019
+# Copyright (c) Peter Hinch 2019-2020
 
 import usocket as socket
 import uasyncio as asyncio
@@ -11,11 +11,17 @@ from heartbeat import heartbeat  # Optional LED flash
 
 class Server:
 
-    async def run(self, port=8123):
+    def __init__(self, host='0.0.0.0', port=8123, backlog=5, timeout=20):
+        self.host = host
+        self.port = port
+        self.backlog = backlog
+        self.timeout = timeout
+
+    async def run(self):
         print('Awaiting client connection.')
         self.cid = 0
         asyncio.create_task(heartbeat(100))
-        self.server = await asyncio.start_server(self.run_client, '0.0.0.0', port)
+        self.server = await asyncio.start_server(self.run_client, self.host, self.port, self.backlog)
         while True:
             await asyncio.sleep(100)
 
@@ -24,7 +30,10 @@ class Server:
         print('Got connection from client', self.cid)
         try:
             while True:
-                res = await sreader.readline()
+                try:
+                    res = await asyncio.wait_for(sreader.readline(), self.timeout)
+                except asyncio.TimeoutError:
+                    res = b''
                 if res == b'':
                     raise OSError
                 print('Received {} from client {}'.format(ujson.loads(res.rstrip()), self.cid))
