@@ -205,25 +205,37 @@ number of coroutines.
 ### 4.1.1 The suppress constructor argument
 
 When the button is pressed `press_func` runs immediately. This minimal latency
-is ideal for applications such as games, but does imply that in the event of a
-long press, both `press_func` and `long_func` run: `press_func` immediately and
-`long_func` if the button is still pressed when the timer has elapsed. Similar
-reasoning applies to the double click function.
+is ideal for applications such as games. Consider a long press: `press_func`
+runs initially, then `long_func`, and finally `release_func`. In the case of a
+double-click `press_func` and `release_func` will run twice; `double_func` runs
+once.
 
 There can be a need for a `callable` which runs if a button is pressed but
-only if a doubleclick or long press function does not run. The soonest that the
-absence of a long press can be detected is on button release. The absence of a
-double click can only be detected when the double click timer times out without
-a second press occurring.
+only if a doubleclick or long press function does not run. The `suppress` arg
+changes the behaviour of `release_func` to fill that role. This has timing
+implications.
 
-This `callable` is the `release_func`. If the `suppress` constructor arg is
-set, `release_func` will be launched as follows:
+The soonest that the absence of a long press can be detected is on button
+release. Absence of a double click can only be detected when the double click
+timer times out without a second press occurring.
+
+Note `suppress` affects the behaviour of `release_func` only. Other callbacks
+including `press_func` behave normally.
+
+If the `suppress` constructor arg is set, `release_func` will be launched as
+follows:
  1. If `double_func` does not exist on rapid button release.
  2. If `double_func` exists, after the expiration of the doubleclick timer.
  3. If `long_func` exists and the press duration causes `long_func` to be
  launched, `release_func` will not be launched.
  4. If `double_func` exists and a double click occurs, `release_func` will not
  be launched.
+
+In the typical case where `long_func` and `double_func` are both defined, this
+ensures that only one of `long_func`, `double_func` and `release_func` run. In
+the case of a single short press, `release_func` will be delayed until the
+expiry of the double-click timer (because until that time a second click might
+occur).
 
 ### 4.1.2 The sense constructor argument
 
