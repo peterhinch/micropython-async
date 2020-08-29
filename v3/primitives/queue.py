@@ -31,8 +31,9 @@ class Queue:
         return self._queue.pop(0)
 
     async def get(self):  #  Usage: item = await queue.get()
-        if self.empty():
-            # Queue is empty, put the calling Task on the waiting queue
+        while self.empty():  # May be multiple tasks waiting on get()
+            # Queue is empty, suspend task until a put occurs
+            # 1st of N tasks gets, the rest loop again
             self._evput.clear()
             await self._evput.wait()
         return self._get()
@@ -48,7 +49,7 @@ class Queue:
         self._queue.append(val)
 
     async def put(self, val):  # Usage: await queue.put(item)
-        if self.full():
+        while self.full():
             # Queue full
             self._evget.clear()
             await self._evget.wait()
