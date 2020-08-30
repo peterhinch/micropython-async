@@ -27,14 +27,14 @@ class Queue:
         self._evget = asyncio.Event()  # Triggered by get, tested by put
 
     def _get(self):
-        self._evget.set()
+        self._evget.set()  # Schedule all tasks waiting on get
+        self._evget.clear()
         return self._queue.pop(0)
 
     async def get(self):  #  Usage: item = await queue.get()
         while self.empty():  # May be multiple tasks waiting on get()
             # Queue is empty, suspend task until a put occurs
             # 1st of N tasks gets, the rest loop again
-            self._evput.clear()
             await self._evput.wait()
         return self._get()
 
@@ -45,13 +45,13 @@ class Queue:
         return self._get()
 
     def _put(self, val):
-        self._evput.set()
+        self._evput.set()  # Schedule tasks waiting on put
+        self._evput.clear()
         self._queue.append(val)
 
     async def put(self, val):  # Usage: await queue.put(item)
         while self.full():
             # Queue full
-            self._evget.clear()
             await self._evget.wait()
             # Task(s) waiting to get from queue, schedule first Task
         self._put(val)

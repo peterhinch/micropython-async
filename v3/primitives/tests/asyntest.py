@@ -374,39 +374,97 @@ Done.
 # ************ Queue test ************
 
 from primitives.queue import Queue
-q = Queue()
 
 async def slow_process():
     await asyncio.sleep(2)
     return 42
 
-async def bar():
+async def bar(q):
     print('Waiting for slow process.')
     result = await slow_process()
     print('Putting result onto queue')
     await q.put(result)  # Put result on q
 
-async def foo():
+async def foo(q):
     print("Running foo()")
     result = await q.get()
     print('Result was {}'.format(result))
 
-async def queue_go(delay):
-    asyncio.create_task(foo())
-    asyncio.create_task(bar())
-    await asyncio.sleep(delay)
+async def q_put(n, q):
+    for x in range(8):
+        obj = (n, x)
+        await q.put(obj)
+        await asyncio.sleep(0)
+
+async def q_get(n, q):
+    for x in range(8):
+        await q.get()
+        await asyncio.sleep(0)
+
+async def putter(q):
+    # put some item, then sleep
+    for _ in range(20):
+        await q.put(1)
+        await asyncio.sleep_ms(50)
+
+
+async def getter(q):
+   # checks for new items, and relies on the "blocking" of the get method
+    for _ in range(20):
+        await q.get()
+
+async def queue_go():
+    q = Queue(10)
+    asyncio.create_task(foo(q))
+    asyncio.create_task(bar(q))
+    await asyncio.sleep(3)
+    for n in range(4):
+        asyncio.create_task(q_put(n, q))
+    await asyncio.sleep(1)
+    assert q.qsize() == 10
+    await q.get()
+    await asyncio.sleep(0.1)
+    assert q.qsize() == 10
+    while not q.empty():
+        await q.get()
+        await asyncio.sleep(0.1)
+    assert q.empty()
+    print('Competing put tasks test complete')
+
+    for n in range(4):
+        asyncio.create_task(q_get(n, q))
+    await asyncio.sleep(1)
+    x = 0
+    while not q.full():
+        await q.put(x)
+        await asyncio.sleep(0.3)
+        x += 1
+    assert q.qsize() == 10
+    print('Competing get tasks test complete')
+    await asyncio.gather(
+        putter(q),
+        getter(q)
+        )
+    print('Queue tests complete')
     print("I've seen starships burn off the shoulder of Orion...")
     print("Time to die...")
 
 def queue_test():
-    printexp('''Running (runtime = 3s):
+    printexp('''Running (runtime = 20s):
 Running foo()
 Waiting for slow process.
 Putting result onto queue
+Result was 42
+Competing put tasks test complete
+Competing get tasks test complete
+Queue tests complete
+
+
 I've seen starships burn off the shoulder of Orion...
 Time to die...
-''', 3)
-    asyncio.run(queue_go(3))
+
+''', 20)
+    asyncio.run(queue_go())
 
 def test(n):
     try:
