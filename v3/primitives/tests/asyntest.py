@@ -23,7 +23,7 @@ def print_tests():
     st = '''Available functions:
 test(0)  Print this list.
 test(1)  Test message acknowledge.
-test(2)  Test Messge and Lock objects.
+test(2)  Test Message and Lock objects.
 test(3)  Test the Barrier class with callback.
 test(4)  Test the Barrier class with coroutine.
 test(5)  Test Semaphore
@@ -175,17 +175,29 @@ async def report(barrier):
         print('{} '.format(i), end='')
         await barrier
 
+async def do_barrier_test():
+    barrier = Barrier(3, callback, ('Synch',))
+    for _ in range(2):
+        for _ in range(3):
+            asyncio.create_task(report(barrier))
+        await asyncio.sleep(1)
+        print()
+    await asyncio.sleep(1)
+
 def barrier_test():
-    printexp('''0 0 0 Synch
+    printexp('''Running (runtime = 3s):
+0 0 0 Synch
 1 1 1 Synch
 2 2 2 Synch
 3 3 3 Synch
 4 4 4 Synch
-''')
-    barrier = Barrier(3, callback, ('Synch',))
-    for _ in range(3):
-        asyncio.create_task(report(barrier))
-    asyncio.run(killer(2))
+
+1 1 1 Synch
+2 2 2 Synch
+3 3 3 Synch
+4 4 4 Synch
+''', 3)
+    asyncio.run(do_barrier_test())
 
 # ************ Barrier test 1 ************
 
@@ -208,7 +220,11 @@ async def bart():
     barrier = Barrier(4, my_coro, ('my_coro running',))
     for x in range(3):
         asyncio.create_task(report1(barrier, x))
+    await asyncio.sleep(4)
+    assert barrier.busy()
     await barrier
+    await asyncio.sleep(0)
+    assert not barrier.busy()
     # Must yield before reading result(). Here we wait long enough for
     await asyncio.sleep_ms(1500)  # coro to print
     barrier.result().cancel()

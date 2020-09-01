@@ -650,49 +650,37 @@ Synchronous Methods:
 Asynchronous Method:
  * `wait` Pause until event is set.
 
-Coros waiting on the event issue `await event.wait()` when execution pauses until
-another issues `event.set()`.
-
-This presents a problem if `event.set()` is issued in a looping construct; the
-code must wait until the event has been accessed by all waiting tasks before
-setting it again. In the case where a single task is awaiting the event this
-can be achieved by the receiving task clearing the event:
-
+Tasks wait on the event by issuing `await event.wait()`; execution pauses until
+another issues `event.set()`. This causes all tasks waiting on the `Event` to
+be queued for execution. Note that the synchronous sequence
 ```python
-async def eventwait(event):
-    await event.wait()
-    # Process the data
-    event.clear()  # Tell the caller it's ready for more
+event.set()
+event.clear()
 ```
+will cause waiting task(s) to resume in round-robin order.
 
-The task raising the event checks that it has been serviced:
+The `Event` class is an efficient and effective way to synchronise tasks, but
+firmware applications often have multiple tasks running `while True:` loops.
+The number of `Event` instances required to synchronise these can multiply.
+Consider the case of one producer task feeding N consumers. The producer sets
+an `Event` to tell the consumer that data is ready; it then needs to wait until
+all consumers have completed before triggering them again. Consider these
+approaches:
+ 1. Each consumer sets an `Event` on completion. Producer waits until all
+ `Event`s are set before clearing them and setting its own `Event`.
+ 2. Consumers do not loop, running to completion. Producer uses `gather` to
+ instantiate consumer tasks and wait on their completion.
+ 3. `Event`s are replaced with a single [Barrier](./TUTORIAL.md#37-barrier)
+ instance.
 
-```python
-async def foo(event):
-    while True:
-        # Acquire data from somewhere
-        while event.is_set():
-            await asyncio.sleep(1) # Wait for task to be ready
-        # Data is available to the task, so alert it:
-        event.set()
-```
-
-Where multiple tasks wait on a single event synchronisation can be achieved by
-means of an acknowledge event. Each task needs a separate event.
-
-```python
-async def eventwait(event, ack_event):
-    await event.wait()
-    ack_event.set()
-```
-
-This is cumbersome. In most cases - even those with a single waiting task - the
-Barrier class offers a simpler approach.
+Solution 1 suffers a proliferation of `Event`s and suffers an inefficient
+busy-wait where the producer waits on N events. Solution 2 is inefficient with
+constant creation of tasks. Arguably the `Barrier` class is the best approach.
 
 **NOTE NOT YET SUPPORTED - see Message class**  
 An Event can also provide a means of communication between an interrupt handler
 and a task. The handler services the hardware and sets an event which is tested
-in slow time by the task.
+in slow time by the task. See [PR6106](https://github.com/micropython/micropython/pull/6106).
 
 ###### [Contents](./TUTORIAL.md#contents)
 
@@ -888,9 +876,9 @@ asyncio.run(queue_go(4))
 
 ## 3.6 Message
 
-This is an unofficial primitive and has no counterpart in CPython asyncio.
+This is an unofficial primitive with no counterpart in CPython asyncio.
 
-This is a minor adaptation of the `Event` class. It provides the following:
+This is similar to the `Event` class. It provides the following:
  * `.set()` has an optional data payload.
  * `.set()` is capable of being called from a hard or soft interrupt service
  routine - a feature not yet available in the more efficient official `Event`.
@@ -927,10 +915,13 @@ async def main():
 
 asyncio.run(main())
 ```
-
 A `Message` can provide a means of communication between an interrupt handler
 and a task. The handler services the hardware and issues `.set()` which is
 tested in slow time by the task.
+
+Currently its behaviour differs from that of `Event` where multiple tasks wait
+on a `Message`. This may change: it is therefore recommended to use `Message`
+instances with only one receiving task.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
@@ -964,6 +955,47 @@ would imply instantiating a set of tasks on every pass of the loop.
 passing a barrier does not imply return. `Barrier` now has an efficient
 implementation using `Event` to suspend waiting tasks.
 
+The following is a typical usage example. A data provider acquires data from
+some hardware and transmits it concurrently on a number of interefaces. These
+run at different speeds. The `Barrier` synchronises these loops. This can run
+on a Pyboard.
+```python
+import uasyncio as asyncio
+from primitives.barrier import Barrier
+from machine import UART
+import ujson
+
+data = None
+async def provider(barrier):
+    global data
+    n = 0
+    while True:
+        n += 1  # Get data from some source
+        data = ujson.dumps([n, 'the quick brown fox jumps over the lazy dog'])
+        print('Provider triggers senders')
+        await barrier  # Free sender tasks
+        print('Provider waits for last sender to complete')
+        await barrier
+
+async def sender(barrier, swriter, n):
+    while True:
+        await barrier  # Provider has got data
+        swriter.write(data)
+        await swriter.drain()
+        print('UART', n, 'sent', data)
+        await barrier  # Trigger provider when last sender has completed
+
+async def main():
+    sw1 = asyncio.StreamWriter(UART(1, 9600), {})
+    sw2 = asyncio.StreamWriter(UART(2, 1200), {})
+    barrier = Barrier(3)
+    for n, sw in enumerate((sw1, sw2)):
+        asyncio.create_task(sender(barrier, sw, n + 1))
+    await provider(barrier)
+
+asyncio.run(main())
+```
+
 Constructor.  
 Mandatory arg:  
  * `participants` The number of coros which will use the barrier.  
@@ -972,8 +1004,8 @@ Optional args:
  * `args` Tuple of args for the callback. Default `()`.
 
 Public synchronous methods:  
- * `busy` No args. Returns `True` if at least one coro is waiting on the
- barrier, or if at least one non-waiting coro has not triggered it.
+ * `busy` No args. Returns `True` if at least one task is waiting on the
+ barrier.
  * `trigger` No args. The barrier records that the coro has passed the critical
  point. Returns "immediately".
  * `result` No args. If a callback was provided, returns the return value from
@@ -999,36 +1031,6 @@ wait on the barrier. That coro will pause until all non-waiting coros have
 passed the barrier, and all waiting coros have reached it. At that point all
 waiting coros will resume. A non-waiting coro issues `barrier.trigger()` to
 indicate that is has passed the critical point.
-
-```python
-import uasyncio as asyncio
-from uasyncio import Event
-from primitives.barrier import Barrier
-
-def callback(text):
-    print(text)
-
-async def report(num, barrier, event):
-    for i in range(5):
-        # De-synchronise for demo
-        await asyncio.sleep_ms(num * 50)
-        print('{} '.format(i), end='')
-        await barrier
-    event.set()
-
-async def main():
-    barrier = Barrier(3, callback, ('Synch',))
-    event = Event()
-    for num in range(3):
-        asyncio.create_task(report(num, barrier, event))
-    await event.wait()
-
-asyncio.run(main())
-```
-
-multiple instances of `report` print their result and pause until the other
-instances are also complete and waiting on `barrier`. At that point the
-callback runs. On its completion the tasks resume.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
