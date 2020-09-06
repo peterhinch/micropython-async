@@ -657,7 +657,7 @@ be queued for execution. Note that the synchronous sequence
 event.set()
 event.clear()
 ```
-will cause waiting task(s) to resume in round-robin order.
+will cause any tasks waiting on the event to resume in round-robin order.
 
 The `Event` class is an efficient and effective way to synchronise tasks, but
 firmware applications often have multiple tasks running `while True:` loops.
@@ -670,7 +670,7 @@ approaches:
  `Event`s are set before clearing them and setting its own `Event`.
  2. Consumers do not loop, running to completion. Producer uses `gather` to
  instantiate consumer tasks and wait on their completion.
- 3. `Event`s are replaced with a single [Barrier](./TUTORIAL.md#37-barrier)
+ 3. `Event` instances are replaced with a single [Barrier](./TUTORIAL.md#37-barrier)
  instance.
 
 Solution 1 suffers a proliferation of `Event`s and suffers an inefficient
@@ -678,7 +678,7 @@ busy-wait where the producer waits on N events. Solution 2 is inefficient with
 constant creation of tasks. Arguably the `Barrier` class is the best approach.
 
 **NOTE NOT YET SUPPORTED - see Message class**  
-An Event can also provide a means of communication between an interrupt handler
+An Event can also provide a means of communication between a soft interrupt handler
 and a task. The handler services the hardware and sets an event which is tested
 in slow time by the task. See [PR6106](https://github.com/micropython/micropython/pull/6106).
 
