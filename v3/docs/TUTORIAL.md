@@ -108,8 +108,9 @@ CPython V3.8 and above.
 
 ## 0.1 Installing uasyncio on bare metal
 
-No installation is necessary if a daily build of firmware is installed. The
-version may be checked by issuing at the REPL:
+No installation is necessary if a daily build of firmware is installed or
+release build V1.13 or later. The version may be checked by issuing at
+the REPL:
 ```python
 import uasyncio
 print(uasyncio.__version__)
