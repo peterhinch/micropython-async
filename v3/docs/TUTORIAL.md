@@ -35,7 +35,7 @@ REPL.
   3.7 [Barrier](./TUTORIAL.md#37-barrier)  
   3.8 [Delay_ms](./TUTORIAL.md#38-delay_ms-class) Software retriggerable delay.  
   3.9 [Synchronising to hardware](./TUTORIAL.md#39-synchronising-to-hardware)
-  Debouncing switches and pushbuttons. Taming ADC's.  
+  Debouncing switches and pushbuttons. Taming ADC's. Interfacing interrupts.  
  4. [Designing classes for asyncio](./TUTORIAL.md#4-designing-classes-for-asyncio)  
   4.1 [Awaitable classes](./TUTORIAL.md#41-awaitable-classes)  
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.1.1 [Use in context managers](./TUTORIAL.md#411-use-in-context-managers)  
@@ -879,22 +879,30 @@ asyncio.run(queue_go(4))
 
 This is an unofficial primitive with no counterpart in CPython asyncio.
 
-This is similar to the `Event` class. It provides the following:
+This is similar to the `Event` class. It differs in that:
  * `.set()` has an optional data payload.
  * `.set()` is capable of being called from a hard or soft interrupt service
  routine - a feature not yet available in the more efficient official `Event`.
  * It is an awaitable class.
 
-The `.set()` method can accept an optional data value of any type. A task
+For interfacing to interrupt service routines see also
+[the IRQ_EVENT class](./DRIVERS.md#6-irq_event) which is more efficient but
+lacks the payload feature.
+
+Limitation: `Message` is intended for 1:1 operation where a single task waits
+on a message from another task or ISR. The receiving task should issue
+`.clear`.
+
+The `.set()` method can accept an optional data value of any type. The task
 waiting on the `Message` can retrieve it by means of `.value()`. Note that
 `.clear()` will set the value to `None`. One use for this is for the task
-setting the `Message` to issue `.set(utime.ticks_ms())`. A task waiting on the
-`Message` can determine the latency incurred, for example to perform
+setting the `Message` to issue `.set(utime.ticks_ms())`. The task waiting on
+the `Message` can determine the latency incurred, for example to perform
 compensation for this.
 
-Like `Event`, `Message` provides a way for one or more tasks to pause until
-another flags them to continue. A `Message` object is instantiated and made
-accessible to all tasks using it:
+Like `Event`, `Message` provides a way a task to pause until another flags it
+to continue. A `Message` object is instantiated and made accessible to the task
+using it:
 
 ```python
 import uasyncio as asyncio
@@ -920,9 +928,16 @@ A `Message` can provide a means of communication between an interrupt handler
 and a task. The handler services the hardware and issues `.set()` which is
 tested in slow time by the task.
 
-Currently its behaviour differs from that of `Event` where multiple tasks wait
-on a `Message`. This may change: it is therefore recommended to use `Message`
-instances with only one receiving task.
+Constructor:
+ * Optional arg `delay_ms=0` Polling interval.
+Synchronous methods:
+ * `set(data=None)` Trigger the message with optional payload.
+ * `is_set()` Return `True` if the message is set.
+ * `clear()` Clears the triggered status and sets payload to `None`.
+ * `value()` Return the payload.
+Asynchronous Method:
+ * `wait` Pause until message is triggered. You can also `await` the message as
+ per the above example.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
@@ -1110,6 +1125,9 @@ The following hardware-related classes are documented [here](./DRIVERS.md):
  * `AADC` Asynchronous ADC. A task can pause until the value read from an ADC
  goes outside defined bounds. Bounds can be absolute or relative to the current
  value.
+ * `IRQ_EVENT` A way to interface between hard or soft interrupt service
+ routines and `uasyncio`. Discusses the hazards of apparently obvious ways such
+ as issuing `.create_task` or using the `Event` class.
 
 ###### [Contents](./TUTORIAL.md#contents)
 

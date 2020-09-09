@@ -11,6 +11,9 @@ events.
 The asynchronous ADC supports pausing a task until the value read from an ADC
 goes outside defined bounds.
 
+An IRQ_EVENT class provides a means of interfacing uasyncio to hard or soft
+interrupt service routines.
+
 # 1. Contents
 
  1. [Contents](./DRIVERS.md#1-contents)  
@@ -24,9 +27,10 @@ goes outside defined bounds.
  5. [ADC monitoring](./DRIVERS.md#5-adc-monitoring) Pause until an ADC goes out of bounds  
   5.1 [AADC class](./DRIVERS.md#51-aadc-class)  
   5.2 [Design note](./DRIVERS.md#52-design-note)  
- 6. [Additional functions](./DRIVERS.md#6-additional-functions)  
-  6.1 [launch](./DRIVERS.md#61-launch) Run a coro or callback interchangeably  
-  6.2 [set_global_exception](./DRIVERS.md#62-set_global_exception) Simplify debugging with a global exception handler  
+ 6. [IRQ_EVENT](./DRIVERS.md#6-irq_event)
+ 7. [Additional functions](./DRIVERS.md#6-additional-functions)  
+  7.1 [launch](./DRIVERS.md#71-launch) Run a coro or callback interchangeably  
+  7.2 [set_global_exception](./DRIVERS.md#72-set_global_exception) Simplify debugging with a global exception handler  
 
 ###### [Tutorial](./TUTORIAL.md#contents)
 
@@ -331,9 +335,95 @@ this for applications requiring rapid response.
 
 ###### [Contents](./DRIVERS.md#1-contents)
 
-# 6. Additional functions
+# 6. IRQ_EVENT
 
-## 6.1 Launch
+Interfacing an interrupt service routine to `uasyncio` requires care. It is
+invalid to issue `create_task` or to trigger an `Event` in an ISR as it can
+cause a race condition in the scheduler. It is intended that `Event` will
+become compatible with soft IRQ's in a future revison of `uasyncio`.
+
+Currently there are two ways of interfacing hard or soft IRQ's with `uasyncio`.
+One is to use a busy-wait loop as per the
+[Message](https://github.com/peterhinch/micropython-async/blob/master/v3/docs/TUTORIAL.md#36-message)
+primitive. A more efficient approach is to use this `IRQ_EVENT` class. The API
+is a subset of the  `Event` class, so if official `Event` becomes thread-safe
+it may readily be substituted. The `IRQ_EVENT` class uses uses the `uasyncio`
+I/O mechanism to achieve thread-safe operation.
+
+Unlike `Event` only one task can wait on an `IRQ_EVENT`.
+
+Constructor:
+ * This has no args.
+
+Synchronous Methods:
+ * `set()` Initiates the event. May be called from a hard or soft ISR. Returns
+ fast.
+ * `is_set()` Returns `True` if the irq_event is set.
+ * `clear()` This does nothing; its purpose is to enable code to be written
+ compatible with a future thread-safe `Event` class, with the ISR setting then
+ immediately clearing the event.
+
+Asynchronous Method:
+ * `wait` Pause until irq_event is set. The irq_event is cleared.
+
+A single task waits on the event by issuing `await irq_event.wait()`; execution
+pauses until the ISR issues `irq_event.set()`. Execution of the paused task
+resumes when it is next scheduled. Under current `uasyncio` (V3.0.0) scheduling
+of the paused task does not occur any faster than using busy-wait. In typical
+use the ISR services the interrupting device, saving received data, then sets
+the irq_event to trigger processing of the received data.
+
+If interrupts occur faster than `uasyncio` can schedule the paused task, more
+than one interrupt may occur before the paused task runs.
+
+Example usage (assumes a Pyboard with pins X1 and X2 linked):
+```python
+from machine import Pin
+from pyb import LED
+import uasyncio as asyncio
+import micropython
+from primitives.irq_event import IRQ_EVENT
+
+micropython.alloc_emergency_exception_buf(100)
+
+driver = Pin(Pin.board.X2, Pin.OUT)
+receiver = Pin(Pin.board.X1, Pin.IN)
+evt_rx = IRQ_EVENT()  # IRQ_EVENT instance for receiving Pin
+
+def pin_han(pin):  # Hard IRQ handler. Typically services a device
+    evt_rx.set()  # then issues this which returns quickly
+
+receiver.irq(pin_han, Pin.IRQ_FALLING, hard=True)  # Set up hard ISR
+
+async def pulse_gen(pin):
+    while True:
+        await asyncio.sleep_ms(500)
+        pin(not pin())
+
+async def red_handler(evt_rx, iterations):
+    led = LED(1)
+    for x in range(iterations):
+        await evt_rx.wait()  # Pause until next interrupt
+        print(x)
+        led.toggle()
+
+async def irq_test(iterations):
+    pg = asyncio.create_task(pulse_gen(driver))
+    await red_handler(evt_rx, iterations)
+    pg.cancel()
+
+def test(iterations=20):
+    try:
+        asyncio.run(irq_test(iterations))
+    finally:
+        asyncio.new_event_loop()
+```
+
+###### [Contents](./DRIVERS.md#1-contents)
+
+# 7. Additional functions
+
+## 7.1 Launch
 
 Importe as follows:
 ```python
@@ -345,7 +435,7 @@ runs it and returns the callback's return value. If a coro is passed, it is
 converted to a `task` and run asynchronously. The return value is the `task`
 instance. A usage example is in `primitives/switch.py`.
 
-## 6.2 set_global_exception
+## 7.2 set_global_exception
 
 Import as follows:
 ```python

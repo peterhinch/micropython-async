@@ -16,7 +16,8 @@ except ImportError:
 # message.clear() should be issued
 
 # This more efficient version is commented out because Event.set is not ISR
-# friendly. TODO If it gets fixed, reinstate this (tested) version.
+# friendly. TODO If it gets fixed, reinstate this (tested) version and update
+# tutorial for 1:n operation.
 #class Message(asyncio.Event):
     #def __init__(self, _=0):
         #self._data = None
