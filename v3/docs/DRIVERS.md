@@ -27,8 +27,8 @@ interrupt service routines.
  5. [ADC monitoring](./DRIVERS.md#5-adc-monitoring) Pause until an ADC goes out of bounds  
   5.1 [AADC class](./DRIVERS.md#51-aadc-class)  
   5.2 [Design note](./DRIVERS.md#52-design-note)  
- 6. [IRQ_EVENT](./DRIVERS.md#6-irq_event)
- 7. [Additional functions](./DRIVERS.md#6-additional-functions)  
+ 6. [IRQ_EVENT](./DRIVERS.md#6-irq_event) Interfacing to interrupt service routines.
+ 7. [Additional functions](./DRIVERS.md#7-additional-functions)  
   7.1 [launch](./DRIVERS.md#71-launch) Run a coro or callback interchangeably  
   7.2 [set_global_exception](./DRIVERS.md#72-set_global_exception) Simplify debugging with a global exception handler  
 
@@ -44,6 +44,7 @@ Drivers are imported with:
 from primitives.switch import Switch
 from primitives.pushbutton import Pushbutton
 from primitives.aadc import AADC
+from primitives.irq_event import IRQ_EVENT
 ```
 There is a test/demo program for the Switch and Pushbutton classes. On import
 this lists available tests. It assumes a Pyboard with a switch or pushbutton
@@ -56,6 +57,12 @@ The test for the `AADC` class requires a Pyboard with pins X1 and X5 linked. It
 is run as follows:
 ```python
 from primitives.tests.adctest import test
+test()
+```
+The test for the `IRQ_EVENT` class requires a Pyboard with pins X1 and X2
+linked. It is run as follows:
+```python
+from primitives.tests.irq_event_test import test
 test()
 ```
 
@@ -340,7 +347,10 @@ this for applications requiring rapid response.
 Interfacing an interrupt service routine to `uasyncio` requires care. It is
 invalid to issue `create_task` or to trigger an `Event` in an ISR as it can
 cause a race condition in the scheduler. It is intended that `Event` will
-become compatible with soft IRQ's in a future revison of `uasyncio`.
+become compatible with soft IRQ's in a future revison of `uasyncio`. See
+[iss 6415](https://github.com/micropython/micropython/issues/6415),
+[PR 6106](https://github.com/micropython/micropython/pull/6106) and
+[iss 5795](https://github.com/micropython/micropython/issues/5795).
 
 Currently there are two ways of interfacing hard or soft IRQ's with `uasyncio`.
 One is to use a busy-wait loop as per the
