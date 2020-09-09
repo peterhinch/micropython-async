@@ -17,18 +17,17 @@ class IRQ_EVENT(io.IOBase):
         self.sreader = asyncio.StreamReader(self)
 
     def wait(self):
-        await self.sreader.readline()
+        await self.sreader.read(1)
         self.state = False
 
     def set(self):
         self.state = True
-        return self
 
     def is_set(self):
         return self.state
 
-    def readline(self):
-        return b'\n'
+    def read(self, _):
+        pass
 
     def clear(self):
         pass  # See docs

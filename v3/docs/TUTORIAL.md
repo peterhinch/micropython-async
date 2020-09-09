@@ -1612,15 +1612,20 @@ The behaviour is "correct": CPython `asyncio` behaves identically. Ref
 At heart all interfaces between `uasyncio` and external asynchronous events
 rely on polling. Hardware requiring a fast response may use an interrupt. But
 the interface between the interrupt service routine (ISR) and a user task will
-be polled. For example the ISR might trigger an `Event` or set a global flag,
-while a task awaiting the outcome polls the object each time it is
-scheduled.
+be polled. For example the ISR might set a global flag with the task awaiting
+the outcome polling the flag each time it is scheduled. This is explicit
+polling.
 
-Polling may be effected in two ways, explicitly or implicitly. The latter is
-performed by using the `stream I/O` mechanism which is a system designed for
-stream devices such as UARTs and sockets. At its simplest explicit polling may
-consist of code like this:
+Polling may also be effected implicitly. This is performed by using the
+`stream I/O` mechanism which is a system designed for stream devices such as
+UARTs and sockets.
 
+There are hazards involved with approaches to interfacing ISR's which appear to
+avoid polling. See [the IRQ_EVENT class](./DRIVERS.md#6-irq_event) for details.
+This class is a thread-safe way to implement this interface with efficient
+implicit polling.
+
+ At its simplest explicit polling may consist of code like this:
 ```python
 async def poll_my_device():
     global my_flag  # Set by device ISR
@@ -1631,9 +1636,9 @@ async def poll_my_device():
         await asyncio.sleep(0)
 ```
 
-In place of a global, an instance variable, an `Event` object or an instance of
-an awaitable class might be used. Explicit polling is discussed
-further [below](./TUTORIAL.md#62-polling-hardware-with-a-task).
+In place of a global, an instance variable or an instance of an awaitable class
+might be used. Explicit polling is discussed further
+[below](./TUTORIAL.md#62-polling-hardware-with-a-task).
 
 Implicit polling consists of designing the driver to behave like a stream I/O
 device such as a socket or UART, using `stream I/O`. This polls devices using
@@ -1641,7 +1646,7 @@ Python's `select.poll` system: because the polling is done in C it is faster
 and more efficient than explicit polling. The use of `stream I/O` is discussed
 [here](./TUTORIAL.md#63-using-the-stream-mechanism).
 
-Owing to its efficiency implicit polling benefits most fast I/O device drivers:
+Owing to its efficiency implicit polling most benefits fast I/O device drivers:
 streaming drivers can be written for many devices not normally considered as
 streaming devices [section 6.4](./TUTORIAL.md#64-writing-streaming-device-drivers).
 
@@ -1677,10 +1682,6 @@ may be scheduled first. This introduces a timing uncertainty into the `sleep()`
 and `sleep_ms()` functions. The worst-case value for this overrun may be
 calculated by summing, for every other task, the worst-case execution time
 between yielding to the scheduler.
-
-The [fast_io](./FASTPOLL.md) version of `uasyncio` in this repo provides a way
-to ensure that stream I/O is polled on every iteration of the scheduler. It is
-hoped that official `uasyncio` will adopt code to this effect in due course.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
@@ -1915,14 +1916,14 @@ class MillisecTimer(io.IOBase):
         self.sreader = asyncio.StreamReader(self)
 
     def __iter__(self):
-        await self.sreader.readline()
+        await self.sreader.read(1)
 
     def __call__(self, ms):
         self.end = utime.ticks_add(utime.ticks_ms(), ms)
         return self
 
-    def readline(self):
-        return b'\n'
+    def read(self, _):
+        pass
 
     def ioctl(self, req, arg):
         ret = MP_STREAM_ERROR
@@ -1979,10 +1980,9 @@ class PinCall(io.IOBase):
         v = self.pinval
         if v and self.cb_rise is not None:
             self.cb_rise(*self.cbr_args)
-            return b'\n'
+            return
         if not v and self.cb_fall is not None:
             self.cb_fall(*self.cbf_args)
-        return b'\n'
 
     def ioctl(self, req, arg):
         ret = MP_STREAM_ERROR
