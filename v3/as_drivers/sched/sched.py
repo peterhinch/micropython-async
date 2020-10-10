@@ -14,8 +14,7 @@ async def schedule(func, *args, times=None, **kwargs):
     while times is None or times > 0:
         tw = fcron(int(time()))  # Time to wait (s)
         while tw > 0:  # While there is still time to wait
-            tw = min(tw, maxt)
-            await asyncio.sleep(tw)
+            await asyncio.sleep(min(tw, maxt))
             tw -= maxt
         res = launch(func, args)
         if times is not None:
