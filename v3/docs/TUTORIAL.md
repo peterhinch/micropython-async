@@ -2589,4 +2589,8 @@ latency of these platforms.
 Using an ISR to set a flag is probably best reserved for situations where an
 ISR is already needed for other reasons.
 
+The above comments refer to an ideal scheduler. Currently `uasyncio` is not in
+this category, with worst-case latency being > `N`ms. The conclusions remain
+valid.
+
 ###### [Contents](./TUTORIAL.md#contents)
