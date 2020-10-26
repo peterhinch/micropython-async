@@ -77,7 +77,8 @@ REPL.
   8.4 [Scheduling in uasyncio](./TUTORIAL.md#84-scheduling-in-uasyncio)  
   8.5 [Why cooperative rather than pre-emptive?](./TUTORIAL.md#85-why-cooperative-rather-than-pre-emptive)  
   8.6 [Communication](./TUTORIAL.md#86-communication)  
-  8.7 [Polling](./TUTORIAL.md#87-polling)  
+9. [Polling vs Interrupts](./TUTORIAL.md#9-polling-vs-interrupts) A common
+source of confusion.  
 
 ###### [Main README](../README.md)
 
@@ -2558,12 +2559,34 @@ communications; in a cooperative system these are seldom required.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
-## 8.7 Polling
+# 9. Polling vs Interrupts
 
-Some hardware devices such as the Pyboard accelerometer don't support
-interrupts, and therefore must be polled (i.e. checked periodically). Polling
-can also be used in conjunction with interrupt handlers: the interrupt handler
-services the hardware and sets a flag. A task polls the flag: if it's set it
-handles the data and clears the flag. A better approach is to use an `Event`.
+The role of interrupts in cooperative systems has proved to be a source of
+confusion in the forum. The merit of an interrupt service routine (ISR) is that
+it runs very soon after the event causing it. On a Pyboard, Python code may be
+running 15μs after a hardware change, enabling prompt servicing of hardware and
+accurate timing of signals.
+
+The question arises whether it is possible to use interrupts to cause a task to
+be scheduled at reduced latency. It is easy to show that, in a cooperative
+scheduler, interrupts offer no latency benefit compared to polling the hardware
+directly.
+
+The reason for this is that a cooperative scheduler only schedules tasks when
+another task has yielded control. Consider a system with a number of concurrent
+tasks, where the longest any task blocks before yielding to the scheduler is
+`N`ms. In such a system, even with an ideal scheduler, the worst-case latency
+between a hardware event occurring and its handling task beingnscheduled is
+`N`ms, assuming that the mechanism for detecting the event adds no latency of
+its own.
+
+In practice `N` is likely to be on the order of many ms. On fast hardware there
+will be a negligible performance difference between polling the hardware and
+polling a flag set by an ISR. On hardware such as ESP8266 and ESP32 the ISR
+approach will probably be slower owing to the long and variable interrupt
+latency of these platforms.
+
+Using an ISR to set a flag is probably best reserved for situations where an
+ISR is already needed for other reasons.
 
 ###### [Contents](./TUTORIAL.md#contents)
