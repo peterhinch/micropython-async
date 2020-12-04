@@ -1820,7 +1820,7 @@ provide a solution if the data source supports it.
 
 ### 6.3.1 A UART driver example
 
-The program [auart_hd.py](./as_demos/auart_hd.py) illustrates a method of
+The program [auart_hd.py](../as_demos/auart_hd.py) illustrates a method of
 communicating with a half duplex device such as one responding to the modem
 'AT' command set. Half duplex means that the device never sends unsolicited
 data: its transmissions are always in response to a command from the master.
