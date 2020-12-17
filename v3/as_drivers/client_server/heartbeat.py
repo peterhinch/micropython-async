@@ -14,6 +14,11 @@ async def heartbeat(tms):
     elif platform == 'esp8266':
         from machine import Pin
         led = Pin(2, Pin.OUT, value=1)
+    elif platform == 'esp32':
+        # Some boards have an LED
+        #from machine import Pin
+        #led = Pin(2, Pin.OUT, value=1)
+        return  # Reference board has no LED
     elif platform == 'linux':
         return  # No LED
     else:

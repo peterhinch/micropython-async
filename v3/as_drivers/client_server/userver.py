@@ -45,11 +45,11 @@ class Server:
         await sreader.wait_closed()
         print('Client {} socket closed.'.format(self.cid))
 
-    def close(self):
+    async def close(self):
         print('Closing server')
         self.server.close()
         await self.server.wait_closed()
-        print('Server closed')
+        print('Server closed.')
 
 server = Server()
 try:
@@ -57,5 +57,5 @@ try:
 except KeyboardInterrupt:
     print('Interrupted')  # This mechanism doesn't work on Unix build.
 finally:
-    server.close()
+    asyncio.run(server.close())
     _ = asyncio.new_event_loop()
