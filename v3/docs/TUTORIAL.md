@@ -286,7 +286,7 @@ async def main():
 asyncio.run(main())
 ```
 There is a crucial difference between `create_task` and `await`: the former
-is synchronous code and returns immediately, with the passed coro being
+is asynchronous code and returns immediately, with the passed coro being
 converted to a `Task` and queued to run "in the background". By contrast
 `await` causes the passed `Task` or coro to run to completion before the next
 line executes. Consider these lines of code:
