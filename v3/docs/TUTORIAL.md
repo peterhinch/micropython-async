@@ -2081,8 +2081,7 @@ You may want to consider running a task which issues:
 ```
 
 This assumes `import gc` has been issued. The purpose of this is discussed
-[here](http://docs.micropython.org/en/latest/pyboard/reference/constrained.html)
-in the section on the heap.
+[here](http://docs.micropython.org/en/latest/reference/constrained.html#the-heap).
 
 ###### [Contents](./TUTORIAL.md#contents)
 
