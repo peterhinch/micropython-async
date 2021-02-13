@@ -1548,6 +1548,20 @@ async def bar():
     print('Task is now cancelled')
 asyncio.run(bar())
 ```
+As of [PR6883](https://github.com/micropython/micropython/pull/6883) the
+`current_task()` method is supported. This enables a task to pass itself to
+other tasks, enabling them to cancel it. It also facilitates the following
+pattern:
+
+```python
+class Foo:
+    async def run(self):
+        self.task = asyncio.current_task()
+        # code omitted
+
+    def cancel(self):
+        self.task.cancel()
+```
 
 ###### [Contents](./TUTORIAL.md#contents)
 
