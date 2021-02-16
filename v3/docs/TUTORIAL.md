@@ -31,10 +31,11 @@ REPL.
   3.4 [Semaphore](./TUTORIAL.md#34-semaphore)  
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.4.1 [BoundedSemaphore](./TUTORIAL.md#341-boundedsemaphore)  
   3.5 [Queue](./TUTORIAL.md#35-queue)  
-  3.6 [Message](./TUTORIAL.md#36-message)  
+  3.6 [ThreadSafeFlag](./TUTORIAL.md#36-threadsafeflag) Synchronisation with asynchronous events.  
   3.7 [Barrier](./TUTORIAL.md#37-barrier)  
   3.8 [Delay_ms](./TUTORIAL.md#38-delay_ms-class) Software retriggerable delay.  
-  3.9 [Synchronising to hardware](./TUTORIAL.md#39-synchronising-to-hardware)
+  3.9 [Message](./TUTORIAL.md#39-message)  
+  3.10 [Synchronising to hardware](./TUTORIAL.md#310-synchronising-to-hardware)
   Debouncing switches and pushbuttons. Taming ADC's. Interfacing interrupts.  
  4. [Designing classes for asyncio](./TUTORIAL.md#4-designing-classes-for-asyncio)  
   4.1 [Awaitable classes](./TUTORIAL.md#41-awaitable-classes)  
@@ -644,8 +645,7 @@ asyncio.run(main())
 ```
 Constructor: no args.  
 Synchronous Methods:
- * `set` Initiates the event. Currently may not be called in an interrupt
- context.
+ * `set` Initiates the event.
  * `clear` No args. Clears the event.
  * `is_set` No args. Returns `True` if the event is set.
 
@@ -679,10 +679,9 @@ Solution 1 suffers a proliferation of `Event`s and suffers an inefficient
 busy-wait where the producer waits on N events. Solution 2 is inefficient with
 constant creation of tasks. Arguably the `Barrier` class is the best approach.
 
-**NOTE NOT YET SUPPORTED - see Message class**  
-An Event can also provide a means of communication between a soft interrupt handler
-and a task. The handler services the hardware and sets an event which is tested
-in slow time by the task. See [PR6106](https://github.com/micropython/micropython/pull/6106).
+**WARNING**  
+`Event` methods must not be called from an interrupt service routine (ISR). The
+`Event` class is not thread safe. See [ThreadSafeFlag](./TUTORIAL.md#36-threadsafeflag).
 
 ###### [Contents](./TUTORIAL.md#contents)
 
@@ -876,69 +875,57 @@ asyncio.run(queue_go(4))
 
 ###### [Contents](./TUTORIAL.md#contents)
 
-## 3.6 Message
+## 3.6 ThreadSafeFlag
 
-This is an unofficial primitive with no counterpart in CPython asyncio.
+This official class provides an efficient means of synchronising a task with a
+truly asynchronous event such as a hardware interrupt service routine or code
+running in another thread. It operates in a similar way to `Event` with the
+following key differences:
+ * It is thread safe: the `set` event may be called from asynchronous code.
+ * It is self-clearing.
+ * Only one task may wait on the flag.
 
-This is similar to the `Event` class. It differs in that:
- * `.set()` has an optional data payload.
- * `.set()` is capable of being called from a hard or soft interrupt service
- routine - a feature not yet available in the more efficient official `Event`.
- * It is an awaitable class.
+The latter limitation may be addressed by having a task wait on a
+`ThreadSafeFlag` before setting an `Event`. Multiple tasks may wait on that
+`Event`.
 
-For interfacing to interrupt service routines see also
-[the IRQ_EVENT class](./DRIVERS.md#6-irq_event) which is more efficient but
-lacks the payload feature.
+Synchronous method:
+ * `set` Triggers the flag. Like issuing `set` then `clear` to an `Event`.
+Asynchronous method:
+ * `wait` Wait for the flag to be set. If the flag is already set then it
+ returns immediately.
 
-Limitation: `Message` is intended for 1:1 operation where a single task waits
-on a message from another task or ISR. The receiving task should issue
-`.clear`.
-
-The `.set()` method can accept an optional data value of any type. The task
-waiting on the `Message` can retrieve it by means of `.value()`. Note that
-`.clear()` will set the value to `None`. One use for this is for the task
-setting the `Message` to issue `.set(utime.ticks_ms())`. The task waiting on
-the `Message` can determine the latency incurred, for example to perform
-compensation for this.
-
-Like `Event`, `Message` provides a way a task to pause until another flags it
-to continue. A `Message` object is instantiated and made accessible to the task
-using it:
-
+Usage example: triggering from a hard ISR.
 ```python
 import uasyncio as asyncio
-from primitives.message import Message
+from pyb import Timer
 
-async def waiter(msg):
-    print('Waiting for message')
-    await msg
-    res = msg.value()
-    print('waiter got', res)
-    msg.clear()
+tsf = asyncio.ThreadSafeFlag()
 
-async def main():
-    msg = Message()
-    asyncio.create_task(waiter(msg))
-    await asyncio.sleep(1)
-    msg.set('Hello')  # Optional arg
-    await asyncio.sleep(1)
+def cb(_):
+    tsf.set()
 
-asyncio.run(main())
+async def foo():
+    while True:
+        await tsf.wait()
+        # Could set an Event here to trigger multiple tasks
+        print('Triggered')
+
+tim = Timer(1, freq=1, callback=cb)
+
+asyncio.run(foo())
 ```
-A `Message` can provide a means of communication between an interrupt handler
-and a task. The handler services the hardware and issues `.set()` which is
-tested in slow time by the task.
+The current implementation provides no performance benefits against polling the
+hardware. The `ThreadSafeFlag` uses the I/O mechanism. There are plans to
+reduce the latency such that I/O is polled every time the scheduler acquires
+control. This would provide the highest possible level of performance as
+discussed in
+[Polling vs Interrupts](./TUTORIAL.md#9-polling-vs-interrupts).
 
-Constructor:
- * Optional arg `delay_ms=0` Polling interval.
-Synchronous methods:
- * `set(data=None)` Trigger the message with optional payload.
- * `is_set()` Return `True` if the message is set.
- * `clear()` Clears the triggered status and sets payload to `None`.
- * `value()` Return the payload.
-Asynchronous Method:
- * `wait` Pause until message is triggered. You can also `await` the message as
- per the above example.
+Regardless of performance issues, a key use for `ThreadSafeFlag` is where a
+hardware device requires the use of an ISR for a μs level response. Having
+serviced the device, it then flags an asynchronous routine, for example to
+process data received.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
@@ -1117,7 +1104,68 @@ finally:
     asyncio.new_event_loop()  # Clear retained state
 ```
 
-## 3.9 Synchronising to hardware
+## 3.9 Message
+
+This is an unofficial primitive with no counterpart in CPython asyncio. It has
+largely been superseded by [ThreadSafeFlag](./TUTORIAL.md#36-threadsafeflag).
+
+This is similar to the `Event` class. It differs in that:
+ * `.set()` has an optional data payload.
+ * `.set()` is capable of being called from a hard or soft interrupt service
+ routine.
+ * It is an awaitable class.
+
+Limitation: `Message` is intended for 1:1 operation where a single task waits
+on a message from another task or ISR. The receiving task should issue
+`.clear`.
+
+The `.set()` method can accept an optional data value of any type. The task
+waiting on the `Message` can retrieve it by means of `.value()`. Note that
+`.clear()` will set the value to `None`. One use for this is for the task
+setting the `Message` to issue `.set(utime.ticks_ms())`. The task waiting on
+the `Message` can determine the latency incurred, for example to perform
+compensation for this.
+
+Like `Event`, `Message` provides a way a task to pause until another flags it
+to continue. A `Message` object is instantiated and made accessible to the task
+using it:
+
+```python
+import uasyncio as asyncio
+from primitives.message import Message
+
+async def waiter(msg):
+    print('Waiting for message')
+    await msg
+    res = msg.value()
+    print('waiter got', res)
+    msg.clear()
+
+async def main():
+    msg = Message()
+    asyncio.create_task(waiter(msg))
+    await asyncio.sleep(1)
+    msg.set('Hello')  # Optional arg
+    await asyncio.sleep(1)
+
+asyncio.run(main())
+```
+A `Message` can provide a means of communication between an interrupt handler
+and a task. The handler services the hardware and issues `.set()` which is
+tested in slow time by the task.
+
+Constructor:
+ * Optional arg `delay_ms=0` Polling interval.
+Synchronous methods:
+ * `set(data=None)` Trigger the message with optional payload.
+ * `is_set()` Return `True` if the message is set.
+ * `clear()` Clears the triggered status and sets payload to `None`.
+ * `value()` Return the payload.
+Asynchronous Method:
+ * `wait` Pause until message is triggered. You can also `await` the message as
+ per the above example.
+
+## 3.10 Synchronising to hardware
 
 The following hardware-related classes are documented [here](./DRIVERS.md):
  * `Switch` A debounced switch which can trigger open and close user callbacks.
@@ -1126,9 +1174,6 @@ The following hardware-related classes are documented [here](./DRIVERS.md):
  * `AADC` Asynchronous ADC. A task can pause until the value read from an ADC
  goes outside defined bounds. Bounds can be absolute or relative to the current
  value.
- * `IRQ_EVENT` A way to interface between hard or soft interrupt service
- routines and `uasyncio`. Discusses the hazards of apparently obvious ways such
- as issuing `.create_task` or using the `Event` class.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
@@ -1625,22 +1670,16 @@ The behaviour is "correct": CPython `asyncio` behaves identically. Ref
 # 6 Interfacing hardware
 
 At heart all interfaces between `uasyncio` and external asynchronous events
-rely on polling. Hardware requiring a fast response may use an interrupt. But
-the interface between the interrupt service routine (ISR) and a user task will
-be polled. For example the ISR might set a global flag with the task awaiting
-the outcome polling the flag each time it is scheduled. This is explicit
-polling.
+rely on polling. This is because of the cooperative nature of `uasyncio`
+scheduling: the task which is expected to respond to the event can only acquire
+control after another task has relinquished it. There are two ways to handle
+this.
+ * Implicit polling: when a task yields and the scheduler acquires control, the
+ scheduler checks for an event. If it has occurred it schedules a waiting task.
+ This is the approach used by `ThreadSafeFlag`.
+ * Explicit polling: a user task does busy-wait polling on the hardware.
 
-Polling may also be effected implicitly. This is performed by using the
-`stream I/O` mechanism which is a system designed for stream devices such as
-UARTs and sockets.
-
-There are hazards involved with approaches to interfacing ISR's which appear to
-avoid polling. See [the IRQ_EVENT class](./DRIVERS.md#6-irq_event) for details.
-This class is a thread-safe way to implement this interface with efficient
-implicit polling.
-
- At its simplest explicit polling may consist of code like this:
+At its simplest explicit polling may consist of code like this:
 ```python
 async def poll_my_device():
     global my_flag  # Set by device ISR
@@ -1655,15 +1694,22 @@ In place of a global, an instance variable or an instance of an awaitable class
 might be used. Explicit polling is discussed further
 [below](./TUTORIAL.md#62-polling-hardware-with-a-task).
 
-Implicit polling consists of designing the driver to behave like a stream I/O
-device such as a socket or UART, using `stream I/O`. This polls devices using
-Python's `select.poll` system: because the polling is done in C it is faster
-and more efficient than explicit polling. The use of `stream I/O` is discussed
+Implicit polling is more efficient and may gain further from planned
+improvements to I/O scheduling. Aside from the use of `ThreadSafeFlag` it is
+possible to write code which uses the same technique. This is by designing the
+driver to behave like a stream I/O device such as a socket or UART, using
+`stream I/O`. This polls devices using Python's `select.poll` system: because
+polling is done in C it is faster and more efficient than explicit polling. The
+use of `stream I/O` is discussed
 [here](./TUTORIAL.md#63-using-the-stream-mechanism).
 
 Owing to its efficiency implicit polling most benefits fast I/O device drivers:
 streaming drivers can be written for many devices not normally considered as
 streaming devices [section 6.4](./TUTORIAL.md#64-writing-streaming-device-drivers).
+
+There are hazards involved with approaches to interfacing ISR's which appear to
+avoid polling. It is invalid to issue `create_task` or to trigger an `Event` in
+an ISR as these can cause a race condition in the scheduler.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
@@ -2589,7 +2635,7 @@ The reason for this is that a cooperative scheduler only schedules tasks when
 another task has yielded control. Consider a system with a number of concurrent
 tasks, where the longest any task blocks before yielding to the scheduler is
 `N`ms. In such a system, even with an ideal scheduler, the worst-case latency
-between a hardware event occurring and its handling task beingnscheduled is
+between a hardware event occurring and its handling task being scheduled is
 `N`ms, assuming that the mechanism for detecting the event adds no latency of
 its own.
 
