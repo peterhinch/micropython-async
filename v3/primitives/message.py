@@ -1,70 +1,57 @@
 # message.py
+# Now uses ThreadSafeFlag for efficiency
 
-# Copyright (c) 2018-2020 Peter Hinch
+# Copyright (c) 2018-2021 Peter Hinch
 # Released under the MIT License (MIT) - see LICENSE file
+
+# Usage:
+# from primitives.message import Message
 
 try:
     import uasyncio as asyncio
 except ImportError:
     import asyncio
-# Usage:
-# from primitives.message import Message
 
 # A coro waiting on a message issues await message
-# A coro rasing the message issues message.set(payload)
-# When all waiting coros have run
-# message.clear() should be issued
+# A coro or hard/soft ISR raising the message issues.set(payload)
+# .clear() should be issued by at least one waiting task and before
+# next event.
 
-# This more efficient version is commented out because Event.set is not ISR
-# friendly. TODO If it gets fixed, reinstate this (tested) version and update
-# tutorial for 1:n operation.
-#class Message(asyncio.Event):
-    #def __init__(self, _=0):
-        #self._data = None
-        #super().__init__()
+class Message(asyncio.ThreadSafeFlag):
+    def __init__(self, _=0):  # Arg: poll interval. Compatibility with old code.
+        self._evt = asyncio.Event()
+        self._data = None  # Message
+        self._state = False  # Ensure only one task waits on ThreadSafeFlag
+        self._is_set = False  # For .is_set()
+        super().__init__()
 
-    #def clear(self):
-        #self._data = None
-        #super().clear()
+    def clear(self):  # At least one task must call clear when scheduled
+        self._state = False
+        self._is_set = False
 
-    #def __await__(self):
-        #await super().wait()
+    def __iter__(self):
+        yield from self.wait()
+        return self._data
+    
+    async def wait(self):
+        if self._state:  # A task waits on ThreadSafeFlag
+            await self._evt.wait()  # Wait on event
+        else:  # First task to wait
+            self._state = True
+            # Ensure other tasks see updated ._state before they wait
+            await asyncio.sleep_ms(0)
+            await super().wait()  # Wait on ThreadSafeFlag
+            self._evt.set()
+            self._evt.clear()
+        return self._data
 
-    #__iter__ = __await__
-
-    #def set(self, data=None):
-        #self._data = data
-        #super().set()
-
-    #def value(self):
-        #return self._data
-
-# Has an ISR-friendly .set()
-class Message():
-    def __init__(self, delay_ms=0):
-        self.delay_ms = delay_ms
-        self.clear()
-
-    def clear(self):
-        self._flag = False
-        self._data = None
-
-    async def wait(self):  # CPython comptaibility
-        while not self._flag:
-            await asyncio.sleep_ms(self.delay_ms)
-
-    def __await__(self):
-        while not self._flag:
-            await asyncio.sleep_ms(self.delay_ms)
-
-    __iter__ = __await__
+    def set(self, data=None):  # Can be called from a hard ISR
+        self._data = data
+        self._is_set = True
+        super().set()
 
     def is_set(self):
-        return self._flag
-
-    def set(self, data=None):
-        self._flag = True
-        self._data = data
+        return self._is_set
 
     def value(self):
         return self._data

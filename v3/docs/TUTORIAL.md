@@ -549,6 +549,16 @@ invocation lines alone should be changed. e.g. :
 from uasyncio import Semaphore, BoundedSemaphore
 from uasyncio import Queue
 ```
+##### Note on CPython compatibility
+
+CPython will throw a `RuntimeError` on first use of a synchronisation primitive
+that was instantiated prior to starting the scheduler. By contrast
+`MicroPython` allows instantiation in synchronous code executed before the
+scheduler is started. Early instantiation can be advantageous in low resource
+environments. For example a class might have a large buffer and bound `Event`
+instances. Such a class should be instantiated early, before RAM fragmentation
+sets in.
+
 The following provides a discussion of the primitives.
 
 ###### [Contents](./TUTORIAL.md#contents)
@@ -625,15 +635,15 @@ using it:
 import uasyncio as asyncio
 from uasyncio import Event
 
-event = Event()
-async def waiter():
+async def waiter(event):
     print('Waiting for event')
     await event.wait()  # Pause here until event is set
     print('Waiter got event.')
     event.clear()  # Flag caller and enable re-use of the event
 
 async def main():
-    asyncio.create_task(waiter())
+    event = Event()
+    asyncio.create_task(waiter(event))
     await asyncio.sleep(2)
     print('Setting event')
     event.set()
@@ -915,6 +925,19 @@ tim = Timer(1, freq=1, callback=cb)
 
 asyncio.run(foo())
 ```
+Another example (posted by [Damien](https://github.com/micropython/micropython/pull/6886#issuecomment-779863757)):
+```python
+class AsyncPin:
+    def __init__(self, pin, trigger):
+        self.pin = pin
+        self.flag = ThreadSafeFlag()
+        self.pin.irq(lambda pin: self.flag.set(), trigger, hard=True)
+
+    def wait_edge(self):
+        return self.flag.wait()
+```
+You then call `await async_pin.wait_edge()`.
+
 The current implementation provides no performance benefits against polling the
 hardware. The `ThreadSafeFlag` uses the I/O mechanism. There are plans to
 reduce the latency such that I/O is polled every time the scheduler acquires
@@ -1106,25 +1129,22 @@ finally:
 
 ## 3.9 Message
 
-This is an unofficial primitive with no counterpart in CPython asyncio. It has
-largely been superseded by [ThreadSafeFlag](./TUTORIAL.md#36-threadsafeflag).
+This is an unofficial primitive with no counterpart in CPython asyncio. It uses
+[ThreadSafeFlag](./TUTORIAL.md#36-threadsafeflag) to provide an object similar
+to `Event` but capable of being set in a hard ISR context. It extends
+`ThreadSafeFlag` so that multiple tasks can wait on an ISR.
 
-This is similar to the `Event` class. It differs in that:
+It is similar to the `Event` class. It differs in that:
  * `.set()` has an optional data payload.
  * `.set()` is capable of being called from a hard or soft interrupt service
  routine.
  * It is an awaitable class.
-
-Limitation: `Message` is intended for 1:1 operation where a single task waits
-on a message from another task or ISR. The receiving task should issue
-`.clear`.
+ * The logic of `.clear` differs: it must be called by at least one task which
+ waits on the `Message`.
 
 The `.set()` method can accept an optional data value of any type. The task
-waiting on the `Message` can retrieve it by means of `.value()`. Note that
-`.clear()` will set the value to `None`. One use for this is for the task
-setting the `Message` to issue `.set(utime.ticks_ms())`. The task waiting on
-the `Message` can determine the latency incurred, for example to perform
-compensation for this.
+waiting on the `Message` can retrieve it by means of `.value()` or by awaiting
+the `Message` as below.
 
 Like `Event`, `Message` provides a way a task to pause until another flags it
 to continue. A `Message` object is instantiated and made accessible to the task
@@ -1136,8 +1156,7 @@ from primitives.message import Message
 
 async def waiter(msg):
     print('Waiting for message')
-    await msg
-    res = msg.value()
+    res = await msg
     print('waiter got', res)
     msg.clear()
 
@@ -1155,15 +1174,44 @@ and a task. The handler services the hardware and issues `.set()` which is
 tested in slow time by the task.
 
 Constructor:
- * Optional arg `delay_ms=0` Polling interval.
+ * No args.
 Synchronous methods:
  * `set(data=None)` Trigger the message with optional payload.
- * `is_set()` Return `True` if the message is set.
- * `clear()` Clears the triggered status and sets payload to `None`.
+ * `is_set()` Returns `True` if the `Message` is set, `False` if `.clear()` has
+ beein issued.
+ * `clear()` Clears the triggered status. At least one task waiting on the
+ message should issue `clear()`.
  * `value()` Return the payload.
 Asynchronous Method:
  * `wait` Pause until message is triggered. You can also `await` the message as
- per the above example.
+ per the examples.
+
+The following example shows multiple tasks awaiting a `Message`.
+```python
+from primitives.message import Message
+import uasyncio as asyncio
+
+async def bar(msg, n):
+    while True:
+        res = await msg
+        msg.clear()
+        print(n, res)
+        # Pause until other coros waiting on msg have run and before again
+        # awaiting a message.
+        await asyncio.sleep_ms(0)
+
+async def main():
+    msg = Message()
+    for n in range(5):
+        asyncio.create_task(bar(msg, n))
+    k = 0
+    while True:
+        k += 1
+        await asyncio.sleep_ms(1000)
+        msg.set('Hello {}'.format(k))
+
+asyncio.run(main())
+```
 
 ## 3.10 Synchronising to hardware
 
