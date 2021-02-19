@@ -1179,6 +1179,7 @@ tested in slow time by the task.
 
 Constructor:
  * No args.
+
 Synchronous methods:
  * `set(data=None)` Trigger the message with optional payload.
  * `is_set()` Returns `True` if the `Message` is set, `False` if `.clear()` has
@@ -1186,6 +1187,7 @@ Synchronous methods:
  * `clear()` Clears the triggered status. At least one task waiting on the
  message should issue `clear()`.
  * `value()` Return the payload.
+
 Asynchronous Method:
  * `wait` Pause until message is triggered. You can also `await` the message as
  per the examples.
