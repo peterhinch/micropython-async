@@ -1174,8 +1174,8 @@ async def main():
 asyncio.run(main())
 ```
 A `Message` can provide a means of communication between an interrupt handler
-and a task. The handler services the hardware and issues `.set()` which is
-tested in slow time by the task.
+and a task. The handler services the hardware and issues `.set()` which causes
+the waiting task to resume (in relatively slow time).
 
 Constructor:
  * No args.
