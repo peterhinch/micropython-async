@@ -1181,16 +1181,17 @@ Constructor:
  * No args.
 
 Synchronous methods:
- * `set(data=None)` Trigger the message with optional payload.
+ * `set(data=None)` Trigger the `Message` with optional payload (may be any
+ Python object).
  * `is_set()` Returns `True` if the `Message` is set, `False` if `.clear()` has
- beein issued.
+ been issued.
  * `clear()` Clears the triggered status. At least one task waiting on the
  message should issue `clear()`.
  * `value()` Return the payload.
 
 Asynchronous Method:
- * `wait` Pause until message is triggered. You can also `await` the message as
- per the examples.
+ * `wait()` Pause until message is triggered. You can also `await` the message
+ as per the examples.
 
 The following example shows multiple tasks awaiting a `Message`.
 ```python
