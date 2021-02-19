@@ -895,12 +895,9 @@ following key differences:
  * It is self-clearing.
  * Only one task may wait on the flag.
 
-The latter limitation may be addressed by having a task wait on a
-`ThreadSafeFlag` before setting an `Event`. Multiple tasks may wait on that
-`Event`.
-
 Synchronous method:
  * `set` Triggers the flag. Like issuing `set` then `clear` to an `Event`.
+
 Asynchronous method:
  * `wait` Wait for the flag to be set. If the flag is already set then it
  returns immediately.
@@ -925,7 +922,7 @@ tim = Timer(1, freq=1, callback=cb)
 
 asyncio.run(foo())
 ```
-Another example (posted by [Damien](https://github.com/micropython/micropython/pull/6886#issuecomment-779863757)):
+Another example ([posted by Damien](https://github.com/micropython/micropython/pull/6886#issuecomment-779863757)):
 ```python
 class AsyncPin:
     def __init__(self, pin, trigger):
@@ -939,16 +936,23 @@ class AsyncPin:
 You then call `await async_pin.wait_edge()`.
 
 The current implementation provides no performance benefits against polling the
-hardware. The `ThreadSafeFlag` uses the I/O mechanism. There are plans to
-reduce the latency such that I/O is polled every time the scheduler acquires
-control. This would provide the highest possible level of performance as
-discussed in
+hardware: other pending tasks may be granted execution first in round-robin
+fashion. However the `ThreadSafeFlag` uses the I/O mechanism. There is a plan
+to provide a means to reduce the latency such that selected I/O devices are
+polled every time the scheduler acquires control. This will provide the highest
+possible level of performance as discussed in
 [Polling vs Interrupts](./TUTORIAL.md#9-polling-vs-interrupts).
 
 Regardless of performance issues, a key use for `ThreadSafeFlag` is where a
 hardware device requires the use of an ISR for a μs level response. Having
-serviced the device, it then flags an asynchronous routine, for example to
-process data received.
+serviced the device, the ISR flags an asynchronous routine, say to process
+received data.
+
+The fact that only one task may wait on a `ThreadSafeFlag` may be addressed by
+having the task that waits on the `ThreadSafeFlag` set an `Event`. Multiple
+tasks may wait on that `Event`. As an alternative to explicitly coding this,
+the [Message class](./TUTORIAL.md#39-message) uses this approach to provide an
+`Event`-like object which can be triggered from an ISR.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
