@@ -954,6 +954,11 @@ tasks may wait on that `Event`. As an alternative to explicitly coding this,
 the [Message class](./TUTORIAL.md#39-message) uses this approach to provide an
 `Event`-like object which can be triggered from an ISR.
 
+#### Note
+
+ThreadSafeFlag is only available in nightly builds. It will be available in
+release builds starting with V1.15.
+
 ###### [Contents](./TUTORIAL.md#contents)
 
 ## 3.7 Barrier
@@ -1219,6 +1224,11 @@ async def main():
 
 asyncio.run(main())
 ```
+
+#### ThreadSafeFlag dependency
+
+ThreadSafeFlag is only available in nightly builds. It will be available in
+release builds starting with V1.15.
 
 ## 3.10 Synchronising to hardware
 
