@@ -40,7 +40,6 @@ Drivers are imported with:
 from primitives.switch import Switch
 from primitives.pushbutton import Pushbutton
 from primitives.aadc import AADC
-from primitives.irq_event import IRQ_EVENT
 ```
 There is a test/demo program for the Switch and Pushbutton classes. On import
 this lists available tests. It assumes a Pyboard with a switch or pushbutton
@@ -53,12 +52,6 @@ The test for the `AADC` class requires a Pyboard with pins X1 and X5 linked. It
 is run as follows:
 ```python
 from primitives.tests.adctest import test
-test()
-```
-The test for the `IRQ_EVENT` class requires a Pyboard with pins X1 and X2
-linked. It is run as follows:
-```python
-from primitives.tests.irq_event_test import test
 test()
 ```
 
