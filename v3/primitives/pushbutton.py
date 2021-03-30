@@ -38,21 +38,19 @@ class Pushbutton:
         self._ff = func
         self._fa = args
 
-    def double_func(self, func, args=()):
+    def double_func(self, func=False, args=()):
         self._df = func
         self._da = args
-        if self._df:
-            self._dd = Delay_ms(self._ddto)
-        else:
-            self._dd = False
+        if self._dd:
+            self._dd.stop()
+        self._dd = Delay_ms(self._ddto) if func else False
 
-    def long_func(self, func, args=()):
+    def long_func(self, func=False, args=()):
         self._lf = func
         self._la = args
-        if self._lf:  # Instantiate timers if funcs exist
-            self._ld = Delay_ms(self._lf, self._la)
-        else:
-            self._lf = False
+        if self._ld:
+            self._ld.stop()
+        self._ld = Delay_ms(self._lf, self._la) if func else False
 
     # Current non-debounced logical button state: True == pressed
     def rawstate(self):
