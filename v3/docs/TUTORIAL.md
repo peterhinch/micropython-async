@@ -1123,6 +1123,8 @@ Methods:
  5. `rvalue` No argument. If a timeout has occurred and a callback has run,
  returns the return value of the callback. If a coroutine was passed, returns
  the `Task` instance. This allows the `Task` to be cancelled or awaited.
+ 6. `wait` One or more tasks may wait on a `Delay_ms` instance. Execution will
+ proceed when the instance has timed out.
 
 In this example a `Delay_ms` instance is created with the default duration of
 1s. It is repeatedly triggered for 5 secs, preventing the callback from
@@ -1149,6 +1151,32 @@ try:
     asyncio.run(my_app())
 finally:
     asyncio.new_event_loop()  # Clear retained state
+```
+This example illustrates multiple tasks waiting on a `Delay_ms`. No callback is
+used.
+```python
+import uasyncio as asyncio
+from primitives.delay_ms import Delay_ms
+
+async def foo(n, d):
+    await d.wait()
+    print('Done in foo no.', n)
+
+async def my_app():
+    d = Delay_ms()
+    for n in range(4):
+        asyncio.create_task(foo(n, d))
+    d.trigger(3000)
+    print('Waiting on d')
+    await d.wait()
+    print('Done in my_app.')
+    await asyncio.sleep(1)
+    print('Test complete.')
+
+try:
+    asyncio.run(my_app())
+finally:
+    _ = asyncio.new_event_loop()  # Clear retained state
 ```
 
 ## 3.9 Message
