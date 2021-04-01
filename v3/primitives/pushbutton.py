@@ -1,6 +1,6 @@
 # pushbutton.py
 
-# Copyright (c) 2018-2020 Peter Hinch
+# Copyright (c) 2018-2021 Peter Hinch
 # Released under the MIT License (MIT) - see LICENSE file
 
 import uasyncio as asyncio
@@ -23,34 +23,37 @@ class Pushbutton:
         self._tf = False
         self._ff = False
         self._df = False
-        self._lf = False
         self._ld = False  # Delay_ms instance for long press
         self._dd = False  # Ditto for doubleclick
         self.sense = pin.value() if sense is None else sense  # Convert from electrical to logical value
         self.state = self.rawstate()  # Initial state
         asyncio.create_task(self.buttoncheck())  # Thread runs forever
 
-    def press_func(self, func, args=()):
+    def press_func(self, func=False, args=()):
         self._tf = func
         self._ta = args
 
-    def release_func(self, func, args=()):
+    def release_func(self, func=False, args=()):
         self._ff = func
         self._fa = args
 
     def double_func(self, func=False, args=()):
         self._df = func
         self._da = args
-        if self._dd:
-            self._dd.stop()
-        self._dd = Delay_ms(self._ddto) if func else False
+        if func:  # If double timer already in place, leave it
+            if not self._dd:
+                self._dd = Delay_ms(self._ddto)
+        else:
+            self._dd = False  # Clearing down double func
 
     def long_func(self, func=False, args=()):
-        self._lf = func
-        self._la = args
-        if self._ld:
-            self._ld.stop()
-        self._ld = Delay_ms(self._lf, self._la) if func else False
+        if func:
+            if self._ld:
+                self._ld.callback(func, args)
+            else:
+                self._ld = Delay_ms(func, args)
+        else:
+            self._ld = False
 
     # Current non-debounced logical button state: True == pressed
     def rawstate(self):
@@ -75,7 +78,7 @@ class Pushbutton:
                 if state:  # Button pressed: launch pressed func
                     if self._tf:
                         launch(self._tf, self._ta)
-                    if self._lf:  # There's a long func: start long press delay
+                    if self._ld:  # There's a long func: start long press delay
                         self._ld.trigger(Pushbutton.long_press_ms)
                     if self._df:
                         if self._dd():  # Second click: timer running

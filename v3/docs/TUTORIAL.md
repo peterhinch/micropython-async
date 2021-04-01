@@ -1125,6 +1125,8 @@ Methods:
  the `Task` instance. This allows the `Task` to be cancelled or awaited.
  6. `wait` One or more tasks may wait on a `Delay_ms` instance. Execution will
  proceed when the instance has timed out.
+ 7. `callback` args `func=None`, `args=()`. Allows the callable and its args to
+ be assigned, reassigned or disabled at run time.
 
 In this example a `Delay_ms` instance is created with the default duration of
 1s. It is repeatedly triggered for 5 secs, preventing the callback from

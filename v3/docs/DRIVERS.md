@@ -32,7 +32,8 @@ goes outside defined bounds.
 
 # 2. Installation and usage
 
-The drivers are in the primitives package. To install copy the `primitives`
+The drivers require a daily build of firmware or a release build >=1.15. The
+drivers are in the primitives package. To install copy the `primitives`
 directory and its contents to the target hardware.
 
 Drivers are imported with:
@@ -158,20 +159,21 @@ Constructor arguments:
 
 Methods:
 
- 1. `press_func` Args: `func` (mandatory) a `callable` to run on button push.
- `args` a tuple of arguments for the `callable` (default `()`).
- 2. `release_func` Args: `func` (mandatory) a `callable` to run on button
- release. `args` a tuple of arguments for the `callable` (default `()`).
- 3. `long_func` Args: `func` (mandatory) a `callable` to run on long button
- push. `args` a tuple of arguments for the `callable` (default `()`).
- 4. `double_func` Args: `func` (mandatory) a `callable` to run on double
- push. `args` a tuple of arguments for the `callable` (default `()`).
+ 1. `press_func` Args: `func=False` a `callable` to run on button push,
+ `args=()` a tuple of arguments for the `callable`.
+ 2. `release_func` Args: `func=False` a `callable` to run on button release,
+ `args=()` a tuple of arguments for the `callable`.
+ 3. `long_func` Args: `func=False` a `callable` to run on long button push,
+ `args=()` a tuple of arguments for the `callable`.
+ 4. `double_func` Args: `func=False` a `callable` to run on double push,
+ `args=()` a tuple of arguments for the `callable`.
  5. `__call__` Call syntax e.g. `mybutton()` Returns the logical debounced
  state of the button (`True` corresponds to pressed).
  6. `rawstate()` Returns the logical instantaneous state of the button. There
  is probably no reason to use this.
 
-Methods 1 - 4 should be called before starting the scheduler.
+Methods 1 - 4 may be called at any time. If `False` is passed for a callable,
+any existing callback will be disabled.
 
 Class attributes:
  1. `debounce_ms` Debounce time in ms. Default 50.
@@ -188,12 +190,12 @@ def toggle(led):
     led.toggle()
 
 async def my_app():
+    pin = Pin('X1', Pin.IN, Pin.PULL_UP)  # Pushbutton to gnd
+    red = LED(1)
+    pb = Pushbutton(pin)
+    pb.press_func(toggle, (red,))  # Note how function and args are passed
     await asyncio.sleep(60)  # Dummy
 
-pin = Pin('X1', Pin.IN, Pin.PULL_UP)  # Pushbutton to gnd
-red = LED(1)
-pb = Pushbutton(pin)
-pb.press_func(toggle, (red,))  # Note how function and args are passed
 asyncio.run(my_app())  # Run main application code
 ```
 

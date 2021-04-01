@@ -65,3 +65,7 @@ class Delay_ms:
 
     def rvalue(self):
         return self._retn
+
+    def callback(self, func=None, args=()):
+        self._func = func
+        self._args = args

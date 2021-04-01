@@ -26,6 +26,7 @@ test_sw Switch test
 test_swcb Switch with callback
 test_btn Pushutton launching coros
 test_btncb Pushbutton launching callbacks
+btn_dynamic Change coros launched at runtime.
 '''
 print(tests)
 
@@ -140,4 +141,41 @@ long press toggles blue
     pb.release_func(toggle, (green,))
     pb.double_func(toggle, (yellow,))
     pb.long_func(toggle, (blue,))
+    run()
+
+# Test for the Pushbutton class where callback coros change dynamically
+def setup(pb, press, release, dbl, lng, t=1000):
+    s = '''
+Functions are changed:
+LED's pulse for 2 seconds
+press pulses blue
+release pulses red
+double click pulses green
+long pulses yellow
+'''
+    pb.press_func(pulse, (press, t))
+    pb.release_func(pulse, (release, t))
+    pb.double_func(pulse, (dbl, t))
+    if lng is not None:
+        pb.long_func(pulse, (lng, t))
+        print(s)
+
+def btn_dynamic():
+    s = '''
+press pulses red
+release pulses green
+double click pulses yellow
+long press changes button functions.
+'''
+    print('Test of pushbutton scheduling coroutines.')
+    print(helptext)
+    print(s)
+    pin = Pin('X1', Pin.IN, Pin.PULL_UP)
+    red = LED(1)
+    green = LED(2)
+    yellow = LED(3)
+    blue = LED(4)
+    pb = Pushbutton(pin)
+    setup(pb, red, green, yellow, None)
+    pb.long_func(setup, (pb, blue, red, green, yellow, 2000))
     run()
