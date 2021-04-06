@@ -669,7 +669,12 @@ be queued for execution. Note that the synchronous sequence
 event.set()
 event.clear()
 ```
-will cause any tasks waiting on the event to resume in round-robin order.
+will cause any tasks waiting on the event to resume in round-robin order. In
+general the waiting task should clear the event, as in the `waiter` example
+above. This caters for the case where the waiting task has not reached the
+event at the time when it is triggered. In this instance, by the time the task
+reaches the event, the task will find it clear and will pause. This can lead to
+non-deterministic behaviour if timing is marginal.
 
 The `Event` class is an efficient and effective way to synchronise tasks, but
 firmware applications often have multiple tasks running `while True:` loops.
