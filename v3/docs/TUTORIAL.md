@@ -892,6 +892,8 @@ asyncio.run(queue_go(4))
 
 ## 3.6 ThreadSafeFlag
 
+This requires firmware V1.15 or later.
+
 This official class provides an efficient means of synchronising a task with a
 truly asynchronous event such as a hardware interrupt service routine or code
 running in another thread. It operates in a similar way to `Event` with the
@@ -973,11 +975,6 @@ having the task that waits on the `ThreadSafeFlag` set an `Event`. Multiple
 tasks may wait on that `Event`. As an alternative to explicitly coding this,
 the [Message class](./TUTORIAL.md#39-message) uses this approach to provide an
 `Event`-like object which can be triggered from an ISR.
-
-#### Note
-
-ThreadSafeFlag is only available in nightly builds. It will be available in
-release builds starting with V1.15.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
@@ -1188,6 +1185,8 @@ finally:
 
 ## 3.9 Message
 
+This requires firmware V1.15 or later.
+
 This is an unofficial primitive with no counterpart in CPython asyncio. It uses
 [ThreadSafeFlag](./TUTORIAL.md#36-threadsafeflag) to provide an object similar
 to `Event` but capable of being set in a hard ISR context. It extends
@@ -1274,11 +1273,6 @@ async def main():
 
 asyncio.run(main())
 ```
-
-#### ThreadSafeFlag dependency
-
-ThreadSafeFlag is only available in nightly builds. It will be available in
-release builds starting with V1.15.
 
 ## 3.10 Synchronising to hardware
 
