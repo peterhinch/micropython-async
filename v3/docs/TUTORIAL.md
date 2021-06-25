@@ -2222,7 +2222,6 @@ scheduler is running.
 If a `uasyncio` application terminates, state is retained. Embedded code seldom
 terminates, but in testing it is useful to re-run a script without the need for
 a soft reset. This may be done as follows:
-
 ```python
 import uasyncio as asyncio
 
@@ -2237,6 +2236,8 @@ def test():
     finally:
         asyncio.new_event_loop()  # Clear retained state
 ```
+It should be noted that clearing retained state is not a panacea. Re-running
+complex applications may require state to be retained.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
