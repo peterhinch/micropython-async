@@ -36,7 +36,7 @@ REPL.
   3.8 [Delay_ms](./TUTORIAL.md#38-delay_ms-class) Software retriggerable delay.  
   3.9 [Message](./TUTORIAL.md#39-message)  
   3.10 [Synchronising to hardware](./TUTORIAL.md#310-synchronising-to-hardware)
-  Debouncing switches and pushbuttons. Taming ADC's. Interfacing interrupts.  
+  Debouncing switches, pushbuttons and encoder knobs. Taming ADC's.  
  4. [Designing classes for asyncio](./TUTORIAL.md#4-designing-classes-for-asyncio)  
   4.1 [Awaitable classes](./TUTORIAL.md#41-awaitable-classes)  
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.1.1 [Use in context managers](./TUTORIAL.md#411-use-in-context-managers)  
@@ -1280,6 +1280,8 @@ The following hardware-related classes are documented [here](./DRIVERS.md):
  * `Switch` A debounced switch which can trigger open and close user callbacks.
  * `Pushbutton` Debounced pushbutton with callbacks for pressed, released, long
  press or double-press.
+ * `Encoder` An asynchronous interface for control knobs with switch contacts
+ configured as a quadrature encoder.
  * `AADC` Asynchronous ADC. A task can pause until the value read from an ADC
  goes outside defined bounds. Bounds can be absolute or relative to the current
  value.
