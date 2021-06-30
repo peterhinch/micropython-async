@@ -1,12 +1,15 @@
 # 0. Introduction
 
-Drivers for switches and pushbuttons are provided, plus a retriggerable delay
-class. The switch and button drivers support debouncing. The switch driver
-provides for running a callback or launching a coroutine (coro) on contact
-closure and/or opening.
+Drivers for switches and pushbuttons are provided. Switch and button drivers
+support debouncing. The switch driver provides for running a callback or
+launching a coroutine (coro) on contact closure and/or opening. The pushbutton
+driver extends this to support long-press and double-click events.
 
-The pushbutton driver extends this to support long-press and double-click
-events.
+An `Encoder` class is provided to support rotary control knobs based on
+quadrature encoder switches. This is not intended for high throughput encoders
+as used in CNC machines where
+[an interrupt based solution](https://github.com/peterhinch/micropython-samples#47-rotary-incremental-encoder)
+is required.
 
 The asynchronous ADC supports pausing a task until the value read from an ADC
 goes outside defined bounds.
@@ -24,9 +27,11 @@ goes outside defined bounds.
  5. [ADC monitoring](./DRIVERS.md#5-adc-monitoring) Pause until an ADC goes out of bounds  
   5.1 [AADC class](./DRIVERS.md#51-aadc-class)  
   5.2 [Design note](./DRIVERS.md#52-design-note)  
- 6. [Additional functions](./DRIVERS.md#6-additional-functions)  
-  6.1 [launch](./DRIVERS.md#61-launch) Run a coro or callback interchangeably  
-  6.2 [set_global_exception](./DRIVERS.md#62-set_global_exception) Simplify debugging with a global exception handler  
+ 6. [Quadrature encoders](./DRIVERS.md#6-quadrature-encoders)  
+  6.1 [Encoder class](./DRIVERS.md#61-encoder-class)  
+ 7. [Additional functions](./DRIVERS.md#7-additional-functions)  
+  7.1 [launch](./DRIVERS.md#71-launch) Run a coro or callback interchangeably  
+  7.2 [set_global_exception](./DRIVERS.md#72-set_global_exception) Simplify debugging with a global exception handler  
 
 ###### [Tutorial](./TUTORIAL.md#contents)
 
@@ -333,9 +338,56 @@ this for applications requiring rapid response.
 
 ###### [Contents](./DRIVERS.md#1-contents)
 
-# 6. Additional functions
+# 6. Quadrature encoders
 
-## 6.1 Launch
+The `Encoder` class is an asynchronous driver for control knobs based on
+quadrature encoder switches such as
+[this Adafruit product](https://www.adafruit.com/product/377). This is not
+intended for high throughput encoders such as those used in CNC machines where
+[an interrupt based solution](https://github.com/peterhinch/micropython-samples#47-rotary-incremental-encoder)
+is required. This is because the driver works by polling the switches. The
+latency between successive readings of the switch state will depend on the
+behaviour of other tasks in the application, but if changes occur rapidly it is
+likely that transitions will be missed.
+
+In the context of a rotary dial this is usually not a problem, firstly because
+changes occur at a relatively low rate and secondly because there is usually
+some form of feedback to the user. A single missed increment on a CNC machine
+is a fail. In a user interface it usually is not.
+
+The API uses a callback which occurs whenever the value changes. Alternatively
+the `Encoder` may be queried to retrieve the current position.
+
+A high throughput solution can be used with rotary dials but there is a
+difference in the way contact bounce (or vibration induced jitter) are handled.
+The high throughput solution results in +-1 count jitter with the callback
+repeatedly occurring. This driver uses hysteresis to ensure that transitions
+due to contact bounce are ignored. 
+
+## 6.1 Encoder class
+
+Constructor arguments:  
+ 1. `pin_x` Initialised `machine.Pin` instances for the switch. Should be set
+ as `Pin.IN` and have pullups.
+ 2. `pin_y` Ditto.
+ 3. `v=0` Initial value.
+ 4. `vmin=None` By default the `value` of the encoder can vary without limit.
+ Optionally maximum and/or minimum limits can be set.
+ 5. `vmax=None`
+ 6. `callback=lambda *_ : None` Optional callback function. The callback
+ receives two args, `v` being the encoder's current value and `fwd` being
+ `True` if the value has incremented of `False` if it decremented. Further args
+ may be appended by the following.
+ 7. `args=()` An optional tuple of args for the callback.
+
+Synchronous method:  
+ * `value` No args. Returns an integer being the `Encoder` current value.
+
+###### [Contents](./DRIVERS.md#1-contents)
+
+# 7. Additional functions
+
+## 7.1 Launch
 
 Import as follows:
 ```python
@@ -347,7 +399,7 @@ runs it and returns the callback's return value. If a coro is passed, it is
 converted to a `task` and run asynchronously. The return value is the `task`
 instance. A usage example is in `primitives/switch.py`.
 
-## 6.2 set_global_exception
+## 7.2 set_global_exception
 
 Import as follows:
 ```python
