@@ -11,8 +11,8 @@ from primitives.encoder import Encoder
 px = Pin(33, Pin.IN)
 py = Pin(25, Pin.IN)
 
-def cb(pos, fwd):
-    print(pos, fwd)
+def cb(pos, delta):
+    print(pos, delta)
 
 async def main():
     while True:

@@ -7,43 +7,52 @@
 # suitable for NC machine applications. Please see the docs.
 
 import uasyncio as asyncio
+from machine import Pin
 
 class Encoder:
+    LATENCY = 50
+
     def __init__(self, pin_x, pin_y, v=0, vmin=None, vmax=None,
                  callback=lambda a, b : None, args=()):
+        self._pin_x = pin_x
+        self._pin_y = pin_y
         self._v = v
-        asyncio.create_task(self._run(pin_x, pin_y, vmin, vmax,
-                                      callback, args))
+        self._tsf = asyncio.ThreadSafeFlag()
+        try:
+            xirq = pin_x.irq(trigger=Pin.IRQ_RISING | Pin.IRQ_FALLING, handler=self._x_cb, hard=True)
+            yirq = pin_y.irq(trigger=Pin.IRQ_RISING | Pin.IRQ_FALLING, handler=self._y_cb, hard=True)
+        except TypeError:
+            xirq = pin_x.irq(trigger=Pin.IRQ_RISING | Pin.IRQ_FALLING, handler=self._x_cb)
+            yirq = pin_y.irq(trigger=Pin.IRQ_RISING | Pin.IRQ_FALLING, handler=self._y_cb)
+        asyncio.create_task(self._run(vmin, vmax, callback, args))
 
-    def _run(self, pin_x, pin_y, vmin, vmax, callback, args):
-        xp = pin_x()  # Prior levels
-        yp = pin_y()
-        pf = None  # Prior direction
+
+    # Hardware IRQ's
+    def _x_cb(self, pin):
+        fwd = pin() ^ self._pin_y()
+        self._v += 1 if fwd else -1
+        self._tsf.set()
+
+    def _y_cb(self, pin):
+        fwd = pin() ^ self._pin_x() ^ 1
+        self._v += 1 if fwd else -1
+        self._tsf.set()
+
+    async def _run(self, vmin, vmax, cb, args):
+        pv = self._v  # Prior value
         while True:
-            await asyncio.sleep_ms(0)
-            x = pin_x()  # Current levels
-            y = pin_y()
-            if xp == x:
-                if yp == y:
-                    continue  # No change, nothing to do
-                fwd = x ^ y ^ 1  # y changed
-            else:
-                fwd = x ^ y  # x changed
-            pv = self._v  # Cache prior value
-            nv = pv + (1 if fwd else -1)  # New value
-            if vmin is not None:
-                nv = max(vmin, nv)
+            await self._tsf.wait()
+            cv = self._v  # Current value
             if vmax is not None:
-                nv = min(vmax, nv)
-            if nv != pv:  # Change
-                rev = (pf is not None) and (pf != fwd)
-                if not rev:
-                    callback(nv, fwd, *args)
-                    self._v = nv
-
-            pf = fwd  # Update prior state
-            xp = x
-            yp = y
+                cv = min(cv, vmax)
+            if vmin is not None:
+                cv = max(cv, vmin)
+            self._v = cv
+            #print(cv, pv)
+            if cv != pv:
+                cb(cv, cv - pv, *args)  # User CB in uasyncio context
+                pv = cv
+            await asyncio.sleep_ms(self.LATENCY)
 
     def value(self):
         return self._v

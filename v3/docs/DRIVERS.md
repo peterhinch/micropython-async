@@ -340,29 +340,28 @@ this for applications requiring rapid response.
 
 # 6. Quadrature encoders
 
+This is a work in progress. Changes may occur.
+
 The `Encoder` class is an asynchronous driver for control knobs based on
 quadrature encoder switches such as
-[this Adafruit product](https://www.adafruit.com/product/377). This is not
-intended for high throughput encoders such as those used in CNC machines where
-[an interrupt based solution](https://github.com/peterhinch/micropython-samples#47-rotary-incremental-encoder)
-is required. This is because the driver works by polling the switches. The
-latency between successive readings of the switch state will depend on the
-behaviour of other tasks in the application, but if changes occur rapidly it is
-likely that transitions will be missed.
+[this Adafruit product](https://www.adafruit.com/product/377). The driver is
+not intended for applications such as CNC machines where
+[a solution such as this one](https://github.com/peterhinch/micropython-samples#47-rotary-incremental-encoder)
+is required. Drivers for NC machines must never miss an edge. Contact bounce or
+vibration induced jitter can cause transitions to occur at a high rate; these
+must be tracked.
 
-In the context of a rotary dial this is usually not a problem, firstly because
-changes occur at a relatively low rate and secondly because there is usually
-some form of feedback to the user. A single missed increment on a CNC machine
-is a fail. In a user interface it usually is not.
+This driver runs the user supplied callback in an `asyncio` context, so it runs
+only when other tasks have yielded to the scheduler. This ensures that the
+callback can run safely. The driver allows limits to be assigned to the control
+so that a dial running from (say) 0 to 100 may be implemented. If limits are
+used, encoder values no longer represent absolute angles.
 
-The API uses a callback which occurs whenever the value changes. Alternatively
-the `Encoder` may be queried to retrieve the current position.
+The callback only runs if a change in position has occurred.
 
-A high throughput solution can be used with rotary dials but there is a
-difference in the way contact bounce (or vibration induced jitter) are handled.
-The high throughput solution results in +-1 count jitter with the callback
-repeatedly occurring. This driver uses hysteresis to ensure that transitions
-due to contact bounce are ignored. 
+A consequence of the callback running in an `asyncio` context is that, by the
+time it runs, the encoder's position may have changed by more than one
+increment. 
 
 ## 6.1 Encoder class
 
@@ -375,13 +374,16 @@ Constructor arguments:
  Optionally maximum and/or minimum limits can be set.
  5. `vmax=None`
  6. `callback=lambda *_ : None` Optional callback function. The callback
- receives two args, `v` being the encoder's current value and `fwd` being
- `True` if the value has incremented of `False` if it decremented. Further args
- may be appended by the following.
+ receives two args, `v` being the encoder's current value and `delta` being
+ the signed difference between the current value and the previous one. Further
+ args may be appended by the following.
  7. `args=()` An optional tuple of args for the callback.
 
 Synchronous method:  
  * `value` No args. Returns an integer being the `Encoder` current value.
+
+Class variable:  
+ * `LATENCY=50` This sets a minumum period (in ms) between callback runs.
 
 ###### [Contents](./DRIVERS.md#1-contents)
 
