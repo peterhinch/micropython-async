@@ -360,7 +360,7 @@ can be reduced. A virtual encoder with lower resolution can be useful in some
 applications.
 
 The driver allows limits to be assigned to the virtual encoder's value so that
-a dial running from (say) 0 to 100 may be implemented. If limits arenused,
+a dial running from (say) 0 to 100 may be implemented. If limits are used,
 encoder values no longer represent absolute angles, as the user might continue
 to rotate the dial when it is "stuck" at an endstop.
 
@@ -388,7 +388,7 @@ Constructor arguments:
  receives two args, `v` being the encoder's current value and `delta` being
  the signed difference between the current value and the previous one. Further
  args may be appended by the following.
- 8. `args=()` An optional tuple of args for the callback.
+ 8. `args=()` An optional tuple of positionl args for the callback.
 
 Synchronous method:  
  * `value` No args. Returns an integer being the `Encoder` current value.
@@ -397,20 +397,21 @@ Class variable:
  * `delay=100` After motion is detected the driver waits for `delay` ms before
  reading the current position. This was found useful with the Adafruit encoder
  which has mechanical detents, which span multiple increments or decrements. A
- delay gives time for motion to stop, enabling just one call to the callback.
+ delay gives time for motion to stop enabling just one call to the callback.
 
 #### Note
 
 The driver works by maintaining an internal value `._v` which uses hardware
 interrupts to track the absolute position of the physical encoder. In theory
-this should be precise, but on ESP32 with the Adafruit encoder it is not.
+this should be precise, but on ESP32 with the Adafruit encoder it is not:
+returning the dial to a given detent shows a small "drift" in position.
 
 Currently under investigation: it may be a consequence of ESP32's use of soft
 IRQ's.
 
 This is probably of little practical consequence as encoder knobs are usually
 used in systems where there is user feedback. In a practical application
-([ugui](https://github.com/peterhinch/micropython-micro-gui)) I can see no
+([micro-gui](https://github.com/peterhinch/micropython-micro-gui)) I can see no
 evidence of the missed pulses.
 
 ###### [Contents](./DRIVERS.md#1-contents)
