@@ -353,15 +353,22 @@ must be tracked.
 
 This driver runs the user supplied callback in an `asyncio` context, so it runs
 only when other tasks have yielded to the scheduler. This ensures that the
-callback can run safely. The driver allows limits to be assigned to the control
-so that a dial running from (say) 0 to 100 may be implemented. If limits are
-used, encoder values no longer represent absolute angles.
+callback can run safely, even if it triggers complex application behaviour.
 
-The callback only runs if a change in position has occurred.
+The `Encoder` can be instantiated in such a way that its effective resolution
+can be reduced. A virtual encoder with lower resolution can be useful in some
+applications.
 
-A consequence of the callback running in an `asyncio` context is that, by the
-time it runs, the encoder's position may have changed by more than one
-increment. 
+The driver allows limits to be assigned to the virtual encoder's value so that
+a dial running from (say) 0 to 100 may be implemented. If limits arenused,
+encoder values no longer represent absolute angles, as the user might continue
+to rotate the dial when it is "stuck" at an endstop.
+
+The callback only runs if a change in position of the virtual encoder has
+occurred. In consequence of the callback running in an `asyncio` context, by
+the time it is scheduled, the encoder's position may have changed by more than
+one increment. The callback receives two args, the absolute value of the
+virtual encoder and the signed change since the previous callback run.
 
 ## 6.1 Encoder class
 
@@ -372,18 +379,39 @@ Constructor arguments:
  3. `v=0` Initial value.
  4. `vmin=None` By default the `value` of the encoder can vary without limit.
  Optionally maximum and/or minimum limits can be set.
- 5. `vmax=None`
- 6. `callback=lambda *_ : None` Optional callback function. The callback
+ 5. `vmax=None` As above. If `vmin` and/or `vmax` are specified, a `ValueError`
+ will be thrown if the initial value `v` does not conform with the limits.
+ 6. `div=1` A value > 1 causes the motion rate of the encoder to be divided
+ down, to produce a virtual encoder with lower resolution. This was found usefl
+ in some applications with the Adafruit encoder.
+ 7. `callback=lambda a, b : None` Optional callback function. The callback
  receives two args, `v` being the encoder's current value and `delta` being
  the signed difference between the current value and the previous one. Further
  args may be appended by the following.
- 7. `args=()` An optional tuple of args for the callback.
+ 8. `args=()` An optional tuple of args for the callback.
 
 Synchronous method:  
  * `value` No args. Returns an integer being the `Encoder` current value.
 
 Class variable:  
- * `LATENCY=50` This sets a minumum period (in ms) between callback runs.
+ * `delay=100` After motion is detected the driver waits for `delay` ms before
+ reading the current position. This was found useful with the Adafruit encoder
+ which has mechanical detents, which span multiple increments or decrements. A
+ delay gives time for motion to stop, enabling just one call to the callback.
+
+#### Note
+
+The driver works by maintaining an internal value `._v` which uses hardware
+interrupts to track the absolute position of the physical encoder. In theory
+this should be precise, but on ESP32 with the Adafruit encoder it is not.
+
+Currently under investigation: it may be a consequence of ESP32's use of soft
+IRQ's.
+
+This is probably of little practical consequence as encoder knobs are usually
+used in systems where there is user feedback. In a practical application
+([ugui](https://github.com/peterhinch/micropython-micro-gui)) I can see no
+evidence of the missed pulses.
 
 ###### [Contents](./DRIVERS.md#1-contents)
 
