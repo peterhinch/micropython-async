@@ -340,8 +340,6 @@ this for applications requiring rapid response.
 
 # 6. Quadrature encoders
 
-This is a work in progress. Changes may occur.
-
 The `Encoder` class is an asynchronous driver for control knobs based on
 quadrature encoder switches such as
 [this Adafruit product](https://www.adafruit.com/product/377). The driver is
@@ -349,11 +347,14 @@ not intended for applications such as CNC machines where
 [a solution such as this one](https://github.com/peterhinch/micropython-samples#47-rotary-incremental-encoder)
 is required. Drivers for NC machines must never miss an edge. Contact bounce or
 vibration induced jitter can cause transitions to occur at a high rate; these
-must be tracked.
+must be tracked. Consequently callbacks occur in an interrupt context with the
+associated concurrency issues.
 
-This driver runs the user supplied callback in an `asyncio` context, so it runs
-only when other tasks have yielded to the scheduler. This ensures that the
-callback can run safely, even if it triggers complex application behaviour.
+This driver runs the user supplied callback in an `asyncio` context, so that
+the callback runs only when other tasks have yielded to the scheduler. This
+ensures that the callback runs with the same rules as apply to any `uasyncio`
+task. This offers safety, even if the task triggers complex application
+behaviour.
 
 The `Encoder` can be instantiated in such a way that its effective resolution
 can be reduced. A virtual encoder with lower resolution can be useful in some
@@ -361,14 +362,15 @@ applications.
 
 The driver allows limits to be assigned to the virtual encoder's value so that
 a dial running from (say) 0 to 100 may be implemented. If limits are used,
-encoder values no longer represent absolute angles, as the user might continue
-to rotate the dial when it is "stuck" at an endstop.
+encoder values no longer approximate absolute angles: the user might continue
+to rotate the dial when its value is "stuck" at an endstop.
 
 The callback only runs if a change in position of the virtual encoder has
 occurred. In consequence of the callback running in an `asyncio` context, by
 the time it is scheduled, the encoder's position may have changed by more than
 one increment. The callback receives two args, the absolute value of the
-virtual encoder and the signed change since the previous callback run.
+virtual encoder at the time it was triggered and the signed change in this
+value since the previous time the callback ran.
 
 ## 6.1 Encoder class
 
@@ -385,34 +387,41 @@ Constructor arguments:
  down, to produce a virtual encoder with lower resolution. This was found usefl
  in some applications with the Adafruit encoder.
  7. `callback=lambda a, b : None` Optional callback function. The callback
- receives two args, `v` being the encoder's current value and `delta` being
- the signed difference between the current value and the previous one. Further
- args may be appended by the following.
+ receives two integer args, `v` being the virtual encoder's current value and
+ `delta` being the signed difference between the current value and the previous
+ one. Further args may be appended by the following.
  8. `args=()` An optional tuple of positionl args for the callback.
 
 Synchronous method:  
- * `value` No args. Returns an integer being the `Encoder` current value.
+ * `value` No args. Returns an integer being the virtual encoder's current
+ value.
 
 Class variable:  
  * `delay=100` After motion is detected the driver waits for `delay` ms before
  reading the current position. This was found useful with the Adafruit encoder
  which has mechanical detents, which span multiple increments or decrements. A
- delay gives time for motion to stop enabling just one call to the callback.
+ delay gives time for motion to stop in the event of a single click movement.
+ If this occurs the delay ensures just one call to the callback. With no delay
+ a single click typically gives rise to two callbacks, the second of which can
+ come as a surprise in visual applications.
 
-#### Note
+#### Note on accuracy
 
 The driver works by maintaining an internal value `._v` which uses hardware
 interrupts to track the absolute position of the physical encoder. In theory
-this should be precise, but on ESP32 with the Adafruit encoder it is not:
-returning the dial to a given detent shows a small "drift" in position.
+this should be precise with jitter caused by contact bounce being tracked. With
+the Adafruit encoder it is imprecise: returning the dial to a given detent
+after repeated movements shows a gradual "drift" in position. This occurs on
+hosts with hard or soft IRQ's. I attempted to investigate this with various
+hardware and software techniques and suspect there may be mechanical issues in
+the device. Possibly pulses may occasionally missed with direction-dependent
+probability. Unlike optical encoders these low cost controls make no claim to
+absolute accuracy.
 
-Currently under investigation: it may be a consequence of ESP32's use of soft
-IRQ's.
-
-This is probably of little practical consequence as encoder knobs are usually
-used in systems where there is user feedback. In a practical application
-([micro-gui](https://github.com/peterhinch/micropython-micro-gui)) I can see no
-evidence of the missed pulses.
+This is of little practical consequence as encoder knobs are usually used in
+systems where there is user feedback. In a practical application
+([micro-gui](https://github.com/peterhinch/micropython-micro-gui)) there is no
+obvious evidence of the missed pulses.
 
 ###### [Contents](./DRIVERS.md#1-contents)
 
