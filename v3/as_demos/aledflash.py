@@ -7,9 +7,6 @@
 import pyb
 import uasyncio as asyncio
 
-async def killer(duration):
-    await asyncio.sleep(duration)
-
 async def toggle(objLED, time_ms):
     while True:
         await asyncio.sleep_ms(time_ms)
@@ -23,7 +20,7 @@ async def main(duration):
     for x, led in enumerate(leds):  # Create a task for each LED
         t = int((0.2 + x/2) * 1000)
         asyncio.create_task(toggle(leds[x], t))
-    asyncio.run(killer(duration))
+    await asyncio.sleep(duration)
 
 def test(duration=10):
     try:
