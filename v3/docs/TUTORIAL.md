@@ -909,7 +909,12 @@ Asynchronous method:
  * `wait` Wait for the flag to be set. If the flag is already set then it
  returns immediately.
 
-Usage example: triggering from a hard ISR.
+Typical usage is having a `uasyncio` task wait on a hard ISR. Only one task
+should wait on a `ThreadSafeFlag`. The hard ISR services the interrupting
+device, sets the `ThreadSafeFlag`, and quits. A single task waits on the flag.
+This design conforms with the self-clearing behaviour of the `ThreadSafeFlag`.
+Each interrupting device has its own `ThreadSafeFlag` instance and its own
+waiting task.
 ```python
 import uasyncio as asyncio
 from pyb import Timer
@@ -967,8 +972,8 @@ possible level of performance as discussed in
 
 Regardless of performance issues, a key use for `ThreadSafeFlag` is where a
 hardware device requires the use of an ISR for a μs level response. Having
-serviced the device, the ISR flags an asynchronous routine, say to process
-received data.
+serviced the device, the ISR flags an asynchronous routine, typically
+processing received data.
 
 The fact that only one task may wait on a `ThreadSafeFlag` may be addressed by
 having the task that waits on the `ThreadSafeFlag` set an `Event`. Multiple
