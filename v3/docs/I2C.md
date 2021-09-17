@@ -26,7 +26,7 @@ If the `Responder` (typically an ESP8266) crashes the resultant I2C failure is
 detected by the `Initiator` which can issue a hardware reboot to the 
 `Responder` enabling the link to recover. This can occur transparently to the
 application and is covered in detail
-[in section 5.3](./README.md#53-responder-crash-detection).
+[in section 5.3](./I2C.md#53-responder-crash-detection).
 
 ## Changes
 
@@ -42,20 +42,20 @@ V0.1 Initial release.
 
 # Contents
 
- 1. [Files](./README.md#1-files)  
- 2. [Wiring](./README.md#2-wiring)  
- 3. [Design](./README.md#3-design)  
- 4. [API](./README.md#4-api)  
-  4.1 [Channel class](./README.md#41-channel-class)  
-  4.2 [Initiator class](./README.md#42-initiator-class)  
-    4.2.1 [Configuration](./README.md#421-configuration) Fine-tuning the interface.  
-    4.2.2 [Optional coroutines](./README.md#422-optional-coroutines)  
-  4.3 [Responder class](./README.md#43-responder-class)  
- 5. [Limitations](./README.md#5-limitations)  
-  5.1 [Blocking](./README.md#51-blocking)  
-  5.2 [Buffering and RAM usage](./README.md#52-buffering-and-ram-usage)  
-  5.3 [Responder crash detection](./README.md#53-responder-crash-detection)  
- 6. [Hacker notes](./README.md#6-hacker-notes) For anyone wanting to hack on
+ 1. [Files](./I2C.md#1-files)  
+ 2. [Wiring](./I2C.md#2-wiring)  
+ 3. [Design](./I2C.md#3-design)  
+ 4. [API](./I2C.md#4-api)  
+  4.1 [Channel class](./I2C.md#41-channel-class)  
+  4.2 [Initiator class](./I2C.md#42-initiator-class)  
+    4.2.1 [Configuration](./I2C.md#421-configuration) Fine-tuning the interface.  
+    4.2.2 [Optional coroutines](./I2C.md#422-optional-coroutines)  
+  4.3 [Responder class](./I2C.md#43-responder-class)  
+ 5. [Limitations](./I2C.md#5-limitations)  
+  5.1 [Blocking](./I2C.md#51-blocking)  
+  5.2 [Buffering and RAM usage](./I2C.md#52-buffering-and-ram-usage)  
+  5.3 [Responder crash detection](./I2C.md#53-responder-crash-detection)  
+ 6. [Hacker notes](./I2C.md#6-hacker-notes) For anyone wanting to hack on
  the code.
 
 # 1. Files
@@ -107,7 +107,7 @@ machine.Pin.board.EN_3V3.value(1)
 ```
 This also enables the I2C pullups on the X side.
 
-###### [Contents](./README.md#contents)
+###### [Contents](./I2C.md#contents)
 
 # 3. Design
 
@@ -142,7 +142,7 @@ starts to run once each end has determined that its counterpart is ready.
 The design assumes exclusive use of the I2C interface. Hard or soft I2C may be
 used.
 
-###### [Contents](./README.md#contents)
+###### [Contents](./I2C.md#contents)
 
 # 4. API
 
@@ -244,7 +244,7 @@ finally:
     chan.close()  # for subsequent runs
 ```
 
-###### [Contents](./README.md#contents)
+###### [Contents](./I2C.md#contents)
 
 ## 4.1 Channel class
 
@@ -267,7 +267,7 @@ Coroutine:
  4. `reset=None` Optional tuple defining a reset pin (see below).
  5. `verbose=True` If `True` causes debug messages to be output.
  6. `cr_go=False` Optional coroutine to run at startup. See
- [4.2.2](./README.md#422-optional-coroutines).
+ [4.2.2](./I2C.md#422-optional-coroutines).
  7. `go_args=()` Optional tuple of args for above coro.
  8. `cr_fail=False` Optional coro to run on ESP8266 fail or reboot.
  9. `f_args=()` Optional tuple of args for above.
@@ -290,12 +290,12 @@ If the `Initiator` has no `reset` tuple and the `Responder` times out, an
  2. `rxbufsize=200` Size of receive buffer. This should exceed the maximum
  message length.
 
-See [Section 4.2.1](./README.md#421-configuration).
+See [Section 4.2.1](./I2C.md#421-configuration).
 
 ##### Instance variables:
 
 The `Initiator` maintains instance variables which may be used to measure its
-peformance. See [Section 4.2.1](./README.md#421-configuration).
+peformance. See [Section 4.2.1](./I2C.md#421-configuration).
 
 ##### Coroutine:
  1. `reboot` If a `reset` tuple was provided, reboot the `Responder`.
@@ -353,7 +353,7 @@ from as_drivers.i2c.asi2c_i import Initiator
 chan = Initiator(i2c, syn, ack, rst, verbose, self._go, (), self._fail)
 ```
 
-###### [Contents](./README.md#contents)
+###### [Contents](./I2C.md#contents)
 
 ## 4.3 Responder class
 
@@ -372,7 +372,7 @@ chan = Initiator(i2c, syn, ack, rst, verbose, self._go, (), self._fail)
  2. `rxbufsize=200` Size of receive buffer. This should exceed the maximum
  message length. Consider reducing this in ESP8266 applications to save RAM.
 
-###### [Contents](./README.md#contents)
+###### [Contents](./I2C.md#contents)
 
 # 5. Limitations
 
@@ -428,7 +428,7 @@ This also has implications when testing. If a `Responder` application is
 interrupted with `ctrl-c` the ISR will continue to run. To test crash detection
 issue a soft or hard reset to the `Responder`.
 
-###### [Contents](./README.md#contents)
+###### [Contents](./I2C.md#contents)
 
 # 6. Hacker notes
 
