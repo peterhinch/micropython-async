@@ -39,8 +39,11 @@ def run(period=100, verbose=[]):
         while not uart.any():
             pass
         x = ord(uart.read(1))
-        #print('got', chr(x)) gets CcAa
         if not 0x40 <= x <= 0x7f:  # Get an initial 0
+            continue
+        if x == 0x7a:  # Init: program under test has restarted
+            for w in range(len(pins)):
+                pins[w][1] = 0
             continue
         if x == 0x40:
             tim.init(period=t_ms, mode=Timer.ONE_SHOT, callback=_cb)

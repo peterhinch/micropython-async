@@ -52,6 +52,9 @@ def monitor(n, max_instances=1):
         return wrapped_coro
     return decorator
 
+def monitor_init():
+    uart.write(b'z')
+
 # Optionally run this to show up periods of blocking behaviour
 @monitor(0)
 async def _do_nowt():

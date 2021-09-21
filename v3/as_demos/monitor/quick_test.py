@@ -2,7 +2,7 @@
 
 import uasyncio as asyncio
 import time
-from monitor import monitor, hog_detect, set_uart
+from monitor import monitor, monitor_init, hog_detect, set_uart
 
 set_uart(2)  # Define interface to use
 
@@ -21,6 +21,7 @@ async def bar(t):
 
 
 async def main():
+    monitor_init()
     asyncio.create_task(hog_detect())
     asyncio.create_task(hog())  # Will hog for 500ms after 5 secs
     while True:

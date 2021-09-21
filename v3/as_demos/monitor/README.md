@@ -33,10 +33,13 @@ Example script `quick_test.py` provides a usage example.
 
 An application to be monitored typically has the following setup code:
 ```python
-from monitor import monitor, hog_detect, set_uart
+from monitor import monitor, monitor_init, hog_detect, set_uart
 set_uart(2)  # Define device under test UART no.
 ```
-
+On application start it should issue
+```python
+monitor_init()
+```
 Coroutines to be monitored are prefixed with the `@monitor` decorator:
 ```python
 @monitor(2, 3)

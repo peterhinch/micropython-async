@@ -1,7 +1,7 @@
 # monitor_test.py
 
 import uasyncio as asyncio
-from monitor import monitor, mon_func, mon_call, set_uart
+from monitor import monitor, monitor_init, mon_func, mon_call, set_uart
 
 set_uart(2)  # Define interface to use
 
@@ -36,6 +36,7 @@ def another_sync_func():
     pass
 
 async def main():
+    monitor_init()
     sync_func()
     with mon_call(22):
         another_sync_func()
