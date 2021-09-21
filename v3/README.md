@@ -31,6 +31,12 @@ This [lightweight scheduler](./docs/SCHEDULE.md) enables tasks to be scheduled
 at future times. These can be assigned in a flexible way: a task might run at
 4.10am on Monday and Friday if there's no "r" in the month.
 
+### A monitor
+
+This [monitor](./as_demos/monitor/README.md) enables a running `uasyncio`
+application to be monitored using a Pi Pico, ideally with a scope or logic
+analyser.
+
 ### Asynchronous device drivers  
 
 These device drivers are intended as examples of asynchronous code which are
@@ -79,6 +85,26 @@ supported.
 
 The `Future` class is not supported, nor are the `event_loop` methods
 `call_soon`, `call_later`, `call_at`.
+
+## 2.1 Outstanding issues with V3
+
+V3 is still a work in progress. The following is a list of issues which I hope
+will be addressed in due course.
+
+### 2.1.1 Fast I/O scheduling
+
+There is currently no support for this: I/O is scheduled in round robin fashion
+with other tasks. There are situations where this is too slow, for example in
+I2S applications and ones involving multiple fast I/O streams, e.g. from UARTs.
+In these applications there is still a use case for the `fast_io` V2 variant.
+
+### 2.1.2 Synchronisation primitives
+
+These CPython primitives are outstanding:
+ * `Semaphore`.
+ * `BoundedSemaphore`.
+ * `Condition`.
+ * `Queue`.
 
 # 3. Porting applications from V2
 
@@ -182,23 +208,3 @@ New versions are provided in this repository. Classes:
  * `Delay_ms` Software retriggerable monostable (watchdog-like object).
  * `Switch` Debounced switch with close and open callbacks.
  * `Pushbutton` Pushbutton with double-click and long press callbacks.
-
-# 4. Outstanding issues with V3
-
-V3 is still a work in progress. The following is a list of issues which I hope
-will be addressed in due course.
-
-## 4.1 Fast I/O scheduling
-
-There is currently no support for this: I/O is scheduled in round robin fashion
-with other tasks. There are situations where this is too slow, for example in
-I2S applications and ones involving multiple fast I/O streams, e.g. from UARTs.
-In these applications there is still a use case for the `fast_io` V2 variant.
-
-## 4.2 Synchronisation primitives
-
-These CPython primitives are outstanding:
- * `Semaphore`.
- * `BoundedSemaphore`.
- * `Condition`.
- * `Queue`.

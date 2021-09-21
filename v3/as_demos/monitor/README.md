@@ -207,3 +207,6 @@ The baudrate of 1Mbps was chosen to minimise latency (10μs per character is
 fast in the context of uasyncio). It also ensures that tasks like `hog_detect`,
 which can be scheduled at a high rate, can't overflow the UART buffer. The
 1Mbps rate seems widely supported.
+
+This project was inspired by
+[this GitHub thread](https://github.com/micropython/micropython/issues/7456).
