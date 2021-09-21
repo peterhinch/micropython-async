@@ -20,7 +20,7 @@ The following image shows the `quick_test.py` code being monitored at the point
 when a task hogs the CPU. The top line 00 shows the "hog detect" trigger. Line
 02 shows the fast running `hog_detect` task which cannot run at the time of the
 trigger. Lines 01 and 03 show the `foo` and `bar` tasks.  
-![Image](/.monitor.jpg)
+![Image](./monitor.jpg)
 
 ## 1.1 Pre-requisites
 
