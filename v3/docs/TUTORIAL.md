@@ -2352,8 +2352,8 @@ The second approach to socket programming is to use nonblocking sockets. This
 adds complexity but is necessary in some applications, notably where
 connectivity is via WiFi (see below).
 
-At the time of writing (March 2019) support for TLS on nonblocking sockets is
-under development. Its exact status is unknown (to me).
+Support for TLS on nonblocking sockets is platform dependent. It works on ESP32
+and Pyboard D. It does not work on ESP8266.
 
 The use of nonblocking sockets requires some attention to detail. If a
 nonblocking read is performed, because of server latency, there is no guarantee
@@ -2363,14 +2363,6 @@ proceed to completion.
 Hence asynchronous read and write methods need to iteratively perform the
 nonblocking operation until the required data has been read or written. In
 practice a timeout is likely to be required to cope with server outages.
-
-A further complication is that the ESP32 port had issues which required rather
-unpleasant hacks for error-free operation. I have not tested whether this is
-still the case.
-
-The file [sock_nonblock.py](./sock_nonblock.py) illustrates the sort of
-techniques required. It is not a working demo, and solutions are likely to be
-application dependent.
 
 ### 7.6.1 WiFi issues
 
