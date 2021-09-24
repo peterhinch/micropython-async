@@ -187,6 +187,7 @@ of 100ms - pin 28 will pulse if ident 0 is inactive for over 100ms. These
 behaviours can be modified by the following `run` args:
  1. `period=100` Define the timer period in ms.
  2. `verbose=()` Determines which `ident` values should produce console output.
+ 3. `device="uart"` Provides for future use of other interfaces.
 
 Thus to run such that idents 4 and 7 produce console output, with hogging
 reported if blocking is for more than 60ms, issue
@@ -195,7 +196,12 @@ from monitor_pico import run
 run(60, (4, 7))
 ```
 
-# 5. Design notes
+# 5. Performance and design notes
+
+The latency between a monitored coroutine starting to run and the Pico pin
+going high is about 20μs. This isn't as absurd as it sounds: theoretically the
+latency could be negative as the effect of the decorator is to send the
+character before the coroutine starts.
 
 The use of decorators is intended to ease debugging: they are readily turned on
 and off by commenting out.
@@ -213,3 +219,11 @@ which can be scheduled at a high rate, can't overflow the UART buffer. The
 
 This project was inspired by
 [this GitHub thread](https://github.com/micropython/micropython/issues/7456).
+
+# 6. Work in progress
+
+It is intended to add an option for SPI communication; `monitor.py` has a
+`set_device` method which can be passed an instance of an initialised SPI
+object. The Pico `run` method will be able to take a `device="spi"` arg which
+will expect an SPI connection on pins 0 (sck) and 1 (data). This requires a
+limited implementation of an SPI slave using the PIO, which I will do soon.

@@ -7,10 +7,16 @@
 import uasyncio as asyncio
 from machine import UART
 
-uart = None
+device = None
 def set_uart(n):  # Monitored app defines interface
-    global uart
-    uart = UART(n, 1_000_000)
+    global device
+    device = UART(n, 1_000_000)
+
+# For future use with SPI
+# Pass initialised instance of some device
+def set_device(dev):
+    global device
+    device = dev
 
 _available = set(range(0, 23))  # Valid idents are 0..22
 
@@ -38,7 +44,7 @@ def monitor(n, max_instances=1):
             instance += 1
             if instance > max_instances:
                 print(f'Monitor {n:02} max_instances reached')
-            uart.write(v)
+            device.write(v)
             try:
                 res = await coro(*args, **kwargs)
             except asyncio.CancelledError:
@@ -46,14 +52,14 @@ def monitor(n, max_instances=1):
             finally:
                 d |= 0x20
                 v = bytes(chr(d), 'utf8')
-                uart.write(v)
+                device.write(v)
                 instance -= 1
             return res
         return wrapped_coro
     return decorator
 
 def monitor_init():
-    uart.write(b'z')
+    device.write(b'z')
 
 # Optionally run this to show up periods of blocking behaviour
 @monitor(0)
@@ -73,9 +79,9 @@ def mon_func(n):
         dend = 0x60 + n
         vend = bytes(chr(dend), 'utf8')
         def wrapped_func(*args, **kwargs):
-            uart.write(vstart)
+            device.write(vstart)
             res = func(*args, **kwargs)
-            uart.write(vend)
+            device.write(vend)
             return res
         return wrapped_func
     return decorator
@@ -92,9 +98,9 @@ class mon_call:
         self.vend = bytes(chr(self.dend), 'utf8')
 
     def __enter__(self):
-        uart.write(self.vstart)
+        device.write(self.vstart)
         return self
 
     def __exit__(self, type, value, traceback):
-        uart.write(self.vend)
+        device.write(self.vend)
         return False  # Don't silence exceptions
