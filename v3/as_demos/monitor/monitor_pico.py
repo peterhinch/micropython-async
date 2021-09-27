@@ -4,18 +4,55 @@
 # Copyright (c) 2021 Peter Hinch
 # Released under the MIT License (MIT) - see LICENSE file
 
-# UART gets a single ASCII byte defining the pin number and whether
+# Device gets a single ASCII byte defining the pin number and whether
 # to increment (uppercase) or decrement (lowercase) the use count.
 # Pin goes high if use count > 0 else low.
-# incoming numbers are 0..22 which map onto 23 GPIO pins
+# incoming numbers are 0..21 which map onto 22 GPIO pins
 
+import rp2
 from machine import UART, Pin, Timer, freq
 
 freq(250_000_000)
 
+# ****** SPI support ******
+@rp2.asm_pio(autopush=True, in_shiftdir=rp2.PIO.SHIFT_LEFT, push_thresh=8)
+def spi_in():
+    label("escape")
+    set(x, 0)
+    mov(isr, x)  # Zero after DUT crash
+    wrap_target()
+    wait(1, pins, 2)  # CS/ False
+    wait(0, pins, 2)  # CS/ True
+    set(x, 7)
+    label("bit")
+    wait(0, pins, 1)
+    wait(1, pins, 1)
+    in_(pins, 1)
+    jmp(pin, "escape")  # DUT crashed. On restart it sends a char with CS high.
+    jmp(x_dec, "bit")  # Post decrement
+    wrap()
+
+
+class PIOSPI:
+
+    def __init__(self):
+        self._sm = rp2.StateMachine(0, spi_in,
+                                    in_shiftdir=rp2.PIO.SHIFT_LEFT,
+                                    push_thresh=8, in_base=Pin(0),
+                                    jmp_pin=Pin(2, Pin.IN, Pin.PULL_UP))
+        self._sm.active(1)
+
+    # Blocking read of 1 char. Returns ord(ch). If DUT crashes, worst case
+    # is where CS is left low. SM will hang until user restarts. On restart
+    # the app
+    def read(self):
+        return self._sm.get() & 0xff
+
+# ****** Define pins ******
+
 # Valid GPIO pins
-# GP0,1 are UART 0 so pins are 2..22, 26..27
-PIN_NOS = list(range(2,23)) + list(range(26, 28))
+# GPIO 0,1,2 are for interface so pins are 3..22, 26..27
+PIN_NOS = list(range(3, 23)) + list(range(26, 28))
 
 pin_t = Pin(28, Pin.OUT)
 def _cb(_):
@@ -31,6 +68,7 @@ pins = []
 for pin_no in PIN_NOS:
     pins.append([Pin(pin_no, Pin.OUT), 0, False])
 
+# ****** Monitor ******
 # native reduced latency to 10μs but killed the hog detector: timer never timed out.
 # Also locked up Pico so ctrl-c did not interrupt.
 #@micropython.native
@@ -39,13 +77,19 @@ def run(period=100, verbose=[], device="uart"):
     t_ms = period
     for x in verbose:
         pins[x][2] = True
-    # Provide for future devices. Must support a blocking read.
+    # A device must support a blocking read.
     if device == "uart":
         uart = UART(0, 1_000_000)  # rx on GPIO 1
         def read():
-            while not uart.any():
+            while not uart.any():  # Prevent UART timeouts
                 pass
             return ord(uart.read(1))
+    elif device == "spi":
+        pio = PIOSPI()
+        def read():
+            return pio.read()
+    else:
+        raise ValueError("Unsupported device:", device)
 
     while True:
         if x := read():  # Get an initial 0 on UART

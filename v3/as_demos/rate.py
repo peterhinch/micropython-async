@@ -7,6 +7,12 @@
 # 100 minimal coros are scheduled at an interval of 195μs on uasyncio V3
 # Compares with ~156μs on official uasyncio V2.
 
+# Results for 100 coros on other platforms at standard clock rate:
+# Pyboard D SF2W 124μs
+# Pico 481μs
+# ESP32 920μs
+# ESP8266 1495μs (could not run 500 or 1000 coros)
+
 import uasyncio as asyncio
 
 num_coros = (100, 200, 500, 1000)
@@ -43,4 +49,3 @@ async def report():
             n, int(iterations[x]/duration), int(duration*1000000/iterations[x])))
 
 asyncio.run(report())
-

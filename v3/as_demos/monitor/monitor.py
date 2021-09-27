@@ -5,23 +5,37 @@
 # Released under the MIT License (MIT) - see LICENSE file
 
 import uasyncio as asyncio
-from machine import UART
+from machine import UART, SPI, Pin
 
-device = None
-def set_uart(n):  # Monitored app defines interface
-    global device
-    device = UART(n, 1_000_000)
+_write = lambda _ : print('Must run set_device')
+_dummy = lambda : None  # If UART do nothing.
 
-# For future use with SPI
-# Pass initialised instance of some device
-def set_device(dev):
-    global device
-    device = dev
+# For UART pass initialised UART. Baudrate must be 1_000_000.
+# For SPI pass initialised instance SPI. Can be any baudrate, but
+# must be default in other respects.
+def set_device(dev, cspin=None):
+    global _write
+    global _dummy
+    if isinstance(dev, UART) and cspin is None:  # UART
+        _write = dev.write
+    elif isinstance(dev, SPI) and isinstance(cspin, Pin):
+        cspin(1)
+        def spiwrite(data):
+            cspin(0)
+            dev.write(data)
+            cspin(1)
+        _write = spiwrite
+        def clear_sm():  # Set Pico SM to its initial state
+            cspin(1)
+            dev.write(b'\0')  # SM is now waiting for CS low.
+        _dummy = clear_sm
+    else:
+        print('set_device: invalid args.')
 
-_available = set(range(0, 23))  # Valid idents are 0..22
+_available = set(range(0, 22))  # Valid idents are 0..21
 
 def _validate(ident, num=1):
-    if ident >= 0 and ident + num <= 23:
+    if ident >= 0 and ident + num < 22:
         try:
             for x in range(ident, ident + num):
                 _available.remove(x)
@@ -44,7 +58,7 @@ def monitor(n, max_instances=1):
             instance += 1
             if instance > max_instances:
                 print(f'Monitor {n:02} max_instances reached')
-            device.write(v)
+            _write(v)
             try:
                 res = await coro(*args, **kwargs)
             except asyncio.CancelledError:
@@ -52,14 +66,17 @@ def monitor(n, max_instances=1):
             finally:
                 d |= 0x20
                 v = bytes(chr(d), 'utf8')
-                device.write(v)
+                _write(v)
                 instance -= 1
             return res
         return wrapped_coro
     return decorator
 
+# If SPI, clears the state machine in case prior test resulted in the DUT
+# crashing. It does this by sending a byte with CS\ False (high).
 def monitor_init():
-    device.write(b'z')
+    _dummy()  # Does nothing if UART
+    _write(b'z')
 
 # Optionally run this to show up periods of blocking behaviour
 @monitor(0)
@@ -79,9 +96,9 @@ def mon_func(n):
         dend = 0x60 + n
         vend = bytes(chr(dend), 'utf8')
         def wrapped_func(*args, **kwargs):
-            device.write(vstart)
+            _write(vstart)
             res = func(*args, **kwargs)
-            device.write(vend)
+            _write(vend)
             return res
         return wrapped_func
     return decorator
@@ -98,9 +115,9 @@ class mon_call:
         self.vend = bytes(chr(self.dend), 'utf8')
 
     def __enter__(self):
-        device.write(self.vstart)
+        _write(self.vstart)
         return self
 
     def __exit__(self, type, value, traceback):
-        device.write(self.vend)
+        _write(self.vend)
         return False  # Don't silence exceptions

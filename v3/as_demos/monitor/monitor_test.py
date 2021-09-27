@@ -1,9 +1,9 @@
 # monitor_test.py
 
 import uasyncio as asyncio
-from monitor import monitor, monitor_init, mon_func, mon_call, set_uart
+from monitor import monitor, monitor_init, mon_func, mon_call, set_device
 
-set_uart(2)  # Define interface to use
+set_device(UART(2, 1_000_000))  # UART must be 1MHz
 
 @monitor(1, 2)
 async def foo(t):

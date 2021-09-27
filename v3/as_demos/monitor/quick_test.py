@@ -2,10 +2,12 @@
 
 import uasyncio as asyncio
 import time
-from machine import Pin
-from monitor import monitor, monitor_init, hog_detect, set_uart
+from machine import Pin, UART, SPI
+from monitor import monitor, monitor_init, hog_detect, set_device
 
-set_uart(2)  # Define interface to use
+# Define interface to use
+set_device(UART(2, 1_000_000))  # UART must be 1MHz
+#set_device(SPI(2, baudrate=5_000_000), Pin('X1', Pin.OUT))  # SPI suggest >= 1MHz
 
 @monitor(1)
 async def foo(t, pin):
