@@ -28,7 +28,8 @@ and `bar` tasks.
 ### Breaking changes to support SPI
 
 The `set_uart` method is replaced by `set_device`. Pin mappings on the Pico
-have changed.
+have changed. Barring bug fixes or user suggestions I consider this project to
+be complete.
 
 ## 1.1 Pre-requisites
 
@@ -134,6 +135,9 @@ going pulse is produced on pin 28, along with the console message "Hog". The
 pulse can be used to trigger a scope or logic analyser. The duration of the
 timer may be adjusted - see [section 4](./README.md~4-the-pico-code).
 
+Note that hog detection will be triggered if the host application terminates.
+The Pico cannot determine the reason why the `hog_detect` task has stopped.
+
 # 2. Monitoring synchronous code
 
 In general there are easier ways to debug synchronous code. However in the
@@ -218,12 +222,16 @@ Monitoring via the UART with default behaviour is started as follows:
 from monitor_pico import run
 run()
 ```
-By default the Pico does not produce console output and the timer has a period
-of 100ms - pin 28 will pulse if ident 0 is inactive for over 100ms. These
-behaviours can be modified by the following `run` args:
+By default the Pico does not produce console output when tasks start and end.
+The timer has a period of 100ms - pin 28 will pulse if ident 0 is inactive for
+over 100ms. These behaviours can be modified by the following `run` args:
  1. `period=100` Define the hog_detect timer period in ms.
- 2. `verbose=()` Determines which `ident` values should produce console output.
+ 2. `verbose=()` A list or tuple of `ident` values which should produce console
+ output.
  3. `device="uart"` Set to "spi" for an SPI interface.
+ 4. `vb=True` By default the Pico issues console messages reporting on initial
+ communication status, repeated each time the application under test restarts.
+ Set `False` to disable these messages.
 
 Thus to run such that idents 4 and 7 produce console output, with hogging
 reported if blocking is for more than 60ms, issue

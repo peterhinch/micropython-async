@@ -72,7 +72,7 @@ for pin_no in PIN_NOS:
 # native reduced latency to 10μs but killed the hog detector: timer never timed out.
 # Also locked up Pico so ctrl-c did not interrupt.
 #@micropython.native
-def run(period=100, verbose=[], device="uart"):
+def run(period=100, verbose=(), device="uart", vb=True):
     global t_ms
     t_ms = period
     for x in verbose:
@@ -91,9 +91,11 @@ def run(period=100, verbose=[], device="uart"):
     else:
         raise ValueError("Unsupported device:", device)
 
+    vb and print('Awaiting communication')
     while True:
         if x := read():  # Get an initial 0 on UART
             if x == 0x7a:  # Init: program under test has restarted
+                vb and print('Got communication.')
                 for pin in pins:
                     pin[1] = 0
                 continue
