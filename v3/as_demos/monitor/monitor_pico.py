@@ -11,6 +11,7 @@
 
 import rp2
 from machine import UART, Pin, Timer, freq
+from time import ticks_ms, ticks_diff
 
 freq(250_000_000)
 
@@ -54,27 +55,43 @@ class PIOSPI:
 # GPIO 0,1,2 are for interface so pins are 3..22, 26..27
 PIN_NOS = list(range(3, 23)) + list(range(26, 28))
 
-pin_t = Pin(28, Pin.OUT)
-def _cb(_):
-    pin_t(1)
-    print('Hog')
-    pin_t(0)
-
-tim = Timer()
-t_ms = 100
 # Index is incoming ID
 # contents [Pin, instance_count, verbose]
 pins = []
 for pin_no in PIN_NOS:
     pins.append([Pin(pin_no, Pin.OUT), 0, False])
 
+# ****** Timing *****
+
+pin_t = Pin(28, Pin.OUT)
+def _cb(_):
+    pin_t(1)
+    print("Timeout.")
+    pin_t(0)
+
+tim = Timer()
+
 # ****** Monitor ******
+
+SOON = const(0)
+LATE = const(1)
+MAX = const(2)
+# Modes. Pulses and reports only occur if an outage exceeds the threshold.
+# SOON: pulse early when timer times out. Report at outage end.
+# LATE: pulse when outage ends. Report at outage end.
+# MAX: pulse when outage exceeds prior maximum. Report only in that instance.
+
 # native reduced latency to 10μs but killed the hog detector: timer never timed out.
 # Also locked up Pico so ctrl-c did not interrupt.
 #@micropython.native
 def run(period=100, verbose=(), device="uart", vb=True):
-    global t_ms
-    t_ms = period
+    if isinstance(period, int):
+        t_ms = period
+        mode = SOON
+    else:
+        t_ms, mode = period
+        if mode not in (SOON, LATE, MAX):
+            raise ValueError('Invalid mode.')
     for x in verbose:
         pins[x][2] = True
     # A device must support a blocking read.
@@ -92,15 +109,36 @@ def run(period=100, verbose=(), device="uart", vb=True):
         raise ValueError("Unsupported device:", device)
 
     vb and print('Awaiting communication')
+    h_max = 0  # Max hog duration (ms)
+    h_start = 0  # Absolute hog start time
     while True:
         if x := read():  # Get an initial 0 on UART
             if x == 0x7a:  # Init: program under test has restarted
                 vb and print('Got communication.')
+                h_max = 0  # Restart timing
+                h_start = 0
                 for pin in pins:
-                    pin[1] = 0
+                    pin[1] = 0  # Clear instance counters
                 continue
-            if x == 0x40:  # Retrigger hog detector.
-                tim.init(period=t_ms, mode=Timer.ONE_SHOT, callback=_cb)
+            if x == 0x40:  # hog_detect task has started.
+                t = ticks_ms()  # Arrival time
+                if mode == SOON:  # Pulse on absence of activity
+                    tim.init(period=t_ms, mode=Timer.ONE_SHOT, callback=_cb)
+                if h_start:  # There was a prior trigger
+                    dt = ticks_diff(t, h_start)
+                    if dt > t_ms:  # Delay exceeds threshold
+                        if mode != MAX:
+                            print(f"Hog {dt}ms")
+                        if mode == LATE:
+                            pin_t(1)
+                            pin_t(0)
+                        if dt > h_max:
+                            h_max = dt
+                            print(f"Max hog {dt}ms")
+                            if mode == MAX:
+                                pin_t(1)
+                                pin_t(0)
+                h_start = t
             p = pins[x & 0x1f]  # Key: 0x40 (ord('@')) is pin ID 0
             if x & 0x20:  # Going down
                 p[1] -= 1

@@ -1,5 +1,8 @@
 # quick_test.py
 
+# Copyright (c) 2021 Peter Hinch
+# Released under the MIT License (MIT) - see LICENSE file
+
 import uasyncio as asyncio
 import time
 from machine import Pin, UART, SPI
@@ -17,8 +20,9 @@ async def foo(t, pin):
 
 @monitor(2)
 async def hog():
-    await asyncio.sleep(5)
-    time.sleep_ms(500)
+    while True:
+        await asyncio.sleep(5)
+        time.sleep_ms(500)
 
 @monitor(3)
 async def bar(t):
@@ -27,7 +31,8 @@ async def bar(t):
 
 async def main():
     monitor_init()
-    test_pin = Pin('X6', Pin.OUT)
+    # test_pin = Pin('X6', Pin.OUT)
+    test_pin = lambda _ : None  # If you don't want to measure latency
     asyncio.create_task(hog_detect())
     asyncio.create_task(hog())  # Will hog for 500ms after 5 secs
     while True:
@@ -35,4 +40,7 @@ async def main():
         await bar(150)
         await asyncio.sleep_ms(50)
 
-asyncio.run(main())
+try:
+    asyncio.run(main())
+finally:
+    asyncio.new_event_loop()

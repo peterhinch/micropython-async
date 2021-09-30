@@ -1,5 +1,8 @@
 # monitor_test.py
 
+# Copyright (c) 2021 Peter Hinch
+# Released under the MIT License (MIT) - see LICENSE file
+
 import uasyncio as asyncio
 from monitor import monitor, monitor_init, mon_func, mon_call, set_device
 

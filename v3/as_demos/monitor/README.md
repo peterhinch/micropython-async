@@ -4,12 +4,13 @@ This library provides a means of examining the behaviour of a running
 `uasyncio` system. The device under test is linked to a Raspberry Pi Pico. The
 latter displays the behaviour of the host by pin changes and/or optional print
 statements. A logic analyser or scope provides an insight into the way an
-asynchronous application is working.
+asynchronous application is working, although valuable informtion can be
+gleaned without such tools.
 
 Communication with the Pico may be by UART or SPI, and is uni-directional from
 system under test to Pico. If a UART is used only one GPIO pin is used; at last
-a use for the ESP8266 transmit-only UART(1). SPI requires three - mosi, sck and
-cs/.
+a use for the ESP8266 transmit-only UART(1). SPI requires three - `mosi`, `sck`
+and `cs/`.
 
 Where an application runs multiple concurrent tasks it can be difficult to
 locate a task which is hogging CPU time. Long blocking periods can also result
@@ -25,11 +26,14 @@ trigger because another task is hogging the CPU. Lines 01 and 03 show the `foo`
 and `bar` tasks.  
 ![Image](./monitor.jpg)
 
-### Breaking changes to support SPI
+### Status
 
-The `set_uart` method is replaced by `set_device`. Pin mappings on the Pico
-have changed. Barring bug fixes or user suggestions I consider this project to
-be complete.
+30th Sep 2021 Pico code has improved hog detection.
+
+27th Sep 2021 SPI support added. The `set_uart` method is replaced by
+`set_device`. Pin mappings on the Pico changed.
+
+21st Sep 2021 Initial release.
 
 ## 1.1 Pre-requisites
 
@@ -133,10 +137,8 @@ To aid in detecting the gaps in execution, the Pico code implements a timer.
 This is retriggered by activity on `ident=0`. If it times out, a brief high
 going pulse is produced on pin 28, along with the console message "Hog". The
 pulse can be used to trigger a scope or logic analyser. The duration of the
-timer may be adjusted - see [section 4](./README.md~4-the-pico-code).
-
-Note that hog detection will be triggered if the host application terminates.
-The Pico cannot determine the reason why the `hog_detect` task has stopped.
+timer may be adjusted. Other modes of hog detection are also supported. See
+[section 4](./README.md~4-the-pico-code).
 
 # 2. Monitoring synchronous code
 
@@ -239,6 +241,38 @@ reported if blocking is for more than 60ms, issue
 from monitor_pico import run
 run(60, (4, 7))
 ```
+Hog reporting is as follows. If ident 0 is inactive for more than the specified
+time, "Timeout" is issued. If ident 0 occurs after this, "Hog Nms" is issued
+where N is the duration of the outage. If the outage is longer than the prior
+maximum, "Max hog Nms" is also issued.
+
+This means that if the application under test terminates, throws an exception
+or crashes, "Timeout" will be issued.
+
+## 4.1 Advanced hog detection
+
+The detection of rare instances of high latency is a key requirement and other
+modes are available. There are two aims: providing information to users lacking
+test equipment and enhancing the ability to detect infrequent cases. Modes
+affect the timing of the trigger pulse and the frequency of reports.
+
+Modes are invoked by passing a 2-tuple as the `period` arg.  
+ * `period[0]` The period (ms): outages shorter than this time will be ignored.
+ * `period[1]` is the mode: constants `SOON`, `LATE` and `MAX` are exported.
+
+The mode has the following effect on the trigger pulse:  
+ * `SOON` Default behaviour: pulse occurs early at time `period[0]` ms after
+ the last trigger.
+ * `LATE` Pulse occurs when the outage ends.
+ * `MAX` Pulse occurs when the outage ends and its duration exceeds the prior
+ maximum.
+
+The mode also affects reporting. The effect of mode is as follows:
+ * `SOON` Default behaviour as described in section 4.
+ * `LATE` As above, but no "Timeout" message: reporting occurs at the end of an
+ outage only.
+ * `MAX` Report at end of outage but only when prior maximum exceeded. This
+ ensures worst-case is not missed.
 
 # 5. Performance and design notes
 
