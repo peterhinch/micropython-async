@@ -6,7 +6,7 @@
 import uasyncio as asyncio
 import time
 from machine import Pin, UART, SPI
-from monitor import monitor, monitor_init, hog_detect, set_device
+from monitor import monitor, monitor_init, hog_detect, set_device, trigger
 
 # Define interface to use
 set_device(UART(2, 1_000_000))  # UART must be 1MHz
@@ -20,9 +20,9 @@ async def foo(t, pin):
 
 @monitor(2)
 async def hog():
-    while True:
-        await asyncio.sleep(5)
-        time.sleep_ms(500)
+    await asyncio.sleep(5)
+    trigger(4)  # Hog start
+    time.sleep_ms(500)
 
 @monitor(3)
 async def bar(t):

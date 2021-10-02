@@ -6,6 +6,7 @@
 
 import uasyncio as asyncio
 from machine import UART, SPI, Pin
+from time import sleep_us
 
 _write = lambda _ : print('Must run set_device')
 _dummy = lambda : None  # If UART do nothing.
@@ -121,3 +122,10 @@ class mon_call:
     def __exit__(self, type, value, traceback):
         _write(self.vend)
         return False  # Don't silence exceptions
+
+# Cause pico ident n to produce a brief (~80μs) pulse
+def trigger(n):
+    _validate(n)
+    _write(bytes(chr(0x40 + n), 'utf8'))
+    sleep_us(20)
+    _write(bytes(chr(0x60 + n), 'utf8'))

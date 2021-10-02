@@ -21,12 +21,20 @@ system state at the time of the transient event may be examined.
 
 The following image shows the `quick_test.py` code being monitored at the point
 when a task hogs the CPU. The top line 00 shows the "hog detect" trigger. Line
-02 shows the fast running `hog_detect` task which cannot run at the time of the
-trigger because another task is hogging the CPU. Lines 01 and 03 show the `foo`
-and `bar` tasks.  
+01 shows the fast running `hog_detect` task which cannot run at the time of the
+trigger because another task is hogging the CPU. Lines 02 and 04 show the `foo`
+and `bar` tasks. Line 03 shows the `hog` task and line 05 is a trigger issued
+by `hog()` when it starts monopolising the CPU. The Pico issues the "hog
+detect" trigger 100ms after hogging starts.  
 ![Image](./monitor.jpg)
 
+The following image shows brief (<4ms) hogging while `quick_test.py` ran. The
+likely cause is garbage collection on the Pyboard D host.  
+![Image](./monitor_gc.jpg)
+
 ### Status
+
+2nd Oct 2021 Add trigger function.
 
 30th Sep 2021 Pico code has improved hog detection.
 
@@ -145,7 +153,9 @@ timer may be adjusted. Other modes of hog detection are also supported. See
 In general there are easier ways to debug synchronous code. However in the
 context of a monitored asynchronous application there may be a need to view the
 timing of synchronous code. Functions and methods may be monitored either in
-the declaration via a decorator or when called via a context manager.
+the declaration via a decorator or when called via a context manager. Timing
+markers may be inserted in code: a call to `monitor.trigger` will cause a Pico
+pin to pulse.
 
 ## 2.1 The mon_func decorator
 
@@ -172,6 +182,12 @@ with mon_call(22):
 
 It is advisable not to use the context manager with a function having the
 `mon_func` decorator. The pin and report behaviour is confusing.
+
+## 2.3 The trigger timing marker
+
+A call to `monitor.trigger(n)` may be inserted anywhere in synchronous or
+asynchronous code. When this runs, a brief (~80μs) pulse will occur on the Pico
+pin with ident `n`.
 
 # 3. Pico Pin mapping
 
