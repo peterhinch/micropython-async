@@ -1,4 +1,4 @@
-# Demonstration of a device driver using a coroutine to poll a dvice.
+# Demonstration of a device driver using a coroutine to poll a device.
 # Runs on Pyboard: displays results from the onboard accelerometer.
 # Uses crude filtering to discard noisy data.
 
