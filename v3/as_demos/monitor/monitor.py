@@ -7,8 +7,14 @@
 import uasyncio as asyncio
 from machine import UART, SPI, Pin
 from time import sleep_us
+from sys import exit
 
-_write = lambda _ : print('Must run set_device')
+# Quit with an error message rather than throw.
+def _quit(s):
+    print("Monitor " + s)
+    exit(0)
+
+_write = lambda _ : _quit("must run set_device")
 _dummy = lambda : None  # If UART do nothing.
 
 # For UART pass initialised UART. Baudrate must be 1_000_000.
@@ -28,12 +34,15 @@ def set_device(dev, cspin=None):
         _write = spiwrite
         def clear_sm():  # Set Pico SM to its initial state
             cspin(1)
-            dev.write(b'\0')  # SM is now waiting for CS low.
+            dev.write(b"\0")  # SM is now waiting for CS low.
         _dummy = clear_sm
     else:
-        print('set_device: invalid args.')
+        _quit("set_device: invalid args.")
 
+# Justification for validation even when decorating a method
+# /mnt/qnap2/data/Projects/Python/AssortedTechniques/decorators
 _available = set(range(0, 22))  # Valid idents are 0..21
+_reserved = set()  # Idents reserved for synchronous monitoring
 
 def _validate(ident, num=1):
     if ident >= 0 and ident + num < 22:
@@ -41,12 +50,23 @@ def _validate(ident, num=1):
             for x in range(ident, ident + num):
                 _available.remove(x)
         except KeyError:
-            raise ValueError(f'Monitor error - ident {x:02} already allocated.')
+            _quit(f"error - ident {x:02} already allocated.")
     else:
-        raise ValueError(f'Monitor error - ident {ident:02} out of range.')
+        _quit(f"error - ident {ident:02} out of range.")
 
+# Reserve ID's to be used for synchronous monitoring
+def reserve(*ids):
+    for ident in ids:
+        _validate(ident)
+        _reserved.add(ident)
 
-def monitor(n, max_instances=1):
+# Check whether a synchronous ident was reserved
+def _check(ident):
+    if ident not in _reserved:
+        _quit(f"error: synchronous ident {ident:02} was not reserved.")
+
+# asynchronous monitor
+def asyn(n, max_instances=1):
     def decorator(coro):
         # This code runs before asyncio.run()
         _validate(n, max_instances)
@@ -55,10 +75,10 @@ def monitor(n, max_instances=1):
             # realtime
             nonlocal instance
             d = 0x40 + n + min(instance, max_instances - 1)
-            v = bytes(chr(d), 'utf8')
+            v = int.to_bytes(d, 1, "big")
             instance += 1
-            if instance > max_instances:
-                print(f'Monitor {n:02} max_instances reached')
+            if instance > max_instances:  # Warning only
+                print(f"Monitor {n:02} max_instances reached")
             _write(v)
             try:
                 res = await coro(*args, **kwargs)
@@ -66,7 +86,7 @@ def monitor(n, max_instances=1):
                 raise
             finally:
                 d |= 0x20
-                v = bytes(chr(d), 'utf8')
+                v = int.to_bytes(d, 1, "big")
                 _write(v)
                 instance -= 1
             return res
@@ -75,12 +95,12 @@ def monitor(n, max_instances=1):
 
 # If SPI, clears the state machine in case prior test resulted in the DUT
 # crashing. It does this by sending a byte with CS\ False (high).
-def monitor_init():
+def init():
     _dummy()  # Does nothing if UART
-    _write(b'z')
+    _write(b"z")  # Clear Pico's instance counters etc.
 
 # Optionally run this to show up periods of blocking behaviour
-@monitor(0)
+@asyn(0)
 async def _do_nowt():
     await asyncio.sleep_ms(0)
 
@@ -89,13 +109,13 @@ async def hog_detect():
         await _do_nowt()
 
 # Monitor a synchronous function definition
-def mon_func(n):
+def sync(n):
     def decorator(func):
         _validate(n)
         dstart = 0x40 + n
-        vstart = bytes(chr(dstart), 'utf8')
+        vstart = int.to_bytes(dstart, 1, "big")
         dend = 0x60 + n
-        vend = bytes(chr(dend), 'utf8')
+        vend = int.to_bytes(dend, 1, "big")
         def wrapped_func(*args, **kwargs):
             _write(vstart)
             res = func(*args, **kwargs)
@@ -104,16 +124,16 @@ def mon_func(n):
         return wrapped_func
     return decorator
 
-        
+# Runtime monitoring: can't validate because code may be looping.
 # Monitor a synchronous function call
 class mon_call:
     def __init__(self, n):
-        _validate(n)
+        _check(n)
         self.n = n
         self.dstart = 0x40 + n
-        self.vstart = bytes(chr(self.dstart), 'utf8')
+        self.vstart = int.to_bytes(self.dstart, 1, "big")
         self.dend = 0x60 + n
-        self.vend = bytes(chr(self.dend), 'utf8')
+        self.vend = int.to_bytes(self.dend, 1, "big")
 
     def __enter__(self):
         _write(self.vstart)
@@ -125,7 +145,7 @@ class mon_call:
 
 # Cause pico ident n to produce a brief (~80μs) pulse
 def trigger(n):
-    _validate(n)
-    _write(bytes(chr(0x40 + n), 'utf8'))
+    _check(n)
+    _write(int.to_bytes(0x40 + n, 1, "big"))
     sleep_us(20)
-    _write(bytes(chr(0x60 + n), 'utf8'))
+    _write(int.to_bytes(0x60 + n, 1, "big"))
