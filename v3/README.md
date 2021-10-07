@@ -31,12 +31,6 @@ This [lightweight scheduler](./docs/SCHEDULE.md) enables tasks to be scheduled
 at future times. These can be assigned in a flexible way: a task might run at
 4.10am on Monday and Friday if there's no "r" in the month.
 
-### A monitor
-
-This [monitor](./as_demos/monitor/README.md) enables a running `uasyncio`
-application to be monitored using a Pi Pico, ideally with a scope or logic
-analyser.
-
 ### Asynchronous device drivers  
 
 These device drivers are intended as examples of asynchronous code which are
@@ -51,6 +45,14 @@ useful in their own right:
  using the popular NEC protocol.
  * [HD44780](./docs/hd44780.md) Driver for common character based LCD displays
  based on the Hitachi HD44780 controller.
+
+### A monitor
+
+This [monitor](./as_demos/monitor/README.md) enables a running `uasyncio`
+application to be monitored using a Pi Pico, ideally with a scope or logic
+analyser.
+
+![Image](./as_demos/monitor/tests/syn_test.jpg)
 
 # 2. V3 Overview
 
