@@ -50,9 +50,9 @@ def _validate(ident, num=1):
             for x in range(ident, ident + num):
                 _available.remove(x)
         except KeyError:
-            _quit(f"error - ident {x:02} already allocated.")
+            _quit("error - ident {:02d} already allocated.".format(x))
     else:
-        _quit(f"error - ident {ident:02} out of range.")
+        _quit("error - ident {:02d} out of range.".format(ident))
 
 # Reserve ID's to be used for synchronous monitoring
 def reserve(*ids):
@@ -63,7 +63,7 @@ def reserve(*ids):
 # Check whether a synchronous ident was reserved
 def _check(ident):
     if ident not in _reserved:
-        _quit(f"error: synchronous ident {ident:02} was not reserved.")
+        _quit("error: synchronous ident {:02d} was not reserved.".format(ident))
 
 # asynchronous monitor
 def asyn(n, max_instances=1):
@@ -78,7 +78,7 @@ def asyn(n, max_instances=1):
             v = int.to_bytes(d, 1, "big")
             instance += 1
             if instance > max_instances:  # Warning only
-                print(f"Monitor {n:02} max_instances reached")
+                print("Monitor {:02d} max_instances reached.".format(n))
             _write(v)
             try:
                 res = await coro(*args, **kwargs)

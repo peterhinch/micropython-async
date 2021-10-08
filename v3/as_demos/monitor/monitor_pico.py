@@ -118,7 +118,8 @@ def run(period=100, verbose=(), device="uart", vb=True):
                 h_max = 0  # Restart timing
                 h_start = 0
                 for pin in pins:
-                    pin[1] = 0  # Clear instance counters
+                    pin[0](0)  # Clear pin
+                    pin[1] = 0  # and instance counter
                 continue
             if x == 0x40:  # hog_detect task has started.
                 t = ticks_ms()  # Arrival time
