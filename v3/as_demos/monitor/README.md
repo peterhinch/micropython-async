@@ -396,7 +396,19 @@ fast in the context of uasyncio). It also ensures that tasks like `hog_detect`,
 which can be scheduled at a high rate, can't overflow the UART buffer. The
 1Mbps rate seems widely supported.
 
-## 6.1 How it works
+## 6.1 ESP8266 note
+
+tl;dr ESP8266 applications can be monitored using the transmit-only UART 1.
+
+I was expecting problems: on boot the ESP8266 transmits data on both UARTs at
+75Kbaud. A bit at this baudrate corresponds to 13.3 bits at 1Mbaud. A receiving
+UART will see a transmitted 1 as 13 consecutive 1 bits. Lacking a start bit, it
+will ignore them. An incoming 0 will be interpreted as a framing error because
+of the absence of a stop bit. In practice the Pico UART returns `b'\x00'` when
+this occurs, which `monitor.py` ignores. When monitored the ESP8266 behaves
+identically to other platforms and can be rebooted at will.
+
+## 6.2 How it works
 
 This is for anyone wanting to modify the code. Each ident is associated with
 two bytes, `0x40 + ident` and `0x60 + ident`. These are upper and lower case
