@@ -1,7 +1,7 @@
 # 1. A uasyncio monitor
 
 This library provides a means of examining the behaviour of a running
-`uasyncio` system. The device under test is linked to a Raspberry Pi Pico. The
+`uasyncio` system. The device under test is linked to a Raspberry Pico. The
 latter displays the behaviour of the host by pin changes and/or optional print
 statements. A logic analyser or scope provides an insight into the way an
 asynchronous application is working; valuable informtion can also be gleaned at
@@ -25,11 +25,13 @@ trigger because another task is hogging the CPU. Lines 02 and 04 show the `foo`
 and `bar` tasks. Line 03 shows the `hog` task and line 05 is a trigger issued
 by `hog()` when it starts monopolising the CPU. The Pico issues the "hog
 detect" trigger 100ms after hogging starts.  
+
 ![Image](./monitor.jpg)
 
 The following image shows brief (<4ms) hogging while `quick_test.py` ran. The
 likely cause is garbage collection on the Pyboard D host. The monitor was able
 to demostrate that this never exceeded 5ms.  
+
 ![Image](./monitor_gc.jpg)
 
 ### Status
@@ -43,9 +45,15 @@ The device being monitored must run firmware V1.17 or later. The `uasyncio`
 version should be V3 (included in the firmware). The file `monitor.py` should
 be copied to the target, and `monitor_pico` to the Pico.
 
-## 1.2 Usage
+## 1.2 Quick start guide
 
-A minimal example of a UART-monitored application looks like this:
+For UART based monitoring, ensure that the host and Pico `gnd` pins are linked.
+Connect the host's `txd` to the Pico pin 2 (UART(0) `rxd`). On the Pico issue:
+```python
+from monitor_pico import run
+run()
+```
+Adapt the following to match the UART to be used on the host and run it.
 ```python
 import uasyncio as asyncio
 from machine import UART  # Using a UART for monitoring
@@ -67,6 +75,8 @@ try:
 finally:
     asyncio.new_event_loop()
 ```
+A square wave of period 200ms should be observed on Pico GPIO 4 (pin 6).
+
 Example script `quick_test.py` provides a usage example. It may be adapted to
 use a UART or SPI interface: see commented-out code.
 
@@ -129,7 +139,9 @@ only go low when all instances associated with that pin have terminated.
 
 Consequently if `max_instances=1` and multiple instances are launched, a
 warning will appear on the host; the pin will go high when the first instance
-starts and will not go low until all have ended.
+starts and will not go low until all have ended. The purpose of the warning is
+because the existence of multiple instances may be unexpected behaviour in the
+application under test.
 
 ## 1.3 Detecting CPU hogging
 
@@ -161,21 +173,22 @@ asyncio.create_task(monitor.hog_detect())
 ```
 To aid in detecting the gaps in execution, the Pico code implements a timer.
 This is retriggered by activity on `ident=0`. If it times out, a brief high
-going pulse is produced on pin 28, along with the console message "Hog". The
+going pulse is produced on GPIO 28, along with the console message "Hog". The
 pulse can be used to trigger a scope or logic analyser. The duration of the
 timer may be adjusted. Other modes of hog detection are also supported. See
 [section 4](./README.md~4-the-pico-code).
 
 ## 1.4 Validation of idents
 
-Re-using idents would lead to confusing behaviour. A `ValueError` is thrown if
-an ident is out of range or is assigned to more than one coroutine.
+Re-using idents would lead to confusing behaviour. If an ident is out of range
+or is assigned to more than one coroutine an error message is printed and
+execution terminates.
 
 # 2. Monitoring synchronous code
 
 In the context of an asynchronous application there may be a need to view the
-timing of synchronous code, or simply to create a trigger pulse at a known
-point in the code. The following are provided:  
+timing of synchronous code, or simply to create a trigger pulse at one or more
+known points in the code. The following are provided:  
  * A `sync` decorator for synchronous functions or methods: like `async` it
  monitors every call to the function.
  * A `trigger` function which issues a brief pulse on the Pico.
@@ -192,15 +205,15 @@ monitor.reserve(4, 9, 10)
 
 ## 2.1 The sync decorator
 
-This works as per the `@async` decorator, but with no `max_instances` arg. This
-will activate GPIO 26 (associated with ident 20) for the duration of every call
-to `sync_func()`:
+This works as per the `@async` decorator, but with no `max_instances` arg. The
+following example will activate GPIO 26 (associated with ident 20) for the
+duration of every call to `sync_func()`:
 ```python
 @monitor.sync(20)
 def sync_func():
     pass
 ```
-Note that the ident must not be reserved.
+Note that idents used by decorators must not be reserved.
 
 ## 2.2 The mon_call context manager
 
@@ -217,7 +230,7 @@ with monitor.mon_call(22):
 ```
 
 It is advisable not to use the context manager with a function having the
-`mon_func` decorator. The pin and report behaviour is confusing.
+`mon_func` decorator. The behaviour of pins and reports are confusing.
 
 ## 2.3 The trigger timing marker
 
@@ -288,7 +301,7 @@ over 100ms. These behaviours can be modified by the following `run` args:
  1. `period=100` Define the hog_detect timer period in ms.
  2. `verbose=()` A list or tuple of `ident` values which should produce console
  output.
- 3. `device="uart"` Set to "spi" for an SPI interface.
+ 3. `device="uart"` Set to `"spi"` for an SPI interface.
  4. `vb=True` By default the Pico issues console messages reporting on initial
  communication status, repeated each time the application under test restarts.
  Set `False` to disable these messages.
@@ -356,16 +369,16 @@ only goes low when the last of these three instances is cancelled.
 ![Image](./tests/full_test.jpg)
 
 `latency.py` Measures latency between the start of a monitored task and the
-Pico pin going high. The sequence below is first the task pulses a pin (ident
-6). Then the Pico pin monitoring the task goes high (ident 1 after ~20μs). Then
-the trigger on ident 2 occurs 112μs after the pin pulse.
+Pico pin going high. In the image below the sequence starts when the host
+pulses a pin (ident 6). The Pico pin monitoring the task then goes high (ident
+1 after ~20μs). Then the trigger on ident 2 occurs 112μs after the pin pulse.
 
 ![Image](./tests/latency.jpg)
 
 `syn_test.py` Demonstrates two instances of a bound method along with the ways
 of monitoring synchronous code. The trigger on ident 5 marks the start of the
 sequence. The `foo1.pause` method on ident 1 starts and runs `foo1.wait1` on
-ident 3. 100ms after this ends, `foo`.wait2` on ident 4 is triggered. 100ms
+ident 3. 100ms after this ends, `foo.wait2` on ident 4 is triggered. 100ms
 after this ends, `foo1.pause` on ident 1 ends. The second instance of `.pause`
 (`foo2.pause`) on ident 2 repeats this sequence shifted by 50ms. The 10ms gaps
 in `hog_detect` show the periods of deliberate CPU hogging.
@@ -412,9 +425,10 @@ identically to other platforms and can be rebooted at will.
 
 This is for anyone wanting to modify the code. Each ident is associated with
 two bytes, `0x40 + ident` and `0x60 + ident`. These are upper and lower case
-printable ASCII characters (aside from ident 0 which is `@` and the backtick
-character). When an ident becomes active (e.g. at the start of a coroutine),
-uppercase is transmitted, when it becomes inactive lowercase is sent.
+printable ASCII characters (aside from ident 0 which is `@` paired with the
+backtick character). When an ident becomes active (e.g. at the start of a
+coroutine), uppercase is transmitted, when it becomes inactive lowercase is
+sent.
 
 The Pico maintains a list `pins` indexed by `ident`. Each entry is a 3-list
 comprising:
@@ -426,13 +440,14 @@ When a character arrives, the `ident` value is recovered. If it is uppercase
 the pin goes high and the instance count is incremented. If it is lowercase the
 instance count is decremented: if it becomes 0 the pin goes low.
 
-The `init` function on the host sends `b"z"` to the Pico. This clears down the
-instance counters (the program under test may have previously failed, leaving
-instance counters non-zero). The Pico also clears variables used to measure
-hogging. In the case of SPI communication, before sending the `b"z"`, a 0
-character is sent with `cs/` high. The Pico implements a basic SPI slave using
-the PIO. This may have been left in an invalid state by a crashing host. It is
-designed to reset to a known state if it receives a character with `cs/` high.
+The `init` function on the host sends `b"z"` to the Pico. This sets each pin
+int `pins` low and clears its instance counter (the program under test may have
+previously failed, leaving instance counters non-zero). The Pico also clears
+variables used to measure hogging. In the case of SPI communication, before
+sending the `b"z"`, a 0 character is sent with `cs/` high. The Pico implements
+a basic SPI slave using the PIO. This may have been left in an invalid state by
+a crashing host. The slave is designed to reset to a "ready" state if it
+receives any character with `cs/` high.
 
 The ident `@` (0x40) is assumed to be used by the `hog_detect()` function. When
 the Pico receives it, processing occurs to aid in hog detection and creating a
@@ -440,7 +455,8 @@ trigger on GPIO28. Behaviour depends on the mode passed to the `run()` command.
 In the following, `thresh` is the time passed to `run()` in `period[0]`.
  * `SOON` This retriggers a timer with period `thresh`. Timeout causes a
  trigger.
- * `LATE` Trigger occurs if the period since the last `@` exceeds `thresh`.
+ * `LATE` Trigger occurs if the period since the last `@` exceeds `thresh`. The
+ trigger happens when the next `@` is received.
  * `MAX` Trigger occurs if period exceeds `thresh` and also exceeds the prior
  maximum.
 
