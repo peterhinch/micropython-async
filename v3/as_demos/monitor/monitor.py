@@ -100,13 +100,10 @@ def init():
     _write(b"z")  # Clear Pico's instance counters etc.
 
 # Optionally run this to show up periods of blocking behaviour
-@asyn(0)
-async def _do_nowt():
-    await asyncio.sleep_ms(0)
-
-async def hog_detect():
+async def hog_detect(i=1, s=(b"\x40", b"\x60")):
     while True:
-        await _do_nowt()
+        _write(s[(i := i ^ 1)])
+        await asyncio.sleep_ms(0)
 
 # Monitor a synchronous function definition
 def sync(n):
