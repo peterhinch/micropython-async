@@ -35,19 +35,23 @@ def spi_in():
 
 
 class PIOSPI:
-
     def __init__(self):
-        self._sm = rp2.StateMachine(0, spi_in,
-                                    in_shiftdir=rp2.PIO.SHIFT_LEFT,
-                                    push_thresh=8, in_base=Pin(0),
-                                    jmp_pin=Pin(2, Pin.IN, Pin.PULL_UP))
+        self._sm = rp2.StateMachine(
+            0,
+            spi_in,
+            in_shiftdir=rp2.PIO.SHIFT_LEFT,
+            push_thresh=8,
+            in_base=Pin(0),
+            jmp_pin=Pin(2, Pin.IN, Pin.PULL_UP),
+        )
         self._sm.active(1)
 
     # Blocking read of 1 char. Returns ord(ch). If DUT crashes, worst case
     # is where CS is left low. SM will hang until user restarts. On restart
     # the app
     def read(self):
-        return self._sm.get() & 0xff
+        return self._sm.get() & 0xFF
+
 
 # ****** Define pins ******
 
@@ -64,10 +68,13 @@ for pin_no in PIN_NOS:
 # ****** Timing *****
 
 pin_t = Pin(28, Pin.OUT)
+
+
 def _cb(_):
     pin_t(1)
     print("Timeout.")
     pin_t(0)
+
 
 tim = Timer()
 
@@ -83,7 +90,7 @@ MAX = const(2)
 
 # native reduced latency to 10μs but killed the hog detector: timer never timed out.
 # Also locked up Pico so ctrl-c did not interrupt.
-#@micropython.native
+# @micropython.native
 def run(period=100, verbose=(), device="uart", vb=True):
     if isinstance(period, int):
         t_ms = period
@@ -91,30 +98,34 @@ def run(period=100, verbose=(), device="uart", vb=True):
     else:
         t_ms, mode = period
         if mode not in (SOON, LATE, MAX):
-            raise ValueError('Invalid mode.')
+            raise ValueError("Invalid mode.")
     for x in verbose:
         pins[x][2] = True
     # A device must support a blocking read.
     if device == "uart":
         uart = UART(0, 1_000_000)  # rx on GPIO 1
+
         def read():
             while not uart.any():  # Prevent UART timeouts
                 pass
             return ord(uart.read(1))
+
     elif device == "spi":
         pio = PIOSPI()
+
         def read():
             return pio.read()
+
     else:
         raise ValueError("Unsupported device:", device)
 
-    vb and print('Awaiting communication')
+    vb and print("Awaiting communication.")
     h_max = 0  # Max hog duration (ms)
     h_start = 0  # Absolute hog start time
     while True:
         if x := read():  # Get an initial 0 on UART
-            if x == 0x7a:  # Init: program under test has restarted
-                vb and print('Got communication.')
+            if x == 0x7A:  # Init: program under test has restarted
+                vb and print("Got communication.")
                 h_max = 0  # Restart timing
                 h_start = 0
                 for pin in pins:
@@ -140,7 +151,7 @@ def run(period=100, verbose=(), device="uart", vb=True):
                                 pin_t(1)
                                 pin_t(0)
                 h_start = t
-            p = pins[x & 0x1f]  # Key: 0x40 (ord('@')) is pin ID 0
+            p = pins[x & 0x1F]  # Key: 0x40 (ord('@')) is pin ID 0
             if x & 0x20:  # Going down
                 p[1] -= 1
                 if not p[1]:  # Instance count is zero
@@ -149,4 +160,4 @@ def run(period=100, verbose=(), device="uart", vb=True):
                 p[0](1)
                 p[1] += 1
             if p[2]:
-                print(f'ident {i} count {p[1]}')
+                print(f"ident {i} count {p[1]}")

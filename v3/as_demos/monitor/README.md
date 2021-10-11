@@ -122,6 +122,8 @@ The decorator positional args are as follows:
  [Pico Pin mapping](./README.md#3-pico-pin-mapping).
  2. `max_instances=1` Defines the maximum number of concurrent instances of the
  task to be independently monitored (default 1).
+ 3. `verbose=True` If `False` suppress the warning which is printed on the host
+ if the instance count exceeds `max_instances`.
 
 Whenever the coroutine runs, a pin on the Pico will go high, and when the code
 terminates it will go low. This enables the behaviour of the system to be
