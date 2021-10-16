@@ -485,6 +485,6 @@ monitor.validation(False)
 The device under test is on the right, linked to the Pico board by means of a
 UART.
 
-![Image](./monitor_hw.jpg)
+![Image](./monitor_hw.JPG)
 
 I can supply a schematic and PCB details if anyone is interested.
