@@ -11,7 +11,7 @@ import monitor
 
 # Pin on host: modify for other platforms
 test_pin = Pin('X6', Pin.OUT)
-monitor.reserve(2)
+trig = monitor.trigger(2)
 
 # Define interface to use
 monitor.set_device(UART(2, 1_000_000))  # UART must be 1MHz
@@ -21,7 +21,7 @@ monitor.set_device(UART(2, 1_000_000))  # UART must be 1MHz
 async def pulse(pin):
     pin(1)  # Pulse pin
     pin(0)
-    monitor.trigger(2)  # Pulse Pico pin ident 2
+    trig()  # Pulse Pico pin ident 2
     await asyncio.sleep_ms(30)
 
 async def main():

@@ -13,7 +13,7 @@ import monitor
 monitor.set_device(UART(2, 1_000_000))  # UART must be 1MHz
 # monitor.set_device(SPI(2, baudrate=5_000_000), Pin('X1', Pin.OUT))  # SPI suggest >= 1MHz
 
-monitor.reserve(4)  # ident for trigger
+trig = monitor.trigger(4)
 
 @monitor.asyn(1)
 async def foo(t):
@@ -22,7 +22,7 @@ async def foo(t):
 @monitor.asyn(2)
 async def hog():
     await asyncio.sleep(5)
-    monitor.trigger(4)  # Hog start
+    trig()  # Hog start
     time.sleep_ms(500)
 
 @monitor.asyn(3)

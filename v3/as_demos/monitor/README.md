@@ -184,7 +184,8 @@ timer may be adjusted. Other modes of hog detection are also supported. See
 
 Re-using idents would lead to confusing behaviour. If an ident is out of range
 or is assigned to more than one coroutine an error message is printed and
-execution terminates.
+execution terminates. See [section 7](./README.md#7-validation) for a special
+case where validation must be defeated.
 
 # 2. Monitoring synchronous code
 
@@ -193,17 +194,10 @@ timing of synchronous code, or simply to create a trigger pulse at one or more
 known points in the code. The following are provided:  
  * A `sync` decorator for synchronous functions or methods: like `async` it
  monitors every call to the function.
- * A `trigger` function which issues a brief pulse on the Pico.
  * A `mon_call` context manager enables function monitoring to be restricted to
  specific calls.
-
-Idents used by `trigger` or `mon_call` must be reserved: this is because these
-may occur in a looping construct. This enables the validation to protect
-against inadvertent multiple usage of an ident. The `monitor.reserve()`
-function can reserve one or more idents:
-```python
-monitor.reserve(4, 9, 10)
-```
+ * A `trigger` function which issues a brief pulse on the Pico or can set and
+ clear the pin on demand.
 
 ## 2.1 The sync decorator
 
@@ -215,15 +209,16 @@ duration of every call to `sync_func()`:
 def sync_func():
     pass
 ```
-Note that idents used by decorators must not be reserved.
 
 ## 2.2 The mon_call context manager
 
 This may be used to monitor a function only when called from specific points in
-the code.
-```python
-monitor.reserve(22)
+the code. Validation of idents is looser here because a context manager is
+often used in a looping construct: it seems impractical to distinguish this
+case from that where two context managers are instantiated with the same ID.
 
+Usage:
+```python
 def another_sync_func():
     pass
 
@@ -236,14 +231,23 @@ It is advisable not to use the context manager with a function having the
 
 ## 2.3 The trigger timing marker
 
-A call to `monitor.trigger(n)` may be inserted anywhere in synchronous or
-asynchronous code. When this runs, a brief (~80μs) pulse will occur on the Pico
-pin with ident `n`. As per `mon_call`,  ident `n` must be reserved.
+The `trigger` closure is intended for timing blocks of code. A closure instance
+is created by passing the ident. If the instance is run with no args a brief
+(~80μs) pulse will occur on the Pico pin. If `True` is passed, the pin will go
+high until `False` is passed.
+
+The closure should be instantiated once only. If instantiated in a loop the
+ident will fail the check on re-use.
 ```python
-monitor.reserve(10)
+trig = monitor.trigger(10)  # Associate trig with ident 10.
 
 def foo():
-    monitor.trigger(10)  # Pulse ident 10, GPIO 13
+    trig()  # Pulse ident 10, GPIO 13
+
+def bar():
+    trig(True)  # set pin high
+    # code omitted
+    trig(False)  # set pin low
 ```
 
 # 3. Pico Pin mapping
@@ -443,7 +447,7 @@ the pin goes high and the instance count is incremented. If it is lowercase the
 instance count is decremented: if it becomes 0 the pin goes low.
 
 The `init` function on the host sends `b"z"` to the Pico. This sets each pin
-int `pins` low and clears its instance counter (the program under test may have
+in `pins` low and clears its instance counter (the program under test may have
 previously failed, leaving instance counters non-zero). The Pico also clears
 variables used to measure hogging. In the case of SPI communication, before
 sending the `b"z"`, a 0 character is sent with `cs/` high. The Pico implements
@@ -465,3 +469,22 @@ In the following, `thresh` is the time passed to `run()` in `period[0]`.
 This project was inspired by
 [this GitHub thread](https://github.com/micropython/micropython/issues/7456).
 
+# 7. Validation
+
+The `monitor` module attempts to protect against inadvertent multiple use of an
+`ident`. There are use patterns which are incompatible with this, notably where
+a decorated function or coroutine is instantiated in a looping construct. To
+cater for such cases validation can be defeated. This is done by issuing:
+```python
+import monitor
+monitor.validation(False)
+```
+
+# 8. A hardware implementation
+
+The device under test is on the right, linked to the Pico board by means of a
+UART.
+
+![Image](./monitor_hw.jpg)
+
+I can supply a schematic and PCB details if anyone is interested.

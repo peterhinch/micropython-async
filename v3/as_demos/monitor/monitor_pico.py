@@ -83,10 +83,13 @@ tim = Timer()
 SOON = const(0)
 LATE = const(1)
 MAX = const(2)
+WIDTH = const(3)
 # Modes. Pulses and reports only occur if an outage exceeds the threshold.
 # SOON: pulse early when timer times out. Report at outage end.
 # LATE: pulse when outage ends. Report at outage end.
 # MAX: pulse when outage exceeds prior maximum. Report only in that instance.
+# WIDTH: for measuring time between arbitrary points in code. When duration
+# between 0x40 and 0x60 exceeds previosu max, pulse and report.
 
 # native reduced latency to 10μs but killed the hog detector: timer never timed out.
 # Also locked up Pico so ctrl-c did not interrupt.
@@ -121,23 +124,33 @@ def run(period=100, verbose=(), device="uart", vb=True):
 
     vb and print("Awaiting communication.")
     h_max = 0  # Max hog duration (ms)
-    h_start = 0  # Absolute hog start time
+    h_start = -1  # Absolute hog start time: invalidate.
     while True:
         if x := read():  # Get an initial 0 on UART
+            tarr = ticks_ms()  # Arrival time
             if x == 0x7A:  # Init: program under test has restarted
                 vb and print("Got communication.")
                 h_max = 0  # Restart timing
-                h_start = 0
+                h_start = -1
                 for pin in pins:
                     pin[0](0)  # Clear pin
                     pin[1] = 0  # and instance counter
                 continue
-            if x == 0x40:  # hog_detect task has started.
-                t = ticks_ms()  # Arrival time
+            if mode == WIDTH:
+                if x == 0x40:  # Leading edge on ident 0
+                    h_start = tarr
+                elif x == 0x60 and h_start != -1:  # Trailing edge
+                    dt = ticks_diff(tarr, h_start)
+                    if dt > h_max:
+                        h_max = dt
+                        print(f"Max width {dt}ms")
+                        pin_t(1)
+                        pin_t(0)
+            elif x == 0x40:  # hog_detect task has started.
                 if mode == SOON:  # Pulse on absence of activity
                     tim.init(period=t_ms, mode=Timer.ONE_SHOT, callback=_cb)
-                if h_start:  # There was a prior trigger
-                    dt = ticks_diff(t, h_start)
+                if h_start != -1:  # There was a prior trigger
+                    dt = ticks_diff(tarr, h_start)
                     if dt > t_ms:  # Delay exceeds threshold
                         if mode != MAX:
                             print(f"Hog {dt}ms")
@@ -150,10 +163,11 @@ def run(period=100, verbose=(), device="uart", vb=True):
                             if mode == MAX:
                                 pin_t(1)
                                 pin_t(0)
-                h_start = t
+                h_start = tarr
             p = pins[x & 0x1F]  # Key: 0x40 (ord('@')) is pin ID 0
             if x & 0x20:  # Going down
-                p[1] -= 1
+                if p[1] > 0:  # Might have restarted this script with a running client.
+                    p[1] -= 1  # or might have sent trig(False) before True.
                 if not p[1]:  # Instance count is zero
                     p[0](0)
             else:

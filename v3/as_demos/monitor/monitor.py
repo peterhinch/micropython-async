@@ -44,36 +44,25 @@ def set_device(dev, cspin=None):
     else:
         _quit("set_device: invalid args.")
 
-
 # Justification for validation even when decorating a method
 # /mnt/qnap2/data/Projects/Python/AssortedTechniques/decorators
 _available = set(range(0, 22))  # Valid idents are 0..21
-_reserved = set()  # Idents reserved for synchronous monitoring
-
+_do_validate = True
 
 def _validate(ident, num=1):
-    if ident >= 0 and ident + num < 22:
-        try:
-            for x in range(ident, ident + num):
-                _available.remove(x)
-        except KeyError:
-            _quit("error - ident {:02d} already allocated.".format(x))
-    else:
-        _quit("error - ident {:02d} out of range.".format(ident))
+    if _do_validate:
+        if ident >= 0 and ident + num < 22:
+            try:
+                for x in range(ident, ident + num):
+                    _available.remove(x)
+            except KeyError:
+                _quit("error - ident {:02d} already allocated.".format(x))
+        else:
+            _quit("error - ident {:02d} out of range.".format(ident))
 
-
-# Reserve ID's to be used for synchronous monitoring
-def reserve(*ids):
-    for ident in ids:
-        _validate(ident)
-        _reserved.add(ident)
-
-
-# Check whether a synchronous ident was reserved
-def _check(ident):
-    if ident not in _reserved:
-        _quit("error: synchronous ident {:02d} was not reserved.".format(ident))
-
+def validation(do=True):
+    global _do_validate
+    _do_validate = do
 
 # asynchronous monitor
 def asyn(n, max_instances=1, verbose=True):
@@ -104,13 +93,11 @@ def asyn(n, max_instances=1, verbose=True):
 
     return decorator
 
-
 # If SPI, clears the state machine in case prior test resulted in the DUT
 # crashing. It does this by sending a byte with CS\ False (high).
 def init():
     _ifrst()  # Reset interface. Does nothing if UART.
     _write(b"z")  # Clear Pico's instance counters etc.
-
 
 # Optionally run this to show up periods of blocking behaviour
 async def hog_detect(s=(b"\x40", b"\x60")):
@@ -118,7 +105,6 @@ async def hog_detect(s=(b"\x40", b"\x60")):
         for v in s:
             _write(v)
             await asyncio.sleep_ms(0)
-
 
 # Monitor a synchronous function definition
 def sync(n):
@@ -137,12 +123,14 @@ def sync(n):
 
     return decorator
 
-
-# Runtime monitoring: can't validate because code may be looping.
-# Monitor a synchronous function call
+# Monitor a function call
 class mon_call:
+    _cm_idents = set()  # Idents used by this CM
+
     def __init__(self, n):
-        _check(n)
+        if n not in self._cm_idents:  # ID can't clash with other objects
+            _validate(n)  # but could have two CM's with same ident
+            self._cm_idents.add(n)
         self.vstart = int.to_bytes(0x40 + n, 1, "big")
         self.vend = int.to_bytes(0x60 + n, 1, "big")
 
@@ -154,10 +142,17 @@ class mon_call:
         _write(self.vend)
         return False  # Don't silence exceptions
 
-
-# Cause pico ident n to produce a brief (~80μs) pulse
+# Either cause pico ident n to produce a brief (~80μs) pulse or turn it
+# on or off on demand.
 def trigger(n):
-    _check(n)
-    _write(int.to_bytes(0x40 + n, 1, "big"))
-    sleep_us(20)
-    _write(int.to_bytes(0x60 + n, 1, "big"))
+    _validate(n)
+    on = int.to_bytes(0x40 + n, 1, "big")
+    off = int.to_bytes(0x60 + n, 1, "big")
+    def wrapped(state=None):
+        if state is None:
+            _write(on)
+            sleep_us(20)
+            _write(off)
+        else:
+            _write(on if state else off)
+    return wrapped

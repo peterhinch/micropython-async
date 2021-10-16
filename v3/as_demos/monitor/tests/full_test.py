@@ -9,7 +9,7 @@ import uasyncio as asyncio
 from machine import Pin, UART, SPI
 import monitor
 
-monitor.reserve(4)
+trig = monitor.trigger(4)
 # Define interface to use
 monitor.set_device(UART(2, 1_000_000))  # UART must be 1MHz
 #monitor.set_device(SPI(2, baudrate=5_000_000), Pin('X1', Pin.OUT))  # SPI suggest >= 1MHz
@@ -24,7 +24,7 @@ async def main():
     monitor.init()
     asyncio.create_task(monitor.hog_detect())  # Watch for gc dropouts on ID0
     while True:
-        monitor.trigger(4)
+        trig()
         try:
             await asyncio.wait_for_ms(forever(), 100)  # 100ms pulse on ID1
         except asyncio.TimeoutError:  # Mandatory error trapping

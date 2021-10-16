@@ -13,8 +13,6 @@ import monitor
 monitor.set_device(UART(2, 1_000_000))  # UART must be 1MHz
 # monitor.set_device(SPI(2, baudrate=5_000_000), Pin('X1', Pin.OUT))  # SPI suggest >= 1MHz
 
-monitor.reserve(4, 5)  # Reserve trigger and mon_call idents only
-
 
 class Foo:
     def __init__(self):
@@ -41,8 +39,9 @@ async def main():
     asyncio.create_task(monitor.hog_detect())  # Make 10ms waitx gaps visible
     foo1 = Foo()
     foo2 = Foo()
+    trig = monitor.trigger(5)
     while True:
-        monitor.trigger(5)  # Mark start with pulse on ident 5
+        trig()  # Mark start with pulse on ident 5
         # Create two instances of .pause separated by 50ms
         asyncio.create_task(foo1.pause())
         await asyncio.sleep_ms(50)
