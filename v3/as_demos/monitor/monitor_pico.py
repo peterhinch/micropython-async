@@ -100,7 +100,7 @@ def run(period=100, verbose=(), device="uart", vb=True):
         mode = SOON
     else:
         t_ms, mode = period
-        if mode not in (SOON, LATE, MAX):
+        if mode not in (SOON, LATE, MAX, WIDTH):
             raise ValueError("Invalid mode.")
     for x in verbose:
         pins[x][2] = True
@@ -141,7 +141,7 @@ def run(period=100, verbose=(), device="uart", vb=True):
                     h_start = tarr
                 elif x == 0x60 and h_start != -1:  # Trailing edge
                     dt = ticks_diff(tarr, h_start)
-                    if dt > h_max:
+                    if dt > t_ms and dt > h_max:
                         h_max = dt
                         print(f"Max width {dt}ms")
                         pin_t(1)

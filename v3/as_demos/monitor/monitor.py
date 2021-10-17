@@ -44,10 +44,12 @@ def set_device(dev, cspin=None):
     else:
         _quit("set_device: invalid args.")
 
+
 # Justification for validation even when decorating a method
 # /mnt/qnap2/data/Projects/Python/AssortedTechniques/decorators
 _available = set(range(0, 22))  # Valid idents are 0..21
 _do_validate = True
+
 
 def _validate(ident, num=1):
     if _do_validate:
@@ -60,9 +62,11 @@ def _validate(ident, num=1):
         else:
             _quit("error - ident {:02d} out of range.".format(ident))
 
+
 def validation(do=True):
     global _do_validate
     _do_validate = do
+
 
 # asynchronous monitor
 def asyn(n, max_instances=1, verbose=True):
@@ -93,11 +97,13 @@ def asyn(n, max_instances=1, verbose=True):
 
     return decorator
 
+
 # If SPI, clears the state machine in case prior test resulted in the DUT
 # crashing. It does this by sending a byte with CS\ False (high).
 def init():
     _ifrst()  # Reset interface. Does nothing if UART.
     _write(b"z")  # Clear Pico's instance counters etc.
+
 
 # Optionally run this to show up periods of blocking behaviour
 async def hog_detect(s=(b"\x40", b"\x60")):
@@ -105,6 +111,7 @@ async def hog_detect(s=(b"\x40", b"\x60")):
         for v in s:
             _write(v)
             await asyncio.sleep_ms(0)
+
 
 # Monitor a synchronous function definition
 def sync(n):
@@ -122,6 +129,7 @@ def sync(n):
         return wrapped_func
 
     return decorator
+
 
 # Monitor a function call
 class mon_call:
@@ -142,12 +150,14 @@ class mon_call:
         _write(self.vend)
         return False  # Don't silence exceptions
 
+
 # Either cause pico ident n to produce a brief (~80μs) pulse or turn it
 # on or off on demand.
 def trigger(n):
     _validate(n)
     on = int.to_bytes(0x40 + n, 1, "big")
     off = int.to_bytes(0x60 + n, 1, "big")
+
     def wrapped(state=None):
         if state is None:
             _write(on)
@@ -155,4 +165,5 @@ def trigger(n):
             _write(off)
         else:
             _write(on if state else off)
+
     return wrapped
