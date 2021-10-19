@@ -18,13 +18,9 @@ when the blocking period exceeds a threshold. The threshold can be a fixed time
 or the current maximum blocking period. A logic analyser enables the state at
 the time of the transient event to be examined.
 
-The following image shows the `quick_test.py` code being monitored at the point
-when a task hogs the CPU. The top line 00 shows the "hog detect" trigger. Line
-01 shows the fast running `hog_detect` task which cannot run at the time of the
-trigger because another task is hogging the CPU. Lines 02 and 04 show the `foo`
-and `bar` tasks. Line 03 shows the `hog` task and line 05 is a trigger issued
-by `hog()` when it starts monopolising the CPU. The Pico issues the "hog
-detect" trigger 100ms after hogging starts.  
+This image shows the detection of CPU hogging. A trigger pulse is generated
+100ms after hogging caused the scheduler to be unable to schedule tasks. It is
+discussed in more detail in [section 6](./README.md#6-test-and-demo-scripts).
 
 ![Image](./monitor.jpg)
 
@@ -37,8 +33,8 @@ to demonstrate that this never exceeded 5ms.
 ## 1.1 Concepts
 
 Communication with the Pico may be by UART or SPI, and is uni-directional from
-DUT to Pico. If a UART is used only one GPIO pin is needed. SPI requires three
-- `mosi`, `sck` and `cs/`.
+DUT to Pico. If a UART is used only one GPIO pin is needed. SPI requires three,
+namely `mosi`, `sck` and `cs/`.
 
 The Pico runs the following:
 ```python
@@ -189,8 +185,7 @@ crashed, was interrupted or failed.
 
 Re-using idents would lead to confusing behaviour. If an ident is out of range
 or is assigned to more than one coroutine an error message is printed and
-execution terminates. See [section 7.3](./README.md#73-validation) for a
-special case where validation must be defeated.
+execution terminates.
 
 # 3. Monitoring uasyncio code
 
@@ -210,6 +205,9 @@ The decorator positional args are as follows:
  task to be independently monitored (default 1).
  3. `verbose=True` If `False` suppress the warning which is printed on the DUT
  if the instance count exceeds `max_instances`.
+ 4. `looping=False` Set `True` if the decorator is called repeatedly e.g.
+ decorating a nested function or method. The `True` value ensures validation of
+ the ident occurs once only when the decorator first runs.
 
 Whenever the coroutine runs, a pin on the Pico will go high, and when the code
 terminates it will go low. This enables the behaviour of the system to be
@@ -261,13 +259,13 @@ import monitor
 asyncio.create_task(monitor.hog_detect())
 # code omitted
 ```
-To aid in detecting the gaps in execution, the Pico code implements a timer.
-This is retriggered by activity on `ident=0`. If it times out, a brief high
-going pulse is produced on GPIO 28, along with the console message "Hog". The
-pulse can be used to trigger a scope or logic analyser. The duration of the
-timer may be adjusted. Other modes of hog detection are also supported, notably
-producing a trigger pulse only when the prior maximum was exceeded. See
-[section 4](./README.md~4-the-pico-code).
+To aid in detecting the gaps in execution, in its default mode the Pico code
+implements a timer. This is retriggered by activity on `ident=0`. If it times
+out, a brief high going pulse is produced on GPIO 28, along with the console
+message "Hog". The pulse can be used to trigger a scope or logic analyser. The
+duration of the timer may be adjusted. Other modes of hog detection are also
+supported, notably producing a trigger pulse only when the prior maximum was
+exceeded. See [section 5](./README.md#5-Pico).
 
 # 4. Monitoring arbitrary code
 
@@ -292,13 +290,17 @@ duration of every call to `sync_func()`:
 def sync_func():
     pass
 ```
+Decorator args:
+ 1. `ident`
+ 2. `looping=False` Set `True` if the decorator is called repeatedly e.g. in a
+ nested function or method. The `True` value ensures validation of  the ident
+ occurs once only when the decorator first runs.
 
 ## 4.2 The mon_call context manager
 
 This may be used to monitor a function only when called from specific points in
-the code. Validation of idents is looser here because a context manager is
-often used in a looping construct: it seems impractical to distinguish this
-case from that where two context managers are instantiated with the same ID.
+the code. Since context managers may be used in a looping construct the ident
+is only checked for conflicts when the CM is first instantiated.
 
 Usage:
 ```python
@@ -319,8 +321,7 @@ is created by passing the ident. If the instance is run with no args a brief
 (~80μs) pulse will occur on the Pico pin. If `True` is passed, the pin will go
 high until `False` is passed.
 
-The closure should be instantiated once only. If instantiated in a loop the
-ident will fail the check on re-use.
+The closure should be instantiated once only in the outermost scope.
 ```python
 trig = monitor.trigger(10)  # Associate trig with ident 10.
 
@@ -335,10 +336,10 @@ def bar():
 ## 4.4 Timing of code segments
 
 It can be useful to time the execution of a specific block of code especially
-if the time varies. It is possible to cause a message to be printed and a
-trigger pulse to be generated whenever the execution time exceeds the prior
-maximum. The scope or logic analyser may be triggered by this pulse allowing
-the state of other parts of the system to be checked.
+if the duration varies in real time. It is possible to cause a message to be
+printed and a trigger pulse to be generated whenever the execution time exceeds
+the prior maximum. A scope or logic analyser may be triggered by this pulse
+allowing the state of other components of the system to be checked.
 
 This is done by re-purposing ident 0 as follows:
 ```python
@@ -467,13 +468,21 @@ from monitor_pico import run, WIDTH
 run((20, WIDTH))  # Ignore widths < 20ms. 
 ```
 Assuming that ident 0 is used as described in
-[section 4.4](./README.md#44-timing-of-code-segments) a trigger pulse on GPIO28
+[section 5.5](./README.md#55-timing-of-code-segments) a trigger pulse on GPIO28
 will occur each time the time taken exceeds both 20ms and its prior maximum. A
 message with the actual width is also printed whenever this occurs.
 
 # 6. Test and demo scripts
 
-`quick_test.py` Primarily tests deliberate CPU hogging. Discussed in section 1.
+The following image shows the `quick_test.py` code being monitored at the point
+when a task hogs the CPU. The top line 00 shows the "hog detect" trigger. Line
+01 shows the fast running `hog_detect` task which cannot run at the time of the
+trigger because another task is hogging the CPU. Lines 02 and 04 show the `foo`
+and `bar` tasks. Line 03 shows the `hog` task and line 05 is a trigger issued
+by `hog()` when it starts monopolising the CPU. The Pico issues the "hog
+detect" trigger 100ms after hogging starts.  
+
+![Image](./monitor.jpg)
 
 `full_test.py` Tests task timeout and cancellation, also the handling of
 multiple task instances. If the Pico is run with `run((1, MAX))` it reveals
@@ -507,6 +516,8 @@ in `hog_detect` show the periods of deliberate CPU hogging.
 
 `syn_time.py` Demonstrates timing of a specific code segment with a trigger
 pulse being generated every time the period exceeds its prior maximum.
+
+![Image](./tests/syn_time.jpg)
 
 # 7. Internals
 
@@ -573,21 +584,7 @@ In the following, `thresh` is the time passed to `run()` in `period[0]`.
  * `MAX` Trigger occurs if period exceeds `thresh` and also exceeds the prior
  maximum.
 
-This project was inspired by
-[this GitHub thread](https://github.com/micropython/micropython/issues/7456).
-
-## 7.3 Validation
-
-The `monitor` module attempts to protect against inadvertent multiple use of an
-`ident`. There are use patterns which are incompatible with this, notably where
-a decorated function or coroutine is instantiated in a looping construct. To
-cater for such cases validation can be defeated. This is done by issuing:
-```python
-import monitor
-monitor.validation(False)
-```
-
-## 7.4 ESP8266 note
+## 7.3 ESP8266 note
 
 ESP8266 applications can be monitored using the transmit-only UART 1.
 
@@ -610,3 +607,6 @@ device under test is on the right, linked to the Pico board by means of a UART.
 ![Image](./monitor_hw.JPG)
 
 I can supply a schematic and PCB details if anyone is interested.
+
+This project was inspired by
+[this GitHub thread](https://github.com/micropython/micropython/issues/7456).

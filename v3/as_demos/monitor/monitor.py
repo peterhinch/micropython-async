@@ -45,33 +45,34 @@ def set_device(dev, cspin=None):
         _quit("set_device: invalid args.")
 
 
-# Justification for validation even when decorating a method
 # /mnt/qnap2/data/Projects/Python/AssortedTechniques/decorators
 _available = set(range(0, 22))  # Valid idents are 0..21
-_do_validate = True
+# Looping: some idents may be repeatedly instantiated. This can occur
+# if decorator is run in looping code. A CM is likely to be used in a
+# loop. In these cases only validate on first use.
+_loopers = set()
 
 
-def _validate(ident, num=1):
-    if _do_validate:
-        if ident >= 0 and ident + num < 22:
-            try:
-                for x in range(ident, ident + num):
+def _validate(ident, num=1, looping=False):
+    if ident >= 0 and ident + num < 22:
+        try:
+            for x in range(ident, ident + num):
+                if looping:
+                    if x not in _loopers:
+                        _available.remove(x)
+                        _loopers.add(x)
+                else:
                     _available.remove(x)
-            except KeyError:
-                _quit("error - ident {:02d} already allocated.".format(x))
-        else:
-            _quit("error - ident {:02d} out of range.".format(ident))
-
-
-def validation(do=True):
-    global _do_validate
-    _do_validate = do
+        except KeyError:
+            _quit("error - ident {:02d} already allocated.".format(x))
+    else:
+        _quit("error - ident {:02d} out of range.".format(ident))
 
 
 # asynchronous monitor
-def asyn(n, max_instances=1, verbose=True):
+def asyn(n, max_instances=1, verbose=True, looping=False):
     def decorator(coro):
-        _validate(n, max_instances)
+        _validate(n, max_instances, looping)
         instance = 0
 
         async def wrapped_coro(*args, **kwargs):
@@ -114,11 +115,11 @@ async def hog_detect(s=(b"\x40", b"\x60")):
 
 
 # Monitor a synchronous function definition
-def sync(n):
+def sync(ident, looping=False):
     def decorator(func):
-        _validate(n)
-        vstart = int.to_bytes(0x40 + n, 1, "big")
-        vend = int.to_bytes(0x60 + n, 1, "big")
+        _validate(ident, 1, looping)
+        vstart = int.to_bytes(0x40 + ident, 1, "big")
+        vend = int.to_bytes(0x60 + ident, 1, "big")
 
         def wrapped_func(*args, **kwargs):
             _write(vstart)
@@ -133,12 +134,9 @@ def sync(n):
 
 # Monitor a function call
 class mon_call:
-    _cm_idents = set()  # Idents used by this CM
-
     def __init__(self, n):
-        if n not in self._cm_idents:  # ID can't clash with other objects
-            _validate(n)  # but could have two CM's with same ident
-            self._cm_idents.add(n)
+        # looping: a CM may be instantiated many times
+        _validate(n, 1, True)
         self.vstart = int.to_bytes(0x40 + n, 1, "big")
         self.vend = int.to_bytes(0x60 + n, 1, "big")
 
@@ -152,7 +150,7 @@ class mon_call:
 
 
 # Either cause pico ident n to produce a brief (~80μs) pulse or turn it
-# on or off on demand.
+# on or off on demand. No looping: docs suggest instantiating at start.
 def trigger(n):
     _validate(n)
     on = int.to_bytes(0x40 + n, 1, "big")

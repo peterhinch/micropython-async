@@ -21,32 +21,36 @@ class Foo:
 
     @monitor.asyn(1, 2)  # ident 1/2 high
     async def pause(self):
-        self.wait1()  # ident 3 10ms pulse
-        await asyncio.sleep_ms(100)
-        with monitor.mon_call(4):  # ident 4 10ms pulse
-            self.wait2()
-        await asyncio.sleep_ms(100)
-        # ident 1/2 low
+        while True:
+            trig()
+            self.wait1()  # ident 3 10ms pulse
+            await asyncio.sleep_ms(100)
+            with monitor.mon_call(4):  # ident 4 10ms pulse
+                self.wait2()
+            await asyncio.sleep_ms(100)
+            # ident 1/2 low
 
-    @monitor.sync(3)
-    def wait1(self):
-        time.sleep_ms(10)
+    async def bar(self):
+        @monitor.asyn(3, looping = True)
+        async def wait1():
+            await asyncio.sleep_ms(100)
+        @monitor.sync(4, True)
+        def wait2():
+            time.sleep_ms(10)
+        trig()
+        await wait1()
+        trig()
+        wait2()
 
-    def wait2(self):
-        time.sleep_ms(10)
 
 async def main():
     monitor.init()
     asyncio.create_task(monitor.hog_detect())  # Make 10ms waitx gaps visible
-    foo1 = Foo()
-    foo2 = Foo()
+    foo = Foo()
     while True:
-        trig()  # Mark start with pulse on ident 5
-        # Create two instances of .pause separated by 50ms
-        asyncio.create_task(foo1.pause())
-        await asyncio.sleep_ms(50)
-        await foo2.pause()
-        await asyncio.sleep_ms(50)
+        await foo.bar()
+        await asyncio.sleep_ms(100)
+    await foo.pause()
 
 try:
     asyncio.run(main())
