@@ -48,11 +48,11 @@ useful in their own right:
 
 ### A monitor
 
-This [monitor](./as_demos/monitor/README.md) enables a running `uasyncio`
-application to be monitored using a Pi Pico, ideally with a scope or logic
-analyser.
+This [monitor](https://github.com/peterhinch/micropython-monitor) enables a
+running `uasyncio` application to be monitored using a Pi Pico, ideally with a
+scope or logic analyser.
 
-![Image](./as_demos/monitor/tests/syn_test.jpg)
+![Image](https://github.com/peterhinch/micropython-monitor/raw/master/images/monitor.jpg)
 
 # 2. V3 Overview
 
