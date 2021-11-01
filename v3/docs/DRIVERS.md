@@ -340,8 +340,9 @@ this for applications requiring rapid response.
 
 # 6. Quadrature encoders
 
-The `Encoder` class is an asynchronous driver for control knobs based on
-quadrature encoder switches such as
+The [Encoder](https://github.com/peterhinch/micropython-async/blob/master/v3/primitives/encoder.py)
+class is an asynchronous driver for control knobs based on quadrature encoder
+switches such as
 [this Adafruit product](https://www.adafruit.com/product/377). The driver is
 not intended for applications such as CNC machines where
 [a solution such as this one](https://github.com/peterhinch/micropython-samples#47-rotary-incremental-encoder)
