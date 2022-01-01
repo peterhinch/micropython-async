@@ -134,8 +134,12 @@ class Switch:
                     launch(self._close_func, self._close_args)
                 elif state == 1 and self._open_func:
                     launch(self._open_func, self._open_args)
-            # Ignore further state changes until switch has settled
-            await asyncio.sleep_ms(Switch.debounce_ms)
+                # Ignore further state changes until switch has settled
+                await asyncio.sleep_ms(Switch.debounce_ms)
+            else:
+                # Return control to event loop
+                await asyncio.sleep_ms(0)
+
 
 # An alternative Pushbutton solution with lower RAM use is available here
 # https://github.com/kevinkk525/pysmartnode/blob/dev/pysmartnode/utils/abutton.py
