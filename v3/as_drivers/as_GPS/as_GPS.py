@@ -324,8 +324,8 @@ class AS_GPS(object):
         self._fix(gps_segments, 3, 5)
         # Speed
         spd_knt = float(gps_segments[7])
-        # Course
-        course = float(gps_segments[8])
+        # Course: adapt for Ublox ZED-F9P
+        course = float(gps_segments[8]) if gps_segments[8] else 0.0
         # Add Magnetic Variation if firmware supplies it
         if gps_segments[10]:
             mv = float(gps_segments[10])  # Float conversions can throw ValueError, caught by caller.
