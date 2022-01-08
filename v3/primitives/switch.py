@@ -39,4 +39,5 @@ class Switch:
                 elif state == 1 and self._open_func:
                     launch(self._open_func, self._open_args)
             # Ignore further state changes until switch has settled
+            # See https://github.com/peterhinch/micropython-async/issues/69
             await asyncio.sleep_ms(Switch.debounce_ms)

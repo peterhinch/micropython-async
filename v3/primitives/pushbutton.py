@@ -104,4 +104,5 @@ class Pushbutton:
                         self._ld.stop()  # Avoid interpreting a second click as a long push
                     self._dblran = False
             # Ignore state changes until switch has settled
+            # See https://github.com/peterhinch/micropython-async/issues/69
             await asyncio.sleep_ms(Pushbutton.debounce_ms)
