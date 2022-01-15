@@ -1453,6 +1453,9 @@ The `__aiter__` method was formerly an asynchronous method. CPython 3.6 accepts
 synchronous or asynchronous methods. CPython 3.8 and MicroPython require
 synchronous code [ref](https://github.com/micropython/micropython/pull/6272).
 
+Asynchronous comprehensions [PEP530](https://www.python.org/dev/peps/pep-0530/),
+supported in CPython 3.6, are not yet supported in MicroPython.
+
 ###### [Contents](./TUTORIAL.md#contents)
 
 ## 4.3 Asynchronous context managers
