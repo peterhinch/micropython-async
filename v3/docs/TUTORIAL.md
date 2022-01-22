@@ -1410,8 +1410,7 @@ and could be used as a means of retrieving successive data items as they arrive
 from a read-only device. An asynchronous iterable calls asynchronous code in
 its `next` method. The class must conform to the following requirements:
 
- * It has an `__aiter__` method defined with  `async def`and returning the
- asynchronous iterator.
+ * It has an `__aiter__` method returning the asynchronous iterator.
  * It has an ` __anext__` method which is a task - i.e. defined with
  `async def` and containing at least one `await` statement. To stop
  iteration it must raise a `StopAsyncIteration` exception.
