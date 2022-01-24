@@ -71,5 +71,5 @@ class Delay_ms:
         self._args = args
 
     def deinit(self):
-        self._ttask.cancel()
+        self.stop()
         self._mtask.cancel()
