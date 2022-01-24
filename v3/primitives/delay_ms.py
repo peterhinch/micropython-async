@@ -27,7 +27,7 @@ class Delay_ms:
         self._tout = asyncio.Event()  # Timeout event
         self.wait = self._tout.wait  # Allow: await wait_ms.wait()
         self._ttask = self._fake  # Timer task
-        asyncio.create_task(self._run())
+        self._mtask = asyncio.create_task(self._run()) #Main task
 
     async def _run(self):
         while True:
@@ -69,3 +69,7 @@ class Delay_ms:
     def callback(self, func=None, args=()):
         self._func = func
         self._args = args
+
+    def deinit(self):
+        self._ttask.cancel()
+        self._mtask.cancel()
