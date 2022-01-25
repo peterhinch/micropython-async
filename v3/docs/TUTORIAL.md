@@ -1134,6 +1134,7 @@ Methods:
  proceed when the instance has timed out.
  7. `callback` args `func=None`, `args=()`. Allows the callable and its args to
  be assigned, reassigned or disabled at run time.
+ 8. `deinit` No args. Cancels the coroutine.
 
 In this example a `Delay_ms` instance is created with the default duration of
 1s. It is repeatedly triggered for 5 secs, preventing the callback from
