@@ -43,6 +43,7 @@ REPL.
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.1.2 [Portable code](./TUTORIAL.md#412-portable-code)  
   4.2 [Asynchronous iterators](./TUTORIAL.md#42-asynchronous-iterators)  
   4.3 [Asynchronous context managers](./TUTORIAL.md#43-asynchronous-context-managers)  
+  4.4 [Object scope](./TUTORIAL.md#44-object-scope) What happens when an object goes out of scope.  
  5. [Exceptions timeouts and cancellation](./TUTORIAL.md#5-exceptions-timeouts-and-cancellation)  
   5.1 [Exceptions](./TUTORIAL.md#51-exceptions)  
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5.1.1 [Global exception handler](./TUTORIAL.md#511-global-exception-handler)  
@@ -1134,7 +1135,7 @@ Methods:
  proceed when the instance has timed out.
  7. `callback` args `func=None`, `args=()`. Allows the callable and its args to
  be assigned, reassigned or disabled at run time.
- 8. `deinit` No args. Cancels the coroutine.
+ 8. `deinit` No args. Cancels the running task. See [Object scope](./TUTORIAL.md#44-object-scope).
 
 In this example a `Delay_ms` instance is created with the default duration of
 1s. It is repeatedly triggered for 5 secs, preventing the callback from
@@ -1519,6 +1520,16 @@ async def bar():
 
 asyncio.run(bar())
 ```
+
+###### [Contents](./TUTORIAL.md#contents)
+
+## 4.4 Object scope
+
+If an object launches a task and that object goes out of scope, the task will
+continue to be scheduled. The task will run to completion or until cancelled.
+If this is undesirable consider writing a `deinit` method to cancel associated
+running tasks. Applications can call `deinit`, for example in a `try...finally`
+block or in a context manager.
 
 ###### [Contents](./TUTORIAL.md#contents)
 

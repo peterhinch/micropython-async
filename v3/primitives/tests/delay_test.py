@@ -91,6 +91,7 @@ Trigger 5 sec delay
 Callback should run
 cb callback
 Callback should run
+cb callback
 Done
 '''
     printexp(s, 11)
@@ -174,6 +175,31 @@ Done
     await asyncio.sleep(1)
     print('Done')
 
+async def err_test():  # Test triggering de-initialised timer
+    s = '''
+Running (runtime = 3s):
+Trigger 1 sec delay
+cb callback
+Success: error was raised.
+Done
+    '''
+    printexp(s, 3)
+    def cb(v):
+        print('cb', v)
+        return 42
+
+    d = Delay_ms(cb, ('callback',))
+
+    print('Trigger 1 sec delay')
+    d.trigger(1000)
+    await asyncio.sleep(2)
+    d.deinit()
+    try:
+        d.trigger(1000)
+    except RuntimeError:
+        print("Success: error was raised.")
+    print('Done')
+
 av = '''
 Run a test by issuing
 delay_test.test(n)
@@ -184,11 +210,12 @@ where n is a test number. Avaliable tests:
 2 Test reducing the duration of a running timer
 3 Test delay defined by constructor arg
 4 Test triggering a Task
+5 Attempt to trigger de-initialised instance
 \x1b[39m
 '''
 print(av)
 
-tests = (isr_test, stop_test, reduce_test, ctor_test, launch_test)
+tests = (isr_test, stop_test, reduce_test, ctor_test, launch_test, err_test)
 def test(n=0):
     try:
         asyncio.run(tests[n]())

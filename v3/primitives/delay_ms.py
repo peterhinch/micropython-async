@@ -48,6 +48,8 @@ class Delay_ms:
 # API
     # trigger may be called from hard ISR.
     def trigger(self, duration=0):  # Update absolute end time, 0-> ctor default
+        if self._mtask is None:
+            raise RuntimeError("Delay_ms.deinit() has run.")
         self._tend = ticks_add(ticks_ms(), duration if duration > 0 else self._durn)
         self._retn = None  # Default in case cancelled.
         self._busy = True
@@ -73,3 +75,4 @@ class Delay_ms:
     def deinit(self):
         self.stop()
         self._mtask.cancel()
+        self._mtask = None
