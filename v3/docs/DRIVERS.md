@@ -244,6 +244,27 @@ the case of a single short press, `release_func` will be delayed until the
 expiry of the double-click timer (because until that time a second click might
 occur).
 
+The following script may be used to demonstrate the effect of this arg. As
+written it assumes a Pi Pico with a pushbutton between GPIO 18 and Gnd, with
+the primitives installed.
+```python
+from machine import Pin
+import uasyncio as asyncio
+from primitives.pushbutton import Pushbutton
+
+btn = Pin(18, Pin.IN, Pin.PULL_UP)  # Adapt for your hardware
+pb = Pushbutton(btn, suppress=True)
+
+async def main():
+    short_press = pb.release_func(print, ("SHORT",))
+    double_press = pb.double_func(print, ("DOUBLE",))
+    long_press = pb.long_func(print, ("LONG",))
+    while True:
+        await asyncio.sleep(1)
+
+asyncio.run(main())
+```
+
 ### 4.1.2 The sense constructor argument
 
 In most applications it can be assumed that, at power-up, pushbuttons are not
