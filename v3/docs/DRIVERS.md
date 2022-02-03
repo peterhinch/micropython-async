@@ -20,7 +20,7 @@ goes outside defined bounds.
  2. [Installation and usage](./DRIVERS.md#2-installation-and-usage)  
  3. [Interfacing switches](./DRIVERS.md#3-interfacing-switches) Switch debouncer with callbacks.  
   3.1 [Switch class](./DRIVERS.md#31-switch-class)  
- 4. [Interfacing pushbuttons](./DRIVERS.md#4-interfacing-pushbuttons) Extends Switch for long and double click events  
+ 4. [Interfacing pushbuttons](./DRIVERS.md#4-interfacing-pushbuttons) Extends Switch for long and double-click events  
   4.1 [Pushbutton class](./DRIVERS.md#41-pushbutton-class)  
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.1.1 [The suppress constructor argument](./DRIVERS.md#411-the-suppress-constructor-argument)  
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.1.2 [The sense constructor argument](./DRIVERS.md#412-the-sense-constructor-argument)  
@@ -131,10 +131,18 @@ asyncio.run(my_app())  # Run main application code
 
 # 4. Interfacing pushbuttons
 
-The `primitives.pushbutton` module provides the `Pushbutton` class. This is a
-generalisation of `Switch` to support normally open or normally closed switches
-connected to ground or 3V3. Can run a `callable` on on press, release,
-double-click or long press events.
+The `primitives.pushbutton` module provides the `Pushbutton` class for use with
+simple mechanical, spring-loaded push buttons. This class is a generalisation
+of the `Switch` class. `Pushbutton` supports open or normally closed buttons
+connected to ground or 3V3. To a human, pushing a button is seen as a single
+event, but the micro-controller sees voltage changes corresponding to two
+events: press and release. A long button press adds the component of time and a
+double-click appears as four voltage changes. The asynchronous `Pushbutton`
+class provides the logic required to handle these user interactions by
+monitoring these events over time.
+
+Instances of this class can run a `callable` on on press, release, double-click
+or long press events.
 
 ## 4.1 Pushbutton class
 
@@ -183,8 +191,9 @@ any existing callback will be disabled.
 Class attributes:
  1. `debounce_ms` Debounce time in ms. Default 50.
  2. `long_press_ms` Threshold time in ms for a long press. Default 1000.
- 3. `double_click_ms` Threshold time in ms for a double click. Default 400.
+ 3. `double_click_ms` Threshold time in ms for a double-click. Default 400.
 
+A simple Pyboard demo:
 ```python
 from pyb import LED
 from machine import Pin
@@ -211,42 +220,62 @@ number of coroutines.
 
 ### 4.1.1 The suppress constructor argument
 
-When the button is pressed `press_func` runs immediately. This minimal latency
-is ideal for applications such as games. Consider a long press: `press_func`
-runs initially, then `long_func`, and finally `release_func`. In the case of a
-double-click `press_func` and `release_func` will run twice; `double_func` runs
-once.
+The purpose of the `suppress` argument is to disambiguate the response when an
+application requires either, or both, long-press and double-click events. It
+works by modifying the behavior of the `release_func`. By design, whenever a
+button is pressed, the `press_func` runs immediately. This minimal latency is
+ideal for applications such as games. The `Pushbutton` class provides the
+ability to suppress 'intermediate' events and reduce them down to one single
+event. The `suppress` argument is useful for applications where long-press,
+single-press, and double-click events are desired, such as clocks, watches, or
+menu navigation. However, long-press and double-click detection introduces
+additional latency to ensure correct classification of events and is therefore
+not suitable for all applications. To illustrate the default library behavior,
+consider how long button presses and double-clicks are interpreted.
 
-There can be a need for a `callable` which runs if a button is pressed but
-only if a doubleclick or long press function does not run. The `suppress` arg
-changes the behaviour of `release_func` to fill that role. This has timing
-implications.
+A long press is seen as three events:
 
-The soonest that the absence of a long press can be detected is on button
-release. Absence of a double click can only be detected when the double click
-timer times out without a second press occurring.
+ * `press_func`
+ * `long_func`
+ * `release_func`
 
-Note `suppress` affects the behaviour of `release_func` only. Other callbacks
-including `press_func` behave normally.
+Similarly, a double-click is seen as five events:
 
-If the `suppress` constructor arg is set, `release_func` will be launched as
-follows:
- 1. If `double_func` does not exist on rapid button release.
- 2. If `double_func` exists, after the expiration of the doubleclick timer.
- 3. If `long_func` exists and the press duration causes `long_func` to be
+ * `press_func`
+ * `release_func`
+ * `press_func`
+ * `release_func`
+ * `double_func`
+
+There can be a need for a callable which runs if a button is pressed, but only
+if a double-click or long-press function does not run. The suppress argument
+changes the behaviour of the `release_func` to fill that role. This has timing
+implications. The soonest that the absence of a long press can be detected is
+on button release. Absence of a double-click can only be detected when the
+double-click timer times out without a second press occurring.
+
+Note: `suppress` affects the behaviour of the `release_func` only. Other
+callbacks including `press_func` behave normally.
+
+If the `suppress = True` constructor argument is set, the `release_func` will
+be launched as follows:
+
+ * If `double_func` does not exist on rapid button release.
+ * If `double_func` exists, after the expiration of the double-click timer.
+ * If `long_func` exists and the press duration causes `long_func` to be
  launched, `release_func` will not be launched.
- 4. If `double_func` exists and a double click occurs, `release_func` will not
+ * If `double_func` exists and a double-click occurs, `release_func` will not
  be launched.
 
 In the typical case where `long_func` and `double_func` are both defined, this
 ensures that only one of `long_func`, `double_func` and `release_func` run. In
-the case of a single short press, `release_func` will be delayed until the
+the case of a single short press, the `release_func` will be delayed until the
 expiry of the double-click timer (because until that time a second click might
 occur).
 
-The following script may be used to demonstrate the effect of this arg. As
-written it assumes a Pi Pico with a pushbutton between GPIO 18 and Gnd, with
-the primitives installed.
+The following script may be used to demonstrate the effect of this argument. As
+written, it assumes a Pi Pico with a push button attached between GPIO 18 and
+Gnd, with the primitives installed.
 ```python
 from machine import Pin
 import uasyncio as asyncio
