@@ -23,7 +23,7 @@ Examples needing great care:
  * Where arrival of data triggers an interrupt and subsequent interrupts may
  occur after a short period of time.
  * Where arrival of an interrupt triggers complex application behaviour: see
- notes on [context](./INTERRUPTS.md#32-context)
+ notes on [context](./INTERRUPTS.md#32-context).
 
 # 2. Alternatives to interrupts
 
@@ -40,8 +40,9 @@ async def read_temp():
         temp = thermometer.read()
         await asyncio.sleep(60)
 ```
-In cases where interrupts arrive slowly it is worth considering whether there
-is any gain in using an interrupt rather than polling the hardware:
+In cases where interrupts arrive at a low frequency it is worth considering
+whether there is any gain in using an interrupt rather than polling the
+hardware:
 
 ```python
 async def read_data():
@@ -69,8 +70,8 @@ machine-operated such as limit switches.
 
 Devices such as UARTs and sockets are supported by the `uasyncio` stream
 mechanism. The UART driver uses interrupts at a firmware level, but exposes
-its interface to `uasyncio` by the `StreamReader` and `StreamWriter` classes.
-These greatly simplify the use of such devices.
+its interface to `uasyncio` by means of the `StreamReader` and `StreamWriter`
+classes. These greatly simplify the use of such devices.
 
 It is also possible to write device drivers in Python enabling the use of the
 stream mechanism. This is covered in
@@ -115,7 +116,7 @@ the reasons identified in
 [this doc](https://docs.micropython.org/en/latest/reference/isr_rules.html).
 
 Note that using `micropython.schedule` does not address every issue associated
-with ISR context. In particular restictions remain on the use of `uasyncio`
+with ISR context because restictions remain on the use of `uasyncio`
 operations. This is because such code can pre-empt the `uasyncio` scheduler.
 This is discussed further below.
 
@@ -130,7 +131,8 @@ solution is to use `uasyncio.ThreadSafeFlag`.
 ## 3.3 Interfacing an ISR with uasyncio
 
 This should be read in conjunction with the discussion of the `ThreadSafeFlag`
-in [the tutorial](./TUTORIAL.md#36-threadsafeflag).
+in [the official docs](https://docs.micropython.org/en/latest/library/uasyncio.html#class-threadsafeflag)
+and [the tutorial](./TUTORIAL.md#36-threadsafeflag).
 
 Assume a hardware device capable of raising an interrupt when data is
 available. The requirement is to read the device fast and subsequently process
