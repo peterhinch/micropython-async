@@ -31,7 +31,7 @@ REPL.
   3.4 [Semaphore](./TUTORIAL.md#34-semaphore)  
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.4.1 [BoundedSemaphore](./TUTORIAL.md#341-boundedsemaphore)  
   3.5 [Queue](./TUTORIAL.md#35-queue)  
-  3.6 [ThreadSafeFlag](./TUTORIAL.md#36-threadsafeflag) Synchronisation with asynchronous events.  
+  3.6 [ThreadSafeFlag](./TUTORIAL.md#36-threadsafeflag) Synchronisation with asynchronous events and interrupts.  
   3.7 [Barrier](./TUTORIAL.md#37-barrier)  
   3.8 [Delay_ms](./TUTORIAL.md#38-delay_ms-class) Software retriggerable delay.  
   3.9 [Message](./TUTORIAL.md#39-message)  
@@ -893,7 +893,8 @@ asyncio.run(queue_go(4))
 
 ## 3.6 ThreadSafeFlag
 
-This requires firmware V1.15 or later.
+This requires firmware V1.15 or later.  
+See also [Interfacing uasyncio to interrupts](./INTERRUPTS.md).
 
 This official class provides an efficient means of synchronising a task with a
 truly asynchronous event such as a hardware interrupt service routine or code
