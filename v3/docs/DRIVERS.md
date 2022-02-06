@@ -100,6 +100,7 @@ Methods:
  `args` a tuple of arguments for the `callable` (default `()`)
  3. `__call__` Call syntax e.g. `myswitch()` returns the physical debounced
  state of the switch i.e. 0 if grounded, 1 if connected to `3V3`.
+ 4. `deinit` No args. Cancels the running task.
 
 Methods 1 and 2 should be called before starting the scheduler.
 
@@ -184,6 +185,7 @@ Methods:
  state of the button (`True` corresponds to pressed).
  6. `rawstate()` Returns the logical instantaneous state of the button. There
  is probably no reason to use this.
+ 7. `deinit` No args. Cancels the running task.
 
 Methods 1 - 4 may be called at any time. If `False` is passed for a callable,
 any existing callback will be disabled.

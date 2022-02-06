@@ -14,7 +14,7 @@ class Switch:
         self._open_func = False
         self._close_func = False
         self.switchstate = self.pin.value()  # Get initial state
-        asyncio.create_task(self.switchcheck())  # Thread runs forever
+        self._run = asyncio.create_task(self.switchcheck())  # Thread runs forever
 
     def open_func(self, func, args=()):
         self._open_func = func
@@ -39,5 +39,7 @@ class Switch:
                 elif state == 1 and self._open_func:
                     launch(self._open_func, self._open_args)
             # Ignore further state changes until switch has settled
-            # See https://github.com/peterhinch/micropython-async/issues/69
             await asyncio.sleep_ms(Switch.debounce_ms)
+
+    def deinit(self):
+        self._run.cancel()
