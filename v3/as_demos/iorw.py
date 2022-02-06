@@ -62,7 +62,7 @@ class MyIO(io.IOBase):
 
     # Test of device that produces one character at a time
     def readline(self):
-        self.ready_rd = False  # Cleared by timer cb do_input
+        self.ready_rd = False  # Set by timer cb do_input
         ch = self.rbuf[self.ridx]
         if ch == ord('\n'):
             self.ridx = 0
