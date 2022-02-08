@@ -10,8 +10,12 @@
 # Results for 100 coros on other platforms at standard clock rate:
 # Pyboard D SF2W 124μs
 # Pico 481μs
-# ESP32 920μs
+# ESP32 322μs
 # ESP8266 1495μs (could not run 500 or 1000 coros)
+
+# Note that ESP32 benchmarks are notoriously fickle. Above figure was for
+# the reference board running MP V1.18. Results may vary with firmware
+# depending on the layout of code in RAM/IRAM
 
 import uasyncio as asyncio
 
