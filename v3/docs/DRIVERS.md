@@ -43,9 +43,7 @@ directory and its contents to the target hardware.
 
 Drivers are imported with:
 ```python
-from primitives.switch import Switch
-from primitives.pushbutton import Pushbutton
-from primitives.aadc import AADC
+from primitives import Switch, Pushbutton, AADC
 ```
 There is a test/demo program for the Switch and Pushbutton classes. On import
 this lists available tests. It assumes a Pyboard with a switch or pushbutton
@@ -111,7 +109,7 @@ Class attribute:
 from pyb import LED
 from machine import Pin
 import uasyncio as asyncio
-from primitives.switch import Switch
+from primitives import Switch
 
 async def pulse(led, ms):
     led.on()
@@ -200,7 +198,7 @@ A simple Pyboard demo:
 from pyb import LED
 from machine import Pin
 import uasyncio as asyncio
-from primitives.pushbutton import Pushbutton
+from primitives import Pushbutton
 
 def toggle(led):
     led.toggle()
@@ -281,7 +279,7 @@ Gnd, with the primitives installed.
 ```python
 from machine import Pin
 import uasyncio as asyncio
-from primitives.pushbutton import Pushbutton
+from primitives import Pushbutton
 
 btn = Pin(18, Pin.IN, Pin.PULL_UP)  # Adapt for your hardware
 pb = Pushbutton(btn, suppress=True)
@@ -327,7 +325,7 @@ or log data, if the value goes out of range. Typical usage:
 import uasyncio as asyncio
 from machine import ADC
 import pyb
-from primitives.aadc import AADC
+from primitives import AADC
 
 aadc = AADC(ADC(pyb.Pin.board.X1))
 async def foo():
@@ -367,7 +365,7 @@ until it goes out of range.
 ```python
 import uasyncio as asyncio
 from machine import ADC
-from primitives.aadc import AADC
+from primitives import AADC
 
 aadc = AADC(ADC('X1'))
 async def foo():

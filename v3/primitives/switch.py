@@ -1,6 +1,6 @@
 # switch.py
 
-# Copyright (c) 2018-2020 Peter Hinch
+# Copyright (c) 2018-2022 Peter Hinch
 # Released under the MIT License (MIT) - see LICENSE file
 
 import uasyncio as asyncio

@@ -1,6 +1,6 @@
 # pushbutton.py
 
-# Copyright (c) 2018-2021 Peter Hinch
+# Copyright (c) 2018-2022 Peter Hinch
 # Released under the MIT License (MIT) - see LICENSE file
 
 import uasyncio as asyncio
@@ -27,7 +27,7 @@ class Pushbutton:
         self._dd = False  # Ditto for doubleclick
         self.sense = pin.value() if sense is None else sense  # Convert from electrical to logical value
         self.state = self.rawstate()  # Initial state
-        asyncio.create_task(self.buttoncheck())  # Thread runs forever
+        self._run = asyncio.create_task(self.buttoncheck())  # Thread runs forever
 
     def press_func(self, func=False, args=()):
         self._tf = func
@@ -106,3 +106,6 @@ class Pushbutton:
             # Ignore state changes until switch has settled
             # See https://github.com/peterhinch/micropython-async/issues/69
             await asyncio.sleep_ms(Pushbutton.debounce_ms)
+
+    def deinit(self):
+        self._run.cancel()

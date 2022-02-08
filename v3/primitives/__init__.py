@@ -29,3 +29,29 @@ def set_global_exception():
         sys.exit()
     loop = asyncio.get_event_loop()
     loop.set_exception_handler(_handle_exception)
+
+_attrs = {
+    "AADC": "aadc",
+    "Barrier": "barrier",
+    "Condition": "condition",
+    "Delay_ms": "delay_ms",
+    "Encode": "encoder_async",
+    "Message": "message",
+    "Pushbutton": "pushbutton",
+    "Queue": "queue",
+    "Semaphore": "semaphore",
+    "BoundedSemaphore": "semaphore",
+    "Switch": "switch",
+}
+
+# Copied from uasyncio.__init__.py
+# Lazy loader, effectively does:
+#   global attr
+#   from .mod import attr
+def __getattr__(attr):
+    mod = _attrs.get(attr, None)
+    if mod is None:
+        raise AttributeError(attr)
+    value = getattr(__import__(mod, None, None, True, 1), attr)
+    globals()[attr] = value
+    return value

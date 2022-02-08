@@ -6,7 +6,7 @@
 import uasyncio as asyncio
 from machine import ADC
 import pyb
-from primitives.aadc import AADC
+from primitives import AADC
 
 async def signal():  # Could use write_timed but this prints values
     dac = pyb.DAC(1, bits=12, buffering=True)

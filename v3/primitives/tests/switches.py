@@ -2,8 +2,9 @@
 # Tested on Pyboard but should run on other microcontroller platforms
 # running MicroPython with uasyncio library.
 
-# Copyright (c) 2018-2020 Peter Hinch
+# Copyright (c) 2018-2022 Peter Hinch
 # Released under the MIT License (MIT) - see LICENSE file
+# Now executes .deinit()
 
 # To run:
 # from primitives.tests.switches import *
@@ -11,8 +12,7 @@
 
 from machine import Pin
 from pyb import LED
-from primitives.switch import Switch
-from primitives.pushbutton import Pushbutton
+from primitives import Switch, Pushbutton
 import uasyncio as asyncio
 
 helptext = '''
@@ -41,14 +41,16 @@ def toggle(led):
     led.toggle()
 
 # Quit test by connecting X2 to ground
-async def killer():
+async def killer(obj):
     pin = Pin('X2', Pin.IN, Pin.PULL_UP)
     while pin.value():
         await asyncio.sleep_ms(50)
+    obj.deinit()
+    await asyncio.sleep_ms(0)
 
-def run():
+def run(obj):
     try:
-        asyncio.run(killer())
+        asyncio.run(killer(obj))
     except KeyboardInterrupt:
         print('Interrupted')
     finally:
@@ -72,7 +74,7 @@ open pulses red
     # Register coros to launch on contact close and open
     sw.close_func(pulse, (green, 1000))
     sw.open_func(pulse, (red, 1000))
-    run()
+    run(sw)
 
 # Test for the switch class with a callback
 def test_swcb():
@@ -90,7 +92,7 @@ open toggles green
     # Register a coro to launch on contact close
     sw.close_func(toggle, (red,))
     sw.open_func(toggle, (green,))
-    run()
+    run(sw)
 
 # Test for the Pushbutton class (coroutines)
 # Pass True to test suppress
@@ -118,7 +120,7 @@ long press pulses blue
     if lf:
         print('Long press enabled')
         pb.long_func(pulse, (blue, 1000))
-    run()
+    run(pb)
 
 # Test for the Pushbutton class (callbacks)
 def test_btncb():
@@ -141,7 +143,7 @@ long press toggles blue
     pb.release_func(toggle, (green,))
     pb.double_func(toggle, (yellow,))
     pb.long_func(toggle, (blue,))
-    run()
+    run(pb)
 
 # Test for the Pushbutton class where callback coros change dynamically
 def setup(pb, press, release, dbl, lng, t=1000):
@@ -178,4 +180,4 @@ long press changes button functions.
     pb = Pushbutton(pin)
     setup(pb, red, green, yellow, None)
     pb.long_func(setup, (pb, blue, red, green, yellow, 2000))
-    run()
+    run(pb)
