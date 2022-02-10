@@ -1663,16 +1663,24 @@ scope.
 
 ## 5.2 Cancellation and Timeouts
 
-Cancellation and timeouts work by throwing an exception to the task. Unless
-explicitly trapped this is transparent to the user: the task simply stops when
-next scheduled. It is possible to trap the exception, for example to perform
-cleanup code, typically in a `finally` clause. The exception thrown to the task
-is `uasyncio.CancelledError` in both cancellation and timeout. There is no way
-for the task to distinguish between these two cases.
+Cancellation and timeouts work by throwing an exception to the task. This is
+unlike a normal exception. If a task cancels another, the running task
+continues to execute until it yields to the scheduler. Task cancellation occurs
+at that point, whether or not the cancelled task is scheduled for execution: a
+task waiting on (say) an `Event` or a `sleep` will be cancelled.
 
-The `uasyncio.CancelledError` can be trapped, but it is wise to re-raise it: if
-the task is `await`ed, the exception can be trapped in the outer scope to
-determne the reason for the task's ending.
+For tasks launched with `.create_task` the exception is transparent to the
+user: the task simply stops when next scheduled. It is possible to trap the
+exception, for example to perform cleanup code, typically in a `finally`
+clause. The exception thrown to the task is `uasyncio.CancelledError` in both
+cancellation and timeout. There is no way for the task to distinguish between
+these two cases.
+
+As stated above, for a task launched with `.create_task` trapping the error is
+optional. Where a task is `await`ed, to avoid a halt it must be trapped within
+the task, within the `await`ing scope, or both. In the last case the task must
+re-raise it after trapping so that the exception can again be trapped in the
+outer scope.
 
 ## 5.2.1 Task cancellation
 
@@ -1724,10 +1732,9 @@ async def bar():
     print('Task is now cancelled')
 asyncio.run(bar())
 ```
-As of [PR6883](https://github.com/micropython/micropython/pull/6883) the
-`current_task()` method is supported. This enables a task to pass itself to
-other tasks, enabling them to cancel it. It also facilitates the following
-pattern:
+As of firmware V1.18 the `current_task()` method is supported. This enables a
+task to pass itself to other tasks, enabling them to cancel it. It also
+facilitates the following pattern:
 
 ```python
 class Foo:

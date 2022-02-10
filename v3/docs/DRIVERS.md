@@ -32,6 +32,11 @@ goes outside defined bounds.
  7. [Additional functions](./DRIVERS.md#7-additional-functions)  
   7.1 [launch](./DRIVERS.md#71-launch) Run a coro or callback interchangeably  
   7.2 [set_global_exception](./DRIVERS.md#72-set_global_exception) Simplify debugging with a global exception handler  
+ 8. [Advanced use of callbacks](./DRIVERS.md#8-advanced-use-of-callbacks)  
+  8.1 [Retrieve result from synchronous function](./DRIVERS.md#81-retrieve-result-from-synchronous-function)  
+  8.2 [Cancel a task](./DRIVERS.md#82-cancel-a-task)  
+  8.3 [Retrieve result from a task](./DRIVERS.md#83-retrieve-result-from-a-task)  
+  8.4 [A complete example](./DRIVERS.md#84-a-complete-example)  
 
 ###### [Tutorial](./TUTORIAL.md#contents)
 
@@ -125,6 +130,8 @@ sw = Switch(pin)
 sw.close_func(pulse, (red, 1000))  # Note how coro and args are passed
 asyncio.run(my_app())  # Run main application code
 ```
+See [Advanced use of callbacks](./DRIVERS.md#8-advanced-use-of-callbacks) for
+ways to retrieve a result from a callback and to cancel a task.
 
 ###### [Contents](./DRIVERS.md#1-contents)
 
@@ -310,6 +317,9 @@ in such a way that when it is not pressed, the voltage on the pin is 0.
 When the pin value changes, the new value is compared with `sense` to determine
 if the button is closed or open. This is to allow the designer to specify if
 the `closed` state of the button is active `high` or active `low`.
+
+See [Advanced use of callbacks](./DRIVERS.md#8-advanced-use-of-callbacks) for
+ways to retrieve a result from a callback and to cancel a task.
 
 ###### [Contents](./DRIVERS.md#1-contents)
 
@@ -520,3 +530,114 @@ events can be hard to deduce. A global handler ensures that the entire
 application stops allowing the traceback and other debug prints to be studied.
 
 ###### [Contents](./DRIVERS.md#1-contents)
+
+# 8. Advanced use of callbacks
+
+The `Switch` and `Pushbutton` classes respond to state changes by launching
+callbacks. These which can be functions, methods or coroutines. The classes
+provide no means of retrieving the result of a synchronous function, nor of
+cancelling a coro. Further, after a coro is launched there is no means of
+awaiting it and accessing its return value. This is by design, firstly to keep
+the classes as minimal as possible and secondly because these issues are easily
+overcome.
+
+## 8.1 Retrieve result from synchronous function
+
+The following is a way to run a synchronous function returning a value. In this
+case `bar` is a synchronous function taking a numeric arg which is a button
+reference:
+```python
+pb = Pushbutton(Pin(1, Pin.IN, Pin.PULL_UP))
+pb.press_func(run, (bar, 1))
+
+def run(func, button_no):
+    res = func(button_no)
+    # Do something that needs the result
+
+def bar(n):  # This is the function we want to run
+    return 42*n
+```
+
+## 8.2 Cancel a task
+
+Assume a coroutine `foo` with a single arg. The coro is started by a button
+press and may be cancelled by another task. We need to retrieve a reference to
+the `foo` task and store it such that it is available to the cancelling code:
+```python
+pb = Pushbutton(Pin(1, Pin.IN, Pin.PULL_UP))
+pb.press_func(start, (foo, 1))
+tasks = {1: None}  # Support for multiple buttons
+def start(func, button_no):
+    tasks[button_no] = asyncio.create_task(func(button_no))
+```
+The cancelling code checks that the appropriate entry in `tasks` is not `None`
+and cancels it.
+
+## 8.3 Retrieve result from a task
+
+In this case we need to await the `foo` task so `start` is a coroutine:
+```python
+pb = Pushbutton(Pin(1, Pin.IN, Pin.PULL_UP))
+pb.press_func(start, (foo, 1))
+async def start(func, button_no):
+    result = await func(button_no)
+    # Process result
+```
+
+## 8.4 A complete example
+
+In fragments 8.2 and 8.3, if the button is pressed again before `foo` has run
+to completion, a second `foo` instance will be launched. This may be
+undesirable.
+
+The following script is a complete example which can be run on a Pyboard (or
+other target with changes to pin numbers). It illustrates
+ 1. Logic to ensure that only one `foo` task instance runs at a time.
+ 2. The `start` task retrieves the result from `foo`.
+ 3. The `foo` task may be cancelled by a button press.
+ 4. The `foo` task returns a meaningful value whether cancelled or run to
+ completion.
+ 5. Use of an `Event` to stop the script.
+ 
+```python
+import uasyncio as asyncio
+from primitives import Pushbutton
+from machine import Pin
+tasks = {1: None}  # Allow extension to multiple buttons
+complete = asyncio.Event()  # Stop the demo on cancellation
+
+async def start(asfunc, button_no):
+    if tasks[button_no] is None:  # Only one instance
+        tasks[button_no] = asyncio.create_task(asfunc(button_no))
+        result = await tasks[button_no]
+        print("Result", result)
+        complete.set()
+
+async def foo(button_no):
+    n = 0
+    try:
+        while n < 20:
+            print(f"Button {button_no} count {n}")
+            n += 1
+            await asyncio.sleep(1)
+    except asyncio.CancelledError:
+        pass  # Trap cancellation so that n is returned
+    return n
+
+def killer(button_no):
+    if tasks[button_no] is not None:
+        tasks[button_no].cancel()
+    tasks[button_no] = None  # Allow to run again
+
+async def main():
+    pb1 = Pushbutton(Pin("X1", Pin.IN, Pin.PULL_UP))
+    pb2 = Pushbutton(Pin("X2", Pin.IN, Pin.PULL_UP))
+    pb1.press_func(start, (foo, 1))
+    pb2.press_func(killer, (1,))
+    await complete.wait()
+
+try:
+    asyncio.run(main())
+finally:
+    _ = asyncio.new_event_loop()
+```
