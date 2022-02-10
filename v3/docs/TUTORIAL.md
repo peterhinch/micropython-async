@@ -1670,7 +1670,7 @@ at that point, whether or not the cancelled task is scheduled for execution: a
 task waiting on (say) an `Event` or a `sleep` will be cancelled.
 
 For tasks launched with `.create_task` the exception is transparent to the
-user: the task simply stops when next scheduled. It is possible to trap the
+user: the task simply stops as described above. It is possible to trap the
 exception, for example to perform cleanup code, typically in a `finally`
 clause. The exception thrown to the task is `uasyncio.CancelledError` in both
 cancellation and timeout. There is no way for the task to distinguish between
@@ -1679,8 +1679,8 @@ these two cases.
 As stated above, for a task launched with `.create_task` trapping the error is
 optional. Where a task is `await`ed, to avoid a halt it must be trapped within
 the task, within the `await`ing scope, or both. In the last case the task must
-re-raise it after trapping so that the exception can again be trapped in the
-outer scope.
+re-raise the exception after trapping so that the error can again be trapped in
+the outer scope.
 
 ## 5.2.1 Task cancellation
 
