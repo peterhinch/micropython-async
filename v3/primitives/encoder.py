@@ -18,7 +18,7 @@ class Encoder:
         self._pin_y = pin_y
         self._v = 0  # Hardware value always starts at 0
         self._cv = v  # Current (divided) value
-        if ((vmin is not None) and v < min) or ((vmax is not None) and v > vmax):
+        if ((vmin is not None) and v < vmin) or ((vmax is not None) and v > vmax):
             raise ValueError('Incompatible args: must have vmin <= v <= vmax')
         self._tsf = asyncio.ThreadSafeFlag()
         trig = Pin.IRQ_RISING | Pin.IRQ_FALLING
