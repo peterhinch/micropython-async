@@ -409,7 +409,9 @@ not intended for applications such as CNC machines where
 is required. Drivers for NC machines must never miss an edge. Contact bounce or
 vibration induced jitter can cause transitions to occur at a high rate; these
 must be tracked. Consequently callbacks occur in an interrupt context with the
-associated concurrency issues.
+associated concurrency issues. These issues, along with general discussion of
+MicroPython encoder drivers, are covered
+[in this doc](https://github.com/peterhinch/micropython-samples/blob/master/encoders/ENCODERS.md).
 
 This driver runs the user supplied callback in an `asyncio` context, so that
 the callback runs only when other tasks have yielded to the scheduler. This
@@ -471,18 +473,15 @@ Class variable:
 The driver works by maintaining an internal value `._v` which uses hardware
 interrupts to track the absolute position of the physical encoder. In theory
 this should be precise with jitter caused by contact bounce being tracked. With
-the Adafruit encoder it is imprecise: returning the dial to a given detent
-after repeated movements shows a gradual "drift" in position. This occurs on
-hosts with hard or soft IRQ's. I attempted to investigate this with various
-hardware and software techniques and suspect there may be mechanical issues in
-the device. Possibly pulses may occasionally missed with direction-dependent
-probability. Unlike optical encoders these low cost controls make no claim to
-absolute accuracy.
+mechanical encoders it is imprecise unless Schmitt trigger pre-conditioning is
+used. The reasons for this and solutions are discussed
+[in this doc](https://github.com/peterhinch/micropython-samples/blob/master/encoders/ENCODERS.md).
 
-This is of little practical consequence as encoder knobs are usually used in
-systems where there is user feedback. In a practical application
+An absence of pre-conditioning is often of little practical consequence as
+encoder knobs are usually used in systems where there is user feedback. In a
+practical application
 ([micro-gui](https://github.com/peterhinch/micropython-micro-gui)) there is no
-obvious evidence of the missed pulses.
+obvious evidence of the missed pulses which do occasionally occur.
 
 ###### [Contents](./DRIVERS.md#1-contents)
 
