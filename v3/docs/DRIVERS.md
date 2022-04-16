@@ -461,12 +461,13 @@ Synchronous method:
 
 Class variable:  
  * `delay=100` After motion is detected the driver waits for `delay` ms before
- reading the current position. This was found useful with the Adafruit encoder
- which has mechanical detents, which span multiple increments or decrements. A
- delay gives time for motion to stop in the event of a single click movement.
- If this occurs the delay ensures just one call to the callback. With no delay
- a single click typically gives rise to two callbacks, the second of which can
- come as a surprise in visual applications.
+ reading the current position. A delay can be used to limit the rate at which
+ the callback is invoked. However where mechanical detents must be tracked,
+ rapid motion can cause tracking to fail. In this instance the value should be
+ set to zero. Hardware pre-conditioning must also be used if perfect tracking
+ is to be achieved - see
+ [this doc](https://github.com/peterhinch/micropython-samples/blob/master/encoders/ENCODERS.md)
+ for the reason and for circuit schematics.
 
 #### Note on accuracy
 
