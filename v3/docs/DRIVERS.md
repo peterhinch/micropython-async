@@ -447,13 +447,16 @@ Constructor arguments:
  5. `vmax=None` As above. If `vmin` and/or `vmax` are specified, a `ValueError`
  will be thrown if the initial value `v` does not conform with the limits.
  6. `div=1` A value > 1 causes the motion rate of the encoder to be divided
- down, to produce a virtual encoder with lower resolution. This was found usefl
- in some applications with the Adafruit encoder.
+ down, to produce a virtual encoder with lower resolution. This can enable
+ tracking of mechanical detents - typical values are then 4 or 2 pulses per
+ click.
  7. `callback=lambda a, b : None` Optional callback function. The callback
  receives two integer args, `v` being the virtual encoder's current value and
  `delta` being the signed difference between the current value and the previous
  one. Further args may be appended by the following.
  8. `args=()` An optional tuple of positionl args for the callback.
+ 9. `mod=0` An integer `N > 0` causes the divided value to be reduced modulo
+ `N` - useful for controlling rotary devices.
 
 Synchronous method:  
  * `value` No args. Returns an integer being the virtual encoder's current
@@ -462,27 +465,16 @@ Synchronous method:
 Class variable:  
  * `delay=100` After motion is detected the driver waits for `delay` ms before
  reading the current position. A delay can be used to limit the rate at which
- the callback is invoked. However where mechanical detents must be tracked,
- rapid motion can cause tracking to fail. In this instance the value should be
- set to zero. Hardware pre-conditioning must also be used if perfect tracking
- is to be achieved - see
- [this doc](https://github.com/peterhinch/micropython-samples/blob/master/encoders/ENCODERS.md)
- for the reason and for circuit schematics.
+ the callback is invoked.
 
-#### Note on accuracy
+Not all combinations of arguments make mathematical sense. The order in which
+operations are applied is:
+ 1. Apply division if specified.
+ 2. Restrict the divided value by any maximum or minimum.
+ 3. Reduce modulo N if specified.
 
-The driver works by maintaining an internal value `._v` which uses hardware
-interrupts to track the absolute position of the physical encoder. In theory
-this should be precise with jitter caused by contact bounce being tracked. With
-mechanical encoders it is imprecise unless Schmitt trigger pre-conditioning is
-used. The reasons for this and solutions are discussed
-[in this doc](https://github.com/peterhinch/micropython-samples/blob/master/encoders/ENCODERS.md).
-
-An absence of pre-conditioning is often of little practical consequence as
-encoder knobs are usually used in systems where there is user feedback. In a
-practical application
-([micro-gui](https://github.com/peterhinch/micropython-micro-gui)) there is no
-obvious evidence of the missed pulses which do occasionally occur.
+See [this doc](https://github.com/peterhinch/micropython-samples/blob/master/encoders/ENCODERS.md)
+for further information on encoders and their limitations.
 
 ###### [Contents](./DRIVERS.md#1-contents)
 

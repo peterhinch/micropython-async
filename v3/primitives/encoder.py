@@ -10,7 +10,7 @@ class Encoder:
     delay = 100  # Pause (ms) for motion to stop
 
     def __init__(self, pin_x, pin_y, v=0, vmin=None, vmax=None, div=1,
-                 callback=lambda a, b : None, args=()):
+                 callback=lambda a, b : None, args=(), mod=0):
         self._pin_x = pin_x
         self._pin_y = pin_y
         self._x = pin_x()
@@ -27,7 +27,7 @@ class Encoder:
         except TypeError:  # hard arg is unsupported on some hosts
             xirq = pin_x.irq(trigger=trig, handler=self._x_cb)
             yirq = pin_y.irq(trigger=trig, handler=self._y_cb)
-        asyncio.create_task(self._run(vmin, vmax, div, callback, args))
+        asyncio.create_task(self._run(vmin, vmax, div, mod, callback, args))
 
     # Hardware IRQ's. Duration 36μs on Pyboard 1 ~50μs on ESP32.
     # IRQ latency: 2nd edge may have occured by the time ISR runs, in
@@ -41,14 +41,13 @@ class Encoder:
     def _y_cb(self, pin_y):
         if (y := pin_y()) != self._y:
             self._y = y
-            self._v += 1 if y ^ self._pin_x() ^ 1 else -1
+            self._v -= 1 if y ^ self._pin_x() else -1
             self._tsf.set()
 
-    async def _run(self, vmin, vmax, div, cb, args):
+    async def _run(self, vmin, vmax, div, modulo, cb, args):
         pv = self._v  # Prior hardware value
         cv = self._cv  # Current divided value as passed to callback
         pcv = cv  # Prior divided value passed to callback
-        mod = 0
         delay = self.delay
         while True:
             await self._tsf.wait()
@@ -66,6 +65,8 @@ class Encoder:
                 cv = min(cv, vmax)
             if vmin is not None:
                 cv = max(cv, vmin)
+            if modulo:
+                cv %= modulo
             self._cv = cv  # For value()
             if cv != pcv:
                 cb(cv, cv - pcv, *args)  # User CB in uasyncio context
