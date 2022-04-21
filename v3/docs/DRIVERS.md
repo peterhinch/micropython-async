@@ -442,21 +442,21 @@ Constructor arguments:
  as `Pin.IN` and have pullups.
  2. `pin_y` Ditto.
  3. `v=0` Initial value.
- 4. `vmin=None` By default the `value` of the encoder can vary without limit.
- Optionally maximum and/or minimum limits can be set.
- 5. `vmax=None` As above. If `vmin` and/or `vmax` are specified, a `ValueError`
- will be thrown if the initial value `v` does not conform with the limits.
- 6. `div=1` A value > 1 causes the motion rate of the encoder to be divided
+ 4. `div=1` A value > 1 causes the motion rate of the encoder to be divided
  down, to produce a virtual encoder with lower resolution. This can enable
  tracking of mechanical detents - typical values are then 4 or 2 pulses per
  click.
- 7. `callback=lambda a, b : None` Optional callback function. The callback
+ 5. `vmin=None` By default the `value` of the encoder can vary without limit.
+ Optionally maximum and/or minimum limits can be set.
+ 6. `vmax=None` As above. If `vmin` and/or `vmax` are specified, a `ValueError`
+ will be thrown if the initial value `v` does not conform with the limits.
+ 7. `mod=None` An integer `N > 0` causes the divided value to be reduced modulo
+ `N` - useful for controlling rotary devices.
+ 8. `callback=lambda a, b : None` Optional callback function. The callback
  receives two integer args, `v` being the virtual encoder's current value and
  `delta` being the signed difference between the current value and the previous
  one. Further args may be appended by the following.
- 8. `args=()` An optional tuple of positionl args for the callback.
- 9. `mod=0` An integer `N > 0` causes the divided value to be reduced modulo
- `N` - useful for controlling rotary devices.
+ 9. `args=()` An optional tuple of positionl args for the callback.
 
 Synchronous method:  
  * `value` No args. Returns an integer being the virtual encoder's current

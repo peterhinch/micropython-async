@@ -7,15 +7,15 @@ import uasyncio as asyncio
 from machine import Pin
 
 class Encoder:
-    delay = 100  # Pause (ms) for motion to stop
+    delay = 100  # Pause (ms) for motion to stop/limit callback frequency
 
-    def __init__(self, pin_x, pin_y, v=0, vmin=None, vmax=None, div=1,
-                 callback=lambda a, b : None, args=(), mod=0):
+    def __init__(self, pin_x, pin_y, v=0, div=1, vmin=None, vmax=None,
+                 mod=None, callback=lambda a, b : None, args=()):
         self._pin_x = pin_x
         self._pin_y = pin_y
         self._x = pin_x()
         self._y = pin_y()
-        self._v = 0  # Hardware value always starts at 0
+        self._v = v * div  # Initialise hardware value
         self._cv = v  # Current (divided) value
         if ((vmin is not None) and v < vmin) or ((vmax is not None) and v > vmax):
             raise ValueError('Incompatible args: must have vmin <= v <= vmax')
@@ -44,33 +44,31 @@ class Encoder:
             self._v -= 1 if y ^ self._pin_x() else -1
             self._tsf.set()
 
-    async def _run(self, vmin, vmax, div, modulo, cb, args):
+    async def _run(self, vmin, vmax, div, mod, cb, args):
         pv = self._v  # Prior hardware value
-        cv = self._cv  # Current divided value as passed to callback
-        pcv = cv  # Prior divided value passed to callback
+        pcv = self._cv  # Prior divided value passed to callback
+        lcv = pcv  # Current value after limits applied
+        plcv = pcv  # Previous value after limits applied
         delay = self.delay
         while True:
             await self._tsf.wait()
-            await asyncio.sleep_ms(delay)  # Wait for motion to stop
-            new = self._v  # Sample hardware (atomic read)
-            a = new - pv  # Hardware change
-            # Ensure symmetrical bahaviour for + and - values
-            q, r = divmod(abs(a), div)
-            if a < 0:
-                r = -r
-                q = -q
-            pv = new - r  # Hardware value when local value was updated
-            cv += q
-            if vmax is not None:
-                cv = min(cv, vmax)
-            if vmin is not None:
-                cv = max(cv, vmin)
-            if modulo:
-                cv %= modulo
-            self._cv = cv  # For value()
-            if cv != pcv:
-                cb(cv, cv - pcv, *args)  # User CB in uasyncio context
+            await asyncio.sleep_ms(delay)  # Wait for motion to stop.
+            hv = self._v  # Sample hardware (atomic read).
+            if hv == pv:  # A change happened but was negated before
+                continue  # this got scheduled. Nothing to do.
+            pv = hv
+            cv = round(hv / div)  # cv is divided value.
+            if not (dv := cv - pcv):  # dv is change in divided value.
+                continue  # No change
+            lcv += dv  # lcv: divided value with limits/mod applied
+            lcv = lcv if vmax is None else min(vmax, lcv)
+            lcv = lcv if vmin is None else max(vmin, lcv)
+            lcv = lcv if mod is None else lcv % mod
+            self._cv = lcv  # update ._cv for .value() before CB.
+            if lcv != plcv:
+                cb(lcv, lcv - plcv, *args)  # Run user CB in uasyncio context
             pcv = cv
+            plcv = lcv
 
     def value(self):
         return self._cv
