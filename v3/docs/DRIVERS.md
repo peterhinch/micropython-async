@@ -465,7 +465,9 @@ Synchronous method:
 Class variable:  
  * `delay=100` After motion is detected the driver waits for `delay` ms before
  reading the current position. A delay can be used to limit the rate at which
- the callback is invoked.
+ the callback is invoked. This is a minimal approach. See
+ [this script](https://github.com/peterhinch/micropython-async/blob/master/v3/primitives/tests/encoder_stop.py)
+ for a way to create a callback which runs only when the encoder stops moving.
 
 Not all combinations of arguments make mathematical sense. The order in which
 operations are applied is:
