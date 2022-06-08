@@ -13,16 +13,17 @@ import uasyncio as asyncio
 from machine import Pin
 
 class Encoder:
-    delay = 100  # Pause (ms) for motion to stop/limit callback frequency
 
     def __init__(self, pin_x, pin_y, v=0, div=1, vmin=None, vmax=None,
-                 mod=None, callback=lambda a, b : None, args=()):
+                 mod=None, callback=lambda a, b : None, args=(), delay=100):
         self._pin_x = pin_x
         self._pin_y = pin_y
         self._x = pin_x()
         self._y = pin_y()
         self._v = v * div  # Initialise hardware value
         self._cv = v  # Current (divided) value
+        self.delay = delay  # Pause (ms) for motion to stop/limit callback frequency
+
         if ((vmin is not None) and v < vmin) or ((vmax is not None) and v > vmax):
             raise ValueError('Incompatible args: must have vmin <= v <= vmax')
         self._tsf = asyncio.ThreadSafeFlag()

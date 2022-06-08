@@ -437,6 +437,9 @@ value since the previous time the callback ran.
 
 ## 6.1 Encoder class
 
+Existing users: the `delay` parameter is now a constructor arg rather than a
+class varaiable.
+
 Constructor arguments:  
  1. `pin_x` Initialised `machine.Pin` instances for the switch. Should be set
  as `Pin.IN` and have pullups.
@@ -457,17 +460,15 @@ Constructor arguments:
  `delta` being the signed difference between the current value and the previous
  one. Further args may be appended by the following.
  9. `args=()` An optional tuple of positionl args for the callback.
-
-Synchronous method:  
- * `value` No args. Returns an integer being the virtual encoder's current
- value.
-
-Class variable:  
- * `delay=100` After motion is detected the driver waits for `delay` ms before
+ 10. `delay=100` After motion is detected the driver waits for `delay` ms before
  reading the current position. A delay can be used to limit the rate at which
  the callback is invoked. This is a minimal approach. See
  [this script](https://github.com/peterhinch/micropython-async/blob/master/v3/primitives/tests/encoder_stop.py)
  for a way to create a callback which runs only when the encoder stops moving.
+
+ Synchronous method:  
+ * `value` No args. Returns an integer being the virtual encoder's current
+ value.
 
 Not all combinations of arguments make mathematical sense. The order in which
 operations are applied is:
