@@ -987,9 +987,9 @@ the [Message class](./TUTORIAL.md#39-message) uses this approach to provide an
 
 ## 3.7 Barrier
 
-This is an unofficial primitive and has no counterpart in CPython asyncio. It
-is based on a Microsoft primitive. While similar in purpose to `gather` there
-are differences described below.
+This is an unofficial implementation of a primitive supported in
+[CPython 3.11](https://docs.python.org/3.11/library/asyncio-sync.html#asyncio.Barrier).
+While similar in purpose to `gather` there are differences described below.
 
 Its principal purpose is to cause multiple coros to rendezvous at a particular
 point. For example producer and consumer coros can synchronise at a point where
@@ -2000,10 +2000,12 @@ asyncio.run(main())
 Writing to a `StreamWriter` occurs in two stages. The synchronous `.write`
 method concatenates data for later transmission. The asynchronous `.drain`
 causes transmission. To avoid allocation call `.drain` after each call to
-`.write`. Do not have multiple tasks calling `.drain` concurrently: this can
+`.write`. If multiple tasks are to write to the same `StreamWriter`, the best
+solution is to implement a shared `Queue`. Each task writes to the `Queue` and
+a single task waits on it, issuing `.write` and `.drain` whenever data is
+queued. Do not have multiple tasks calling `.drain` concurrently: this can
 result in data corruption for reasons detailed
-[here](https://github.com/micropython/micropython/issues/6621). The solution is
-to use a `Queue` or a `Lock`.
+[here](https://github.com/micropython/micropython/issues/6621).
 
 The mechanism works because the device driver (written in C) implements the
 following methods: `ioctl`, `read`, `readline` and `write`. See
