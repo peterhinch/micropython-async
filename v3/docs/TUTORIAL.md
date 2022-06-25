@@ -2000,7 +2000,10 @@ asyncio.run(main())
 Writing to a `StreamWriter` occurs in two stages. The synchronous `.write`
 method concatenates data for later transmission. The asynchronous `.drain`
 causes transmission. To avoid allocation call `.drain` after each call to
-`.write`.
+`.write`. Do not have multiple tasks calling `.drain` concurrently: this can
+result in data corruption for reasons detailed
+[here](https://github.com/micropython/micropython/issues/6621). The solution is
+to use a `Queue` or a `Lock`.
 
 The mechanism works because the device driver (written in C) implements the
 following methods: `ioctl`, `read`, `readline` and `write`. See

@@ -50,7 +50,9 @@ useful in their own right:
 
 This [monitor](https://github.com/peterhinch/micropython-monitor) enables a
 running `uasyncio` application to be monitored using a Pi Pico, ideally with a
-scope or logic analyser.
+scope or logic analyser. If designing hardware it is suggested to provide
+access to a UART tx pin, or alternatively to three GPIO pins, to enable this to
+be used if required.
 
 ![Image](https://github.com/peterhinch/micropython-monitor/raw/master/images/monitor.jpg)
 
