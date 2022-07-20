@@ -29,7 +29,7 @@ REPL.
   3.2 [Event](./TUTORIAL.md#32-event)  
   3.3 [Coordinating multiple tasks](./TUTORIAL.md#33-coordinating-multiple-tasks)  
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.3.1 [gather](./TUTORIAL.md#331-gather)  
-  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.3.2 [TaskGroups](./TUTORIAL.md#332-taskgroups)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.3.2 [TaskGroups](./TUTORIAL.md#332-taskgroups) Not yet in official build.  
   3.4 [Semaphore](./TUTORIAL.md#34-semaphore)  
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.4.1 [BoundedSemaphore](./TUTORIAL.md#341-boundedsemaphore)  
   3.5 [Queue](./TUTORIAL.md#35-queue)  
