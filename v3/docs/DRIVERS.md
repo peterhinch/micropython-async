@@ -335,7 +335,8 @@ API and usage are as per `Pushbutton` with the following provisos:
  3. There is an additional class variable `sensitivity` which should be a float
  in range 0.0..1.0. The value `v` returned by the touchpad is read on
  initialisation. The touchpad is polled and if the value drops below
- `v * sensitivity` the pad is assumed to be pressed.
+ `v * sensitivity` the pad is assumed to be pressed. Default `sensitivity` is
+ 0.9 but this is subject to change.
 
 Example usage:
 ```python

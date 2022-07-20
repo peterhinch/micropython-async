@@ -1365,6 +1365,7 @@ The following hardware-related classes are documented [here](./DRIVERS.md):
  * `Switch` A debounced switch which can trigger open and close user callbacks.
  * `Pushbutton` Debounced pushbutton with callbacks for pressed, released, long
  press or double-press.
+ * `ESP32Touch` Extends `Pushbutton` class to support ESP32 touchpads.
  * `Encoder` An asynchronous interface for control knobs with switch contacts
  configured as a quadrature encoder.
  * `AADC` Asynchronous ADC. A task can pause until the value read from an ADC
