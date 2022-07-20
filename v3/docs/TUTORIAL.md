@@ -38,7 +38,7 @@ REPL.
   3.8 [Delay_ms](./TUTORIAL.md#38-delay_ms-class) Software retriggerable delay.  
   3.9 [Message](./TUTORIAL.md#39-message)  
   3.10 [Synchronising to hardware](./TUTORIAL.md#310-synchronising-to-hardware)
-  Debouncing switches, pushbuttons and encoder knobs. Taming ADC's.  
+  Debouncing switches, pushbuttons, ESP32 touchpads and encoder knobs. Taming ADC's.  
  4. [Designing classes for asyncio](./TUTORIAL.md#4-designing-classes-for-asyncio)  
   4.1 [Awaitable classes](./TUTORIAL.md#41-awaitable-classes)  
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.1.1 [Use in context managers](./TUTORIAL.md#411-use-in-context-managers)  

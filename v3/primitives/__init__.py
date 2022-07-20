@@ -38,6 +38,7 @@ _attrs = {
     "Encode": "encoder_async",
     "Message": "message",
     "Pushbutton": "pushbutton",
+    "ESP32Touch": "pushbutton",
     "Queue": "queue",
     "Semaphore": "semaphore",
     "BoundedSemaphore": "semaphore",

@@ -24,6 +24,7 @@ goes outside defined bounds.
   4.1 [Pushbutton class](./DRIVERS.md#41-pushbutton-class)  
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.1.1 [The suppress constructor argument](./DRIVERS.md#411-the-suppress-constructor-argument)  
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.1.2 [The sense constructor argument](./DRIVERS.md#412-the-sense-constructor-argument)  
+  4.2 [ESP32Touch class](./DRIVERS.md#42-esp32touch-class)  
  5. [ADC monitoring](./DRIVERS.md#5-adc-monitoring) Pause until an ADC goes out of bounds  
   5.1 [AADC class](./DRIVERS.md#51-aadc-class)  
   5.2 [Design note](./DRIVERS.md#52-design-note)  
@@ -320,6 +321,42 @@ the `closed` state of the button is active `high` or active `low`.
 
 See [Advanced use of callbacks](./DRIVERS.md#8-advanced-use-of-callbacks) for
 ways to retrieve a result from a callback and to cancel a task.
+
+## 4.2 ESP32Touch class
+
+This subclass of `Pushbutton` supports ESP32 touchpads providing a callback
+based interface. See the
+[official docs](http://docs.micropython.org/en/latest/esp32/quickref.html#capacitive-touch).
+
+API and usage are as per `Pushbutton` with the following provisos:
+ 1. The `sense` constructor arg is not supported.
+ 2. The `Pin` instance passed to the constructor must support the touch
+ interface. It is instantiated without args, as per the example below.
+ 3. There is an additional class variable `sensitivity` which should be a float
+ in range 0.0..1.0. The value `v` returned by the touchpad is read on
+ initialisation. The touchpad is polled and if the value drops below
+ `v * sensitivity` the pad is assumed to be pressed.
+
+Example usage:
+```python
+from machine import Pin
+from primitives import ESP32Touch
+import uasyncio as asyncio
+
+async def main():
+    tb = ESP32Touch(Pin(15), suppress=True)
+    tb.press_func(lambda : print("press"))
+    tb.double_func(lambda : print("double"))
+    tb.long_func(lambda : print("long"))
+    tb.release_func(lambda : print("release"))
+    while True:
+        await asyncio.sleep(1)
+
+asyncio.run(main())
+```
+If a touchpad is touched on initialisation no callbacks will occur even when
+the pad is released. Initial button state is always `False`. Normal behaviour
+will commence with subsequent touches.
 
 ###### [Contents](./DRIVERS.md#1-contents)
 
