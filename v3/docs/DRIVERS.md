@@ -43,9 +43,9 @@ goes outside defined bounds.
 
 # 2. Installation and usage
 
-The drivers require a daily build of firmware or a release build >=1.15. The
-drivers are in the primitives package. To install copy the `primitives`
-directory and its contents to the target hardware.
+The drivers require firmware version >=1.15. The drivers are in the primitives
+package. To install copy the `primitives` directory and its contents to the
+target hardware.
 
 Drivers are imported with:
 ```python
@@ -332,17 +332,21 @@ API and usage are as per `Pushbutton` with the following provisos:
  1. The `sense` constructor arg is not supported.
  2. The `Pin` instance passed to the constructor must support the touch
  interface. It is instantiated without args, as per the example below.
- 3. There is an additional class variable `sensitivity` which should be a float
- in range 0.0..1.0. The value `v` returned by the touchpad is read on
- initialisation. The touchpad is polled and if the value drops below
- `v * sensitivity` the pad is assumed to be pressed. Default `sensitivity` is
- 0.9 but this is subject to change.
+ 3. There is an additional classmethod `threshold` which takes an integer arg.
+ The arg represents the detection threshold as a percentage.
+
+The driver determines the untouched state by periodically polling
+`machine.TouchPad.read()` and storing its maximum value. If it reads a value
+below `maximum * threshold / 100` a touch is deemed to have occurred. Default
+threshold is currently 80% but this is subject to change.
 
 Example usage:
 ```python
 from machine import Pin
-from primitives import ESP32Touch
 import uasyncio as asyncio
+from primitives import ESP32Touch
+
+ESP32Touch.threshold(70)  # optional
 
 async def main():
     tb = ESP32Touch(Pin(15), suppress=True)
@@ -358,6 +362,10 @@ asyncio.run(main())
 If a touchpad is touched on initialisation no callbacks will occur even when
 the pad is released. Initial button state is always `False`. Normal behaviour
 will commence with subsequent touches.
+
+The best threshold value depends on physical design. Directly touching a large
+pad will result in a low value from `machine.TouchPad.read()`. A small pad
+covered with an insulating film will yield a smaller change.
 
 ###### [Contents](./DRIVERS.md#1-contents)
 

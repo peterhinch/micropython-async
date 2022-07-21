@@ -112,7 +112,11 @@ class Pushbutton:
 
 
 class ESP32Touch(Pushbutton):
-    sensitivity = 0.9
+    thresh = (80 << 8) // 100
+    @classmethod
+    def threshold(cls, val):
+        cls.thresh = (val << 8) // 100
+
     def __init__(self, pin, suppress=False):
         self._thresh = 0  # Detection threshold
         self._rawval = 0
@@ -127,7 +131,6 @@ class ESP32Touch(Pushbutton):
         rv = self._pad.read()  # ~220μs
         if rv > self._rawval:  # Either initialisation or pad was touched
             self._rawval = rv  # when initialised and has now been released
-            self._thresh = round(rv * ESP32Touch.sensitivity)
+            self._thresh = (rv * ESP32Touch.thresh) >> 8
             return False  # Untouched
         return rv < self._thresh
-
