@@ -115,6 +115,8 @@ class ESP32Touch(Pushbutton):
     thresh = (80 << 8) // 100
     @classmethod
     def threshold(cls, val):
+        if not (isinstance(val, int) and 0 < val < 100):
+            raise ValueError("Threshold must be in range 1-99")
         cls.thresh = (val << 8) // 100
 
     def __init__(self, pin, suppress=False):
