@@ -26,6 +26,7 @@ class Delay_ms:
         self._trig = asyncio.ThreadSafeFlag()
         self._tout = asyncio.Event()  # Timeout event
         self.wait = self._tout.wait  # Allow: await wait_ms.wait()
+        self.clear = self._tout.clear
         self._ttask = self._fake  # Timer task
         self._mtask = asyncio.create_task(self._run()) #Main task
 
@@ -40,7 +41,6 @@ class Delay_ms:
     async def _timer(self, dt):
         await asyncio.sleep_ms(dt)
         self._tout.set()  # Only gets here if not cancelled.
-        self._tout.clear()
         self._busy = False
         if self._func is not None:
             self._retn = launch(self._func, self._args)

@@ -1212,6 +1212,7 @@ Synchronous methods:
  6. `callback` args `func=None`, `args=()`. Allows the callable and its args to
  be assigned, reassigned or disabled at run time.
  7. `deinit` No args. Cancels the running task. See [Object scope](./TUTORIAL.md#44-object-scope).
+ 8. `clear` No args. Clears the `Event` decribed in `wait` below.
 
 Asynchronous method:
  1. `wait` One or more tasks may wait on a `Delay_ms` instance. Pause until the
@@ -1251,6 +1252,7 @@ from primitives.delay_ms import Delay_ms
 
 async def foo(n, d):
     await d.wait()
+    d.clear()  # Task waiting on the Event must clear it
     print('Done in foo no.', n)
 
 async def my_app():
