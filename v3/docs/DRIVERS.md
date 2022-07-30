@@ -3,7 +3,9 @@
 Drivers for switches and pushbuttons are provided. Switch and button drivers
 support debouncing. The switch driver provides for running a callback or
 launching a coroutine (coro) on contact closure and/or opening. The pushbutton
-driver extends this to support long-press and double-click events.
+driver extends this to support long-press and double-click events. The drivers
+now support an optional event driven interface as a more flexible alternative
+to callbacks.
 
 An `Encoder` class is provided to support rotary control knobs based on
 quadrature encoder switches. This is not intended for high throughput encoders
@@ -20,6 +22,7 @@ goes outside defined bounds.
  2. [Installation and usage](./DRIVERS.md#2-installation-and-usage)  
  3. [Interfacing switches](./DRIVERS.md#3-interfacing-switches) Switch debouncer with callbacks.  
   3.1 [Switch class](./DRIVERS.md#31-switch-class)  
+  3.2 [Event interface](./DRIVERS.md#32-event-interface)  
  4. [Interfacing pushbuttons](./DRIVERS.md#4-interfacing-pushbuttons) Extends Switch for long and double-click events  
   4.1 [Pushbutton class](./DRIVERS.md#41-pushbutton-class)  
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.1.1 [The suppress constructor argument](./DRIVERS.md#411-the-suppress-constructor-argument)  
@@ -32,12 +35,8 @@ goes outside defined bounds.
   6.1 [Encoder class](./DRIVERS.md#61-encoder-class)  
  7. [Additional functions](./DRIVERS.md#7-additional-functions)  
   7.1 [launch](./DRIVERS.md#71-launch) Run a coro or callback interchangeably  
-  7.2 [set_global_exception](./DRIVERS.md#72-set_global_exception) Simplify debugging with a global exception handler  
- 8. [Advanced use of callbacks](./DRIVERS.md#8-advanced-use-of-callbacks)  
-  8.1 [Retrieve result from synchronous function](./DRIVERS.md#81-retrieve-result-from-synchronous-function)  
-  8.2 [Cancel a task](./DRIVERS.md#82-cancel-a-task)  
-  8.3 [Retrieve result from a task](./DRIVERS.md#83-retrieve-result-from-a-task)  
-  8.4 [A complete example](./DRIVERS.md#84-a-complete-example)  
+  7.2 [set_global_exception](./DRIVERS.md#72-set_global_exception) Simplify debugging with a global exception handler.  
+ 8. [Event based interface](./DRIVERS.md#8-event-based-interface) An alternative interface to Switch and Pushbutton objects.  
 
 ###### [Tutorial](./TUTORIAL.md#contents)
 
@@ -71,7 +70,9 @@ test()
 
 The `primitives.switch` module provides the `Switch` class. This supports
 debouncing a normally open switch connected between a pin and ground. Can run
-callbacks or schedule coros on contact closure and/or opening.
+callbacks or schedule coros on contact closure and/or opening. As an
+alternative to a callback based interface, bound `Event` objects may be
+triggered on switch state changes.
 
 In the following text the term `callable` implies a Python `callable`: namely a
 function, bound method, coroutine or bound coroutine. The term implies that any
@@ -106,8 +107,6 @@ Methods:
  state of the switch i.e. 0 if grounded, 1 if connected to `3V3`.
  4. `deinit` No args. Cancels the running task.
 
-Methods 1 and 2 should be called before starting the scheduler.
-
 Class attribute:
  1. `debounce_ms` Debounce time in ms. Default 50.
 
@@ -123,16 +122,25 @@ async def pulse(led, ms):
     led.off()
 
 async def my_app():
+    pin = Pin('X1', Pin.IN, Pin.PULL_UP)  # Hardware: switch to gnd
+    red = LED(1)
+    sw = Switch(pin)
+    sw.close_func(pulse, (red, 1000))  # Note how coro and args are passed
     await asyncio.sleep(60)  # Dummy application code
 
-pin = Pin('X1', Pin.IN, Pin.PULL_UP)  # Hardware: switch to gnd
-red = LED(1)
-sw = Switch(pin)
-sw.close_func(pulse, (red, 1000))  # Note how coro and args are passed
 asyncio.run(my_app())  # Run main application code
 ```
-See [Advanced use of callbacks](./DRIVERS.md#8-advanced-use-of-callbacks) for
-ways to retrieve a result from a callback and to cancel a task.
+
+## 3.2 Event interface
+
+This enables a task to wait on a switch state as represented by a bound `Event`
+instance. A bound contact closure `Event` is created by passing `None` to
+`.close_func`, in which case the `Event` is named `.close`. Likewise a `.open`
+`Event` is created by passing `None` to `open_func`.
+
+This is discussed further in
+[Event based interface](./DRIVERS.md#8-event-based-interface) which includes a
+code example. This API is recommended for new projects.
 
 ###### [Contents](./DRIVERS.md#1-contents)
 
@@ -151,6 +159,11 @@ monitoring these events over time.
 Instances of this class can run a `callable` on on press, release, double-click
 or long press events.
 
+As an alternative to callbacks bound `Event` instances may be created which are
+triggered by press, release, double-click or long press events. This mode of
+operation is more flexible than the use of callbacks and is covered in
+[Event based interface](./DRIVERS.md#8-event-based-interface).
+
 ## 4.1 Pushbutton class
 
 This can support normally open or normally closed switches, connected to `gnd`
@@ -167,7 +180,7 @@ implementation.
 click or long press events; where the `callable` is a coroutine it will be
 converted to a `Task` and will run asynchronously.
 
-Please see the note on timing in section 3.
+Please see the note on timing in [section 3](./DRIVERS.md#3-interfacing-switches).
 
 Constructor arguments:
 
@@ -194,7 +207,8 @@ Methods:
  7. `deinit` No args. Cancels the running task.
 
 Methods 1 - 4 may be called at any time. If `False` is passed for a callable,
-any existing callback will be disabled.
+any existing callback will be disabled. If `None` is passed, a bound `Event` is
+created. See [Event based interface](./DRIVERS.md#8-event-based-interface).
 
 Class attributes:
  1. `debounce_ms` Debounce time in ms. Default 50.
@@ -221,7 +235,7 @@ async def my_app():
 asyncio.run(my_app())  # Run main application code
 ```
 
-An alternative `Pushbutton` implementation is available
+A `Pushbutton` subset is available
 [here](https://github.com/kevinkk525/pysmartnode/blob/dev/pysmartnode/utils/abutton.py):
 this implementation avoids the use of the `Delay_ms` class to minimise the
 number of coroutines.
@@ -318,9 +332,6 @@ in such a way that when it is not pressed, the voltage on the pin is 0.
 When the pin value changes, the new value is compared with `sense` to determine
 if the button is closed or open. This is to allow the designer to specify if
 the `closed` state of the button is active `high` or active `low`.
-
-See [Advanced use of callbacks](./DRIVERS.md#8-advanced-use-of-callbacks) for
-ways to retrieve a result from a callback and to cancel a task.
 
 ## 4.2 ESP32Touch class
 
@@ -572,115 +583,56 @@ application stops allowing the traceback and other debug prints to be studied.
 
 ###### [Contents](./DRIVERS.md#1-contents)
 
-# 8. Advanced use of callbacks
+# 8. Event based interface
 
-The `Switch` and `Pushbutton` classes respond to state changes by launching
-callbacks. These which can be functions, methods or coroutines. The classes
-provide no means of retrieving the result of a synchronous function, nor of
-cancelling a coro. Further, after a coro is launched there is no means of
-awaiting it and accessing its return value. This is by design, firstly to keep
-the classes as minimal as possible and secondly because these issues are easily
-overcome.
+The `Switch` and `Pushbutton` classes offer a traditional callback-based
+interface. While familiar, it has drawbacks and requires extra code to perform
+tasks like retrieving the result of a callback or, where a task is launched,
+cancelling that task. The reason for this API is historical; an efficient
+`Event` class only materialised with `uasyncio` V3. The class ensures that a
+task waiting on an `Event` consumes minimal processor time.
 
-## 8.1 Retrieve result from synchronous function
+It is suggested that this API is used in new projects.
 
-The following is a way to run a synchronous function returning a value. In this
-case `bar` is a synchronous function taking a numeric arg which is a button
-reference:
-```python
-pb = Pushbutton(Pin(1, Pin.IN, Pin.PULL_UP))
-pb.press_func(run, (bar, 1))
+The event based interface to `Switch` and `Pushbutton` classes is engaged by
+passing `None` to the methods used to register callbacks. This causes a bound
+`Event` to be instantiated, which may be accessed by user code.
 
-def run(func, button_no):
-    res = func(button_no)
-    # Do something that needs the result
+The following shows the name of the bound `Event` created when `None` is passed
+to a method:
 
-def bar(n):  # This is the function we want to run
-    return 42*n
-```
+| Class      | method       | Event   |
+|:-----------|:-------------|:--------|
+| Switch     | close_func   | close   |
+| Switch     | open_func    | open    |
+| Pushbutton | press_func   | press   |
+| Pushbutton | release_func | release |
+| Pushbutton | long_func    | long    |
+| Pushbutton | double_func  | double  |
 
-## 8.2 Cancel a task
-
-Assume a coroutine `foo` with a single arg. The coro is started by a button
-press and may be cancelled by another task. We need to retrieve a reference to
-the `foo` task and store it such that it is available to the cancelling code:
-```python
-pb = Pushbutton(Pin(1, Pin.IN, Pin.PULL_UP))
-pb.press_func(start, (foo, 1))
-tasks = {1: None}  # Support for multiple buttons
-def start(func, button_no):
-    tasks[button_no] = asyncio.create_task(func(button_no))
-```
-The cancelling code checks that the appropriate entry in `tasks` is not `None`
-and cancels it.
-
-## 8.3 Retrieve result from a task
-
-In this case we need to await the `foo` task so `start` is a coroutine:
-```python
-pb = Pushbutton(Pin(1, Pin.IN, Pin.PULL_UP))
-pb.press_func(start, (foo, 1))
-async def start(func, button_no):
-    result = await func(button_no)
-    # Process result
-```
-
-## 8.4 A complete example
-
-In fragments 8.2 and 8.3, if the button is pressed again before `foo` has run
-to completion, a second `foo` instance will be launched. This may be
-undesirable.
-
-The following script is a complete example which can be run on a Pyboard (or
-other target with changes to pin numbers). It illustrates
- 1. Logic to ensure that only one `foo` task instance runs at a time.
- 2. The `start` task retrieves the result from `foo`.
- 3. The `foo` task may be cancelled by a button press.
- 4. The `foo` task returns a meaningful value whether cancelled or run to
- completion.
- 5. Use of an `Event` to stop the script.
- 
+Typical usage is as follows:
 ```python
 import uasyncio as asyncio
-from primitives import Pushbutton
-from machine import Pin
-tasks = {1: None}  # Allow extension to multiple buttons
-complete = asyncio.Event()  # Stop the demo on cancellation
+from primitives import Switch
+from pyb import Pin
 
-async def start(asfunc, button_no):
-    if tasks[button_no] is None:  # Only one instance
-        tasks[button_no] = asyncio.create_task(asfunc(button_no))
-        result = await tasks[button_no]
-        print("Result", result)
-        complete.set()
-
-async def foo(button_no):
-    n = 0
-    try:
-        while n < 20:
-            print(f"Button {button_no} count {n}")
-            n += 1
-            await asyncio.sleep(1)
-    except asyncio.CancelledError:
-        pass  # Trap cancellation so that n is returned
-    return n
-
-def killer(button_no):
-    if tasks[button_no] is not None:
-        tasks[button_no].cancel()
-    tasks[button_no] = None  # Allow to run again
+async def foo(evt):
+    while True:
+        evt.clear()  # re-enable the event
+        await evt.wait()  # minimal resources used while paused
+        print("Switch closed.")
+        # Omitted code runs each time the switch closes
 
 async def main():
-    pb1 = Pushbutton(Pin("X1", Pin.IN, Pin.PULL_UP))
-    pb2 = Pushbutton(Pin("X2", Pin.IN, Pin.PULL_UP))
-    pb1.press_func(start, (foo, 1))
-    pb2.press_func(killer, (1,))
-    await complete.wait()
+    sw = Switch(Pin("X1", Pin.IN, Pin.PULL_UP))
+    sw.close_func(None)  # Use event based interface
+    await foo(sw.close)  # Pass the bound event to foo
 
-try:
-    asyncio.run(main())
-finally:
-    _ = asyncio.new_event_loop()
+asyncio.run(main())
 ```
+With appropriate code the behaviour of the callback based interface may be
+replicated, but with added benefits. For example the omitted code in `foo`
+could run a callback-style synchronous method, retrieving its value.
+Alternatively the code could create a task which could be cancelled.
 
 ###### [Contents](./DRIVERS.md#1-contents)

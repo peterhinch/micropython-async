@@ -17,11 +17,15 @@ class Switch:
         self._run = asyncio.create_task(self.switchcheck())  # Thread runs forever
 
     def open_func(self, func, args=()):
-        self._open_func = func
+        if func is None:
+            self.open = asyncio.Event()
+        self._open_func = self.open.set if func is None else func
         self._open_args = args
 
     def close_func(self, func, args=()):
-        self._close_func = func
+        if func is None:
+            self.close = asyncio.Event()
+        self._close_func = self.close.set if func is None else func
         self._close_args = args
 
     # Return current state of switch (0 = pressed)

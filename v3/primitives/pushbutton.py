@@ -30,14 +30,21 @@ class Pushbutton:
         self._run = asyncio.create_task(self.buttoncheck())  # Thread runs forever
 
     def press_func(self, func=False, args=()):
-        self._tf = func
+        if func is None:
+            self.press = asyncio.Event()
+        self._tf = self.press.set if func is None else func
         self._ta = args
 
     def release_func(self, func=False, args=()):
-        self._ff = func
+        if func is None:
+            self.release = asyncio.Event()
+        self._ff = self.release.set if func is None else func
         self._fa = args
 
     def double_func(self, func=False, args=()):
+        if func is None:
+            self.double = asyncio.Event()
+            func = self.double.set
         self._df = func
         self._da = args
         if func:  # If double timer already in place, leave it
@@ -47,6 +54,9 @@ class Pushbutton:
             self._dd = False  # Clearing down double func
 
     def long_func(self, func=False, args=()):
+        if func is None:
+            self.long = asyncio.Event()
+            func = self.long.set
         if func:
             if self._ld:
                 self._ld.callback(func, args)
