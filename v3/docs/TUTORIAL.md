@@ -74,6 +74,7 @@ REPL.
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;7.6.1 [WiFi issues](./TUTORIAL.md#761-wifi-issues)  
   7.7 [CPython compatibility and the event loop](./TUTORIAL.md#77-cpython-compatibility-and-the-event-loop) Compatibility with CPython 3.5+  
   7.8 [Race conditions](./TUTORIAL.md#78-race-conditions)  
+  7.9 [Undocumented uasyncio features](./TUTORIAL.md#79-undocumented-uasyncio-features)  
  8. [Notes for beginners](./TUTORIAL.md#8-notes-for-beginners)  
   8.1 [Problem 1: event loops](./TUTORIAL.md#81-problem-1:-event-loops)  
   8.2 [Problem 2: blocking methods](./TUTORIAL.md#8-problem-2:-blocking-methods)  
@@ -2296,12 +2297,12 @@ See [aremote.py](../as_drivers/nec_ir/aremote.py) documented
 an infra red remote controller. The following notes are salient points
 regarding its `asyncio` usage.
 
-A pin interrupt records the time of a state change (in μs) and sets an event,
-passing the time when the first state change occurred. A task waits on the
-event, yields for the duration of a data burst, then decodes the stored data
-before calling a user-specified callback.
+A pin interrupt records the time of a state change (in μs) and sends a
+`Message`, passing the time when the first state change occurred. A task waits
+on the `Message`, yields for the duration of a data burst, then decodes the
+stored data before calling a user-specified callback.
 
-Passing the time to the `Event` instance enables the task to compensate for
+Passing the time to the `Message` instance enables the task to compensate for
 any `asyncio` latency when setting its delay period.
 
 ###### [Contents](./TUTORIAL.md#contents)
@@ -2461,8 +2462,8 @@ The second approach to socket programming is to use nonblocking sockets. This
 adds complexity but is necessary in some applications, notably where
 connectivity is via WiFi (see below).
 
-Support for TLS on nonblocking sockets is platform dependent. It works on ESP32
-and Pyboard D. It does not work on ESP8266.
+Support for TLS on nonblocking sockets is platform dependent. It works on ESP32,
+Pyboard D and ESP8266.
 
 The use of nonblocking sockets requires some attention to detail. If a
 nonblocking read is performed, because of server latency, there is no guarantee
@@ -2517,7 +2518,7 @@ Event loop methods are supported in `uasyncio` and in CPython 3.8 but are
 deprecated. To quote from the official docs:
 
 Application developers should typically use the high-level asyncio functions,
-such as asyncio.run(), and should rarely need to reference the loop object or
+such as `asyncio.run()`, and should rarely need to reference the loop object or
 call its methods. This section is intended mostly for authors of lower-level
 code, libraries, and frameworks, who need finer control over the event loop
 behavior. [reference](https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.get_event_loop).
@@ -2552,6 +2553,18 @@ In the case of this test program it might be to ignore events while a similar
 one is running, or to extend the timer to prolong the LED illumination.
 Alternatively a subsequent button press might be required to terminate the
 illumination. The "right" behaviour is application dependent.
+
+## 7.9 Undocumented uasyncio features
+
+These may be subject to change.
+
+A `Task` instance has a `.done()` method that returns `True` if the task has
+terminated (by running to completion, by throwing an exception or by being
+cancelled).
+
+If a task has completed, a `.data` bound variable holds any result which was
+returned by the task. If the task throws an exception or is cancelled `.data`
+holds the exception (or `CancelledError`).
 
 ###### [Contents](./TUTORIAL.md#contents)
 
