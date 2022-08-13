@@ -21,12 +21,16 @@ Ground pin X2 to terminate test.
 
 '''
 tests = '''
+\x1b[32m
 Available tests:
-test_sw Switch test
-test_swcb Switch with callback
-test_btn Pushutton launching coros
-test_btncb Pushbutton launching callbacks
+test_sw Switch test.
+test_swcb Switch with callback.
+test_sw_event Switch with event.
+test_btn Pushutton launching coros.
+test_btncb Pushbutton launching callbacks.
 btn_dynamic Change coros launched at runtime.
+btn_event Pushbutton event interface.
+\x1b[39m
 '''
 print(tests)
 
@@ -35,6 +39,15 @@ async def pulse(led, ms):
     led.on()
     await asyncio.sleep_ms(ms)
     led.off()
+
+# Pulse an LED when an event triggered
+async def evt_pulse(event, led):
+    while True:
+        event.clear()
+        await event.wait()
+        led.on()
+        await asyncio.sleep_ms(500)
+        led.off()
 
 # Toggle an LED (callback)
 def toggle(led):
@@ -93,6 +106,35 @@ open toggles green
     sw.close_func(toggle, (red,))
     sw.open_func(toggle, (green,))
     run(sw)
+
+# Test for the Switch class (events)
+async def do_sw_event():
+    pin = Pin('X1', Pin.IN, Pin.PULL_UP)
+    sw = Switch(pin)
+    sw.open_func(None)
+    sw.close_func(None)
+    tasks = []
+    for event, led in ((sw.close, 1), (sw.open, 2)):
+        tasks.append(asyncio.create_task(evt_pulse(event, LED(led))))
+    await killer(sw)
+    for task in tasks:
+        task.cancel()
+
+def test_sw_event():
+    s = '''
+close pulse red
+open pulses green
+'''
+    print('Test of switch triggering events.')
+    print(helptext)
+    print(s)
+    try:
+        asyncio.run(do_sw_event())
+    except KeyboardInterrupt:
+        print('Interrupted')
+    finally:
+        asyncio.new_event_loop()
+        print(tests)
 
 # Test for the Pushbutton class (coroutines)
 # Pass True to test suppress
@@ -181,3 +223,37 @@ long press changes button functions.
     setup(pb, red, green, yellow, None)
     pb.long_func(setup, (pb, blue, red, green, yellow, 2000))
     run(pb)
+
+# Test for the Pushbutton class (events)
+async def do_btn_event():
+    pin = Pin('X1', Pin.IN, Pin.PULL_UP)
+    pb = Pushbutton(pin)
+    pb.press_func(None)
+    pb.release_func(None)
+    pb.double_func(None)
+    pb.long_func(None)
+    tasks = []
+    for event, led in ((pb.press, 1), (pb.release, 2), (pb.double, 3), (pb.long, 4)):
+        tasks.append(asyncio.create_task(evt_pulse(event, LED(led))))
+    await killer(pb)
+    for task in tasks:
+        task.cancel()
+
+def btn_event():
+    s = '''
+press pulse red
+release pulses green
+double click pulses yellow
+long press pulses blue
+'''
+    print('Test of pushbutton triggering events.')
+    print(helptext)
+    print(s)
+    try:
+        asyncio.run(do_btn_event())
+    except KeyboardInterrupt:
+        print('Interrupted')
+    finally:
+        asyncio.new_event_loop()
+        print(tests)
+
