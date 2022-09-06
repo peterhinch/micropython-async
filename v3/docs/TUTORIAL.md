@@ -2053,7 +2053,7 @@ demonstrates concurrent I/O on one UART. To run, link Pyboard pins X1 and X2
 ```python
 import uasyncio as asyncio
 from machine import UART
-uart = UART(4, 9600)
+uart = UART(4, 9600, timeout=0)  # timeout=0 prevents blocking at low baudrates
 
 async def sender():
     swriter = asyncio.StreamWriter(uart, {})

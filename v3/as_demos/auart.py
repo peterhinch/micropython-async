@@ -1,11 +1,11 @@
 # Test of uasyncio stream I/O using UART
 # Author: Peter Hinch
-# Copyright Peter Hinch 2017-2020 Released under the MIT license
+# Copyright Peter Hinch 2017-2022 Released under the MIT license
 # Link X1 and X2 to test.
 
 import uasyncio as asyncio
 from machine import UART
-uart = UART(4, 9600)
+uart = UART(4, 9600, timeout=0)
 
 async def sender():
     swriter = asyncio.StreamWriter(uart, {})
