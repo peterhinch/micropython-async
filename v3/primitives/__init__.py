@@ -30,6 +30,20 @@ def set_global_exception():
     loop = asyncio.get_event_loop()
     loop.set_exception_handler(_handle_exception)
 
+async def wait_any(events):
+    evt = asyncio.Event()
+    trig_event = None
+    async def wt(event):
+        nonlocal trig_event
+        await event.wait()
+        evt.set()
+        trig_event = event
+    tasks = [asyncio.create_task(wt(event)) for event in events]
+    await evt.wait()
+    for task in tasks:
+        task.cancel()
+    return trig_event
+
 _attrs = {
     "AADC": "aadc",
     "Barrier": "barrier",

@@ -27,6 +27,7 @@ REPL.
  3. [Synchronisation](./TUTORIAL.md#3-synchronisation)  
   3.1 [Lock](./TUTORIAL.md#31-lock)  
   3.2 [Event](./TUTORIAL.md#32-event)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.2.1 [Wait on multiple events](./TUTORIAL.md#321-wait_on_multiple_events) Pause until 1 of N events is set.  
   3.3 [Coordinating multiple tasks](./TUTORIAL.md#33-coordinating-multiple-tasks)  
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.3.1 [gather](./TUTORIAL.md#331-gather)  
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.3.2 [TaskGroups](./TUTORIAL.md#332-taskgroups) Not yet in official build.  
@@ -702,6 +703,26 @@ constant creation of tasks. Arguably the `Barrier` class is the best approach.
 `Event` methods must not be called from an interrupt service routine (ISR). The
 `Event` class is not thread safe. See [ThreadSafeFlag](./TUTORIAL.md#36-threadsafeflag).
 
+### 3.2.1 Wait on multiple events
+
+The `wait_any` primitive allows a task to wait on a list of events. When one
+of the events is triggered, the task continues. It is effectively a logical
+`or` of events.
+```python
+from primitives import wait_any
+evt1 = Event()
+evt2 = Event()
+# Launch tasks that might trigger these events
+evt = await wait_any((evt1, evt2))
+# One or other was triggered
+if evt == evt1:
+    evt1.clear()
+    # evt1 was triggered
+else:
+    evt2.clear()
+    # evt2 was triggered
+```
+
 ###### [Contents](./TUTORIAL.md#contents)
 
 ## 3.3 Coordinating multiple tasks
@@ -1204,7 +1225,8 @@ Synchronous methods:
  hard or soft ISR. It is now valid for `duration` to be less than the current
  time outstanding.
  2. `stop` No argument. Cancels the timeout, setting the `running` status
- `False`. The timer can be restarted by issuing `trigger` again.
+ `False`. The timer can be restarted by issuing `trigger` again. Also clears
+ the `Event` described in `wait` below.
  3. `running` No argument. Returns the running status of the object.
  4. `__call__` Alias for running.
  5. `rvalue` No argument. If a timeout has occurred and a callback has run,
@@ -1213,7 +1235,7 @@ Synchronous methods:
  6. `callback` args `func=None`, `args=()`. Allows the callable and its args to
  be assigned, reassigned or disabled at run time.
  7. `deinit` No args. Cancels the running task. See [Object scope](./TUTORIAL.md#44-object-scope).
- 8. `clear` No args. Clears the `Event` decribed in `wait` below.
+ 8. `clear` No args. Clears the `Event` described in `wait` below.
 
 Asynchronous method:
  1. `wait` One or more tasks may wait on a `Delay_ms` instance. Pause until the
