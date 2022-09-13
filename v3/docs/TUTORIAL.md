@@ -27,7 +27,7 @@ REPL.
  3. [Synchronisation](./TUTORIAL.md#3-synchronisation)  
   3.1 [Lock](./TUTORIAL.md#31-lock)  
   3.2 [Event](./TUTORIAL.md#32-event)  
-  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.2.1 [Wait on multiple events](./TUTORIAL.md#321-wait_on_multiple_events) Pause until 1 of N events is set.  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.2.1 [Wait on multiple events](./TUTORIAL.md#321-wait-on-multiple-events) Pause until 1 of N events is set.  
   3.3 [Coordinating multiple tasks](./TUTORIAL.md#33-coordinating-multiple-tasks)  
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.3.1 [gather](./TUTORIAL.md#331-gather)  
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.3.2 [TaskGroups](./TUTORIAL.md#332-taskgroups) Not yet in official build.  
