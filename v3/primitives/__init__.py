@@ -1,6 +1,6 @@
 # __init__.py Common functions for uasyncio primitives
 
-# Copyright (c) 2018-2020 Peter Hinch
+# Copyright (c) 2018-2022 Peter Hinch
 # Released under the MIT License (MIT) - see LICENSE file
 
 try:
@@ -30,20 +30,6 @@ def set_global_exception():
     loop = asyncio.get_event_loop()
     loop.set_exception_handler(_handle_exception)
 
-async def wait_any(events):
-    evt = asyncio.Event()
-    trig_event = None
-    async def wt(event):
-        nonlocal trig_event
-        await event.wait()
-        evt.set()
-        trig_event = event
-    tasks = [asyncio.create_task(wt(event)) for event in events]
-    await evt.wait()
-    for task in tasks:
-        task.cancel()
-    return trig_event
-
 _attrs = {
     "AADC": "aadc",
     "Barrier": "barrier",
@@ -57,6 +43,10 @@ _attrs = {
     "Semaphore": "semaphore",
     "BoundedSemaphore": "semaphore",
     "Switch": "switch",
+    "WaitAll": "events",
+    "WaitAny": "events",
+    "ESwitch": "events",
+    "EButton": "events",
 }
 
 # Copied from uasyncio.__init__.py

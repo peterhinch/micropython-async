@@ -705,15 +705,15 @@ constant creation of tasks. Arguably the `Barrier` class is the best approach.
 
 ### 3.2.1 Wait on multiple events
 
-The `wait_any` primitive allows a task to wait on a list of events. When one
+The `WaitAny` primitive allows a task to wait on a list of events. When one
 of the events is triggered, the task continues. It is effectively a logical
 `or` of events.
 ```python
-from primitives import wait_any
+from primitives import WaitAny
 evt1 = Event()
 evt2 = Event()
 # Launch tasks that might trigger these events
-evt = await wait_any((evt1, evt2))
+evt = await WaitAny((evt1, evt2))
 # One or other was triggered
 if evt == evt1:
     evt1.clear()
@@ -722,6 +722,18 @@ else:
     evt2.clear()
     # evt2 was triggered
 ```
+The `WaitAll` primitive is similar except that the calling task will pause
+until all passed `Event`s have been set:
+```python
+from primitives import WaitAll
+evt1 = Event()
+evt2 = Event()
+wa = WaitAll((evt1, evt2))  # 
+# Launch tasks that might trigger these events
+await wa
+# Both were triggered
+```
+Awaiting `WaitAll` or `WaitAny` may be cancelled or subject to a timeout.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
