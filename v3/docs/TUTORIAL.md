@@ -10,7 +10,7 @@ REPL.
 # Contents
 
  0. [Introduction](./TUTORIAL.md#0-introduction)  
-  0.1 [Installing uasyncio on bare metal](./TUTORIAL.md#01-installing-uasyncio-on-bare-metal)  
+  0.1 [Installing uasyncio](./TUTORIAL.md#01-installing-uasyncio)  
  1. [Cooperative scheduling](./TUTORIAL.md#1-cooperative-scheduling)  
   1.1 [Modules](./TUTORIAL.md#11-modules)  
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.1.1 [Primitives](./TUTORIAL.md#111-primitives)  
@@ -92,7 +92,7 @@ source of confusion.
 
 Most of this document assumes some familiarity with asynchronous programming.
 For those new to it an introduction may be found
-[in section 7](./TUTORIAL.md#8-notes-for-beginners).
+[in section 8](./TUTORIAL.md#8-notes-for-beginners).
 
 The MicroPython `uasyncio` library comprises a subset of Python's `asyncio`
 library. It is designed for use on microcontrollers. As such it has a small RAM
@@ -105,7 +105,7 @@ responsive to events such as user interaction.
 Another major application area for asyncio is in network programming: many
 guides to this may be found online.
 
-Note that MicroPython is based on Python 3.4 with minimal Python 3.5 additions.
+Note that MicroPython is based on Python 3.4 with additions from later versions.
 This version of `uasyncio` supports a subset of CPython 3.8 `asyncio`. This
 document identifies supported features. Except where stated program samples run
 under MicroPython and CPython 3.8.
@@ -113,16 +113,16 @@ under MicroPython and CPython 3.8.
 This tutorial aims to present a consistent programming style compatible with
 CPython V3.8 and above.
 
-## 0.1 Installing uasyncio on bare metal
+## 0.1 Installing uasyncio
 
-No installation is necessary if a daily build of firmware is installed or
-release build V1.13 or later. The version may be checked by issuing at
-the REPL:
+Firmware builds after V1.13 incorporate `uasyncio`. The version may be checked
+by issuing at the REPL:
 ```python
 import uasyncio
 print(uasyncio.__version__)
 ```
-Version 3 will print a version number. Older versions will throw an exception.
+Version 3 will print a version number. Older versions will throw an exception:
+installing updated firmware is highly recommended.
 
 ###### [Main README](../README.md)
 
@@ -143,11 +143,12 @@ The directory `primitives` contains a Python package containing the following:
  * Additional Python primitives including an ISR-compatible version of `Event`
  and a software retriggerable delay class.
  * Primitives for interfacing hardware. These comprise classes for debouncing
- switches and pushbuttonsand an asynchronous ADC class. These are documented
+ switches and pushbuttons and an asynchronous ADC class. These are documented
  [here](./DRIVERS.md).
 
 To install this Python package copy the `primitives` directory tree and its
-contents to your hardware's filesystem.
+contents to your hardware's filesystem. There is no need to copy the `tests`
+subdirectory.
 
 ### 1.1.2 Demo programs
 
@@ -545,8 +546,8 @@ A further set of primitives for synchronising hardware are detailed in
 To install the primitives, copy the `primitives` directory and contents to the
 target. A primitive is loaded by issuing (for example):
 ```python
-from primitives.semaphore import Semaphore, BoundedSemaphore
-from primitives.queue import Queue
+from primitives import Semaphore, BoundedSemaphore
+from primitives import Queue
 ```
 When `uasyncio` acquires official versions of the CPython primitives the
 invocation lines alone should be changed. e.g. :
@@ -715,7 +716,7 @@ evt2 = Event()
 # Launch tasks that might trigger these events
 evt = await WaitAny((evt1, evt2))
 # One or other was triggered
-if evt == evt1:
+if evt is evt1:
     evt1.clear()
     # evt1 was triggered
 else:
@@ -909,7 +910,7 @@ following illustrates tasks accessing a resource one at a time:
 
 ```python
 import uasyncio as asyncio
-from primitives.semaphore import Semaphore
+from primitives import Semaphore
 
 async def foo(n, sema):
     print('foo {} waiting for semaphore'.format(n))
@@ -973,7 +974,7 @@ Asynchronous methods:
 
 ```python
 import uasyncio as asyncio
-from primitives.queue import Queue
+from primitives import Queue
 
 async def slow_process():
     await asyncio.sleep(2)
@@ -1132,7 +1133,7 @@ run at different speeds. The `Barrier` synchronises these loops. This can run
 on a Pyboard.
 ```python
 import uasyncio as asyncio
-from primitives.barrier import Barrier
+from primitives import Barrier
 from machine import UART
 import ujson
 
@@ -1259,7 +1260,7 @@ running. One second after the triggering ceases, the callback runs.
 
 ```python
 import uasyncio as asyncio
-from primitives.delay_ms import Delay_ms
+from primitives import Delay_ms
 
 async def my_app():
     d = Delay_ms(callback, ('Callback running',))
@@ -1283,7 +1284,7 @@ This example illustrates multiple tasks waiting on a `Delay_ms`. No callback is
 used.
 ```python
 import uasyncio as asyncio
-from primitives.delay_ms import Delay_ms
+from primitives import Delay_ms
 
 async def foo(n, d):
     await d.wait()
@@ -1334,7 +1335,7 @@ using it:
 
 ```python
 import uasyncio as asyncio
-from primitives.message import Message
+from primitives import Message
 
 async def waiter(msg):
     print('Waiting for message')
@@ -1373,7 +1374,7 @@ Asynchronous Method:
 
 The following example shows multiple tasks awaiting a `Message`.
 ```python
-from primitives.message import Message
+from primitives import Message
 import uasyncio as asyncio
 
 async def bar(msg, n):
