@@ -204,7 +204,7 @@ target. They have their own documentation as follows:
 # 2. uasyncio
 
 The asyncio concept is of cooperative multi-tasking based on coroutines
-(coros). A coro is similar to a function, but is intended to run concurrently
+(coros). A coro is similar to a function but is intended to run concurrently
 with other coros. The illusion of concurrency is achieved by periodically
 yielding to the scheduler, enabling other coros to be scheduled.
 
@@ -225,10 +225,10 @@ asyncio.run(bar())
 ```
 
 Program execution proceeds normally until the call to `asyncio.run(bar())`. At
-this point execution is controlled by the scheduler. A line after
+this point, execution is controlled by the scheduler. A line after
 `asyncio.run(bar())` would never be executed. The scheduler runs `bar`
 because this has been placed on the scheduler's queue by `asyncio.run(bar())`.
-In this trivial example there is only one task: `bar`. If there were others,
+In this trivial example, there is only one task: `bar`. If there were others,
 the scheduler would schedule them in periods when `bar` was paused:
 
 ```python
@@ -272,9 +272,9 @@ async def bar():
 
 V3 `uasyncio` introduced the concept of a `Task`. A `Task` instance is created
 from a coro by means of the `create_task` method, which causes the coro to be
-scheduled for execution and returns a `Task` instance. In many cases coros and
+scheduled for execution and returns a `Task` instance. In many cases, coros and
 tasks are interchangeable: the official docs refer to them as `awaitable`, for
-the reason that either may be the target of an `await`. Consider this:
+the reason that either of them may be the target of an `await`. Consider this:
 
 ```python
 import uasyncio as asyncio
@@ -294,7 +294,7 @@ asyncio.run(main())
 ```
 There is a crucial difference between `create_task` and `await`: the former
 is synchronous code and returns immediately, with the passed coro being
-converted to a `Task` and queued to run "in the background". By contrast
+converted to a `Task` and queued to run "in the background". By contrast,
 `await` causes the passed `Task` or coro to run to completion before the next
 line executes. Consider these lines of code:
 
@@ -304,7 +304,7 @@ await asyncio.sleep(0)
 ```
 
 The first causes the code to pause for the duration of the delay, with other
-tasks being scheduled for the duration. A delay of 0 causes any pending tasks
+tasks being scheduled for this duration. A delay of 0 causes any pending tasks
 to be scheduled in round-robin fashion before the following line is run. See
 the `roundrobin.py` example.
 
@@ -314,8 +314,8 @@ checking or cancellation.
 
 In the following code sample three `Task` instances are created and scheduled
 for execution. The "Tasks are running" message is immediately printed. The
-three instances of the task `bar` appear to run concurrently: in fact when one
-pauses, the scheduler grants execution to the next giving the illusion of
+three instances of the task `bar` appear to run concurrently. In fact, when one
+pauses, the scheduler grants execution to the next, giving the illusion of
 concurrency:
 
 ```python
@@ -347,13 +347,13 @@ asyncio.run(main())
  * `asyncio.run` Arg: the coro to run. Return value: any value returned by the
  passed coro. The scheduler queues the passed coro to run ASAP. The coro arg is
  specified with function call syntax with any required arguments passed. In the
- current version the `run` call returns when the task terminates. However under
- CPython the `run` call does not terminate.
+ current version the `run` call returns when the task terminates. However, under
+ CPython, the `run` call does not terminate.
  * `await`  Arg: the task or coro to run. If a coro is passed it must be
  specified with function call syntax. Starts the task ASAP. The awaiting task
  blocks until the awaited one has run to completion. As described
- [in section 2.2](./TUTORIAL.md#22-coroutines-and-tasks) it is possible to
- `await` a task which has already been started. In this instance the `await` is
+ [in section 2.2](./TUTORIAL.md#22-coroutines-and-tasks), it is possible to
+ `await` a task which has already been started. In this instance, the `await` is
  on the `task` object (function call syntax is not used).
 
 The above are compatible with CPython 3.8 or above.
@@ -439,13 +439,13 @@ Most firmware applications run forever. This requires the coro passed to
 To ease debugging, and for CPython compatibility, some "boilerplate" code is
 suggested in the sample below.
 
-By default an exception in a task will not stop the application as a whole from
+By default, an exception in a task will not stop the application as a whole from
 running. This can make debugging difficult. The fix shown below is discussed
 [in 5.1.1](./TUTORIAL.md#511-global-exception-handler).
 
 It is bad practice to create a task prior to issuing `asyncio.run()`. CPython
 will throw an exception in this case. MicroPython
-[does not](https://github.com/micropython/micropython/issues/6174) but it's
+[does not](https://github.com/micropython/micropython/issues/6174), but it's
 wise to avoid doing this.
 
 Lastly, `uasyncio` retains state. This means that, by default, you need to
@@ -517,10 +517,10 @@ producer generates data which the consumer uses. Asyncio provides the `Queue`
 object. The producer puts data onto the queue while the consumer waits for its
 arrival (with other tasks getting scheduled for the duration). The `Queue`
 guarantees that items are removed in the order in which they were received.
-Alternatively a `Barrier` instance can be used if the producer must wait
+Alternatively, a `Barrier` instance can be used if the producer must wait
 until the consumer is ready to access the data.
 
-In simple applications communication may be achieved with global flags or bound
+In simple applications, communication may be achieved with global flags or bound
 variables. A more elegant approach is to use synchronisation primitives.
 CPython provides the following classes:  
  * `Lock` - already incorporated in new `uasyncio`.
@@ -549,8 +549,8 @@ target. A primitive is loaded by issuing (for example):
 from primitives import Semaphore, BoundedSemaphore
 from primitives import Queue
 ```
-When `uasyncio` acquires official versions of the CPython primitives the
-invocation lines alone should be changed. e.g. :
+When `uasyncio` acquires official versions of the CPython primitives, the
+invocation lines alone should be changed. E.g.:
 ```python
 from uasyncio import Semaphore, BoundedSemaphore
 from uasyncio import Queue
@@ -558,10 +558,10 @@ from uasyncio import Queue
 ##### Note on CPython compatibility
 
 CPython will throw a `RuntimeError` on first use of a synchronisation primitive
-that was instantiated prior to starting the scheduler. By contrast
+that was instantiated prior to starting the scheduler. By contrast,
 `MicroPython` allows instantiation in synchronous code executed before the
 scheduler is started. Early instantiation can be advantageous in low resource
-environments. For example a class might have a large buffer and bound `Event`
+environments. For example, a class might have a large buffer and bound `Event`
 instances. Such a class should be instantiated early, before RAM fragmentation
 sets in.
 
@@ -633,7 +633,7 @@ asyncio.run(main())  # Run for 10s
 
 This describes the use of the official `Event` primitive.
 
-This provides a way for one or more tasks to pause until another flags them to
+This provides a way for one or more tasks to pause until another one flags them to
 continue. An `Event` object is instantiated and made accessible to all tasks
 using it:
 
@@ -669,14 +669,14 @@ Asynchronous Method:
  * `wait` Pause until event is set.
 
 Tasks wait on the event by issuing `await event.wait()`; execution pauses until
-another issues `event.set()`. This causes all tasks waiting on the `Event` to
+another one issues `event.set()`. This causes all tasks waiting on the `Event` to
 be queued for execution. Note that the synchronous sequence
 ```python
 event.set()
 event.clear()
 ```
 will cause any tasks waiting on the event to resume in round-robin order. In
-general the waiting task should clear the event, as in the `waiter` example
+general, the waiting task should clear the event, as in the `waiter` example
 above. This caters for the case where the waiting task has not reached the
 event at the time when it is triggered. In this instance, by the time the task
 reaches the event, the task will find it clear and will pause. This can lead to
@@ -757,14 +757,14 @@ Its call signature is
 res = await asyncio.gather(*tasks, return_exceptions=True)
 ```
 The keyword-only boolean arg `return_exceptions` determines the behaviour in
-the event of a cancellation or timeout of tasks. If `False` the `gather`
+the event of a cancellation or timeout of tasks. If `False`, the `gather`
 terminates immediately, raising the relevant exception which should be trapped
-by the caller. If `True` the `gather` continues to pause until all have either
-run to completion or been terminated by cancellation or timeout. In this case
+by the caller. If `True`, the `gather` continues to pause until all have either
+run to completion or been terminated by cancellation or timeout. In this case,
 tasks which have been terminated will return the exception object in the list
 of return values.
 
-The following script may be used to demonstrate this behaviour
+The following script may be used to demonstrate this behaviour:
 
 ```python
 try:
@@ -821,7 +821,7 @@ The `TaskGroup` class is unofficially provided by
 suited to applications where one or more of a group of tasks is subject to
 runtime exceptions. A `TaskGroup` is instantiated in an asynchronous context
 manager. The `TaskGroup` instantiates member tasks. When all have run to
-completion the context manager terminates. Return values from member tasks
+completion, the context manager terminates. Return values from member tasks
 cannot be retrieved. Results should be passed in other ways such as via bound
 variables, queues etc.
 
@@ -1106,10 +1106,10 @@ While similar in purpose to `gather` there are differences described below.
 Its principal purpose is to cause multiple coros to rendezvous at a particular
 point. For example producer and consumer coros can synchronise at a point where
 the producer has data available and the consumer is ready to use it. At that
-point in time the `Barrier` can optionally run a callback before releasing the
+point in time, the `Barrier` can optionally run a callback before releasing the
 barrier to allow all waiting coros to continue.
 
-Secondly it can allow a task to pause until one or more other tasks have
+Secondly, it can allow a task to pause until one or more other tasks have
 terminated or passed a particular point. For example an application might want
 to shut down various peripherals before starting a sleep period. The task
 wanting to sleep initiates several shut down tasks and waits until they have
@@ -1118,7 +1118,7 @@ by `gather`.
 
 The key difference between `Barrier` and `gather` is symmetry: `gather` is
 asymmetrical. One task owns the `gather` and awaits completion of a set of
-tasks. By contrast `Barrier` can be used symmetrically with member tasks
+tasks. By contrast, `Barrier` can be used symmetrically with member tasks
 pausing until all have reached the barrier. This makes it suited for use in
 the `while True:` constructs common in firmware applications. Use of `gather`
 would imply instantiating a set of tasks on every pass of the loop.
@@ -1128,7 +1128,7 @@ passing a barrier does not imply return. `Barrier` now has an efficient
 implementation using `Event` to suspend waiting tasks.
 
 The following is a typical usage example. A data provider acquires data from
-some hardware and transmits it concurrently on a number of interefaces. These
+some hardware and transmits it concurrently on a number of interfaces. These
 run at different speeds. The `Barrier` synchronises these loops. This can run
 on a Pyboard.
 ```python
@@ -1227,7 +1227,7 @@ Constructor arguments (defaults in brackets):
  1. `func` The `callable` to call on timeout (default `None`).
  2. `args` A tuple of arguments for the `callable` (default `()`).
  3. `can_alloc` Unused arg, retained to avoid breaking code.
- 4. `duration` Integer, default 1000ms. The default timer period where no value
+ 4. `duration` Integer, default 1000 ms. The default timer period where no value
  is passed to the `trigger` method.
 
 Synchronous methods:
@@ -1255,7 +1255,7 @@ Asynchronous method:
  delay instance has timed out.
 
 In this example a `Delay_ms` instance is created with the default duration of
-1s. It is repeatedly triggered for 5 secs, preventing the callback from
+1 sec. It is repeatedly triggered for 5 secs, preventing the callback from
 running. One second after the triggering ceases, the callback runs.
 
 ```python
@@ -1329,7 +1329,7 @@ The `.set()` method can accept an optional data value of any type. The task
 waiting on the `Message` can retrieve it by means of `.value()` or by awaiting
 the `Message` as below.
 
-Like `Event`, `Message` provides a way a task to pause until another flags it
+Like `Event`, `Message` provides a way for a task to pause until another flags it
 to continue. A `Message` object is instantiated and made accessible to the task
 using it:
 
@@ -1416,9 +1416,9 @@ The following hardware-related classes are documented [here](./DRIVERS.md):
 
 # 4 Designing classes for asyncio
 
-In the context of device drivers the aim is to ensure nonblocking operation.
+In the context of device drivers, the aim is to ensure nonblocking operation.
 The design should ensure that other tasks get scheduled in periods while the
-driver is waiting for the hardware. For example a task awaiting data arriving
+driver is waiting for the hardware. For example, a task awaiting data arriving
 on a UART or a user pressing a button should allow other tasks to be scheduled
 until the event occurs.
 
@@ -1432,7 +1432,7 @@ defined: see [Portable code](./TUTORIAL.md#412-portable-code) for a way to
 write a portable class. This section describes a simpler MicroPython specific
 solution.
 
-In the following code sample the `__iter__` special method runs for a period.
+In the following code sample, the `__iter__` special method runs for a period.
 The calling coro blocks, but other coros continue to run. The key point is that
 `__iter__` uses `yield from` to yield execution to another coro, blocking until
 it has completed.
@@ -1468,7 +1468,7 @@ async with awaitable as a:  # Asynchronous CM (see below)
     # do something
 ```
 
-To achieve this the `__await__` generator should return `self`. This is passed
+To achieve this, the `__await__` generator should return `self`. This is passed
 to any variable in an `as` clause and also enables the special methods to work.
 
 ###### [Contents](./TUTORIAL.md#contents)
@@ -1534,7 +1534,7 @@ its `next` method. The class must conform to the following requirements:
  * It has an `__aiter__` method returning the asynchronous iterator.
  * It has an ` __anext__` method which is a task - i.e. defined with
  `async def` and containing at least one `await` statement. To stop
- iteration it must raise a `StopAsyncIteration` exception.
+ the iteration, it must raise a `StopAsyncIteration` exception.
 
 Successive values are retrieved with `async for` as below:
 
@@ -1593,7 +1593,7 @@ async def bar(lock):
 ```
 As with normal context managers an exit method is guaranteed to be called when
 the context manager terminates, whether normally or via an exception. To
-achieve this the special methods `__aenter__` and `__aexit__` must be
+achieve this, the special methods `__aenter__` and `__aexit__` must be
 defined, both being tasks waiting on a task or `awaitable` object. This example
 comes from the `Lock` class:
 ```python
@@ -1696,7 +1696,7 @@ async def main():
 asyncio.run(main())
 ```
 If `main` issued `await foo()` rather than `create_task(foo())` the exception
-would propagate to `main`. Being untrapped, the scheduler and hence the script
+would propagate to `main`. Being untrapped, the scheduler, and hence the script,
 would stop.
 
 #### Warning
@@ -1707,7 +1707,7 @@ queued for execution.
 
 ### 5.1.1 Global exception handler
 
-During development it is often best if untrapped exceptions stop the program
+During development, it is often best if untrapped exceptions stop the program
 rather than merely halting a single task. This can be achieved by setting a
 global exception handler. This debug aid is not CPython compatible:
 ```python
@@ -1738,7 +1738,7 @@ asyncio.run(main())
 ### 5.1.2 Keyboard interrupts
 
 There is a "gotcha" illustrated by the following code sample. If allowed to run
-to completion it works as expected.
+to completion, it works as expected.
 
 ```python
 import uasyncio as asyncio
@@ -1771,9 +1771,9 @@ except KeyboardInterrupt:
     asyncio.run(shutdown())
 ```
 
-However issuing a keyboard interrupt causes the exception to go to the
+However, issuing a keyboard interrupt causes the exception to go to the
 outermost scope. This is because `uasyncio.sleep` causes execution to be
-transferred to the scheduler. Consequently applications requiring cleanup code
+transferred to the scheduler. Consequently, applications requiring cleanup code
 in response to a keyboard interrupt should trap the exception at the outermost
 scope.
 
@@ -1794,9 +1794,9 @@ clause. The exception thrown to the task is `uasyncio.CancelledError` in both
 cancellation and timeout. There is no way for the task to distinguish between
 these two cases.
 
-As stated above, for a task launched with `.create_task` trapping the error is
+As stated above, for a task launched with `.create_task`, trapping the error is
 optional. Where a task is `await`ed, to avoid a halt it must be trapped within
-the task, within the `await`ing scope, or both. In the last case the task must
+the task, within the `await`ing scope, or both. In the last case, the task must
 re-raise the exception after trapping so that the error can again be trapped in
 the outer scope.
 
@@ -1825,7 +1825,7 @@ async def bar():
 
 asyncio.run(bar())
 ```
-The exception may be trapped as follows
+The exception may be trapped as follows:
 ```python
 import uasyncio as asyncio
 async def printit():
@@ -1850,7 +1850,7 @@ async def bar():
     print('Task is now cancelled')
 asyncio.run(bar())
 ```
-As of firmware V1.18 the `current_task()` method is supported. This enables a
+As of firmware V1.18, the `current_task()` method is supported. This enables a
 task to pass itself to other tasks, enabling them to cancel it. It also
 facilitates the following pattern:
 
@@ -1870,9 +1870,9 @@ class Foo:
 
 Timeouts are implemented by means of `uasyncio` methods `.wait_for()` and
 `.wait_for_ms()`. These take as arguments a task and a timeout in seconds or ms
-respectively. If the timeout expires a `uasyncio.CancelledError` is thrown to
+respectively. If the timeout expires, a `uasyncio.CancelledError` is thrown to
 the task, while the caller receives a `TimeoutError`. Trapping the exception in
-the task is optional. The caller must trap the `TimeoutError` otherwise the
+the task is optional. The caller must trap the `TimeoutError`, otherwise the
 exception will interrupt program execution.
 
 ```python
@@ -1925,7 +1925,7 @@ The behaviour is "correct": CPython `asyncio` behaves identically. Ref
 
 # 6 Interfacing hardware
 
-At heart all interfaces between `uasyncio` and external asynchronous events
+At heart, all interfaces between `uasyncio` and external asynchronous events
 rely on polling. This is because of the cooperative nature of `uasyncio`
 scheduling: the task which is expected to respond to the event can only acquire
 control after another task has relinquished it. There are two ways to handle
@@ -1935,7 +1935,7 @@ this.
  This is the approach used by `ThreadSafeFlag`.
  * Explicit polling: a user task does busy-wait polling on the hardware.
 
-At its simplest explicit polling may consist of code like this:
+At its simplest, explicit polling may consist of code like this:
 ```python
 async def poll_my_device():
     global my_flag  # Set by device ISR
@@ -1951,7 +1951,7 @@ might be used. Explicit polling is discussed further
 [below](./TUTORIAL.md#62-polling-hardware-with-a-task).
 
 Implicit polling is more efficient and may gain further from planned
-improvements to I/O scheduling. Aside from the use of `ThreadSafeFlag` it is
+improvements to I/O scheduling. Aside from the use of `ThreadSafeFlag`, it is
 possible to write code which uses the same technique. This is by designing the
 driver to behave like a stream I/O device such as a socket or UART, using
 `stream I/O`. This polls devices using Python's `select.poll` system: because
@@ -1959,7 +1959,7 @@ polling is done in C it is faster and more efficient than explicit polling. The
 use of `stream I/O` is discussed
 [here](./TUTORIAL.md#63-using-the-stream-mechanism).
 
-Owing to its efficiency implicit polling most benefits fast I/O device drivers:
+Owing to its efficiency, implicit polling most benefits fast I/O device drivers:
 streaming drivers can be written for many devices not normally considered as
 streaming devices [section 6.4](./TUTORIAL.md#64-writing-streaming-device-drivers).
 
@@ -2365,14 +2365,14 @@ import as_drivers.htu21d.htu_test
 ## 7.1 Program hangs
 
 Hanging usually occurs because a task has blocked without yielding: this will
-hang the entire system. When developing it is useful to have a task which
+hang the entire system. When developing, it is useful to have a task which
 periodically toggles an onboard LED. This provides confirmation that the
 scheduler is running.
 
 ## 7.2 uasyncio retains state
 
-If a `uasyncio` application terminates, state is retained. Embedded code seldom
-terminates, but in testing it is useful to re-run a script without the need for
+If a `uasyncio` application terminates, the state is retained. Embedded code seldom
+terminates, but in testing, it is useful to re-run a script without the need for
 a soft reset. This may be done as follows:
 ```python
 import uasyncio as asyncio
@@ -2389,7 +2389,7 @@ def test():
         asyncio.new_event_loop()  # Clear retained state
 ```
 It should be noted that clearing retained state is not a panacea. Re-running
-complex applications may require state to be retained.
+complex applications may require the state to be retained.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
@@ -2422,7 +2422,7 @@ async def rr(n):
 ```
 
 As an example of the type of hazard which can occur, in the `RecordOrientedUart`
-example above the `__await__` method was originally written as:
+example above, the `__await__` method was originally written as:
 
 ```python
     def __await__(self):
@@ -2434,7 +2434,7 @@ example above the `__await__` method was originally written as:
         self.data = data
 ```
 
-In testing this hogged execution until an entire record was received. This was
+In testing, this hogged execution until an entire record was received. This was
 because `uart.any()` always returned a nonzero quantity. By the time it was
 called, characters had been received. The solution was to yield execution in
 the outer loop:
@@ -2556,14 +2556,14 @@ Application developers should typically use the high-level asyncio functions,
 such as `asyncio.run()`, and should rarely need to reference the loop object or
 call its methods. This section is intended mostly for authors of lower-level
 code, libraries, and frameworks, who need finer control over the event loop
-behavior. [reference](https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.get_event_loop).
+behavior ([reference](https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.get_event_loop)).
 
 This doc offers better alternatives to `get_event_loop` if you can confine
 support to CPython V3.8+.
 
 There is an event loop method `run_forever` which takes no args and causes the
 event loop to run. This is supported by `uasyncio`. This has use cases, notably
-when all an application's tasks are instantiated in other modules.
+when all of an application's tasks are instantiated in other modules.
 
 ## 7.8 Race conditions
 
@@ -2573,12 +2573,12 @@ resource in a mutually incompatible manner.
 This behaviour can be demonstrated by running [the switch test](./primitives/tests/switches.py).
 In `test_sw()` coroutines are scheduled by events. If the switch is cycled
 rapidly the LED behaviour may seem surprising. This is because each time the
-switch is closed a coro is launched to flash the red LED; on each open event
-one is launched for the green LED. With rapid cycling a new coro instance will
+switch is closed, a coro is launched to flash the red LED, and on each open event,
+a coro is launched for the green LED. With rapid cycling a new coro instance will
 commence while one is still running against the same LED. This race condition
 leads to the LED behaving erratically.
 
-This is a hazard of asynchronous programming. In some situations it is
+This is a hazard of asynchronous programming. In some situations, it is
 desirable to launch a new instance on each button press or switch closure, even
 if other instances are still incomplete. In other cases it can lead to a race
 condition, leading to the need to code an interlock to ensure that the desired
@@ -2611,7 +2611,7 @@ the `uasyncio` approach to a solution.
 
 [Section 8.5](./TUTORIAL.md#85-why-cooperative-rather-than-pre-emptive)
 discusses the relative merits of `uasyncio` and the `_thread` module and why
-you may prefer use cooperative (`uasyncio`) over pre-emptive (`_thread`)
+you may prefer to use cooperative (`uasyncio`) over pre-emptive (`_thread`)
 scheduling.
 
 ###### [Contents](./TUTORIAL.md#contents)
@@ -2836,7 +2836,7 @@ When it comes to embedded systems the cooperative model has two advantages.
 Firstly, it is lightweight. It is possible to have large numbers of tasks
 because unlike descheduled threads, paused tasks contain little state.
 Secondly it avoids some of the subtle problems associated with pre-emptive
-scheduling. In practice cooperative multi-tasking is widely used, notably in
+scheduling. In practice, cooperative multi-tasking is widely used, notably in
 user interface applications.
 
 To make a case for the defence a pre-emptive model has one advantage: if
@@ -2847,7 +2847,7 @@ for x in range(1000000):
     # do something time consuming
 ```
 
-it won't lock out other threads. Under cooperative schedulers the loop must
+it won't lock out other threads. Under cooperative schedulers, the loop must
 explicitly yield control every so many iterations e.g. by putting the code in
 a task and periodically issuing `await asyncio.sleep(0)`.
 
@@ -2874,7 +2874,7 @@ An eloquent discussion of the evils of threading may be found
 
 ## 8.6 Communication
 
-In non-trivial applications tasks need to communicate. Conventional Python
+In non-trivial applications, tasks need to communicate. Conventional Python
 techniques can be employed. These include the use of global variables or
 declaring tasks as object methods: these can then share instance variables.
 Alternatively a mutable object may be passed as a task argument.
@@ -2905,7 +2905,7 @@ between a hardware event occurring and its handling task being scheduled is
 `N`ms, assuming that the mechanism for detecting the event adds no latency of
 its own.
 
-In practice `N` is likely to be on the order of many ms. On fast hardware there
+In practice, `N` is likely to be on the order of many ms. On fast hardware there
 will be a negligible performance difference between polling the hardware and
 polling a flag set by an ISR. On hardware such as ESP8266 and ESP32 the ISR
 approach will probably be slower owing to the long and variable interrupt
