@@ -451,4 +451,4 @@ is 50 ms giving an overhead of ~0.5%.
 [1r]: http://docs.micropython.org/en/latest/library/machine.UART.html#machine.UART.read
 [2r]: https://github.com/micropython/micropython-lib/blob/ad9309b669cd4474bcd4bc0a67a630173222dbec/micropython/umqtt.simple/umqtt/simple.py
 
-[1e](http://www.ganssle.com/debouncing.htm)
+[1e]: http://www.ganssle.com/debouncing.htm
