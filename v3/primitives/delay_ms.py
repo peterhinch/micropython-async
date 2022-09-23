@@ -27,6 +27,7 @@ class Delay_ms:
         self._tout = asyncio.Event()  # Timeout event
         self.wait = self._tout.wait  # Allow: await wait_ms.wait()
         self.clear = self._tout.clear
+        self.set = self._tout.set
         self._ttask = self._fake  # Timer task
         self._mtask = asyncio.create_task(self._run()) #Main task
 

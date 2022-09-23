@@ -6,7 +6,7 @@
 import uasyncio as asyncio
 from . import Delay_ms
 
-# An Event-like class that can wait on an iterable of Event instances.
+# An Event-like class that can wait on an iterable of Event-like instances.
 # .wait pauses until any passed event is set.
 class WaitAny:
     def __init__(self, events):
@@ -32,7 +32,11 @@ class WaitAny:
     def event(self):
         return self.trig_event
 
-# An Event-like class that can wait on an iterable of Event instances,
+    def clear(self):
+        for evt in (x for x in self.events if hasattr(x, 'clear')):
+            evt.clear()
+
+# An Event-like class that can wait on an iterable of Event-like instances,
 # .wait pauses until all passed events have been set.
 class WaitAll:
     def __init__(self, events):
@@ -48,6 +52,10 @@ class WaitAll:
             for task in tasks:
                 task.cancel()
 
+    def clear(self):
+        for evt in (x for x in self.events if hasattr(x, 'clear')):
+            evt.clear()
+
 # Minimal switch class having an Event based interface
 class ESwitch:
     debounce_ms = 50
@@ -62,7 +70,7 @@ class ESwitch:
 
     async def _poll(self, dt):  # Poll the button
         while True:
-            if (s := self._pin() ^ self._lopen) != self._state:
+            if (s := self._pin() ^ self._lopen) != self._state:  # 15μs
                 self._state = s
                 self._of() if s else self._cf()
             await asyncio.sleep_ms(dt)  # Wait out bounce
@@ -80,6 +88,8 @@ class ESwitch:
 
     def deinit(self):
         self._poll.cancel()
+        self.open.clear()
+        self.close.clear()
 
 # Minimal pushbutton class having an Event based interface
 class EButton:
@@ -152,3 +162,5 @@ class EButton:
     def deinit(self):
         for task in self._tasks:
             task.cancel()
+        for evt in (self.press, self.double, self.long, self.release):
+            evt.clear()
