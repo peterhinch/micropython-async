@@ -25,7 +25,7 @@ This document assumes familiarity with `uasyncio`. See [official docs](http://do
   6.2 [EButton](./EVENTS.md#62-ebutton)  
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6.2.1 [The suppress constructor argument](./EVENTS.md#621-the-suppress-constructor-argument)  
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6.2.2 [The sense constructor argument](./EVENTS.md#622-the-sense-constructor-argument)  
-[Appendix 1 Polling](./EVENTS.md#-appendix-1-polling)  
+[Appendix 1 Polling](./EVENTS.md#100-appendix-1-polling)  
 
 # 1. An alternative to callbacks in uasyncio code
 
@@ -461,7 +461,7 @@ determine whether the button is closed or open.
 
 ###### [Contents](./EVENTS.md#0-contents)
 
-# Appendix 1 Polling
+# 100 Appendix 1 Polling
 
 The primitives or drivers referenced here do not use polling with the following
 exceptions:
