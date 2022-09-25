@@ -37,7 +37,7 @@ class Accelerometer(object):
             return True
         return False
 
-async def accel_coro(timeout = 2000):
+async def accel_coro(timeout=2000):
     accelhw = pyb.Accel()               # Instantiate accelerometer hardware
     await asyncio.sleep_ms(30)          # Allow it to settle
     accel = Accelerometer(accelhw, timeout)
@@ -53,7 +53,7 @@ async def accel_coro(timeout = 2000):
 
 async def main(delay):
     print('Testing accelerometer for {} secs. Move the Pyboard!'.format(delay))
-    print('Test runs for 20s.')
+    print('Test runs for {}s.'.format(delay))
     asyncio.create_task(accel_coro())
     await asyncio.sleep(delay)
     print('Test complete!')

@@ -18,7 +18,7 @@ async def receiver():
     sreader = asyncio.StreamReader(uart)
     while True:
         res = await sreader.readline()
-        print('Recieved', res)
+        print('Received', res)
 
 async def main():
     asyncio.create_task(sender())
