@@ -7,6 +7,8 @@ application logic.
 This document assumes familiarity with `uasyncio`. See [official docs](http://docs.micropython.org/en/latest/library/uasyncio.html) and
 [unofficial tutorial](https://github.com/peterhinch/micropython-async/blob/master/v3/docs/TUTORIAL.md).
 
+# 0. Contents
+
  1. [An alternative to callbacks in uasyncio code](./EVENTS.md#1-an-alternative-to-callbacks-in-uasyncio-code)  
  2. [Rationale](./EVENTS.md#2-rationale)  
  3. [Device driver design](./EVENTS.md#3-device-driver-design)  
@@ -23,7 +25,7 @@ This document assumes familiarity with `uasyncio`. See [official docs](http://do
   6.2 [EButton](./EVENTS.md#62-ebutton)  
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6.2.1 [The suppress constructor argument](./EVENTS.md#621-the-suppress-constructor-argument)  
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6.2.2 [The sense constructor argument](./EVENTS.md#622-the-sense-constructor-argument)  
-[Appendix 1 Polling](./EVENTS.md-appendix-1-polling)  
+[Appendix 1 Polling](./EVENTS.md#-appendix-1-polling)  
 
 # 1. An alternative to callbacks in uasyncio code
 
@@ -68,6 +70,8 @@ need for callbacks is much reduced.
 Note the `Stream` mechanism provides another approach which works well with
 devices such as sockets and UARTs. It is less well suited to handling arbitrary
 events, partly because it relies on polling under the hood.
+
+###### [Contents](./EVENTS.md#0-contents)
 
 # 2. Rationale
 
@@ -119,6 +123,8 @@ callbacks:
  execution reaches `.wait()` before the `Event` is cleared, it will not pause.
  If the `Event` is cleared, it will pause until it is set again.
 
+###### [Contents](./EVENTS.md#0-contents)
+
 # 3. Device driver design
 
 This document introduces the idea of an event-like object (ELO). This is an
@@ -145,6 +151,8 @@ Drivers exposing `Event` instances include:
  * [EButton](./EVENTS.md#62-ebutton) Micro debounced interface to a pushbutton.
  * [Switch][5m] Similar but interfaces also expose callbacks.
  * [Pushbutton][6m]
+
+###### [Contents](./EVENTS.md#0-contents)
 
 # 4. Primitives
 
@@ -187,6 +195,8 @@ await WaitAll((event1, event2, WaitAny(event3, event4))).wait()
 ```
 This will pause until `event1` and `event2` and either `event3`or `event4` have
 been set.
+
+###### [Contents](./EVENTS.md#0-contents)
 
 # 5. Event based programming
 
@@ -281,6 +291,8 @@ async def main():
             # Both timers running: run "short press" code
 ```
 
+###### [Contents](./EVENTS.md#0-contents)
+
 ## 5.3 Application example
 
 A measuring instrument is started by pressing a button. The measurement
@@ -313,6 +325,8 @@ async def foo():
         else:
             # Normal outcome, process readings
 ```
+
+###### [Contents](./EVENTS.md#0-contents)
 
 # 6. Drivers
 
@@ -354,6 +368,8 @@ Bound objects:
  3. `open` An `Event` instance. Set on contact open.
 
 Application code is responsible for clearing the `Event` instances.
+
+###### [Contents](./EVENTS.md#0-contents)
 
 ## 6.2 EButton
  
@@ -442,6 +458,8 @@ the voltage on the pin is gnd.
 
 Whenever the pin value changes, the new value is compared with `sense` to
 determine whether the button is closed or open.
+
+###### [Contents](./EVENTS.md#0-contents)
 
 # Appendix 1 Polling
 
