@@ -12,17 +12,17 @@ This document assumes familiarity with `uasyncio`. See [official docs](http://do
  1. [An alternative to callbacks in uasyncio code](./EVENTS.md#1-an-alternative-to-callbacks-in-uasyncio-code)  
  2. [Rationale](./EVENTS.md#2-rationale)  
  3. [Device driver design](./EVENTS.md#3-device-driver-design)  
- 4. [Primitives](./EVENTS.md#4-primitives)  
-  4.1 [WaitAny](./EVENTS.md#41-waitany)  
-  4.2 [WaitAll](./EVENTS.md#42-waitall)  
+ 4. [Primitives](./EVENTS.md#4-primitives) Facilitating Event-based application logic  
+  4.1 [WaitAny](./EVENTS.md#41-waitany) Wait on any of a group of event-like objects  
+  4.2 [WaitAll](./EVENTS.md#42-waitall) Wait on all of a group of event-like objects  
   4.3 [Nesting](./EVENTS.md#43-nesting)  
  5. [Event based programming](./EVENTS.md#5-event-based-programming)  
-  5.1 [Use of Delay_ms](./EVENTS.md#51-use-of-delay_ms)  
+  5.1 [Use of Delay_ms](./EVENTS.md#51-use-of-delay_ms) A retriggerable delay  
   5.2 [Long and very long button press](./EVENTS.md#52-long-and-very-long-button-press)  
   5.3 [Application example](./EVENTS.md#53-application-example)  
- 6. [Drivers](./EVENTS.md#6-drivers)  
-  6.1 [ESwitch](./EVENTS.md#61-eswitch)  
-  6.2 [EButton](./EVENTS.md#62-ebutton)  
+ 6. [Drivers](./EVENTS.md#6-drivers) Minimal Event-based drivers  
+  6.1 [ESwitch](./EVENTS.md#61-eswitch) Debounced switch  
+  6.2 [EButton](./EVENTS.md#62-ebutton) Debounced pushbutton with double and long press events  
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6.2.1 [The suppress constructor argument](./EVENTS.md#621-the-suppress-constructor-argument)  
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6.2.2 [The sense constructor argument](./EVENTS.md#622-the-sense-constructor-argument)  
 [Appendix 1 Polling](./EVENTS.md#100-appendix-1-polling)  
@@ -68,8 +68,9 @@ or task when the `Event` is set. With the design approach outlined below, the
 need for callbacks is much reduced.
 
 Note the `Stream` mechanism provides another approach which works well with
-devices such as sockets and UARTs. It is less well suited to handling arbitrary
-events, partly because it relies on polling under the hood.
+devices such as sockets and UARTs. It is arguably less well suited to handling
+arbitrary events, partly because it relies on
+[polling](./EVENTS.md#100-appendix-1-polling) under the hood.
 
 ###### [Contents](./EVENTS.md#0-contents)
 
@@ -110,8 +111,9 @@ because:
  where they are small and spend most of the time paused waiting on queues.
 
 This contrasts with other schedulers (such as `uasyncio` V2) where there was no
-built-in `Event` class; typical `Event` implementations used polling and were
-convenience objects rather than performance solutions.
+built-in `Event` class; typical `Event` implementations used
+[polling](./EVENTS.md#100-appendix-1-polling) and were convenience objects
+rather than performance solutions.
 
 The `Event` class `.clear` method provides additional flexibility relative to
 callbacks:
@@ -142,8 +144,8 @@ ELO examples are:
 | [ThreadSafeFlag][3m] | Y    | N     | Y   | Self-clearing     |
 | [Message][7m]        | Y    | N     | Y   | Subclass of above |
 | [Delay_ms][2m]       | Y    | Y     | Y   | Self-setting      |
-| WaitAll              | Y    | Y     | N   | See below         |
-| WaitAny              | Y    | Y     | N   |                   |
+| [WaitAll](./EVENTS.md#42-waitall)              | Y    | Y     | N   | See below         |
+| [WaitAny](./EVENTS.md#41-waitany)              | Y    | Y     | N   |                   |
 
 Drivers exposing `Event` instances include:
 
