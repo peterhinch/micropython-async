@@ -1,3 +1,30 @@
+# Synopsis
+
+Using `Event` instances rather than callbacks in `uasyncio` device drivers can
+simplify their design and standardise their APIs. It can also simplify
+application logic.
+
+This document assumes familiarity with `uasyncio`. See [official docs](http://docs.micropython.org/en/latest/library/uasyncio.html) and
+[unofficial tutorial](https://github.com/peterhinch/micropython-async/blob/master/v3/docs/TUTORIAL.md).
+
+ 1. [An alternative to callbacks in uasyncio code](./EVENTS.md#1-an-alternative-to-callbacks-in-uasyncio-code)  
+ 2. [Rationale](./EVENTS.md#2-rationale)  
+ 3. [Device driver design](./EVENTS.md#3-device-driver-design)  
+ 4. [Primitives](./EVENTS.md#4-primitives)  
+  4.1 [WaitAny](./EVENTS.md#41-waitany)  
+  4.2 [WaitAll](./EVENTS.md#42-waitall)  
+  4.3 [Nesting](./EVENTS.md#43-nesting)  
+ 5. [Event based programming](./EVENTS.md#5-event-based-programming)  
+  5.1 [Use of Delay_ms](./EVENTS.md#51-use-of-delay_ms)  
+  5.2 [Long and very long button press](./EVENTS.md#52-long-and-very-long-button-press)  
+  5.3 [Application example](./EVENTS.md#53-application-example)  
+ 6. [Drivers](./EVENTS.md#6-drivers)  
+  6.1 [ESwitch](./EVENTS.md#61-eswitch)  
+  6.2 [EButton](./EVENTS.md#62-ebutton)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6.2.1 [The suppress constructor argument](./EVENTS.md#621-the-suppress-constructor-argument)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6.2.2 [The sense constructor argument](./EVENTS.md#622-the-sense-constructor-argument)  
+[Appendix 1 Polling](./EVENTS.md-appendix-1-polling)  
+
 # 1. An alternative to callbacks in uasyncio code
 
 A hardware device like a pushbutton or a software object like an MQTT client
