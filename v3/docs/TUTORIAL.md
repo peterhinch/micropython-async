@@ -2,7 +2,8 @@
 
 This tutorial is intended for users having varying levels of experience with
 asyncio and includes a section for complete beginners. It is for use with the
-new version of `uasyncio`, currently V3.0.0.
+new version of `uasyncio`, currently V3.0.0. See [this overview](../README.md)
+for a summary of documents and resources for `uasyncio`.
 
 Most code samples are now complete scripts which can be cut and pasted at the
 REPL.
