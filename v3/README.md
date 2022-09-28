@@ -1,40 +1,71 @@
-# 1. Guide to uasyncio V3
+# 1. Guide to uasyncio
 
-This release of `uasyncio` is pre-installed on all platforms except severely
-constrained ones such as the 1MB ESP8266. This rewrite of `uasyncio` supports
-CPython 3.8 syntax. A design aim is that it should be be a compatible subset of
-`asyncio`. The current version is 3.0.0.
+MicroPython's `uasyncio` is pre-installed on all platforms except severely
+constrained ones such as the 1MB ESP8266. It supports CPython 3.8 syntax and
+aims to be a compatible subset of `asyncio`. The current version is 3.0.0.
 
-These notes and the tutorial should be read in conjunction with
-[the official docs](http://docs.micropython.org/en/latest/library/uasyncio.html)
+## 1.1 Documents
 
-## 1.1 Resources for V3
+[uasyncio official docs](http://docs.micropython.org/en/latest/library/uasyncio.html)
 
-This repo contains the following:
+[Tutorial](./docs/TUTORIAL.md) Intended for users with all levels of experience
+(or none) of asynchronous programming.
 
-### [V3 Tutorial](./docs/TUTORIAL.md)
+[Drivers](https://github.com/peterhinch/micropython-async/blob/master/v3/docs/DRIVERS.md)
+describes device drivers for switches, pushbuttons, ESP32 touch buttons, ADC's
+and incremental encoders.
 
-Intended for users with all levels of experience with asynchronous programming.
+[Interrupts](https://github.com/peterhinch/micropython-async/blob/master/v3/docs/INTERRUPTS.md)
+is a guide to interfacing interrupts to `uasyncio`.
 
-### Test/demo scripts  
+[Event-based programming](./docs/EVENTS.md) is a guide to a way of writing
+applications and device drivers which largely does away with callbacks. Assumes
+some knowledge of `uasyncio`.
 
-Documented in the tutorial.
+## 1.2 Debugging tools
 
-### Synchronisation primitives  
+[aiorepl](https://github.com/micropython/micropython-lib/tree/master/micropython/aiorepl)
+This official tool enables an application to launch a REPL which is active
+while the application is running. From this you can modify and query the
+application and run `uasyncio` scripts concurrently with the running
+application.
 
-Documented in the tutorial. Comprises:
- * CPython primitives not yet officially supported.
- * Two additional primitives `Barrier` and `Message`.
- * Classes for interfacing switches and pushbuttons.
- * A software retriggerable monostable timer class, similar to a watchdog.
+[monitor](https://github.com/peterhinch/micropython-monitor) enables a running
+`uasyncio` application to be monitored using a Pi Pico, ideally with a scope or
+logic analyser. Normally requires only one GPIO pin on the target.
 
-### A scheduler
+![Image](https://github.com/peterhinch/micropython-monitor/raw/master/images/monitor.jpg)
+
+## 1.3 Resources in this repo
+
+### 1.3.1 Test/demo scripts  
+
+Documented in the [tutorial](./docs/TUTORIAL.md).
+
+### 1.3.2 Synchronisation primitives  
+
+Documented in the [tutorial](./docs/TUTORIAL.md). Comprises:
+ * Unsupported CPython primitives including `barrier`, `queue` and others.
+ * An additional primitive `Message`.
+ * A software retriggerable monostable timer class `Delay_ms`, similar to a
+ watchdog.
+ * Two primitives enabling waiting on groups of `Event` instances.
+
+### 1.3.3 Asynchronous device drivers
+
+These are documented
+[here](https://github.com/peterhinch/micropython-async/blob/master/v3/docs/DRIVERS.md):
+ * Classes for interfacing switches, pushbuttons and ESP32 touch buttons.
+ * Drivers for ADC's
+ * Drivers for incremental encoders.
+
+### 1.3.4 A scheduler
 
 This [lightweight scheduler](./docs/SCHEDULE.md) enables tasks to be scheduled
 at future times. These can be assigned in a flexible way: a task might run at
 4.10am on Monday and Friday if there's no "r" in the month.
 
-### Asynchronous device drivers  
+### 1.3.5 Asynchronous interfaces  
 
 These device drivers are intended as examples of asynchronous code which are
 useful in their own right:
@@ -43,26 +74,11 @@ useful in their own right:
  * [HTU21D](./docs/HTU21D.md) Temperature and humidity sensor.
  * [I2C](./docs/I2C.md) Use Pyboard I2C slave mode to implement a UART-like
  asynchronous stream interface. Uses: communication with ESP8266, or (with
- coding) interface a Pyboard to I2C masters.
+ coding) to interface a Pyboard to I2C masters.
  * [NEC IR](./docs/NEC_IR.md) A receiver for signals from IR remote controls
  using the popular NEC protocol.
  * [HD44780](./docs/hd44780.md) Driver for common character based LCD displays
  based on the Hitachi HD44780 controller.
-
-### Event-based programming
-
-[A guide](./docs/EVENTS.md) to a writing applications and device drivers which
-largely does away with callbacks.
-
-### A monitor
-
-This [monitor](https://github.com/peterhinch/micropython-monitor) enables a
-running `uasyncio` application to be monitored using a Pi Pico, ideally with a
-scope or logic analyser. If designing hardware it is suggested to provide
-access to a UART tx pin, or alternatively to three GPIO pins, to enable this to
-be used if required.
-
-![Image](https://github.com/peterhinch/micropython-monitor/raw/master/images/monitor.jpg)
 
 # 2. V3 Overview
 
