@@ -9,7 +9,7 @@ aims to be a compatible subset of `asyncio`. The current version is 3.0.0.
 [uasyncio official docs](http://docs.micropython.org/en/latest/library/uasyncio.html)
 
 [Tutorial](./docs/TUTORIAL.md) Intended for users with all levels of experience
-(or none) of asynchronous programming.
+of asynchronous programming, including beginners.
 
 [Drivers](https://github.com/peterhinch/micropython-async/blob/master/v3/docs/DRIVERS.md)
 describes device drivers for switches, pushbuttons, ESP32 touch buttons, ADC's
@@ -45,7 +45,8 @@ Documented in the [tutorial](./docs/TUTORIAL.md).
 ### 1.3.2 Synchronisation primitives  
 
 Documented in the [tutorial](./docs/TUTORIAL.md). Comprises:
- * Unsupported CPython primitives including `barrier`, `queue` and others.
+ * Implementations of unsupported CPython primitives including `barrier`,
+ `queue` and others.
  * An additional primitive `Message`.
  * A software retriggerable monostable timer class `Delay_ms`, similar to a
  watchdog.
