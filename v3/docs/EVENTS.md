@@ -29,48 +29,38 @@ This document assumes familiarity with `uasyncio`. See [official docs](http://do
 
 # 1. An alternative to callbacks in uasyncio code
 
-A hardware device like a pushbutton or a software object like an MQTT client
-is designed to respond to an external asynchronous event. At the device driver
-level there are two common approaches to handling this (see note below):
- 1. The driver provides a method which blocks until the event occurs (e.g.
- [machine.uart.read][1r].
- 2. The user specifies a callback function which runs when the event occurs
- (e.g.[umqtt.simple][2r]).
+Callbacks have two merits. They are familiar, and they enable an interface
+which allows an asynchronous application to be accessed by synchronous code.
+GUI frameworks such as [micro-gui][1m] form a classic example: the callback
+interface may be accessed by synchronous or asynchronous code.
 
-The first approach is incompatible with asynchronous code because the blocking
-method stalls the scheduler while it is waiting. The second solves this because
-the callback consumes no resources until the event actually occurs. However it
-is not without problems. There is no standard way to specify callbacks, nor is
-there a standard way to pass arguments to them or to retrieve a result. Further
-a user might want to launch a task rather than run a synchronous callback. All
-these problems can be solved, but solutions are _ad hoc_ and will vary between
-drivers.
+For the programmer of asynchronous applications, callbacks are largely
+unnecessary and their use can lead to bugs.
 
-For example, `umqtt.simple` has a `set_callback` method with no way to pass
-args. Other drivers will require the callback (and perhaps args) to be passed
-as a constructor arg. Some drivers provide a method enabling the callback's
-result to be retrieved.
+The idiomatic way to write an asynchronous function that responds to external
+events is one where the function pauses while waiting on the event:
+```python
+async def handle_messages(input_stream):
+    while True:
+        msg = await input_stream.readline()
+        await handle_data(msg)
+```
+Callbacks are not a natural fit in this model. Viewing the declaration of a
+synchronous function, it is not evident how the function gets called or in what
+context the code runs. Is it an ISR? Is it called from another thread or core?
+Or is it a callback running in a `uasyncio` context? You cannot tell without
+trawling the code. By contrast, a routine such as the above example is a self
+contained process whose context and intended behaviour are evident.
 
-Further, if a requirement has logic such as to "send a message if event A
-is followed by either event B or event C" you are likely to find yourself at
-the gates of a place commonly known as "callback hell".
+The following steps can facilitate the use of asynchronous functions:
+ 1. Design device drivers to expose one or more bound `Event` objects.
+ Alternatively design the driver interface to be that of an `Event`.
+ 2. Design program logic to operate on objects with an `Event` interface.
 
-The one merit of designing callbacks into drivers is that it enables users to
-access `uasyncio` code with purely synchronous code. Typical examples are GUIs
-such as [micro-gui][1m]). These application frameworks use asynchronous code
-internally but may be accessed with conventional synchronous code.
-
-For asynchronous programmers the API's of drivers, and their internal logic,
-can be simplified by abandoning callbacks in favour of `Event` beaviour. In
-essence the driver might expose an `Event` instance or be designed to emulate
-an `Event`. No capability is lost because the application can launch a callback
-or task when the `Event` is set. With the design approach outlined below, the
-need for callbacks is much reduced.
-
-Note the `Stream` mechanism provides another approach which works well with
-devices such as sockets and UARTs. It is arguably less well suited to handling
-arbitrary events, partly because it relies on
-[polling](./EVENTS.md#100-appendix-1-polling) under the hood.
+The first simplifies the design of drivers and standardises their interface.
+Users only need to know the names of the bound `Event` instances. By contast
+there is no standard way to specify callbacks, to define the passing of
+callback arguments or to define how to retrieve their return values.
 
 ###### [Contents](./EVENTS.md#0-contents)
 
