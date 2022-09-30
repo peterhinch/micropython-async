@@ -111,7 +111,7 @@ callbacks:
  are waiting on `.wait()`, all will resume running.
  2. Alternatively the `Event` may be cleared later. The timing of clearing the
  `Event` determines its behaviour if, at the time when the `Event` is set, a
- task waiting on the `await event.wait()` statement has not yet reached it. If
+ task with an `await event.wait()` statement has not yet reached it. If
  execution reaches `.wait()` before the `Event` is cleared, it will not pause.
  If the `Event` is cleared, it will pause until it is set again.
 
@@ -132,7 +132,7 @@ ELO examples are:
 |:---------------------|:----:|:-----:|:---:|:------------------|
 | [Event][4m]          | Y    | Y     | Y   |                   |
 | [ThreadSafeFlag][3m] | Y    | N     | Y   | Self-clearing     |
-| [Message][7m]        | Y    | N     | Y   | Subclass of above |
+| [Message][7m]        | Y    | Y     | Y   | Subclass of above |
 | [Delay_ms][2m]       | Y    | Y     | Y   | Self-setting      |
 | [WaitAll](./EVENTS.md#42-waitall)              | Y    | Y     | N   | See below         |
 | [WaitAny](./EVENTS.md#41-waitany)              | Y    | Y     | N   |                   |
