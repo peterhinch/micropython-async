@@ -591,7 +591,7 @@ async def task(i, lock):
         lock.release()
 
 async def main():
-    lock = asyncio.Lock()  # The Lock instance
+    lock = Lock()  # The Lock instance
     for n in range(1, 4):
         asyncio.create_task(task(n, lock))
     await asyncio.sleep(10)
@@ -620,7 +620,7 @@ async def task(i, lock):
             await asyncio.sleep(0.5)
  
 async def main():
-    lock = asyncio.Lock()  # The Lock instance
+    lock = Lock()  # The Lock instance
     for n in range(1, 4):
         asyncio.create_task(task(n, lock))
     await asyncio.sleep(10)
