@@ -72,7 +72,7 @@ class ESwitch:
         while True:
             if (s := self._pin() ^ self._lopen) != self._state:  # 15μs
                 self._state = s
-                self._of() if s else self._cf()
+                self._cf() if s else self._of()
             await asyncio.sleep_ms(dt)  # Wait out bounce
 
     def _of(self):
