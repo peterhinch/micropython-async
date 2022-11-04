@@ -359,7 +359,32 @@ Bound objects:
  2. `close` An `Event` instance. Set on contact closure.
  3. `open` An `Event` instance. Set on contact open.
 
-Application code is responsible for clearing the `Event` instances.
+Application code is responsible for clearing the `Event` instances.  
+Usage example:
+```python
+import uasyncio as asyncio
+from machine import Pin
+from primitives import ESwitch
+es = ESwitch(Pin("Y1", Pin.IN, Pin.PULL_UP))
+
+async def closure():
+    while True:
+        es.close.clear()
+        await es.close.wait()
+        print("Closed")
+
+async def open():
+    while True:
+        es.open.clear()
+        await es.open.wait()
+        print("Open")
+
+async def main():
+    asyncio.create_task(open())
+    await closure()
+
+asyncio.run(main())
+```
 
 ###### [Contents](./EVENTS.md#0-contents)
 
