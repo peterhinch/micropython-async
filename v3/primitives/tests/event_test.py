@@ -152,7 +152,9 @@ async def stest(sw, verbose):
     tasks = []
     for n, evt in enumerate(events):
         tasks.append(asyncio.create_task(monitor(evt, 1 << 3 * n, verbose)))
-    await pulse(1000)
+    asyncio.create_task(pulse(2000))
+    await asyncio.sleep(1)
+    expect(val, 0x08)
     await asyncio.sleep(4)  # Wait for any spurious events
     verbose and print("Switch close and open", hex(val))
     expect(val, 0x09)
