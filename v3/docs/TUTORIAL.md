@@ -1001,6 +1001,7 @@ async def queue_go(delay):
 
 asyncio.run(queue_go(4))
 ```
+In common with CPython's `asyncio.Queue` this class is not thread safe.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
