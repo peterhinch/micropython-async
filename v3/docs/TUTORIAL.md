@@ -715,7 +715,7 @@ from primitives import WaitAny
 evt1 = Event()
 evt2 = Event()
 # Launch tasks that might trigger these events
-evt = await WaitAny((evt1, evt2))
+evt = await WaitAny((evt1, evt2)).wait()
 # One or other was triggered
 if evt is evt1:
     evt1.clear()
@@ -730,7 +730,7 @@ until all passed `Event`s have been set:
 from primitives import WaitAll
 evt1 = Event()
 evt2 = Event()
-wa = WaitAll((evt1, evt2))  # 
+wa = WaitAll((evt1, evt2)).wait() 
 # Launch tasks that might trigger these events
 await wa
 # Both were triggered
