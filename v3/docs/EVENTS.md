@@ -25,6 +25,7 @@ This document assumes familiarity with `uasyncio`. See [official docs](http://do
   6.2 [EButton](./EVENTS.md#62-ebutton) Debounced pushbutton with double and long press events  
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6.2.1 [The suppress constructor argument](./EVENTS.md#621-the-suppress-constructor-argument)  
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6.2.2 [The sense constructor argument](./EVENTS.md#622-the-sense-constructor-argument)  
+ 7. [Ringbuf queue](./EVENTS.md#7-ringbuf-queue) A MicroPython optimised queue primitive.  
 [Appendix 1 Polling](./EVENTS.md#100-appendix-1-polling)  
 
 # 1. An alternative to callbacks in uasyncio code
@@ -475,6 +476,52 @@ the voltage on the pin is gnd.
 
 Whenever the pin value changes, the new value is compared with `sense` to
 determine whether the button is closed or open.
+
+###### [Contents](./EVENTS.md#0-contents)
+
+# 7. Ringbuf Queue
+
+The API of the `Queue` aims for CPython compatibility. This is at some cost to
+efficiency. As the name suggests, the `RingbufQueue` class uses a pre-allocated
+circular buffer which may be of any mutable type supporting the buffer protocol
+e.g. `list`, `array` or `bytearray`. 
+
+Attributes of `RingbufQueue`:
+ 1. It is of fixed size, `Queue` can grow to arbitrary size.
+ 2. It uses pre-allocated buffers of various types (`Queue` uses a `list`).
+ 3. It is an asynchronous iterator allowing retrieval with `async for`.
+ 4. It has an "overwrite oldest data" synchronous write mode.
+
+Constructor mandatory arg:
+ * `buf` Buffer for the queue, e.g. list `[0 for _ in range(20)]` or array. A
+ buffer of size `N` can hold a maximum of `N-1` items.
+
+Synchronous methods (immediate return):  
+ * `qsize` No arg. Returns the number of items in the queue.
+ * `empty` No arg. Returns `True` if the queue is empty.
+ * `full` No arg. Returns `True` if the queue is full.
+ * `get_nowait` No arg. Returns an object from the queue. Raises an exception
+ if the queue is empty.
+ * `put_nowait` Arg: the object to put on the queue. Raises an exception if the
+ queue is full. If the calling code ignores the exception the oldest item in
+ the queue will be overwritten. In some applications this can be of use.
+
+Asynchronous methods:  
+ * `put` Arg: the object to put on the queue. If the queue is full, it will
+ block until space is available.
+
+Retrieving items from the queue:
+
+The `RingbufQueue` is an asynchronous iterator. Results are retrieved using
+`async for`:
+```python
+async def handle_queued_data(q):
+    async for obj in q:
+        await asyncio.sleep(0)  # See below
+        # Process obj
+```
+The `sleep` is necessary if you have multiple tasks waiting on the queue,
+otherwise one task hogs all the data.
 
 ###### [Contents](./EVENTS.md#0-contents)
 

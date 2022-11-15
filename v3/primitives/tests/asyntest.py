@@ -13,11 +13,10 @@ try:
     import uasyncio as asyncio
 except ImportError:
     import asyncio
+import sys
+unix = "linux" in sys.implementation._machine
 
-from primitives.message import Message
-from primitives.barrier import Barrier
-from primitives.semaphore import Semaphore, BoundedSemaphore
-from primitives.condition import Condition
+from primitives import Message, Barrier, Semaphore, BoundedSemaphore, Condition, Queue, RingbufQueue
 
 def print_tests():
     st = '''Available functions:
@@ -30,6 +29,7 @@ test(5)  Test Semaphore
 test(6)  Test BoundedSemaphore.
 test(7)  Test the Condition class.
 test(8)  Test the Queue class.
+test(9)  Test the RingbufQueue class.
 '''
     print('\x1b[32m')
     print(st)
@@ -83,6 +83,9 @@ async def ack_coro(delay):
     print("Time to die...")
 
 def ack_test():
+    if unix:
+        print("Message class is incompatible with Unix build.")
+        return
     printexp('''message was set
 message_wait 1 got message with value 0
 message_wait 2 got message with value 0
@@ -142,6 +145,9 @@ async def run_message_test():
     print('Tasks complete')
 
 def msg_test():
+    if unix:
+        print("Message class is incompatible with Unix build.")
+        return
     printexp('''Test Lock class
 Test Message class
 waiting for message
@@ -389,8 +395,6 @@ Done.
 
 # ************ Queue test ************
 
-from primitives.queue import Queue
-
 async def slow_process():
     await asyncio.sleep(2)
     return 42
@@ -462,7 +466,7 @@ async def queue_go():
         getter(q)
         )
     print('Queue tests complete')
-    print("I've seen starships burn off the shoulder of Orion...")
+    print("I've seen attack ships burn off the shoulder of Orion...")
     print("Time to die...")
 
 def queue_test():
@@ -476,12 +480,86 @@ Competing get tasks test complete
 Queue tests complete
 
 
-I've seen starships burn off the shoulder of Orion...
+I've seen attack ships burn off the shoulder of Orion...
 Time to die...
 
 ''', 20)
     asyncio.run(queue_go())
 
+# ************ RingbufQueue test ************
+
+async def qread(q, lst, twr):
+    async for item in q:
+        lst.append(item)
+        await asyncio.sleep_ms(twr)
+
+async def read(q, t, twr=0):
+    lst = []
+    try:
+        await asyncio.wait_for(qread(q, lst, twr), t)
+    except asyncio.TimeoutError:
+        pass
+    return lst
+
+async def put_list(q, lst, twp=0):
+    for item in lst:
+        await q.put(item)
+        await asyncio.sleep_ms(twp)
+
+async def rbq_go():
+    q = RingbufQueue([0 for _ in range(10)])  # 10 elements
+    pl = [n for n in range(15)]
+    print("Read waits on slow write.")
+    asyncio.create_task(put_list(q, pl, 100))
+    rl = await read(q, 2)
+    assert pl == rl
+    print('done')
+    print("Write waits on slow read.")
+    asyncio.create_task(put_list(q, pl))
+    rl = await read(q, 2, 100)
+    assert pl == rl
+    print('done')
+    print("Testing full, empty and qsize methods.")
+    assert q.empty()
+    assert q.qsize() == 0
+    assert not q.full()
+    await put_list(q, (1,2,3))
+    assert not q.empty()
+    assert q.qsize() == 3
+    assert not q.full()
+    print("Done")
+    print("Testing put_nowait and overruns.")
+    nfail = 0
+    for x in range(4, 15):
+        try:
+            q.put_nowait(x)
+        except:
+            nfail += 1
+    assert nfail == 5
+    assert q.full()
+    rl = await read(q, 2)
+    assert rl == [6, 7, 8, 9, 10, 11, 12, 13, 14]
+    print("Tests complete.")
+    print("I've seen attack ships burn off the shoulder of Orion...")
+    print("Time to die...")
+
+def rbq_test():
+    printexp('''Running (runtime = 6s):
+Read waits on slow write.
+done
+Write waits on slow read.
+done
+Testing full, empty and qsize methods.
+Done
+Testing put_nowait and overruns.
+Tests complete.
+I've seen attack ships burn off the shoulder of Orion...
+Time to die...
+
+''', 20)
+    asyncio.run(rbq_go())
+
+# ************ ************
 def test(n):
     try:
         if n == 1:
@@ -500,6 +578,8 @@ def test(n):
             condition_test()  # Test the Condition class.
         elif n == 8:
             queue_test()  # Test the Queue class.
+        elif n == 9:
+            rbq_test()  # Test the RingbufQueue class.
     except KeyboardInterrupt:
         print('Interrupted')
     finally:

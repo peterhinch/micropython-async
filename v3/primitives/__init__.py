@@ -47,6 +47,7 @@ _attrs = {
     "WaitAny": "events",
     "ESwitch": "events",
     "EButton": "events",
+    "RingbufQueue": "ringbuf_queue",
 }
 
 # Copied from uasyncio.__init__.py

@@ -947,8 +947,10 @@ is raised.
 
 ## 3.5 Queue
 
-This is currently an unofficial implementation. Its API is as per CPython
-asyncio.
+This is currently an unofficial implementation. Its API is a subset of that of
+CPython's `asyncio.Queue`. Like `asyncio.Queue` this class is not thread safe.
+A queue class optimised for MicroPython is presented in
+[Ringbuf queue](./EVENTS.md#7-ringbuf-queue).
 
 The `Queue` class provides a means of synchronising producer and consumer
 tasks: the producer puts data items onto the queue with the consumer removing
@@ -1001,14 +1003,15 @@ async def queue_go(delay):
 
 asyncio.run(queue_go(4))
 ```
-In common with CPython's `asyncio.Queue` this class is not thread safe.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
 ## 3.6 ThreadSafeFlag
 
 This requires firmware V1.15 or later.  
-See also [Interfacing uasyncio to interrupts](./INTERRUPTS.md).
+See also [Interfacing uasyncio to interrupts](./INTERRUPTS.md). Because of
+[this issue](https://github.com/micropython/micropython/issues/7965) the
+`ThreadSafeFlag` class does not work under the Unix build.
 
 This official class provides an efficient means of synchronising a task with a
 truly asynchronous event such as a hardware interrupt service routine or code
@@ -1313,7 +1316,9 @@ finally:
 
 ## 3.9 Message
 
-This requires firmware V1.15 or later.
+This requires firmware V1.15 or later. Note that because of
+[this issue](https://github.com/micropython/micropython/issues/7965) the
+`Message` class does not work under the Unix build.
 
 This is an unofficial primitive with no counterpart in CPython asyncio. It uses
 [ThreadSafeFlag](./TUTORIAL.md#36-threadsafeflag) to provide an object similar
