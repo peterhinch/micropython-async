@@ -533,7 +533,7 @@ async def rbq_go():
     for x in range(4, 15):
         try:
             q.put_nowait(x)
-        except:
+        except IndexError:
             nfail += 1
     assert nfail == 5
     assert q.full()

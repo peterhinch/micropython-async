@@ -755,7 +755,7 @@ cancellation or timeout. It returns a list of the return values of each task.
 
 Its call signature is
 ```python
-res = await asyncio.gather(*tasks, return_exceptions=True)
+res = await asyncio.gather(*tasks, return_exceptions=False)
 ```
 The keyword-only boolean arg `return_exceptions` determines the behaviour in
 the event of a cancellation or timeout of tasks. If `False`, the `gather`
@@ -1095,10 +1095,25 @@ serviced the device, the ISR flags an asynchronous routine, typically
 processing received data.
 
 The fact that only one task may wait on a `ThreadSafeFlag` may be addressed by
-having the task that waits on the `ThreadSafeFlag` set an `Event`. Multiple
-tasks may wait on that `Event`. As an alternative to explicitly coding this,
-the [Message class](./TUTORIAL.md#39-message) uses this approach to provide an
-`Event`-like object which can be triggered from an ISR.
+having a task that waits on the `ThreadSafeFlag` set an `Event` as in the
+following:
+```python
+class ThreadSafeEvent(asyncio.Event):
+    def __init__(self):
+        super().__init__()
+        self._tsf = asyncio.ThreadSafeFlag()
+        asyncio.create_task(self._run())
+
+    async def _run(self):
+        while True:
+            await self._tsf.wait()
+            super().set()
+
+    def set(self):
+        self._tsf.set()
+```
+An instance may be set by a hard ISR or from another thread/core. It must
+explicitly be cleared. Multiple tasks may wait on it.
 
 ###### [Contents](./TUTORIAL.md#contents)
 

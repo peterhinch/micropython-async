@@ -6,13 +6,6 @@
 
 import uasyncio as asyncio
 
-# Exception raised by get_nowait().
-class QueueEmpty(Exception):
-    pass
-
-# Exception raised by put_nowait().
-class QueueFull(Exception):
-    pass
 
 class RingbufQueue:  # MicroPython optimised
     def __init__(self, buf):
@@ -35,7 +28,7 @@ class RingbufQueue:  # MicroPython optimised
     def get_nowait(self):  # Remove and return an item from the queue.
         # Return an item if one is immediately available, else raise QueueEmpty.
         if self.empty():
-            raise QueueEmpty()
+            raise IndexError
         r = self._q[self._ri]
         self._ri = (self._ri + 1) % self._size
         return r
@@ -47,7 +40,7 @@ class RingbufQueue:  # MicroPython optimised
         self._wi = (self._wi + 1) % self._size
         if self._wi == self._ri:  # Would indicate empty
             self._ri = (self._ri + 1) % self._size  # Discard a message
-            raise QueueFull  # Caller can ignore if overwrites are OK
+            raise IndexError  # Caller can ignore if overwrites are OK
 
     async def put(self, val):  # Usage: await queue.put(item)
         while self.full():  # Queue full

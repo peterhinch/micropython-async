@@ -500,9 +500,9 @@ Synchronous methods (immediate return):
  * `qsize` No arg. Returns the number of items in the queue.
  * `empty` No arg. Returns `True` if the queue is empty.
  * `full` No arg. Returns `True` if the queue is full.
- * `get_nowait` No arg. Returns an object from the queue. Raises an exception
+ * `get_nowait` No arg. Returns an object from the queue. Raises `IndexError`
  if the queue is empty.
- * `put_nowait` Arg: the object to put on the queue. Raises an exception if the
+ * `put_nowait` Arg: the object to put on the queue. Raises `IndexError` if the
  queue is full. If the calling code ignores the exception the oldest item in
  the queue will be overwritten. In some applications this can be of use.
 
@@ -522,6 +522,17 @@ async def handle_queued_data(q):
 ```
 The `sleep` is necessary if you have multiple tasks waiting on the queue,
 otherwise one task hogs all the data.
+
+The following illustrates putting items onto a `RingbufQueue` where the queue is
+not allowed to stall: where it becomes full, new items overwrite the oldest ones
+in the queue:
+```python
+def add_item(q, data):
+try:
+    q.put_nowait(data)
+except IndexError:
+    pass
+```
 
 ###### [Contents](./EVENTS.md#0-contents)
 
