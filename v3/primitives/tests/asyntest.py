@@ -1,7 +1,7 @@
 # asyntest.py Test/demo of the 'micro' Event, Barrier and Semaphore classes
 # Test/demo of official asyncio library and official Lock class
 
-# Copyright (c) 2017-2020 Peter Hinch
+# Copyright (c) 2017-2022 Peter Hinch
 # Released under the MIT License (MIT) - see LICENSE file
 
 # CPython 3.8 compatibility
@@ -16,7 +16,11 @@ except ImportError:
 import sys
 unix = "linux" in sys.implementation._machine
 
-from primitives import Message, Barrier, Semaphore, BoundedSemaphore, Condition, Queue, RingbufQueue
+from primitives import Barrier, Semaphore, BoundedSemaphore, Condition, Queue, RingbufQueue
+try:
+    from primitives import Message
+except:
+    pass
 
 def print_tests():
     st = '''Available functions:
@@ -51,20 +55,22 @@ def printexp(exp, runtime=0):
 # Demo use of acknowledge message
 
 async def message_wait(message, ack_message, n):
-    await message
-    print('message_wait {} got message with value {}'.format(n, message.value()))
-    ack_message.set()
+    try:
+        await message
+        print(f'message_wait {n} got message: {message.value()}')
+        if ack_message is not None:
+            ack_message.set()
+    except asyncio.CancelledError:
+        print(f"message_wait {n} cancelled")
 
-async def run_ack():
+async def run_ack(n):
     message = Message()
     ack1 = Message()
     ack2 = Message()
-    count = 0
-    while True:
-        asyncio.create_task(message_wait(message, ack1, 1))
-        asyncio.create_task(message_wait(message, ack2, 2))
+    for count in range(n):
+        t0 = asyncio.create_task(message_wait(message, ack1, 1))
+        t1 = asyncio.create_task(message_wait(message, ack2, 2))
         message.set(count)
-        count += 1
         print('message was set')
         await ack1
         ack1.clear()
@@ -75,10 +81,54 @@ async def run_ack():
         message.clear()
         print('Cleared message')
         await asyncio.sleep(1)
+    t0.cancel()
+    t1.cancel()
 
-async def ack_coro(delay):
-    print('Started ack coro with delay', delay)
-    await asyncio.sleep(delay)
+async def msg_send(msg, items):
+    for item in items:
+        await asyncio.sleep_ms(400)
+        msg.set(item)
+
+async def msg_recv(msg):  # Receive using asynchronous iterator
+    async for data in msg:
+        print("Got", data)
+        msg.clear()
+
+async def ack_coro():
+    print("Test multiple tasks waiting on a message.")
+    await run_ack(3)
+    print()
+    print("Test asynchronous iterator.")
+    msg = Message()
+    asyncio.create_task(msg_send(msg, (1, 2, 3)))
+    try:
+        await asyncio.wait_for(msg_recv(msg), 3)
+    except asyncio.TimeoutError:
+        pass
+    await asyncio.sleep(1)
+    print()
+    print("Test cancellation of first waiting task.")
+    t1 = asyncio.create_task(message_wait(msg, None, 1))
+    t2 = asyncio.create_task(message_wait(msg, None, 2))
+    await asyncio.sleep(1)
+    t1.cancel()
+    await asyncio.sleep(1)
+    print("Setting message")
+    msg.set("Test message")
+    await asyncio.sleep(1)  # Tasks have ended or been cancelled
+    msg.clear()
+    print()
+    print("Test cancellation of second waiting task.")
+    t1 = asyncio.create_task(message_wait(msg, None, 1))
+    t2 = asyncio.create_task(message_wait(msg, None, 2))
+    await asyncio.sleep(1)
+    t2.cancel()
+    await asyncio.sleep(1)
+    print("Setting message")
+    msg.set("Test message")
+    await asyncio.sleep(1)
+    msg.clear()
+
     print("I've seen attack ships burn on the shoulder of Orion...")
     print("Time to die...")
 
@@ -86,28 +136,45 @@ def ack_test():
     if unix:
         print("Message class is incompatible with Unix build.")
         return
-    printexp('''message was set
-message_wait 1 got message with value 0
-message_wait 2 got message with value 0
+    printexp('''Running (runtime = 12s):
+Test multiple tasks waiting on a message.
+message was set
+message_wait 1 got message: 0
+message_wait 2 got message: 0
 Cleared ack1
 Cleared ack2
 Cleared message
 message was set
-message_wait 1 got message with value 1
-message_wait 2 got message with value 1
-
-... text omitted ...
-
-message_wait 1 got message with value 5
-message_wait 2 got message with value 5
+message_wait 1 got message: 1
+message_wait 2 got message: 1
 Cleared ack1
 Cleared ack2
 Cleared message
+message was set
+message_wait 1 got message: 2
+message_wait 2 got message: 2
+Cleared ack1
+Cleared ack2
+Cleared message
+
+Test asynchronous iterator.
+Got 1
+Got 2
+Got 3
+
+Test cancellation of first waiting task.
+message_wait 1 cancelled
+Setting message
+message_wait 2 got message: Test message
+
+Test cancellation of second waiting task.
+message_wait 2 cancelled
+Setting message
+message_wait 1 got message: Test message
 I've seen attack ships burn on the shoulder of Orion...
 Time to die...
-''', 10)
-    asyncio.create_task(run_ack())
-    asyncio.run(ack_coro(6))
+''', 12)
+    asyncio.run(ack_coro())
 
 # ************ Test Lock and Message classes ************
 
@@ -539,6 +606,15 @@ async def rbq_go():
     assert q.full()
     rl = await read(q, 2)
     assert rl == [6, 7, 8, 9, 10, 11, 12, 13, 14]
+    print("Testing get_nowait.")
+    await q.put(1)
+    assert q.get_nowait() == 1
+    err = 0
+    try:
+        q.get_nowait()
+    except IndexError:
+        err = 1
+    assert err == 1
     print("Tests complete.")
     print("I've seen attack ships burn off the shoulder of Orion...")
     print("Time to die...")
@@ -552,11 +628,12 @@ done
 Testing full, empty and qsize methods.
 Done
 Testing put_nowait and overruns.
+Testing get_nowait.
 Tests complete.
 I've seen attack ships burn off the shoulder of Orion...
 Time to die...
 
-''', 20)
+''', 6)
     asyncio.run(rbq_go())
 
 # ************ ************

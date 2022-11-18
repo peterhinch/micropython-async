@@ -1008,15 +1008,14 @@ asyncio.run(queue_go(4))
 
 ## 3.6 ThreadSafeFlag
 
-This requires firmware V1.15 or later.  
 See also [Interfacing uasyncio to interrupts](./INTERRUPTS.md). Because of
 [this issue](https://github.com/micropython/micropython/issues/7965) the
 `ThreadSafeFlag` class does not work under the Unix build.
 
 This official class provides an efficient means of synchronising a task with a
 truly asynchronous event such as a hardware interrupt service routine or code
-running in another thread. It operates in a similar way to `Event` with the
-following key differences:
+running in another thread or on another core. It operates in a similar way to
+`Event` with the following key differences:
  * It is thread safe: the `set` event may be called from asynchronous code.
  * It is self-clearing.
  * Only one task may wait on the flag.
@@ -1094,26 +1093,39 @@ hardware device requires the use of an ISR for a μs level response. Having
 serviced the device, the ISR flags an asynchronous routine, typically
 processing received data.
 
-The fact that only one task may wait on a `ThreadSafeFlag` may be addressed by
-having a task that waits on the `ThreadSafeFlag` set an `Event` as in the
-following:
+The fact that only one task may wait on a `ThreadSafeFlag` may be addressed as
+follows.
 ```python
 class ThreadSafeEvent(asyncio.Event):
     def __init__(self):
         super().__init__()
+        self._waiting_on_tsf = False
         self._tsf = asyncio.ThreadSafeFlag()
-        asyncio.create_task(self._run())
-
-    async def _run(self):
-        while True:
-            await self._tsf.wait()
-            super().set()
 
     def set(self):
         self._tsf.set()
+
+    async def _waiter(self):  # Runs if 1st task is cancelled
+        await self._tsf.wait()
+        super().set()
+        self._waiting_on_tsf = False
+
+    async def wait(self):
+        if self._waiting_on_tsf == False:
+            self._waiting_on_tsf = True
+            await asyncio.sleep(0)  # Ensure other tasks see updated flag
+            try:
+                await self._tsf.wait()
+                super().set()
+                self._waiting_on_tsf = False
+            except asyncio.CancelledError:
+                asyncio.create_task(self._waiter())
+                raise  # Pass cancellation to calling code
+        else:
+            await super().wait()
 ```
-An instance may be set by a hard ISR or from another thread/core. It must
-explicitly be cleared. Multiple tasks may wait on it.
+An instance may be set by a hard ISR or from another thread/core. As an `Event`
+it can support multiple tasks and must explicitly be cleared.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
@@ -1331,9 +1343,8 @@ finally:
 
 ## 3.9 Message
 
-This requires firmware V1.15 or later. Note that because of
-[this issue](https://github.com/micropython/micropython/issues/7965) the
-`Message` class does not work under the Unix build.
+Because of [this issue](https://github.com/micropython/micropython/issues/7965)
+the `Message` class does not work under the Unix build.
 
 This is an unofficial primitive with no counterpart in CPython asyncio. It uses
 [ThreadSafeFlag](./TUTORIAL.md#36-threadsafeflag) to provide an object similar
@@ -1345,6 +1356,7 @@ It is similar to the `Event` class. It differs in that:
  * `.set()` is capable of being called from a hard or soft interrupt service
  routine.
  * It is an awaitable class.
+ * It can be used in an asynchronous iterator.
  * The logic of `.clear` differs: it must be called by at least one task which
  waits on the `Message`.
 
@@ -1421,6 +1433,16 @@ async def main():
 
 asyncio.run(main())
 ```
+Receiving messages in an asynchronous iterator:
+```python
+msg = Message()
+asyncio.create_task(send_data(msg))
+async for data in msg:
+    # process data
+    msg.clear()
+```
+The `Message` class does not have a queue: if the instance is set, then set
+again before it is accessed, the first data item will be lost.
 
 ## 3.10 Synchronising to hardware
 
