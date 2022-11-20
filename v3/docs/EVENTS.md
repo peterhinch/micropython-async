@@ -536,9 +536,9 @@ except IndexError:
 
 # 8. Threadsafe Queue
 
-This queue is designed to interface between one or more `uasyncio` tasks and a
-single thread running in a different context. This can be an interrupt service
-routine (ISR) or code running in a different thread or on a different core.
+This queue is designed to interface between one `uasyncio` task and a single
+thread running in a different context. This can be an interrupt service routine
+(ISR), code running in a different thread or code on a different core.
 
 Any Python object may be placed on a `ThreadSafeQueue`. If bi-directional
 communication is required between the two contexts, two `ThreadSafeQueue`
@@ -556,7 +556,7 @@ Constructor mandatory arg:
  * `buf` Buffer for the queue, e.g. list `[0 for _ in range(20)]` or array. A
  buffer of size `N` can hold a maximum of `N-1` items.
 
-Synchronous methods (immediate return):  
+Synchronous methods.  
  * `qsize` No arg. Returns the number of items in the queue.
  * `empty` No arg. Returns `True` if the queue is empty.
  * `full` No arg. Returns `True` if the queue is full.
@@ -566,6 +566,9 @@ Synchronous methods (immediate return):
  * `put_sync` Args: the object to put on the queue, `block=False`. Raises
  `IndexError` if the  queue is full unless `block==True` in which case the
  method blocks until the `uasyncio` tasks remove an item from the queue.
+
+The blocking methods should not be used in the `uasyncio` context, because by
+blocking they will lock up the scheduler.
 
 Asynchronous methods:  
  * `put` Arg: the object to put on the queue. If the queue is full, it will
@@ -579,12 +582,8 @@ Data consumer:
 ```python
 async def handle_queued_data(q):
     async for obj in q:
-        await asyncio.sleep(0)  # See below
         # Process obj
 ```
-The `sleep` is necessary if you have multiple tasks waiting on the queue,
-otherwise one task hogs all the data.
-
 Data provider:
 ```python
 async def feed_queue(q):
