@@ -48,7 +48,6 @@ _attrs = {
     "ESwitch": "events",
     "EButton": "events",
     "RingbufQueue": "ringbuf_queue",
-    "ThreadSafeQueue": "threadsafe_queue",
 }
 
 # Copied from uasyncio.__init__.py
