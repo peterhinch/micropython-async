@@ -55,6 +55,9 @@ class ThreadSafeQueue:  # MicroPython optimised
         return self
 
     async def __anext__(self):
+        return await self.get()
+
+    async def get(self):
         while self.empty():
             await self._evput.wait()
         r = self._q[self._ri]

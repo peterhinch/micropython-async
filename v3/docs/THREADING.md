@@ -1,7 +1,9 @@
-# Thread safe classes
+# Linking uasyncio and other contexts
 
-These provide an interface between `uasyncio` tasks and code running in a
-different context. Supported contexts are:
+# 1. Introduction
+
+This document identifies issues arising when `uasyncio` applications interface
+code running in a different context. Supported contexts are:
  1. An interrupt service routine (ISR).
  2. Another thread running on the same core.
  3. Code running on a different core (currently only supported on RP2).
@@ -12,8 +14,50 @@ MicroPython (MP) ISR will not interrupt execution of a line of Python code.
 
 This is not the case where the threads run on different cores, where there is
 no synchronisation between the streams of machine code. If the two threads
-concurrently modify a shared Python object, there is no guarantee that
-corruption will not occur.
+concurrently modify a shared Python object it is possible that corruption will
+occur. Reading an object while it is being written can also produce an
+unpredictable outcome.
+
+A key practical point is that coding errors can be hard to identify: the
+consequences can be extremely rare bugs or crashes.
+
+There are two fundamental problems: data sharing and synchronisation.
+
+# 2. Data sharing
+
+The simplest case is a shared pool of data. It is possible to share an `int` or
+`bool` because at machine code level writing an `int` is "atomic": it cannot be
+interrupted. Anything more complex must be protected to ensure that concurrent
+access cannot take place. The consequences even of reading an object while it
+is being written can be unpredictable. One approach is to use locking:
+
+```python
+lock = _thread.allocate_lock()
+values = { "X": 0, "Y": 0, "Z": 0}
+def producer():
+    while True:
+        lock.acquire()
+        values["X"] = sensor_read(0)
+        values["Y"] = sensor_read(1)
+        values["Z"] = sensor_read(2)
+        lock.release()
+        time.sleep_ms(100)
+
+_thread.start_new_thread(producer, ())
+
+async def consumer():
+    while True:
+        lock.acquire()
+        await process(values)  # Do something with the data
+        lock.release()
+```
+This will work even for the multi core case. However the consumer might hold
+the lock for some time: it will take time for the scheduler to execute the
+`process()` call, and the call itself will take time to run. This would be
+problematic if the producer were an ISR.
+
+In cases such as this a `ThreadSafeQueue` is more appropriate as it decouples
+producer and consumer code.
 
 # 2. Threadsafe Event
 
@@ -65,8 +109,9 @@ communication is required between the two contexts, two `ThreadSafeQueue`
 instances are required.
 
 Attributes of `ThreadSafeQueue`:
- 1. It is of fixed size defined on instantiation.
- 2. It uses pre-allocated buffers of various types (`Queue` uses a `list`).
+ 1. It is of fixed capacity defined on instantiation.
+ 2. It uses a pre-allocated buffer of user selectable type (`Queue` uses a
+ dynaically allocated `list`).
  3. It is an asynchronous iterator allowing retrieval with `async for`.
  4. It provides synchronous "put" and "get" methods. If the queue becomes full
  (put) or empty (get), behaviour is user definable. The method either blocks or
@@ -92,6 +137,10 @@ See the note below re blocking methods.
 Asynchronous methods:  
  * `put` Arg: the object to put on the queue. If the queue is full, it will
  block until space is available.
+ * `get` No arg. Returns an object from the queue. If the queue is empty, it
+ will block until an object is put on the queue. Normal retrieval is with
+ `async for` but this method provides an alternative.
+
 
 In use as a data consumer the `uasyncio` code will use `async for` to retrieve
 items from the queue. If it is a data provider it will use `put` to place
@@ -130,17 +179,44 @@ while True:
 
 ## 3.1 Blocking
 
-The synchronous `get_sync` and `put_sync` methods have blocking modes invoked
-by passing `block=True`. Blocking modes are intended to be used in a multi
-threaded context. They should not be invoked in a `uasyncio` task, because
-blocking locks up the scheduler. Nor should they be used in an ISR where
-blocking code can have unpredictable consequences.
-
 These methods, called with `blocking=False`, produce an immediate return. To
 avoid an `IndexError` the user should check for full or empty status before
 calling.
 
-## 3.2 A complete example
+The synchronous `get_sync` and `put_sync` methods have blocking modes invoked
+by passing `block=True`. Blocking modes are primarily intended for use in the
+non-`uasyncio ` context. If invoked in a `uasyncio` task they must not be
+allowed to block because it would lock up the scheduler. Nor should they be
+allowed to block in an ISR where blocking can have unpredictable consequences.
+
+## 3.2 Object ownership
+
+Any Python object can be placed on a queue, but the user should be aware that
+once the producer puts an object on the queue it loses ownership of the object
+until the consumer has finished using it. In this sample the producer reads X,
+Y and Z values from a sensor, puts them in a list or array and places the
+object on a queue:
+```python
+def get_coordinates(q):
+    while True:
+        lst = [axis(0), axis(1), axis(2)]  # Read sensors and put into list
+        putq.put_sync(lst, block=True)
+```
+This is valid because a new list is created each time. The following will not
+work:
+```python
+def get_coordinates(q):
+    a = array.array("I", (0,0,0))
+    while True:
+        a[0], a[1], a[2] = [axis(0), axis(1), axis(2)]
+        putq.put_sync(lst, block=True)
+```
+The problem here is that the array is modified after being put on the queue. If
+the queue is capable of holding 10 objects, 10 array instances are required. Re
+using objects requires the producer to be notified that the consumer has
+finished with the item.
+
+## 3.3 A complete example
 
 This demonstrates an echo server running on core 2. The `sender` task sends
 consecutive integers to the server, which echoes them back on a second queue.
