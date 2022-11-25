@@ -2267,8 +2267,8 @@ class MyIO(io.IOBase):
         return ret
 ```
 
-The following is a complete awaitable delay class:
-
+The following is a complete awaitable delay class. Please note that it does not
+run on the Unix port (under investigation).
 ```python
 import uasyncio as asyncio
 import utime
@@ -2290,7 +2290,7 @@ class MillisecTimer(io.IOBase):
         return self
 
     def read(self, _):
-        pass
+        return "a"
 
     def ioctl(self, req, arg):
         ret = MP_STREAM_ERROR
