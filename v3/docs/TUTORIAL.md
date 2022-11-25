@@ -2126,7 +2126,13 @@ asyncio.run(run())
 
 ## 6.3 Using the stream mechanism
 
-This can be illustrated using a Pyboard UART. The following code sample
+This section applies to platforms other than the Unix build. The latter handles
+stream I/O in a different way described
+[here](https://github.com/micropython/micropython/issues/7965#issuecomment-960259481).
+Code samples may not run under the Unix build until it is made more compatible
+with other platforms.
+
+The stream mechanism can be illustrated using a Pyboard UART. This code sample
 demonstrates concurrent I/O on one UART. To run, link Pyboard pins X1 and X2
 (UART Txd and Rxd).
 
@@ -2267,8 +2273,7 @@ class MyIO(io.IOBase):
         return ret
 ```
 
-The following is a complete awaitable delay class. Please note that it does not
-run on the Unix port (under investigation).
+The following is a complete awaitable delay class.
 ```python
 import uasyncio as asyncio
 import utime
