@@ -185,9 +185,16 @@ async def process_data():
         # Process the data here before waiting for the next interrupt
 ```
 
+## 3.4 Thread Safe Classes
+
+Other classes capable of being used to interface an ISR with `uasyncio` are
+discussed [here](https://github.com/peterhinch/micropython-async/blob/master/v3/docs/THREADING.md),
+notably the `ThreadSafeQueue`.
+
 # 4. Conclusion
 
-The key take-away is that `ThreadSafeFlag` is the only `uasyncio` construct
-which can safely be used in an ISR context.
+The key take-away is that `ThreadSafeFlag` is the only official `uasyncio`
+construct which can safely be used in an ISR context. Unofficial "thread
+safe" classes may also be used.
 
 ###### [Main tutorial](./TUTORIAL.md#contents)

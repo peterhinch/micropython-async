@@ -8,18 +8,81 @@ code running in a different context. Supported contexts are:
  2. Another thread running on the same core.
  3. Code running on a different core (currently only supported on RP2).
 
-The first two cases are relatively straightforward because both contexts share
-a common bytecode interpreter and GIL. There is a guarantee that even a hard
-MicroPython (MP) ISR will not interrupt execution of a line of Python code.
+Note that hard ISR's require careful coding to avoid RAM allocation. See
+[the official docs](http://docs.micropython.org/en/latest/reference/isr_rules.html).
+The allocation issue is orthogonal to the concurrency issues discussed in this
+document. Concurrency problems apply equally to hard and soft ISR's. Code
+samples assume a soft ISR or a function launched by `micropython.schedule`.
+[This doc](https://github.com/peterhinch/micropython-async/blob/master/v3/docs/INTERRUPTS.md)
+provides specific guidance on interfacing `uasyncio` with ISR's.
 
-This is not the case where the threads run on different cores, where there is
-no synchronisation between the streams of machine code. If the two threads
-concurrently modify a shared Python object it is possible that corruption will
-occur. Reading an object while it is being written can also produce an
-unpredictable outcome.
+The rest of this section compares the characteristics of the three contexts.
+Consider this function which updates a global dictionary `d` from a hardware
+device. The dictionary is shared with a `uasyncio` task.
+```python
+def update_dict():
+    d["x"] = read_data(0)
+    d["y"] = read_data(1)
+    d["z"] = read_data(2)
+```
+This might be called in a soft ISR, in a thread running on the same core as
+`uasyncio`, or in a thread running on a different core. Each of these contexts
+has different characteristics, outlined below. In all these cases "thread safe"
+constructs are needed to interface `uasyncio` tasks with code running in these
+contexts. The official `ThreadSafeFlag`, or the classes documented here, may be
+used in all of these cases. This function serves to illustrate concurrency
+issues: it is not the most effcient way to transfer data.
 
-A key practical point is that coding errors can be hard to identify: the
-consequences can be extremely rare bugs or crashes.
+Beware that some apparently obvious ways to interface an ISR to `uasyncio`
+introduce subtle bugs discussed in the doc referenced above. The only reliable
+interface is via a thread safe class.
+
+## 1.1 Soft Interrupt Service Routines
+
+ 1. The ISR and the main program share a common Python virtual machine (VM).
+ Consequently a line of code being executed when the interrupt occurs will run
+ to completion before the ISR runs.
+ 2. An ISR will run to completion before the main program regains control. This
+ means that if the ISR updates multiple items, when the main program resumes,
+ those items will be mutually consistent. The above code fragment will work
+ unchanged.
+ 3. The fact that ISR code runs to completion means that it must run fast to
+ avoid disrupting the main program or delaying other ISR's. ISR code should not
+ call blocking routines and should not wait on locks. Item 2. means that locks
+ are not usually necessary.
+ 4. If a burst of interrupts can occur faster than `uasyncio` can schedule the
+ handling task, data loss can occur. Consider using a `ThreadSafeQueue`. Note
+ that if this high rate is sustained something will break and the overall
+ design needs review. It may be necessary to discard some data items.
+
+## 1.2 Threaded code on one core
+
+ 1. Both contexts share a common VM so Python code integrity is guaranteed.
+ 2. If one thread updates a data item there is no risk of the main program
+ reading a corrupt or partially updated item. If such code updates multiple
+ shared data items, note that `uasyncio` can regain control at any time. The
+ above code fragment may not have updated all the dictionary keys when
+ `uasyncio` regains control. If mutual consistency is important, a lock or
+ `ThreadSafeQueue` must be used.
+ 3. Code running on a thread other than that running `uasyncio` may block for
+ as long as necessary (an application of threading is to handle blocking calls
+ in a way that allows `uasyncio` to continue running).
+
+## 1.3 Threaded code on multiple cores
+
+ 1. There is no common VM. The underlying machine code of each core runs
+ independently.
+ 2. In the code sample there is a risk of the `uasyncio` task reading the dict
+ at the same moment as it is being written. It may read a corrupt or partially
+ updated item; there may even be a crash. Using a lock or `ThreadSafeQueue` is
+ essential.
+ 3. Code running on a core other than that running `uasyncio` may block for
+ as long as necessary.
+
+A key practical point is that coding errors in synchronising threads can be
+hard to locate: consequences can be extremely rare bugs or crashes. It is vital
+to be careful in the way that communication between the contexts is achieved. This
+doc aims to provide some guidelines and code to assist in this task.
 
 There are two fundamental problems: data sharing and synchronisation.
 
@@ -54,51 +117,14 @@ async def consumer():
 This will work even for the multi core case. However the consumer might hold
 the lock for some time: it will take time for the scheduler to execute the
 `process()` call, and the call itself will take time to run. This would be
-problematic if the producer were an ISR.
+problematic if the producer were an ISR. In this case the absence of a lock
+would not result in crashes because an ISR cannot interrupt a MicroPython
+instruction.
 
-In cases such as this a `ThreadSafeQueue` is more appropriate as it decouples
-producer and consumer code.
+In cases where the duration of a lock is problematic a `ThreadSafeQueue` is
+more appropriate as it decouples producer and consumer code.
 
-# 2. Threadsafe Event
-
-The `ThreadsafeFlag` has a limitation in that only a single task can wait on
-it. The `ThreadSafeEvent` overcomes this. It is subclassed from `Event` and
-presents the same interface. The `set` method may be called from an ISR or from
-code running on another core. Any number of tasks may wait on it.
-
-The following Pyboard-specific code demos its use in a hard ISR:
-```python
-import uasyncio as asyncio
-from threadsafe import ThreadSafeEvent
-from pyb import Timer
-
-async def waiter(n, evt):
-    try:
-        await evt.wait()
-        print(f"Waiter {n} got event")
-    except asyncio.CancelledError:
-        print(f"Waiter {n} cancelled")
-
-async def can(task):
-    await asyncio.sleep_ms(100)
-    task.cancel()
-
-async def main():
-    evt = ThreadSafeEvent()
-    tim = Timer(4, freq=1, callback=lambda t: evt.set())
-    nt = 0
-    while True:
-        tasks = [asyncio.create_task(waiter(n + 1, evt)) for n in range(4)]
-        asyncio.create_task(can(tasks[nt]))
-        await asyncio.gather(*tasks, return_exceptions=True)
-        evt.clear()
-        print("Cleared event")
-        nt = (nt + 1) % 4
-
-asyncio.run(main())
-```
-
-# 3. Threadsafe Queue
+## 2.1 ThreadSafeQueue
 
 This queue is designed to interface between one `uasyncio` task and a single
 thread running in a different context. This can be an interrupt service routine
@@ -177,7 +203,7 @@ while True:
     process(data)  # Do something with it
 ```
 
-## 3.1 Blocking
+### 2.1.1 Blocking
 
 These methods, called with `blocking=False`, produce an immediate return. To
 avoid an `IndexError` the user should check for full or empty status before
@@ -189,7 +215,7 @@ non-`uasyncio ` context. If invoked in a `uasyncio` task they must not be
 allowed to block because it would lock up the scheduler. Nor should they be
 allowed to block in an ISR where blocking can have unpredictable consequences.
 
-## 3.2 Object ownership
+### 2.1.2 Object ownership
 
 Any Python object can be placed on a queue, but the user should be aware that
 once the producer puts an object on the queue it loses ownership of the object
@@ -214,9 +240,10 @@ def get_coordinates(q):
 The problem here is that the array is modified after being put on the queue. If
 the queue is capable of holding 10 objects, 10 array instances are required. Re
 using objects requires the producer to be notified that the consumer has
-finished with the item.
+finished with the item. In general it is simpler to create new objects and let
+the MicroPython garbage collector delete them as per the first sample.
 
-## 3.3 A complete example
+### 2.1.3 A complete example
 
 This demonstrates an echo server running on core 2. The `sender` task sends
 consecutive integers to the server, which echoes them back on a second queue.
@@ -252,6 +279,54 @@ async def main():
             print(f"Received {x} queue items.")
         n += 1
         assert x == n
+
+asyncio.run(main())
+```
+# 3. Synchronisation
+
+The principal means of synchronising `uasyncio` code with that running in
+another context is the `ThreadsafeFlag`. This is discussed in the
+[official docs](http://docs.micropython.org/en/latest/library/uasyncio.html#class-threadsafeflag)
+and [tutorial](https://github.com/peterhinch/micropython-async/blob/master/v3/docs/TUTORIAL.md#36-threadsafeflag).
+In essence a single `uasyncio` task waits on a shared `ThreadSafeEvent`. Code
+running in another context sets the flag. When the scheduler regains control
+and other pending tasks have run, the waiting task resumes.
+
+## 3.1 Threadsafe Event
+
+The `ThreadsafeFlag` has a limitation in that only a single task can wait on
+it. The `ThreadSafeEvent` overcomes this. It is subclassed from `Event` and
+presents the same interface. The `set` method may be called from an ISR or from
+code running on another core. Any number of tasks may wait on it.
+
+The following Pyboard-specific code demos its use in a hard ISR:
+```python
+import uasyncio as asyncio
+from threadsafe import ThreadSafeEvent
+from pyb import Timer
+
+async def waiter(n, evt):
+    try:
+        await evt.wait()
+        print(f"Waiter {n} got event")
+    except asyncio.CancelledError:
+        print(f"Waiter {n} cancelled")
+
+async def can(task):
+    await asyncio.sleep_ms(100)
+    task.cancel()
+
+async def main():
+    evt = ThreadSafeEvent()
+    tim = Timer(4, freq=1, callback=lambda t: evt.set())
+    nt = 0
+    while True:
+        tasks = [asyncio.create_task(waiter(n + 1, evt)) for n in range(4)]
+        asyncio.create_task(can(tasks[nt]))
+        await asyncio.gather(*tasks, return_exceptions=True)
+        evt.clear()
+        print("Cleared event")
+        nt = (nt + 1) % 4
 
 asyncio.run(main())
 ```
