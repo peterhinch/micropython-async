@@ -1,24 +1,42 @@
 # Linking uasyncio and other contexts
 
+This document is primarily for those wishing to interface `uasyncio` code with
+that running under the `_thread` module. It presents classes for that purpose
+which may also find use for communicatiing between threads and in interrupt
+service routine (ISR) applications. It provides an overview of the problems
+implicit in pre-emptive multi tasking.
+
+It is not an introduction into ISR coding. For this see
+[the official docs](http://docs.micropython.org/en/latest/reference/isr_rules.html)
+and [this doc](https://github.com/peterhinch/micropython-async/blob/master/v3/docs/INTERRUPTS.md)
+which provides specific guidance on interfacing `uasyncio` with ISR's.
+
+# Contents
+
+ 1. [Introduction](./THREADING.md#1-introduction) The various types of pre-emptive code.  
+  1.1 [Interrupt Service Routines](./THREADING.md#11-interrupt-service-routines)  
+  1.2 [Threaded code on one core](./THREADING.md#12-threaded-code-on-one-core)  
+  1.3 [Threaded code on multiple cores](./THREADING.md#13-threaded-code-on-multiple-cores)  
+  1.4 [Debugging](./THREADING.md#14-debugging)  
+ 2. [Sharing data](./THREADING.md#2-sharing-data)  
+  2.1 [A pool](./THREADING.md#21-a-pool) Sharing a set of variables.  
+  2.2 [ThreadSafeQueue](./THREADING.md#22-threadsafequeue)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2.1 [Blocking](./THREADING.md#221-blocking)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2.3 [Object ownership](./THREADING.md#223-object-ownership)  
+ 3. [Synchronisation](./THREADING.md#3-synchronisation)  
+  3.1 [Threadsafe Event](./THREADING.md#31-threadsafe-event)  
+
 # 1. Introduction
 
-This document identifies issues arising when `uasyncio` applications interface
-code running in a different context. Supported contexts are:
- 1. An interrupt service routine (ISR).
+Various issues arise when `uasyncio` applications interface with code running
+in a different context. Supported contexts are:
+ 1. A hard or soft interrupt service routine (ISR).
  2. Another thread running on the same core.
  3. Code running on a different core (currently only supported on RP2).
 
-Note that hard ISR's require careful coding to avoid RAM allocation. See
-[the official docs](http://docs.micropython.org/en/latest/reference/isr_rules.html).
-The allocation issue is orthogonal to the concurrency issues discussed in this
-document. Concurrency problems apply equally to hard and soft ISR's. Code
-samples assume a soft ISR or a function launched by `micropython.schedule`.
-[This doc](https://github.com/peterhinch/micropython-async/blob/master/v3/docs/INTERRUPTS.md)
-provides specific guidance on interfacing `uasyncio` with ISR's.
-
-The rest of this section compares the characteristics of the three contexts.
-Consider this function which updates a global dictionary `d` from a hardware
-device. The dictionary is shared with a `uasyncio` task.
+This section compares the characteristics of the three contexts. Consider this
+function which updates a global dictionary `d` from a hardware device. The
+dictionary is shared with a `uasyncio` task.
 ```python
 def update_dict():
     d["x"] = read_data(0)
@@ -30,40 +48,41 @@ This might be called in a soft ISR, in a thread running on the same core as
 has different characteristics, outlined below. In all these cases "thread safe"
 constructs are needed to interface `uasyncio` tasks with code running in these
 contexts. The official `ThreadSafeFlag`, or the classes documented here, may be
-used in all of these cases. This function serves to illustrate concurrency
-issues: it is not the most effcient way to transfer data.
+used in all of these cases. This `update_dict` function serves to illustrate
+concurrency issues: it is not the most effcient way to transfer data.
 
 Beware that some apparently obvious ways to interface an ISR to `uasyncio`
 introduce subtle bugs discussed in the doc referenced above. The only reliable
-interface is via a thread safe class.
+interface is via a thread safe class, usually `ThreadSafeFlag`.
 
-## 1.1 Soft Interrupt Service Routines
+## 1.1 Interrupt Service Routines
 
  1. The ISR and the main program share a common Python virtual machine (VM).
  Consequently a line of code being executed when the interrupt occurs will run
  to completion before the ISR runs.
  2. An ISR will run to completion before the main program regains control. This
  means that if the ISR updates multiple items, when the main program resumes,
- those items will be mutually consistent. The above code fragment will work
- unchanged.
+ those items will be mutually consistent. The above code fragment will provide
+ mutually consistent data.
  3. The fact that ISR code runs to completion means that it must run fast to
  avoid disrupting the main program or delaying other ISR's. ISR code should not
  call blocking routines and should not wait on locks. Item 2. means that locks
- are not usually necessary.
+ are seldom necessary.
  4. If a burst of interrupts can occur faster than `uasyncio` can schedule the
  handling task, data loss can occur. Consider using a `ThreadSafeQueue`. Note
- that if this high rate is sustained something will break and the overall
- design needs review. It may be necessary to discard some data items.
+ that if this high rate is sustained something will break: the overall design
+ needs review. It may be necessary to discard some data items.
 
 ## 1.2 Threaded code on one core
 
- 1. Both contexts share a common VM so Python code integrity is guaranteed.
- 2. If one thread updates a data item there is no risk of the main program
- reading a corrupt or partially updated item. If such code updates multiple
- shared data items, note that `uasyncio` can regain control at any time. The
- above code fragment may not have updated all the dictionary keys when
- `uasyncio` regains control. If mutual consistency is important, a lock or
- `ThreadSafeQueue` must be used.
+ 1. Behaviour depends on the port
+ [see](https://github.com/micropython/micropython/discussions/10135#discussioncomment-4275354).
+ At best, context switches can occur at bytecode boundaries. On ports where
+ contexts share no GIL they can occur at any time.
+ 2. Hence for shared data item more complex than a small int, a lock or
+ `ThreadSafeQueue` must be used. This ensures that the thread reading the data
+ cannot access a partially updated item (which might even result in a crash).
+ It also ensures mutual consistency between multiple data items.
  3. Code running on a thread other than that running `uasyncio` may block for
  as long as necessary (an application of threading is to handle blocking calls
  in a way that allows `uasyncio` to continue running).
@@ -79,21 +98,28 @@ interface is via a thread safe class.
  3. Code running on a core other than that running `uasyncio` may block for
  as long as necessary.
 
+## 1.4 Debugging
+
 A key practical point is that coding errors in synchronising threads can be
-hard to locate: consequences can be extremely rare bugs or crashes. It is vital
-to be careful in the way that communication between the contexts is achieved. This
-doc aims to provide some guidelines and code to assist in this task.
+hard to locate: consequences can be extremely rare bugs or (in the case of 
+multi-core systems) crashes. It is vital to be careful in the way that
+communication between the contexts is achieved. This doc aims to provide some
+guidelines and code to assist in this task.
 
 There are two fundamental problems: data sharing and synchronisation.
 
-# 2. Data sharing
+###### [Contents](./THREADING.md#contents)
+
+# 2. Sharing data
+
+## 2.1 A pool
 
 The simplest case is a shared pool of data. It is possible to share an `int` or
 `bool` because at machine code level writing an `int` is "atomic": it cannot be
-interrupted. Anything more complex must be protected to ensure that concurrent
-access cannot take place. The consequences even of reading an object while it
-is being written can be unpredictable. One approach is to use locking:
-
+interrupted. In the multi core case anything more complex must be protected to
+ensure that concurrent access cannot take place. The consequences even of
+reading an object while it is being written can be unpredictable. One approach
+is to use locking:
 ```python
 lock = _thread.allocate_lock()
 values = { "X": 0, "Y": 0, "Z": 0}
@@ -113,18 +139,30 @@ async def consumer():
         lock.acquire()
         await process(values)  # Do something with the data
         lock.release()
+        await asyncio.sleep_ms(0)  # Ensure producer has time to grab the lock
 ```
-This will work even for the multi core case. However the consumer might hold
-the lock for some time: it will take time for the scheduler to execute the
-`process()` call, and the call itself will take time to run. This would be
-problematic if the producer were an ISR. In this case the absence of a lock
-would not result in crashes because an ISR cannot interrupt a MicroPython
-instruction.
+This is recommended where the producer runs in a different thread from
+`uasyncio`. However the consumer might hold the lock for some time: it will
+take time for the scheduler to execute the `process()` call, and the call
+itself will take time to run. In cases where the duration of a lock is
+problematic a `ThreadSafeQueue` is more appropriate as it decouples producer
+and consumer code.
 
-In cases where the duration of a lock is problematic a `ThreadSafeQueue` is
-more appropriate as it decouples producer and consumer code.
+As stated above, if the producer is an ISR no lock is needed or advised.
+Producer code would follow this pattern:
+```python
+values = { "X": 0, "Y": 0, "Z": 0}
+def producer():
+    values["X"] = sensor_read(0)
+    values["Y"] = sensor_read(1)
+    values["Z"] = sensor_read(2)
+```
+and the ISR would run to completion before `uasyncio` resumed, ensuring mutual
+consistency of the dict values.
 
-## 2.1 ThreadSafeQueue
+###### [Contents](./THREADING.md#contents)
+
+## 2.2 ThreadSafeQueue
 
 This queue is designed to interface between one `uasyncio` task and a single
 thread running in a different context. This can be an interrupt service routine
@@ -203,7 +241,9 @@ while True:
     process(data)  # Do something with it
 ```
 
-### 2.1.1 Blocking
+###### [Contents](./THREADING.md#contents)
+
+### 2.2.1 Blocking
 
 These methods, called with `blocking=False`, produce an immediate return. To
 avoid an `IndexError` the user should check for full or empty status before
@@ -215,7 +255,9 @@ non-`uasyncio ` context. If invoked in a `uasyncio` task they must not be
 allowed to block because it would lock up the scheduler. Nor should they be
 allowed to block in an ISR where blocking can have unpredictable consequences.
 
-### 2.1.2 Object ownership
+###### [Contents](./THREADING.md#contents)
+
+### 2.2.2 Object ownership
 
 Any Python object can be placed on a queue, but the user should be aware that
 once the producer puts an object on the queue it loses ownership of the object
@@ -243,7 +285,9 @@ using objects requires the producer to be notified that the consumer has
 finished with the item. In general it is simpler to create new objects and let
 the MicroPython garbage collector delete them as per the first sample.
 
-### 2.1.3 A complete example
+###### [Contents](./THREADING.md#contents)
+
+### 2.2.3 A complete example
 
 This demonstrates an echo server running on core 2. The `sender` task sends
 consecutive integers to the server, which echoes them back on a second queue.
@@ -282,6 +326,8 @@ async def main():
 
 asyncio.run(main())
 ```
+###### [Contents](./THREADING.md#contents)
+
 # 3. Synchronisation
 
 The principal means of synchronising `uasyncio` code with that running in

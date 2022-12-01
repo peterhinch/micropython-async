@@ -2968,4 +2968,7 @@ The above comments refer to an ideal scheduler. Currently `uasyncio` is not in
 this category, with worst-case latency being > `N`ms. The conclusions remain
 valid.
 
+This, along with other issues, is discussed in 
+[Interfacing uasyncio to interrupts](./INTERRUPTS.md).
+
 ###### [Contents](./TUTORIAL.md#contents)

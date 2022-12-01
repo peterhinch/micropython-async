@@ -28,10 +28,8 @@ class Message(asyncio.Event):
         self._waiting_on_tsf = False
         self._tsf = asyncio.ThreadSafeFlag()
         self._data = None  # Message
-        self._is_set = False
 
     def clear(self):  # At least one task must call clear when scheduled
-        self._is_set = False
         super().clear()
 
     def __iter__(self):
@@ -60,7 +58,7 @@ class Message(asyncio.Event):
 
     def set(self, data=None):  # Can be called from a hard ISR
         self._data = data
-        self._is_set = True
+        super().set()
         self._tsf.set()
 
     def __aiter__(self):
@@ -68,9 +66,6 @@ class Message(asyncio.Event):
 
     async def __anext__(self):
         return await self
-
-    def is_set(self):
-        return self._is_set
 
     def value(self):
         return self._data
