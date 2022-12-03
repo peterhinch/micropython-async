@@ -11,6 +11,11 @@ It is not an introduction into ISR coding. For this see
 and [this doc](https://github.com/peterhinch/micropython-async/blob/master/v3/docs/INTERRUPTS.md)
 which provides specific guidance on interfacing `uasyncio` with ISR's.
 
+Because of [this issue](https://github.com/micropython/micropython/issues/7965)
+the `ThreadSafeFlag` class does not work under the Unix build. The classes
+presented here depend on this: none can be expected to work on Unix until this
+is fixed.
+
 # Contents
 
  1. [Introduction](./THREADING.md#1-introduction) The various types of pre-emptive code.  
@@ -25,6 +30,8 @@ which provides specific guidance on interfacing `uasyncio` with ISR's.
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2.3 [Object ownership](./THREADING.md#223-object-ownership)  
  3. [Synchronisation](./THREADING.md#3-synchronisation)  
   3.1 [Threadsafe Event](./THREADING.md#31-threadsafe-event)  
+  3.2 [Message](./THREADING.md#32-message) A threadsafe event with data payload.  
+ 4. [Taming blocking functions](./THREADING.md#4-taming-blocking-functions)  
 
 # 1. Introduction
 
@@ -373,6 +380,168 @@ async def main():
         evt.clear()
         print("Cleared event")
         nt = (nt + 1) % 4
+
+asyncio.run(main())
+```
+## 3.2 Message
+
+The `Message` class uses [ThreadSafeFlag](./TUTORIAL.md#36-threadsafeflag) to
+provide an object similar to `Event` with the following differences:
+
+ * `.set()` has an optional data payload.
+ * `.set()` can be called from another thread, another core, or from an ISR.
+ * It is an awaitable class.
+ * Payloads may be retrieved in an asynchronous iterator.
+ * Multiple tasks can wait on a single `Message` instance.
+
+Constructor:
+ * No args.
+
+Synchronous methods:
+ * `set(data=None)` Trigger the `Message` with optional payload (may be any
+ Python object).
+ * `is_set()` Returns `True` if the `Message` is set, `False` if `.clear()` has
+ been issued.
+ * `clear()` Clears the triggered status. At least one task waiting on the
+ message should issue `clear()`.
+ * `value()` Return the payload.
+
+Asynchronous Method:
+ * `wait()` Pause until message is triggered. You can also `await` the message
+ as per the examples.
+
+The `.set()` method can accept an optional data value of any type. The task
+waiting on the `Message` can retrieve it by means of `.value()` or by awaiting
+the `Message` as below. A `Message` can provide a means of communication from
+an interrupt handler and a task. The handler services the hardware and issues
+`.set()` which causes the waiting task to resume (in relatively slow time).
+
+This illustrates basic usage:
+```python
+import uasyncio as asyncio
+from threadsafe import Message
+
+async def waiter(msg):
+    print('Waiting for message')
+    res = await msg
+    print('waiter got', res)
+    msg.clear()
+
+async def main():
+    msg = Message()
+    asyncio.create_task(waiter(msg))
+    await asyncio.sleep(1)
+    msg.set('Hello')  # Optional arg
+    await asyncio.sleep(1)
+
+asyncio.run(main())
+```
+The following example shows multiple tasks awaiting a `Message`.
+```python
+from threadsafe import Message
+import uasyncio as asyncio
+
+async def bar(msg, n):
+    while True:
+        res = await msg
+        msg.clear()
+        print(n, res)
+        # Pause until other coros waiting on msg have run and before again
+        # awaiting a message.
+        await asyncio.sleep_ms(0)
+
+async def main():
+    msg = Message()
+    for n in range(5):
+        asyncio.create_task(bar(msg, n))
+    k = 0
+    while True:
+        k += 1
+        await asyncio.sleep_ms(1000)
+        msg.set('Hello {}'.format(k))
+
+asyncio.run(main())
+```
+Receiving messages in an asynchronous iterator:
+```python
+import uasyncio as asyncio
+from threadsafe import Message
+
+async def waiter(msg):
+    async for text in msg:
+        print(f"Waiter got {text}")
+        msg.clear()
+
+async def main():
+    msg = Message()
+    task = asyncio.create_task(waiter(msg))
+    for text in ("Hello", "This is a", "message", "goodbye"):
+        msg.set(text)
+        await asyncio.sleep(1)
+    task.cancel()
+    await asyncio.sleep(1)
+    print("Done")
+
+asyncio.run(main())
+```
+The `Message` class does not have a queue: if the instance is set, then set
+again before it is accessed, the first data item will be lost.
+
+# 4. Taming blocking functions
+
+Blocking functions or methods have the potential of stalling the `uasyncio`
+scheduler. Short of rewriting them to work properly the only way to tame them
+is to run them in another thread. The following is a way to achieve this.
+```python
+async def unblock(func, *args, **kwargs):
+    def wrap(func, message, args, kwargs):
+        message.set(func(*args, **kwargs))  # Run the blocking function.
+    msg = Message()
+    _thread.start_new_thread(wrap, (func, msg, args, kwargs))
+    return await msg
+```
+Given a blocking function `blocking` taking two positional and two keyword args
+it may be awaited in a `uasyncio` task with
+```python
+    res = await unblock(blocking, 1, 2, c = 3, d = 4)
+```
+The function runs "in the background" with other tasks running; only the
+calling task is paused. Note how the args are passed. There is a "gotcha" which
+is cancellation. It is not valid to cancel the `unblock` task because the
+underlying thread will still be running. There is no general solution to this.
+If the specific blocking function has a means of interrupting it or of forcing
+a timeout then it may be possible to code a solution.
+
+The following is a complete example where blocking is demonstrated with
+`time.sleep`.
+```python
+import uasyncio as asyncio
+from threadsafe import Message
+import _thread
+from time import sleep
+
+def slow_add(a, b, *, c, d):  # Blocking function.
+    sleep(5)
+    return a + b + c + d
+
+# Convert a blocking function to a nonblocking one using threading.
+async def unblock(func, *args, **kwargs):
+    def wrap(func, message, args, kwargs):
+        message.set(func(*args, **kwargs))  # Run the blocking function.
+    msg = Message()
+    _thread.start_new_thread(wrap, (func, msg, args, kwargs))
+    return await msg
+
+async def busywork():  # Prove uasyncio is running.
+    while True:
+        print("#", end="")
+        await asyncio.sleep_ms(200)
+
+async def main():
+    bw = asyncio.create_task(busywork())
+    res = await unblock(slow_add, 1, 2, c = 3, d = 4)
+    bw.cancel()
+    print(f"\nDone. Result = {res}")
 
 asyncio.run(main())
 ```

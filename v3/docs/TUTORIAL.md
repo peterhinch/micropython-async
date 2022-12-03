@@ -1343,106 +1343,17 @@ finally:
 
 ## 3.9 Message
 
-Because of [this issue](https://github.com/micropython/micropython/issues/7965)
-the `Message` class does not work under the Unix build.
+The `Message` class uses [ThreadSafeFlag](./TUTORIAL.md#36-threadsafeflag) to
+provide an object similar to `Event` with the following differences:
 
-This is an unofficial primitive with no counterpart in CPython asyncio. It uses
-[ThreadSafeFlag](./TUTORIAL.md#36-threadsafeflag) to provide an object similar
-to `Event` but capable of being set in a hard ISR context. It extends
-`ThreadSafeFlag` so that multiple tasks can wait on an ISR.
-
-It is similar to the `Event` class. It differs in that:
  * `.set()` has an optional data payload.
- * `.set()` is capable of being called from a hard or soft interrupt service
- routine.
+ * `.set()` can be called from another thread, another core, or from an ISR.
  * It is an awaitable class.
- * It can be used in an asynchronous iterator.
- * The logic of `.clear` differs: it must be called by at least one task which
- waits on the `Message`.
+ * Payloads may be retrieved in an asynchronous iterator.
+ * Multiple tasks can wait on a single `Message` instance.
 
-The `.set()` method can accept an optional data value of any type. The task
-waiting on the `Message` can retrieve it by means of `.value()` or by awaiting
-the `Message` as below.
-
-Like `Event`, `Message` provides a way for a task to pause until another flags it
-to continue. A `Message` object is instantiated and made accessible to the task
-using it:
-
-```python
-import uasyncio as asyncio
-from primitives import Message
-
-async def waiter(msg):
-    print('Waiting for message')
-    res = await msg
-    print('waiter got', res)
-    msg.clear()
-
-async def main():
-    msg = Message()
-    asyncio.create_task(waiter(msg))
-    await asyncio.sleep(1)
-    msg.set('Hello')  # Optional arg
-    await asyncio.sleep(1)
-
-asyncio.run(main())
-```
-A `Message` can provide a means of communication between an interrupt handler
-and a task. The handler services the hardware and issues `.set()` which causes
-the waiting task to resume (in relatively slow time).
-
-Constructor:
- * No args.
-
-Synchronous methods:
- * `set(data=None)` Trigger the `Message` with optional payload (may be any
- Python object).
- * `is_set()` Returns `True` if the `Message` is set, `False` if `.clear()` has
- been issued.
- * `clear()` Clears the triggered status. At least one task waiting on the
- message should issue `clear()`.
- * `value()` Return the payload.
-
-Asynchronous Method:
- * `wait()` Pause until message is triggered. You can also `await` the message
- as per the examples.
-
-The following example shows multiple tasks awaiting a `Message`.
-```python
-from primitives import Message
-import uasyncio as asyncio
-
-async def bar(msg, n):
-    while True:
-        res = await msg
-        msg.clear()
-        print(n, res)
-        # Pause until other coros waiting on msg have run and before again
-        # awaiting a message.
-        await asyncio.sleep_ms(0)
-
-async def main():
-    msg = Message()
-    for n in range(5):
-        asyncio.create_task(bar(msg, n))
-    k = 0
-    while True:
-        k += 1
-        await asyncio.sleep_ms(1000)
-        msg.set('Hello {}'.format(k))
-
-asyncio.run(main())
-```
-Receiving messages in an asynchronous iterator:
-```python
-msg = Message()
-asyncio.create_task(send_data(msg))
-async for data in msg:
-    # process data
-    msg.clear()
-```
-The `Message` class does not have a queue: if the instance is set, then set
-again before it is accessed, the first data item will be lost.
+It may be found in the `threadsafe` directory and is documented
+[here](./THREADING.md#32-message).
 
 ## 3.10 Synchronising to hardware
 

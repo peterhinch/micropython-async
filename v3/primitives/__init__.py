@@ -36,7 +36,6 @@ _attrs = {
     "Condition": "condition",
     "Delay_ms": "delay_ms",
     "Encode": "encoder_async",
-    "Message": "message",
     "Pushbutton": "pushbutton",
     "ESP32Touch": "pushbutton",
     "Queue": "queue",

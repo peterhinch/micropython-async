@@ -11,6 +11,7 @@ except ImportError:
 _attrs = {
     "ThreadSafeEvent": "threadsafe_event",
     "ThreadSafeQueue": "threadsafe_queue",
+    "Message": "message",
 }
 
 # Copied from uasyncio.__init__.py

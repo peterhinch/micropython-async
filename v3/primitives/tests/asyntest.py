@@ -18,7 +18,7 @@ unix = "linux" in sys.implementation._machine
 
 from primitives import Barrier, Semaphore, BoundedSemaphore, Condition, Queue, RingbufQueue
 try:
-    from primitives import Message
+    from threadsafe import Message
 except:
     pass
 
