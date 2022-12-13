@@ -84,8 +84,10 @@ including device drivers, debugging aids, and documentation.
   8.4 [Scheduling in uasyncio](./TUTORIAL.md#84-scheduling-in-uasyncio)  
   8.5 [Why cooperative rather than pre-emptive?](./TUTORIAL.md#85-why-cooperative-rather-than-pre-emptive)  
   8.6 [Communication](./TUTORIAL.md#86-communication)  
-9. [Polling vs Interrupts](./TUTORIAL.md#9-polling-vs-interrupts) A common
-source of confusion.  
+ 9. [Polling vs Interrupts](./TUTORIAL.md#9-polling-vs-interrupts) A common
+ source of confusion.  
+ 10. [Interfacing threaded code](./TUTORIAL.md#10-interfacing-threaded-code) Taming blocking functions. Multi core coding.  
+
 
 ###### [Main README](../README.md)
 
@@ -947,18 +949,23 @@ is raised.
 
 ## 3.5 Queue
 
-This is currently an unofficial implementation. Its API is a subset of that of
-CPython's `asyncio.Queue`. Like `asyncio.Queue` this class is not thread safe.
-A queue class optimised for MicroPython is presented in
-[Ringbuf queue](./EVENTS.md#7-ringbuf-queue).
+Queue objects provide a means of synchronising producer and consumer tasks: the
+producer puts data items onto the queue with the consumer removing them. If the
+queue becomes full, the producer task will block, likewise if the queue becomes
+empty the consumer will block. Some queue implementations allow producer and
+consumer to run in different contexts: for example where one runs in an
+interrupt service routine or on a different thread or core from the `uasyncio`
+application. Such a queue is termed "thread safe".
 
-The `Queue` class provides a means of synchronising producer and consumer
-tasks: the producer puts data items onto the queue with the consumer removing
-them. If the queue becomes full, the producer task will block, likewise if
-the queue becomes empty the consumer will block.
+The `Queue` class is an unofficial implementation whose API is a subset of that
+of CPython's `asyncio.Queue`. Like `asyncio.Queue` this class is not thread
+safe. A queue class optimised for MicroPython is presented in
+[Ringbuf queue](./EVENTS.md#7-ringbuf-queue). A thread safe version is
+documented in [ThreadSafeQueue](./THREADING.md#22-threadsafequeue).
 
-Constructor: Optional arg `maxsize=0`. If zero, the queue can grow without
-limit subject to heap size. If >0 the queue's size will be constrained.
+Constructor:  
+Optional arg `maxsize=0`. If zero, the queue can grow without limit subject to
+heap size. If `maxsize>0` the queue's size will be constrained.
 
 Synchronous methods (immediate return):  
  * `qsize` No arg. Returns the number of items in the queue.
@@ -1093,39 +1100,8 @@ hardware device requires the use of an ISR for a μs level response. Having
 serviced the device, the ISR flags an asynchronous routine, typically
 processing received data.
 
-The fact that only one task may wait on a `ThreadSafeFlag` may be addressed as
-follows.
-```python
-class ThreadSafeEvent(asyncio.Event):
-    def __init__(self):
-        super().__init__()
-        self._waiting_on_tsf = False
-        self._tsf = asyncio.ThreadSafeFlag()
-
-    def set(self):
-        self._tsf.set()
-
-    async def _waiter(self):  # Runs if 1st task is cancelled
-        await self._tsf.wait()
-        super().set()
-        self._waiting_on_tsf = False
-
-    async def wait(self):
-        if self._waiting_on_tsf == False:
-            self._waiting_on_tsf = True
-            await asyncio.sleep(0)  # Ensure other tasks see updated flag
-            try:
-                await self._tsf.wait()
-                super().set()
-                self._waiting_on_tsf = False
-            except asyncio.CancelledError:
-                asyncio.create_task(self._waiter())
-                raise  # Pass cancellation to calling code
-        else:
-            await super().wait()
-```
-An instance may be set by a hard ISR or from another thread/core. As an `Event`
-it can support multiple tasks and must explicitly be cleared.
+See [Threadsafe Event](./THREADING.md#31-threadsafe-event) for a thread safe
+class which allows multiple tasks to wait on it.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
@@ -2881,5 +2857,19 @@ valid.
 
 This, along with other issues, is discussed in 
 [Interfacing uasyncio to interrupts](./INTERRUPTS.md).
+
+###### [Contents](./TUTORIAL.md#contents)
+
+# 10. Interfacing threaded code
+
+In the context of a `uasyncio` application, the `_thread` module has two main
+uses:
+ 1. Defining code to run on another core (currently restricted to RP2).
+ 2. Handling blocking functions. The technique assigns the blocking function to
+ another thread. The `uasyncio` system continues to run, with a single task
+ paused pending the result of the blocking method.
+
+These techniques, and thread-safe classes to enable their use, are presented in
+[this doc](./THREAD.md).
 
 ###### [Contents](./TUTORIAL.md#contents)

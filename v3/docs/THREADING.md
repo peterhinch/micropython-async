@@ -82,28 +82,31 @@ interface is via a thread safe class, usually `ThreadSafeFlag`.
 
 ## 1.2 Threaded code on one core
 
- 1. Behaviour depends on the port
- [see](https://github.com/micropython/micropython/discussions/10135#discussioncomment-4275354).
- At best, context switches can occur at bytecode boundaries. On ports where
- contexts share no GIL they can occur at any time.
- 2. Hence for shared data item more complex than a small int, a lock or
- `ThreadSafeQueue` must be used. This ensures that the thread reading the data
- cannot access a partially updated item (which might even result in a crash).
- It also ensures mutual consistency between multiple data items.
+ 1. On single core devices with a common GIL, Python instructions can be
+ considered "atomic": they are guaranteed to run to completion without being
+ pre-empted.
+ 2. Hence where a shared data item is updated by a single line of code a lock or
+ `ThreadSafeQueue` is not needed. In the above code sample, if the application
+ needs mutual consistency between the dictionary values, a lock must be used.
  3. Code running on a thread other than that running `uasyncio` may block for
  as long as necessary (an application of threading is to handle blocking calls
  in a way that allows `uasyncio` to continue running).
 
 ## 1.3 Threaded code on multiple cores
 
- 1. There is no common VM. The underlying machine code of each core runs
- independently.
+Currently this applies to RP2 and Unix ports, although as explained above the
+thread safe classes offered here do not yet support Unix.
+
+ 1. There is no common VM hence no common GIL. The underlying machine code of
+ each core runs independently.
  2. In the code sample there is a risk of the `uasyncio` task reading the dict
  at the same moment as it is being written. It may read a corrupt or partially
  updated item; there may even be a crash. Using a lock or `ThreadSafeQueue` is
  essential.
  3. Code running on a core other than that running `uasyncio` may block for
  as long as necessary.
+
+[See this reference from @jimmo](https://github.com/orgs/micropython/discussions/10135#discussioncomment-4309865).
 
 ## 1.4 Debugging
 
