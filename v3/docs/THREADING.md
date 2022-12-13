@@ -16,6 +16,9 @@ the `ThreadSafeFlag` class does not work under the Unix build. The classes
 presented here depend on this: none can be expected to work on Unix until this
 is fixed.
 
+###### [Main README](../README.md)
+###### [Tutorial](./TUTORIAL.md)
+
 # Contents
 
  1. [Introduction](./THREADING.md#1-introduction) The various types of pre-emptive code.  
@@ -490,6 +493,8 @@ asyncio.run(main())
 The `Message` class does not have a queue: if the instance is set, then set
 again before it is accessed, the first data item will be lost.
 
+###### [Contents](./THREADING.md#contents)
+
 # 4. Taming blocking functions
 
 Blocking functions or methods have the potential of stalling the `uasyncio`
@@ -548,3 +553,4 @@ async def main():
 
 asyncio.run(main())
 ```
+###### [Contents](./THREADING.md#contents)

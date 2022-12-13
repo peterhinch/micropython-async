@@ -2870,6 +2870,6 @@ uses:
  paused pending the result of the blocking method.
 
 These techniques, and thread-safe classes to enable their use, are presented in
-[this doc](./THREAD.md).
+[this doc](./THREADING.md).
 
 ###### [Contents](./TUTORIAL.md#contents)
