@@ -2,7 +2,7 @@
 
 This document is primarily for those wishing to interface `uasyncio` code with
 that running under the `_thread` module. It presents classes for that purpose
-which may also find use for communicatiing between threads and in interrupt
+which may also find use for communicating between threads and in interrupt
 service routine (ISR) applications. It provides an overview of the problems
 implicit in pre-emptive multi tasking.
 
@@ -22,10 +22,11 @@ is fixed.
 # Contents
 
  1. [Introduction](./THREADING.md#1-introduction) The various types of pre-emptive code.  
-  1.1 [Interrupt Service Routines](./THREADING.md#11-interrupt-service-routines)  
-  1.2 [Threaded code on one core](./THREADING.md#12-threaded-code-on-one-core)  
-  1.3 [Threaded code on multiple cores](./THREADING.md#13-threaded-code-on-multiple-cores)  
-  1.4 [Debugging](./THREADING.md#14-debugging)  
+  1.1 [Hard Interrupt Service Routines](./THREADING.md#11-hard-interrupt-service-routines)  
+  1.2 [Soft Interrupt Service Routines](./THREADING.md#12-soft-interrupt-service-routines) Also code scheduled by micropython.schedule()  
+  1.3 [Threaded code on one core](./THREADING.md#13-threaded-code-on-one-core)  
+  1.4 [Threaded code on multiple cores](./THREADING.md#14-threaded-code-on-multiple-cores)  
+  1.5 [Debugging](./THREADING.md#15-debugging)  
  2. [Sharing data](./THREADING.md#2-sharing-data)  
   2.1 [A pool](./THREADING.md#21-a-pool) Sharing a set of variables.  
   2.2 [ThreadSafeQueue](./THREADING.md#22-threadsafequeue)  
@@ -40,11 +41,19 @@ is fixed.
 
 Various issues arise when `uasyncio` applications interface with code running
 in a different context. Supported contexts are:
- 1. A hard or soft interrupt service routine (ISR).
- 2. Another thread running on the same core.
- 3. Code running on a different core (currently only supported on RP2).
+ 1. A hard interrupt service routine (ISR).
+ 2. A soft ISR. This includes code scheduled by `micropython.schedule()`.
+ 3. Another thread running on the same core.
+ 4. Code running on a different core (currently only supported on RP2).
 
-This section compares the characteristics of the three contexts. Consider this
+In all these cases the contexts share a common VM (the virtual machine which
+executes Python bytecode). This enables the contexts to share global state. In
+case 4 there is no common GIL (the global interpreter lock). This lock protects
+Python built-in objects enabling them to be considered atomic at the bytecode
+level. (An "atomic" object is inherently thread safe: if thread changes it,
+another concurrent thread performing a read is guaranteed to see valid data).
+
+This section compares the characteristics of the four contexts. Consider this
 function which updates a global dictionary `d` from a hardware device. The
 dictionary is shared with a `uasyncio` task.
 ```python
@@ -65,53 +74,100 @@ Beware that some apparently obvious ways to interface an ISR to `uasyncio`
 introduce subtle bugs discussed in the doc referenced above. The only reliable
 interface is via a thread safe class, usually `ThreadSafeFlag`.
 
-## 1.1 Interrupt Service Routines
+## 1.1 Hard Interrupt Service Routines
 
- 1. The ISR and the main program share a common Python virtual machine (VM).
- Consequently a line of code being executed when the interrupt occurs will run
- to completion before the ISR runs.
+ 1. The ISR and the main program share the Python GIL. This ensures that built
+ in Python objects (`list`, `dict` etc.) will not be corrupted if an ISR runs
+ while the object is being modified. This guarantee is quite limited: the code
+ will not crash, but there may be consistency problems. See consistency below.
  2. An ISR will run to completion before the main program regains control. This
  means that if the ISR updates multiple items, when the main program resumes,
  those items will be mutually consistent. The above code fragment will provide
  mutually consistent data.
  3. The fact that ISR code runs to completion means that it must run fast to
  avoid disrupting the main program or delaying other ISR's. ISR code should not
- call blocking routines and should not wait on locks. Item 2. means that locks
- are seldom necessary.
+ call blocking routines. It should not wait on locks because there is no way
+ for the interrupted code to release the lock. See locks below.
  4. If a burst of interrupts can occur faster than `uasyncio` can schedule the
  handling task, data loss can occur. Consider using a `ThreadSafeQueue`. Note
  that if this high rate is sustained something will break: the overall design
  needs review. It may be necessary to discard some data items.
 
-## 1.2 Threaded code on one core
+#### locks
 
- 1. On single core devices with a common GIL, Python instructions can be
- considered "atomic": they are guaranteed to run to completion without being
- pre-empted.
- 2. Hence where a shared data item is updated by a single line of code a lock or
- `ThreadSafeQueue` is not needed. In the above code sample, if the application
- needs mutual consistency between the dictionary values, a lock must be used.
- 3. Code running on a thread other than that running `uasyncio` may block for
+there is a valid case where a hard ISR checks the status of a lock, aborting if
+the lock is set.
+
+#### consistency
+
+Consider this code fragment:
+```python
+a = [0, 0, 0]
+b = [0, 0, 0]
+def hard_isr():
+    a[0] = read_data(0)
+    b[0] = read_data(1)
+
+async def foo():
+    while True:
+        await process(a + b)
+```
+A hard ISR can occur during the execution of a bytecode. This means that the
+combined list passed to `process()` might comprise old a + new b.
+
+## 1.2 Soft Interrupt Service Routines 
+
+This also includes code scheduled by `micropython.schedule()`.
+
+ 1. A soft ISR can only run at certain bytecode boundaries, not during
+ execution of a bytecode. It cannot interrupt garbage collection; this enables
+ soft ISR code to allocate.
+ 2. As per hard ISR's.
+ 3. A soft ISR should still be designed to complete quickly. While it won't
+ delay hard ISR's it nevertheless pre-empts the main program. In principle it
+ can wait on a lock, but only if the lock is released by a hard ISR or another
+ hard context (a thread or code on another core).
+ 4. As per hard ISR's.
+
+## 1.3 Threaded code on one core
+
+ 1. The common GIL ensures that built-in Python objects (`list`, `dict` etc.)
+ will not be corrupted if a read on one thread occurs while the object's
+ contents are being updated.
+ 2. This protection does not extend to user defined data structures. The fact
+ that a dictionary won't be corrupted by concurrent access does not imply that
+ its contents will be mutually consistent. In the code sample in section 1, if
+ the application needs mutual consistency between the dictionary values, a lock
+ is needed to ensure that a read cannot be scheduled while an update is in
+ progress.
+ 3. The above means that, for example, calling `uasyncio.create_task` from a
+ thread is unsafe as it can scramble `uasyncio` data structures.
+ 4. Code running on a thread other than that running `uasyncio` may block for
  as long as necessary (an application of threading is to handle blocking calls
  in a way that allows `uasyncio` to continue running).
 
-## 1.3 Threaded code on multiple cores
+## 1.4 Threaded code on multiple cores
 
 Currently this applies to RP2 and Unix ports, although as explained above the
 thread safe classes offered here do not yet support Unix.
 
- 1. There is no common VM hence no common GIL. The underlying machine code of
- each core runs independently.
+ 1. There is no common GIL. This means that under some conditions Python built
+ in objects can be corrupted.
  2. In the code sample there is a risk of the `uasyncio` task reading the dict
- at the same moment as it is being written. It may read a corrupt or partially
- updated item; there may even be a crash. Using a lock or `ThreadSafeQueue` is
- essential.
- 3. Code running on a core other than that running `uasyncio` may block for
+ at the same moment as it is being written. Updating a dictionary data entry is
+ atomic: there is no risk of corrupt data being read. In the code sample a lock
+ is only required if mutual consistency of the three values is essential.
+ 3. In the absence of a GIL some operations on built-in objects are not thread
+ safe. For example adding or deleting items in a `dict`. This extends to global
+ variables which are implemented as a `dict`.
+ 4. The observations in 1.3 on user defined data structures and `uasyncio`
+ interfacing apply.
+ 5. Code running on a core other than that running `uasyncio` may block for
  as long as necessary.
 
 [See this reference from @jimmo](https://github.com/orgs/micropython/discussions/10135#discussioncomment-4309865).
 
-## 1.4 Debugging
+## 1.5 Debugging
 
 A key practical point is that coding errors in synchronising threads can be
 hard to locate: consequences can be extremely rare bugs or (in the case of 
@@ -129,10 +185,13 @@ There are two fundamental problems: data sharing and synchronisation.
 
 The simplest case is a shared pool of data. It is possible to share an `int` or
 `bool` because at machine code level writing an `int` is "atomic": it cannot be
-interrupted. In the multi core case anything more complex must be protected to
-ensure that concurrent access cannot take place. The consequences even of
-reading an object while it is being written can be unpredictable. One approach
-is to use locking:
+interrupted. A shared global `dict` might be replaced in its entirety by one
+process and read by another. This is safe because the shared variable is a
+pointer, and replacing a pointer is atomic. Problems arise when multiple fields
+are updated by one process and read by another, as the read might occur while
+the write operation is in progress.
+
+One approach is to use locking:
 ```python
 lock = _thread.allocate_lock()
 values = { "X": 0, "Y": 0, "Z": 0}
@@ -154,14 +213,24 @@ async def consumer():
         lock.release()
         await asyncio.sleep_ms(0)  # Ensure producer has time to grab the lock
 ```
-This is recommended where the producer runs in a different thread from
-`uasyncio`. However the consumer might hold the lock for some time: it will
-take time for the scheduler to execute the `process()` call, and the call
-itself will take time to run. In cases where the duration of a lock is
-problematic a `ThreadSafeQueue` is more appropriate as it decouples producer
-and consumer code.
+Condsider also this code:
+```python
+def consumer():
+    send(d["x"].height())  # d is a global dict
+    send(d["x"].width())  # d["x"] is an instance of a class
+```
+In this instance if the producer, running in a different context, changes
+`d["x"]` between the two `send()` calls, different objects will be accessed. A
+lock should be used.
 
-As stated above, if the producer is an ISR no lock is needed or advised.
+Locking is recommended where the producer runs in a different thread from
+`uasyncio`. However the consumer might hold the lock for some time: in the
+first sample it will take time for the scheduler to execute the `process()`
+call, and the call itself will take time to run. In cases where the duration
+of a lock is problematic a `ThreadSafeQueue` is more appropriate than a locked
+pool as it decouples producer and consumer code.
+
+As stated above, if the producer is an ISR a lock is normally unusable.
 Producer code would follow this pattern:
 ```python
 values = { "X": 0, "Y": 0, "Z": 0}
@@ -170,8 +239,10 @@ def producer():
     values["Y"] = sensor_read(1)
     values["Z"] = sensor_read(2)
 ```
-and the ISR would run to completion before `uasyncio` resumed, ensuring mutual
-consistency of the dict values.
+and the ISR would run to completion before `uasyncio` resumed. The ISR could
+run while the `uasyncio` task was reading the values: to ensure mutual
+consistency of the dict values the consumer should disable interrupts while
+the read is in progress.
 
 ###### [Contents](./THREADING.md#contents)
 
