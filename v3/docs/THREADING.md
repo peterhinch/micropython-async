@@ -78,8 +78,13 @@ interface is via a thread safe class, usually `ThreadSafeFlag`.
 
  1. The ISR and the main program share the Python GIL. This ensures that built
  in Python objects (`list`, `dict` etc.) will not be corrupted if an ISR runs
- while the object is being modified. This guarantee is quite limited: the code
- will not crash, but there may be consistency problems. See consistency below.
+ while the object's contents are being modified. This guarantee is limited: the
+ code will not crash, but there may be consistency problems. See consistency
+ below. Further, failure can occur if the object's _structure_ is modified, for
+ example by the main program adding or deleting a dictionary entry. Note that
+ globals are implemented as a `dict`. Globals should be declared before an ISR
+ starts to run. Alternatively interrupts should be disabled while adding or
+ deleting a global.
  2. An ISR will run to completion before the main program regains control. This
  means that if the ISR updates multiple items, when the main program resumes,
  those items will be mutually consistent. The above code fragment will provide
@@ -95,7 +100,7 @@ interface is via a thread safe class, usually `ThreadSafeFlag`.
 
 #### locks
 
-there is a valid case where a hard ISR checks the status of a lock, aborting if
+There is a valid case where a hard ISR checks the status of a lock, aborting if
 the lock is set.
 
 #### consistency
@@ -133,7 +138,7 @@ This also includes code scheduled by `micropython.schedule()`.
 
  1. The common GIL ensures that built-in Python objects (`list`, `dict` etc.)
  will not be corrupted if a read on one thread occurs while the object's
- contents are being updated.
+ contents or the object's structure are being updated.
  2. This protection does not extend to user defined data structures. The fact
  that a dictionary won't be corrupted by concurrent access does not imply that
  its contents will be mutually consistent. In the code sample in section 1, if
@@ -159,7 +164,9 @@ thread safe classes offered here do not yet support Unix.
  is only required if mutual consistency of the three values is essential.
  3. In the absence of a GIL some operations on built-in objects are not thread
  safe. For example adding or deleting items in a `dict`. This extends to global
- variables which are implemented as a `dict`.
+ variables which are implemented as a `dict`. Creating a new global on one core
+ while another core reads a different global could fail in the event that the
+ write operation triggered a re-hash. A lock should be used in such cases.
  4. The observations in 1.3 on user defined data structures and `uasyncio`
  interfacing apply.
  5. Code running on a core other than that running `uasyncio` may block for
