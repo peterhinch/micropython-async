@@ -26,7 +26,8 @@ is fixed.
   1.2 [Soft Interrupt Service Routines](./THREADING.md#12-soft-interrupt-service-routines) Also code scheduled by micropython.schedule()  
   1.3 [Threaded code on one core](./THREADING.md#13-threaded-code-on-one-core)  
   1.4 [Threaded code on multiple cores](./THREADING.md#14-threaded-code-on-multiple-cores)  
-  1.5 [Debugging](./THREADING.md#15-debugging)  
+  1.5 [Globals](./THREADING.md#15-globals)  
+  1.6 [Debugging](./THREADING.md#16-debugging)  
  2. [Sharing data](./THREADING.md#2-sharing-data)  
   2.1 [A pool](./THREADING.md#21-a-pool) Sharing a set of variables.  
   2.2 [ThreadSafeQueue](./THREADING.md#22-threadsafequeue)  
@@ -36,6 +37,7 @@ is fixed.
   3.1 [Threadsafe Event](./THREADING.md#31-threadsafe-event)  
   3.2 [Message](./THREADING.md#32-message) A threadsafe event with data payload.  
  4. [Taming blocking functions](./THREADING.md#4-taming-blocking-functions)  
+ 5. [Glossary](./THREADING.md#5-glossary) Terminology of realtime coding.  
 
 # 1. Introduction
 
@@ -47,48 +49,47 @@ in a different context. Supported contexts are:
  4. Code running on a different core (currently only supported on RP2).
 
 In all these cases the contexts share a common VM (the virtual machine which
-executes Python bytecode). This enables the contexts to share global state. In
-case 4 there is no common GIL (the global interpreter lock). This lock protects
-Python built-in objects enabling them to be considered atomic at the bytecode
-level. (An "atomic" object is inherently thread safe: if thread changes it,
-another concurrent thread performing a read is guaranteed to see valid data).
+executes Python bytecode). This enables the contexts to share global state. The
+contexts differ in their use of the GIL [see glossary](./THREADING.md#5-glossary).
 
 This section compares the characteristics of the four contexts. Consider this
 function which updates a global dictionary `d` from a hardware device. The
-dictionary is shared with a `uasyncio` task.
+dictionary is shared with a `uasyncio` task. (The function serves to illustrate
+concurrency issues: it is not the most effcient way to transfer data.)
 ```python
 def update_dict():
     d["x"] = read_data(0)
     d["y"] = read_data(1)
     d["z"] = read_data(2)
 ```
-This might be called in a soft ISR, in a thread running on the same core as
-`uasyncio`, or in a thread running on a different core. Each of these contexts
-has different characteristics, outlined below. In all these cases "thread safe"
-constructs are needed to interface `uasyncio` tasks with code running in these
-contexts. The official `ThreadSafeFlag`, or the classes documented here, may be
-used in all of these cases. This `update_dict` function serves to illustrate
-concurrency issues: it is not the most effcient way to transfer data.
+This might be called in a hard or soft ISR, in a thread running on the same
+core as `uasyncio`, or in a thread running on a different core. Each of these
+contexts has different characteristics, outlined below. In all these cases
+"thread safe" constructs are needed to interface `uasyncio` tasks with code
+running in these contexts. The official `ThreadSafeFlag`, or the classes
+documented here, may be used.
 
 Beware that some apparently obvious ways to interface an ISR to `uasyncio`
-introduce subtle bugs discussed in the doc referenced above. The only reliable
-interface is via a thread safe class, usually `ThreadSafeFlag`.
+introduce subtle bugs discussed in
+[this doc](https://github.com/peterhinch/micropython-async/blob/master/v3/docs/INTERRUPTS.md)
+referenced above. The only reliable interface is via a thread safe class,
+usually `ThreadSafeFlag`.
 
 ## 1.1 Hard Interrupt Service Routines
 
- 1. The ISR and the main program share the Python GIL. This ensures that built
- in Python objects (`list`, `dict` etc.) will not be corrupted if an ISR runs
- while the object's contents are being modified. This guarantee is limited: the
- code will not crash, but there may be consistency problems. See consistency
- below. Further, failure can occur if the object's _structure_ is modified, for
- example by the main program adding or deleting a dictionary entry. Note that
- globals are implemented as a `dict`. Globals should be declared before an ISR
- starts to run. Alternatively interrupts should be disabled while adding or
- deleting a global.
+ 1. The ISR sees the GIL state of the main program: if the latter has locked
+ the GIL, the ISR will still run. This renders the GIL, as seen by the ISR,
+ ineffective. Built in Python objects (`list`, `dict` etc.) will not be
+ corrupted if an ISR runs while the object's contents are being modified as
+ these updates are atomic. This guarantee is limited: the code will not crash,
+ but there may be consistency problems. See **consistency** below. The lack of GIL
+ functionality means that failure can occur if the object's _structure_ is
+ modified, for example by the main program adding or deleting a dictionary
+ entry. This results in issues for [globals](./THREADING.md#15-globals).
  2. An ISR will run to completion before the main program regains control. This
  means that if the ISR updates multiple items, when the main program resumes,
  those items will be mutually consistent. The above code fragment will provide
- mutually consistent data.
+ mutually consistent data (but see **consistency** below).
  3. The fact that ISR code runs to completion means that it must run fast to
  avoid disrupting the main program or delaying other ISR's. ISR code should not
  call blocking routines. It should not wait on locks because there is no way
@@ -118,11 +119,22 @@ async def foo():
         await process(a + b)
 ```
 A hard ISR can occur during the execution of a bytecode. This means that the
-combined list passed to `process()` might comprise old a + new b.
+combined list passed to `process()` might comprise old a + new b. Even though
+the ISR produces consistent data, the fact that it can preempt the main code
+at any time means that to read consistent data interrupts must be disabled:
+```python
+async def foo():
+    while True:
+        state = machine.disable_irq()
+        d = a + b  # Disable for as short a time as possible
+        machine.enable_irq(state)
+        await process(d)
+```
 
 ## 1.2 Soft Interrupt Service Routines 
 
-This also includes code scheduled by `micropython.schedule()`.
+This also includes code scheduled by `micropython.schedule()` which is assumed
+to have been called from a hard ISR.
 
  1. A soft ISR can only run at certain bytecode boundaries, not during
  execution of a bytecode. It cannot interrupt garbage collection; this enables
@@ -146,7 +158,8 @@ This also includes code scheduled by `micropython.schedule()`.
  is needed to ensure that a read cannot be scheduled while an update is in
  progress.
  3. The above means that, for example, calling `uasyncio.create_task` from a
- thread is unsafe as it can scramble `uasyncio` data structures.
+ thread is unsafe as it can destroy the mutual consistency of `uasyncio` data
+ structures.
  4. Code running on a thread other than that running `uasyncio` may block for
  as long as necessary (an application of threading is to handle blocking calls
  in a way that allows `uasyncio` to continue running).
@@ -164,17 +177,48 @@ thread safe classes offered here do not yet support Unix.
  is only required if mutual consistency of the three values is essential.
  3. In the absence of a GIL some operations on built-in objects are not thread
  safe. For example adding or deleting items in a `dict`. This extends to global
- variables which are implemented as a `dict`. Creating a new global on one core
- while another core reads a different global could fail in the event that the
- write operation triggered a re-hash. A lock should be used in such cases.
- 4. The observations in 1.3 on user defined data structures and `uasyncio`
+ variables which are implemented as a `dict`. See [Globals](./THREADING.md#15-globals).
+ 4. The observations in 1.3 re user defined data structures and `uasyncio`
  interfacing apply.
  5. Code running on a core other than that running `uasyncio` may block for
  as long as necessary.
 
 [See this reference from @jimmo](https://github.com/orgs/micropython/discussions/10135#discussioncomment-4309865).
 
-## 1.5 Debugging
+## 1.5 Globals
+
+Globals are implemented as a `dict`. Adding or deleting an entry is unsafe in
+the main program if there is a context which accesses global data and does not
+use the GIL. This means hard ISR's and code running on another core. Given that
+shared global data is widely used, the following guidelines should be followed.
+
+All globals should be declared in the main program before an ISR starts to run,
+and before code on another core is started. It is valid to insert placeholder
+data, as updates to `dict` data are atomic. In the example below, a pointer to
+the `None` object is replaced by a pointer to a class instance: a pointer
+update is atomic so can occur while globals are accessed by code in other
+contexts.
+```python
+display_driver = None
+# Start code on other core
+# It's now valid to do
+display_driver = DisplayDriverClass(args)
+```
+The hazard with globals can occur in other ways. Importing a module while other
+contexts are accessing globals can be problematic as that module might create
+global objects. The following would present a hazard if `foo` were run for the
+first time while globals were being accessed:
+```python
+def foo():
+    global bar
+    bar = 42
+```
+Once again the hazard is avoided by, in global scope, populating `bar` prior
+with a placeholder before allowing other contexts to run.
+
+If globals must be created and destroyed dynaically, a lock must be used.
+
+## 1.6 Debugging
 
 A key practical point is that coding errors in synchronising threads can be
 hard to locate: consequences can be extremely rare bugs or (in the case of 
@@ -198,7 +242,8 @@ pointer, and replacing a pointer is atomic. Problems arise when multiple fields
 are updated by one process and read by another, as the read might occur while
 the write operation is in progress.
 
-One approach is to use locking:
+One approach is to use locking. This example solves data sharing, but does not
+address synchronisation:
 ```python
 lock = _thread.allocate_lock()
 values = { "X": 0, "Y": 0, "Z": 0}
@@ -246,10 +291,10 @@ def producer():
     values["Y"] = sensor_read(1)
     values["Z"] = sensor_read(2)
 ```
-and the ISR would run to completion before `uasyncio` resumed. The ISR could
-run while the `uasyncio` task was reading the values: to ensure mutual
-consistency of the dict values the consumer should disable interrupts while
-the read is in progress.
+and the ISR would run to completion before `uasyncio` resumed. However the ISR
+might run while the `uasyncio` task was reading the values: to ensure mutual
+consistency of the dict values the consumer should disable interrupts while the
+read is in progress.
 
 ###### [Contents](./THREADING.md#contents)
 
@@ -632,3 +677,46 @@ async def main():
 asyncio.run(main())
 ```
 ###### [Contents](./THREADING.md#contents)
+
+# 5. Glossary
+
+### ISR
+
+An Interrupt Service Routine: code that runs in response to an interrupt. Hard
+ISR's offer very low latency but require careful coding - see
+[official docs](http://docs.micropython.org/en/latest/reference/isr_rules.html).
+
+### Context
+
+In MicroPython terms a `context` may be viewed as a stream of bytecodes. A
+`uasyncio` program comprises a single context: execution is passed between
+tasks and the scheduler as a single stream of code. By contrast code in an ISR
+can preempt the main stream to run its own stream. This is also true of threads
+which can preempt each other at arbitrary times, and code on another core
+which runs independently albeit under the same VM.
+
+### GIL
+
+MicroPython has a Global Interpreter Lock. The purpose of this is to ensure
+that multi-threaded programs cannot cause corruption in the event that two
+contexts simultaneously modify an instance of a Python built-in class. It does
+not protect user defined objects.
+
+### micropython.schedule
+
+The relevance of this is that it is normally called in a hard ISR. In this
+case the scheduled code runs in a different context to the main program. See
+[official docs](http://docs.micropython.org/en/latest/library/micropython.html#micropython.schedule).
+
+### VM
+
+In MicroPython terms a VM is the Virtual Machine that executes bytecode. Code
+running in different contexts share a common VM which enables the contexts to
+share global objects.
+
+### Atomic
+
+An operation is described as "atomic" if it can be guaranteed to proceed to
+completion without being preempted. Writing an integer is atomic at the machine
+code level. Updating a dictionary value is atomic at bytecode level. Adding or
+deleting a dictionary key is not.

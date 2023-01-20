@@ -72,7 +72,8 @@ The `primitives.switch` module provides the `Switch` class. This supports
 debouncing a normally open switch connected between a pin and ground. Can run
 callbacks or schedule coros on contact closure and/or opening. As an
 alternative to a callback based interface, bound `Event` objects may be
-triggered on switch state changes.
+triggered on switch state changes. To use an `Event` based interface
+exclusively see the simpler [ESwitch class](./EVENTS.md#61-eswitch).
 
 In the following text the term `callable` implies a Python `callable`: namely a
 function, bound method, coroutine or bound coroutine. The term implies that any
@@ -140,7 +141,8 @@ instance. A bound contact closure `Event` is created by passing `None` to
 
 This is discussed further in
 [Event based interface](./DRIVERS.md#8-event-based-interface) which includes a
-code example. This API is recommended for new projects.
+code example. This API and the simpler [EButton class](./EVENTS.md#62-ebutton)
+is recommended for new projects.
 
 ###### [Contents](./DRIVERS.md#1-contents)
 
@@ -156,13 +158,15 @@ double-click appears as four voltage changes. The asynchronous `Pushbutton`
 class provides the logic required to handle these user interactions by
 monitoring these events over time.
 
-Instances of this class can run a `callable` on on press, release, double-click
-or long press events.
+Instances of this class can run a `callable` on press, release, double-click or
+long press events.
 
 As an alternative to callbacks bound `Event` instances may be created which are
 triggered by press, release, double-click or long press events. This mode of
 operation is more flexible than the use of callbacks and is covered in
-[Event based interface](./DRIVERS.md#8-event-based-interface).
+[Event based interface](./DRIVERS.md#8-event-based-interface). To use an
+`Event` based interface exclusively see the simpler
+[EButton class](./EVENTS.md#62-ebutton).
 
 ## 4.1 Pushbutton class
 
