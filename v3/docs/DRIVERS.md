@@ -141,7 +141,7 @@ instance. A bound contact closure `Event` is created by passing `None` to
 
 This is discussed further in
 [Event based interface](./DRIVERS.md#8-event-based-interface) which includes a
-code example. This API and the simpler [EButton class](./EVENTS.md#62-ebutton)
+code example. This API and the simpler [ESwitch class](./EVENTS.md#61-eswitch)
 is recommended for new projects.
 
 ###### [Contents](./DRIVERS.md#1-contents)
