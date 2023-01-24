@@ -204,10 +204,8 @@ display_driver = None
 # It's now valid to do
 display_driver = DisplayDriverClass(args)
 ```
-The hazard with globals can occur in other ways. Importing a module while other
-contexts are accessing globals can be problematic as that module might create
-global objects. The following would present a hazard if `foo` were run for the
-first time while globals were being accessed:
+The hazard with globals can occur in other ways. The following would present a
+hazard if `foo` were run for the first time while globals were being accessed:
 ```python
 def foo():
     global bar
@@ -216,7 +214,7 @@ def foo():
 Once again the hazard is avoided by, in global scope, populating `bar` prior
 with a placeholder before allowing other contexts to run.
 
-If globals must be created and destroyed dynaically, a lock must be used.
+If globals must be created and destroyed dynamically, a lock must be used.
 
 ## 1.6 Debugging
 
