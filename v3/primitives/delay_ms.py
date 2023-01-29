@@ -75,6 +75,7 @@ class Delay_ms:
         self._args = args
 
     def deinit(self):
-        self.stop()
-        self._mtask.cancel()
-        self._mtask = None
+        if self._mtask is not None:  # https://github.com/peterhinch/micropython-async/issues/98
+            self.stop()
+            self._mtask.cancel()
+            self._mtask = None
