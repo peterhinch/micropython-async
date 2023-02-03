@@ -165,7 +165,7 @@ the instance's `.event()` method.
 ```python
 from primitives import WaitAny
 async def foo(elo1, elo2)
-    evt = WaitAny((elo1, elo2)).wait()
+    evt = await WaitAny((elo1, elo2)).wait()
     if evt is elo1:
         # Handle elo1
 ```
