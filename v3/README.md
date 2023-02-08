@@ -22,6 +22,10 @@ is a guide to interfacing interrupts to `uasyncio`.
 applications and device drivers which largely does away with callbacks. Assumes
 some knowledge of `uasyncio`.
 
+[Threading](./docs/THREADING.md) is a guide to the use of multi-threaded and
+multi-core programming. Code is offered to enable a `uasyncio` application to
+deal with blocking functions.
+
 ## 1.2 Debugging tools
 
 [aiorepl](https://github.com/micropython/micropython-lib/tree/master/micropython/aiorepl)
