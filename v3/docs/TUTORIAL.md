@@ -11,7 +11,7 @@ including device drivers, debugging aids, and documentation.
 # Contents
 
  0. [Introduction](./TUTORIAL.md#0-introduction)  
-  0.1 [Installing uasyncio](./TUTORIAL.md#01-installing-uasyncio)  
+  0.1 [Installing uasyncio](./TUTORIAL.md#01-installing-uasyncio) Also the optional extensions.  
  1. [Cooperative scheduling](./TUTORIAL.md#1-cooperative-scheduling)  
   1.1 [Modules](./TUTORIAL.md#11-modules)  
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.1.1 [Primitives](./TUTORIAL.md#111-primitives)  
@@ -118,14 +118,12 @@ CPython V3.8 and above.
 
 ## 0.1 Installing uasyncio
 
-Firmware builds after V1.13 incorporate `uasyncio`. The version may be checked
-by issuing at the REPL:
-```python
-import uasyncio
-print(uasyncio.__version__)
-```
-Version 3 will print a version number. Older versions will throw an exception:
-installing updated firmware is highly recommended.
+Firmware builds after V1.13 incorporate `uasyncio`. Check the firmware version
+number reported on boot and upgrade if necessary.
+
+This repository has optional unofficial primitives and extensions. To install
+these the repo should be cloned to a PC. The directories `primitives` and
+`threadsafe` (with contents) should be copied to the hardware plaform.
 
 ###### [Main README](../README.md)
 

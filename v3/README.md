@@ -19,8 +19,8 @@ and incremental encoders.
 is a guide to interfacing interrupts to `uasyncio`.
 
 [Event-based programming](./docs/EVENTS.md) is a guide to a way of writing
-applications and device drivers which largely does away with callbacks. Assumes
-some knowledge of `uasyncio`.
+applications and device drivers which largely does away with callbacks. The doc
+assumes some knowledge of `uasyncio`.
 
 [Threading](./docs/THREADING.md) is a guide to the use of multi-threaded and
 multi-core programming. Code is offered to enable a `uasyncio` application to
@@ -51,12 +51,24 @@ Documented in the [tutorial](./docs/TUTORIAL.md).
 Documented in the [tutorial](./docs/TUTORIAL.md). Comprises:
  * Implementations of unsupported CPython primitives including `barrier`,
  `queue` and others.
- * An additional primitive `Message`.
  * A software retriggerable monostable timer class `Delay_ms`, similar to a
  watchdog.
  * Two primitives enabling waiting on groups of `Event` instances.
 
-### 1.3.3 Asynchronous device drivers
+### 1.3.3 Threadsafe primitives
+
+[This doc](https://github.com/peterhinch/micropython-async/blob/master/v3/docs/THREADING.md)
+describes issues linking `uasyncio` code with code running on other cores or in
+other threads. The `threadsafe` directory provides:
+
+ * A threadsafe primitive `Message`.
+ * `ThreadSafeQueue`
+ * `ThreadSafeEvent` Extends `ThreadsafeFlag`.
+
+The doc also provides code to enable `uasyncio` to handle blocking functions
+using threading.
+
+### 1.3.4 Asynchronous device drivers
 
 These are documented
 [here](https://github.com/peterhinch/micropython-async/blob/master/v3/docs/DRIVERS.md):
@@ -64,13 +76,13 @@ These are documented
  * Drivers for ADC's
  * Drivers for incremental encoders.
 
-### 1.3.4 A scheduler
+### 1.3.5 A scheduler
 
 This [lightweight scheduler](./docs/SCHEDULE.md) enables tasks to be scheduled
 at future times. These can be assigned in a flexible way: a task might run at
 4.10am on Monday and Friday if there's no "r" in the month.
 
-### 1.3.5 Asynchronous interfaces  
+### 1.3.6 Asynchronous interfaces  
 
 These device drivers are intended as examples of asynchronous code which are
 useful in their own right:
