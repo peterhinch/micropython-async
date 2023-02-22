@@ -36,8 +36,9 @@ is fixed.
  3. [Synchronisation](./THREADING.md#3-synchronisation)  
   3.1 [Threadsafe Event](./THREADING.md#31-threadsafe-event)  
   3.2 [Message](./THREADING.md#32-message) A threadsafe event with data payload.  
- 4. [Taming blocking functions](./THREADING.md#4-taming-blocking-functions)  
- 5. [Glossary](./THREADING.md#5-glossary) Terminology of realtime coding.  
+ 4. [Taming blocking functions](./THREADING.md#4-taming-blocking-functions) Enabling uasyncio to handle blocking code.  
+ 5. [Sharing a stream device](./THREADING.md#4-sharing-a-stream-device)  
+ 6. [Glossary](./THREADING.md#5-glossary) Terminology of realtime coding.  
 
 # 1. Introduction
 
@@ -676,7 +677,33 @@ asyncio.run(main())
 ```
 ###### [Contents](./THREADING.md#contents)
 
-# 5. Glossary
+# 5. Sharing a stream device
+
+Typical stream devices are a UART or a socket. These are typically employed to
+exchange multi-byte messages between applications running on different systems.
+
+When sharing a stream device between concurrent functions, similar issues arise
+whether the functions are `uasyncio` tasks or code with hard concurrency. In
+the case of transmission of multi-character messages a lock must be used to
+ensure that transmitted characters cannot become interleaved.
+
+In theory a lock can also be used for reception, but in practice it is rarely
+feasible. Synchronising multiple receiving tasks is hard. This is because the
+receiving processes seldom have precise control over the timing of the
+(remote) transmitting device. It is therefore hard to determine when to
+initiate each receiving process. If there is a requirement to handle
+communication errors, the difficulties multiply.
+
+The usual approach is to design the message format to enable the intended
+receiving process to be determined from the message contents. The application
+has a single receiving task. This parses incoming messages and routes them to
+the appropriate destination. Routing may be done by the data sharing mechanisms
+discussed above. Error handling may be done by the receiving process or passed
+on to the message destination.
+
+###### [Contents](./THREADING.md#contents)
+
+# 6. Glossary
 
 ### ISR
 
