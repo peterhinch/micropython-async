@@ -37,8 +37,8 @@ is fixed.
   3.1 [Threadsafe Event](./THREADING.md#31-threadsafe-event)  
   3.2 [Message](./THREADING.md#32-message) A threadsafe event with data payload.  
  4. [Taming blocking functions](./THREADING.md#4-taming-blocking-functions) Enabling uasyncio to handle blocking code.  
- 5. [Sharing a stream device](./THREADING.md#4-sharing-a-stream-device)  
- 6. [Glossary](./THREADING.md#5-glossary) Terminology of realtime coding.  
+ 5. [Sharing a stream device](./THREADING.md#5-sharing-a-stream-device)  
+ 6. [Glossary](./THREADING.md#6-glossary) Terminology of realtime coding.  
 
 # 1. Introduction
 
