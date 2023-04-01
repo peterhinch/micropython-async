@@ -1,6 +1,6 @@
 # cron.py
 
-# Copyright (c) 2020 Peter Hinch
+# Copyright (c) 2020-2023 Peter Hinch
 # Released under the MIT License (MIT) - see LICENSE file
 
 from time import mktime, localtime
@@ -93,7 +93,7 @@ def cron(*, secs=0, mins=0, hrs=3, mday=None, month=None, wday=None):
                 md += toff % 7  # mktime handles md > 31 but month may increment
                 tev = mktime((yr, mo, md, h, m, s, wd, 0))
                 cur_mo = mo
-                _, mo = localtime(tev)[:2]  # get month
+                mo = localtime(tev)[1]  # get month
                 if mo != cur_mo:
                     toff = do_arg(month, mo)  # Get next valid month
                     mo += toff  # Offset is relative to new, incremented month
