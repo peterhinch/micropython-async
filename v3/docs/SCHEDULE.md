@@ -10,11 +10,13 @@
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.2.2 [Time causing month rollover](./SCHEDULE.md#422-time-causing-month-rollover)  
   4.3 [Limitations](./SCHEDULE.md#43-limitations)  
   4.4 [The Unix build](./SCHEDULE.md#44-the-unix-build)  
+  4.5 [Initialisation](./SCHEDULE.md#45-initialisation)__
  5. [The cron object](./SCHEDULE.md#5-the-cron-object) For hackers and synchronous coders  
   5.1 [The time to an event](./SCHEDULE.md#51-the-time-to-an-event)  
   5.2 [How it works](./SCHEDULE.md#52-how-it-works)  
  6. [Hardware timing limitations](./SCHEDULE.md#6-hardware-timing-limitations)  
- 7. [Use in synchronous code](./SCHEDULE.md#7-use-in-synchronous-code) If you really must  
+ 7. [Use in synchronous code](./SCHEDULE.md#7-use-in-synchronous-code) If you really must.  
+ 8. [The simulate script](./SCHEDULE.md#8-the-simulate-script) Rapidly test sequences.  
 
 ##### [Tutorial](./TUTORIAL.md#contents)  
 ##### [Main V3 README](../README.md)
@@ -37,7 +39,7 @@ adapt the example code. It can be used in synchronous code and an example is
 provided.
 
 It is cross-platform and has been tested on Pyboard, Pyboard D, ESP8266, ESP32
-and the Unix build (the latter is subject to a minor local time issue).
+and the Unix build.
 
 # 2. Overview
 
@@ -59,8 +61,8 @@ instances must explicitly be created.
 # 3. Installation
 
 Copy the `sched` directory and contents to the target's filesystem. It requires
-`uasyncio` V3 which is included in daily firmware builds. It will be in release
-builds after V1.12.
+`uasyncio` V3 which is included in daily firmware builds and in release builds
+after V1.12.
 
 To install to an SD card using [rshell](https://github.com/dhylands/rshell)
 move to the parent directory of `sched` and issue:
@@ -76,11 +78,12 @@ The following files are installed in the `sched` directory.
  4. `asynctest.py` Demo of asynchronous scheduling.
  5. `synctest.py` Synchronous scheduling demo. For `uasyncio` phobics only.
  6. `crontest.py` A test for `cron.py` code.
- 7. `__init__.py` Empty file for Python package.
+ 7. `simulate.py` A simple script which may be adapted to prove that a `cron`
+ instance will behave as expected. See [The simulate script](./SCHEDULE.md#8-the-simulate-script).
+ 8. `__init__.py` Empty file for Python package.
 
 The `crontest` script is only of interest to those wishing to adapt `cron.py`.
-To run error-free a bare metal target should be used for the reason discussed
-[here](./SCHEDULE.md#46-the-unix-build).
+It will run on any MicroPython target.
 
 # 4. The schedule function
 
@@ -158,7 +161,8 @@ The args may be of the following types.
  3. An object supporting the Python iterator protocol and iterating over
  integers. For example `hrs=(3, 17)` will cause events to occur at 3am and 5pm,
  `wday=range(0, 5)` specifies weekdays. Tuples, lists, ranges or sets may be
- passed.
+ passed. If using this feature please see
+ [Initialisation](./SCHEDULE.md#45-initialisation).
 
 Legal integer values are listed above. Basic validation is done as soon as
 `schedule` is run.
@@ -236,18 +240,34 @@ Asynchronous use requires `uasyncio` V3, so ensure this is installed on the
 Linux target.
 
 The synchronous and asynchronous demos run under the Unix build. The module is
-usable on Linux provided the daylight saving time (DST) constraints below are
-met.
-
-A consequence of DST is that there are impossible times when clocks go forward
+usable on Linux provided the daylight saving time (DST) constraints are met. A
+consequence of DST is that there are impossible times when clocks go forward
 and duplicates when they go back. Scheduling those times will fail. A solution
 is to avoid scheduling the times in your region where this occurs (01.00.00 to
 02.00.00 in March and October here).
 
-The `crontest.py` test program produces failures under Unix. These result from
-the fact that the Unix `localtime` function handles daylight saving time. The
-purpose of `crontest.py` is to check `cron` code. It should be run on bare
-metal targets.
+## 4.5 Initialisation
+
+Where a time specifier is an iterator (e.g. `mins=range(0, 60, 15)`) and there
+are additional constraints (e.g. `hrs=3`) it may be necessary to delay the
+start. The problem is specific to scheduling a sequence at a future time, and
+there is a simple solution.
+
+A `cron` object searches forwards from the current time. Assume the above case.
+If the code start at 7:05 it picks the first later minute in the `range`,
+i.e. `mins=15`, then picks the hour. This means that the first trigger occurs
+at 3:15. Subsequent behaviour will be correct, but the first trigger would be
+expected at 3:00. The solution is to delay start until the minutes value is in
+the range`45 < mins <= 59`. The `hours` value is immaterial but a reasonable
+general solution is to delay until just before the first expected callback:
+
+```python
+async def run():
+    asyncio.create_task(schedule(payload, args, hrs=3, mins=range(0, 60, 15)))
+
+async def delay_start():
+    asyncio.create_task(schedule(run, hrs=2, mins=55, times=1))
+```
 
 ##### [Top](./SCHEDULE.md#0-contents)
 
@@ -300,7 +320,7 @@ example).
 
 # 6. Hardware timing limitations
 
-The code has been tested on Pyboard 1.x, Pyboard D, ESP32 and ESP8266. All
+The code has been tested on Pyboard 1.x, Pyboard D, RP2, ESP32 and ESP8266. All
 except ESP8266 have good timing performance. Pyboards can be calibrated to
 timepiece precision using a cheap DS3231 and
 [this utility](https://github.com/peterhinch/micropython-samples/tree/master/DS3231).
@@ -376,5 +396,31 @@ is also more versatile because the advanced features of `uasyncio` are
 available to the application including cancellation of scheduled tasks. The
 above code is incompatible with `uasyncio` because of the blocking calls to
 `time.sleep()`.
+
+If scheduling a sequence to run at a future time please see 
+[Initialisation](./SCHEDULE.md#45-initialisation).
+
+##### [Top](./SCHEDULE.md#0-contents)
+
+# 8. The simulate script
+
+This enables the behaviour of sets of args to `schedule` to be rapidly checked.
+The `sim` function should be adapted to reflect the application specifics. The
+default is:
+```python
+def sim(*args):
+    set_time(*args)
+    cs = cron(hrs = 0, mins = 59)
+    wait(cs)
+    cn = cron(wday=(0, 5), hrs=(1, 10), mins = range(0, 60, 15))
+    for _ in range(10):
+        wait(cn)
+        print("Run payload.\n")
+
+sim(2023, 3, 29, 15, 20, 0)  # Start time: year, month, mday, hrs, mins, secs
+```
+The `wait` function returns immediately, but prints the length of the delay and
+the value of system time when the delay ends. In this instance the start of a
+sequence is delayed to ensure that the first trigger occurs at 01:00.
 
 ##### [Top](./SCHEDULE.md#0-contents)
