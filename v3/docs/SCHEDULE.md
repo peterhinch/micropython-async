@@ -10,13 +10,17 @@
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.2.2 [Time causing month rollover](./SCHEDULE.md#422-time-causing-month-rollover)  
   4.3 [Limitations](./SCHEDULE.md#43-limitations)  
   4.4 [The Unix build](./SCHEDULE.md#44-the-unix-build)  
-  4.5 [Initialisation](./SCHEDULE.md#45-initialisation)__
  5. [The cron object](./SCHEDULE.md#5-the-cron-object) For hackers and synchronous coders  
   5.1 [The time to an event](./SCHEDULE.md#51-the-time-to-an-event)  
   5.2 [How it works](./SCHEDULE.md#52-how-it-works)  
  6. [Hardware timing limitations](./SCHEDULE.md#6-hardware-timing-limitations)  
  7. [Use in synchronous code](./SCHEDULE.md#7-use-in-synchronous-code) If you really must.  
+  7.1 [Initialisation](./SCHEDULE.md#71-initialisation)__
  8. [The simulate script](./SCHEDULE.md#8-the-simulate-script) Rapidly test sequences.  
+
+Release note:  
+3rd April 2023 Fix issue #100. Where an iterable is passed to `secs`, triggers
+must now be at least 10s apart (formerly 2s).
 
 ##### [Tutorial](./TUTORIAL.md#contents)  
 ##### [Main V3 README](../README.md)
@@ -161,16 +165,20 @@ The args may be of the following types.
  3. An object supporting the Python iterator protocol and iterating over
  integers. For example `hrs=(3, 17)` will cause events to occur at 3am and 5pm,
  `wday=range(0, 5)` specifies weekdays. Tuples, lists, ranges or sets may be
- passed. If using this feature please see
- [Initialisation](./SCHEDULE.md#45-initialisation).
+ passed.
 
 Legal integer values are listed above. Basic validation is done as soon as
 `schedule` is run.
 
 Note the implications of the `None` wildcard. Setting `mins=None` will schedule
 the event to occur on every minute (equivalent to `*` in a Unix cron table).
-Setting `secs=None` or consecutive seconds values will cause a `ValueError` -
-events must be at least two seconds apart.
+Setting `secs=None` will cause a `ValueError`.
+
+Passing an iterable to `secs` is not recommended: this library is intended for
+scheduling relatively long duration events. For rapid sequencing, schedule a
+coroutine which awaits `uasyncio` `sleep` or `sleep_ms` routines. If an
+iterable is passed, triggers must be at least ten seconds apart or a
+`ValueError` will result.
 
 Default values schedule an event every day at 03.00.00.
 
@@ -245,29 +253,6 @@ consequence of DST is that there are impossible times when clocks go forward
 and duplicates when they go back. Scheduling those times will fail. A solution
 is to avoid scheduling the times in your region where this occurs (01.00.00 to
 02.00.00 in March and October here).
-
-## 4.5 Initialisation
-
-Where a time specifier is an iterator (e.g. `mins=range(0, 60, 15)`) and there
-are additional constraints (e.g. `hrs=3`) it may be necessary to delay the
-start. The problem is specific to scheduling a sequence at a future time, and
-there is a simple solution.
-
-A `cron` object searches forwards from the current time. Assume the above case.
-If the code start at 7:05 it picks the first later minute in the `range`,
-i.e. `mins=15`, then picks the hour. This means that the first trigger occurs
-at 3:15. Subsequent behaviour will be correct, but the first trigger would be
-expected at 3:00. The solution is to delay start until the minutes value is in
-the range`45 < mins <= 59`. The `hours` value is immaterial but a reasonable
-general solution is to delay until just before the first expected callback:
-
-```python
-async def run():
-    asyncio.create_task(schedule(payload, args, hrs=3, mins=range(0, 60, 15)))
-
-async def delay_start():
-    asyncio.create_task(schedule(run, hrs=2, mins=55, times=1))
-```
 
 ##### [Top](./SCHEDULE.md#0-contents)
 
@@ -397,8 +382,38 @@ available to the application including cancellation of scheduled tasks. The
 above code is incompatible with `uasyncio` because of the blocking calls to
 `time.sleep()`.
 
-If scheduling a sequence to run at a future time please see 
-[Initialisation](./SCHEDULE.md#45-initialisation).
+## 7.1 Initialisation
+
+Where a time specifier is an iterator (e.g. `mins=range(0, 60, 15)`) and there
+are additional constraints (e.g. `hrs=3`) it may be necessary to delay the
+start. The problem is specific to scheduling a sequence at a future time, and
+there is a simple solution (which the asynchronous version implements
+transparently).
+
+A `cron` object searches forwards from the current time. Assume the above case.
+If the code start at 7:05 it picks the first later minute in the `range`,
+i.e. `mins=15`, then picks the hour. This means that the first trigger occurs
+at 3:15. Subsequent behaviour will be correct, but the first trigger would be
+expected at 3:00. The solution is to delay start until the minutes value is in
+the range`45 < mins <= 59`. The general solution is to delay until just before
+the first expected callback:
+
+```python
+def wait_for(**kwargs):
+    tim = mktime(localtime()[:3] + (0, 0, 0, 0, 0))  # Midnight last night
+    now = round(time())
+    scron = cron(**kwargs)  # Cron instance for search.
+    while tim < now:  # Find first event in sequence
+        tim += scron(tim) + 2
+    twait = tim - now - 600
+    if twait > 0:
+        sleep(twait)
+    tcron = cron(**kwargs)
+    while True:
+        now = round(time())
+        tw = tcron(now)
+        sleep(tw + 2)
+```
 
 ##### [Top](./SCHEDULE.md#0-contents)
 

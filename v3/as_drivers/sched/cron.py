@@ -3,6 +3,11 @@
 # Copyright (c) 2020-2023 Peter Hinch
 # Released under the MIT License (MIT) - see LICENSE file
 
+# A cron is instantiated with sequence specifier args. An instance accepts an integer time
+# value (in secs since epoch) and returns the number of seconds to wait for a matching time.
+# It holds no state.
+# See docs for restrictions and limitations.
+
 from time import mktime, localtime
 # Validation
 _valid = ((0, 59, 'secs'), (0, 59, 'mins'), (0, 23, 'hrs'),
@@ -28,8 +33,8 @@ def cron(*, secs=0, mins=0, hrs=3, mday=None, month=None, wday=None):
         raise ValueError('Invalid None value for secs')
     if not isinstance(secs, int) and len(secs) > 1:  # It's an iterable
         ss = sorted(secs)
-        if min((a[1] - a[0] for a in zip(ss, ss[1:]))) < 2:
-            raise ValueError("Can't have consecutive seconds.", last, x)
+        if min((a[1] - a[0] for a in zip(ss, ss[1:]))) < 10:
+            raise ValueError("Seconds values must be >= 10s apart.")
     args = (secs, mins, hrs, mday, month, wday)  # Validation for all args
     valid = iter(_valid)
     vestr = 'Argument {} out of range'
