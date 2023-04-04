@@ -96,7 +96,8 @@ be specified to run forever, once only or a fixed number of times. `schedule`
 is an asynchronous function.
 
 Positional args:
- 1. `func` The callable (callback or coroutine) to run.
+ 1. `func` The callable (callback or coroutine) to run. Alternatively an
+ `Event` may be passed (see below).
  2. Any further positional args are passed to the callable.
 
 Keyword-only args. Args 1..6 are
@@ -154,6 +155,30 @@ try:
 finally:
     _ = asyncio.new_event_loop()
 ```
+The event-based interface can be simpler than using callables:
+```python
+import uasyncio as asyncio
+from sched.sched import schedule
+from time import localtime
+
+async def main():
+    print("Asynchronous test running...")
+    evt = asyncio.Event()
+    asyncio.create_task(schedule(evt, hrs=10, mins=range(0, 60, 4)))
+    while True:
+        await evt.wait()  # Multiple tasks may wait on an Event
+        evt.clear()  # It must be cleared.
+        yr, mo, md, h, m, s, wd = localtime()[:7]
+        print(f"Event {h:02d}:{m:02d}:{s:02d} on {md:02d}/{mo:02d}/{yr}")
+
+try:
+    asyncio.run(main())
+finally:
+    _ = asyncio.new_event_loop()
+```
+See [tutorial](https://github.com/peterhinch/micropython-async/blob/master/v3/docs/TUTORIAL.md#32-event).
+Also [this doc](https://github.com/peterhinch/micropython-async/blob/master/v3/docs/EVENTS.md)
+for a discussion of event-based programming.
 
 ##### [Top](./SCHEDULE.md#0-contents)
 
@@ -262,9 +287,10 @@ This is the core of the scheduler. Users of `uasyncio` do not need to concern
 themseleves with it. It is documented for those wishing to modify the code and
 for those wanting to perform scheduling in synchronous code.
 
-It is a closure whose creation accepts a time specification for future events.
-Each subsequent call is passed the current time and returns the number of
-seconds to wait for the next event to occur.
+It is a closure whose creation accepts a time specification for future
+triggers. When called it is passed a time value in seconds since the epoch. It
+returns the number of seconds to wait for the next trigger to occur. It stores
+no state.
 
 It takes the following keyword-only args. A flexible set of data types are
 accepted namely [time specifiers](./SCHEDULE.md#41-time-specifiers). Valid
@@ -404,14 +430,14 @@ def wait_for(**kwargs):
     now = round(time())
     scron = cron(**kwargs)  # Cron instance for search.
     while tim < now:  # Find first event in sequence
-        tim += scron(tim) + 2
-    twait = tim - now - 600
+        # Defensive. scron should never return 0, but if it did the loop would never quit
+        tim += max(scron(tim), 1)
+    twait = tim - now - 2  # Wait until 2 secs before first trigger
     if twait > 0:
         sleep(twait)
-    tcron = cron(**kwargs)
     while True:
         now = round(time())
-        tw = tcron(now)
+        tw = scron(now)
         sleep(tw + 2)
 ```
 

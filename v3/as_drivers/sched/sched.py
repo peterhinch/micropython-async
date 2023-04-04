@@ -31,7 +31,10 @@ async def schedule(func, *args, times=None, **kwargs):
     while times is None or times > 0:
         tw = fcron(round(time()))  # Time to wait (s)
         await long_sleep(tw)
-        res = launch(func, args)
+        if isinstance(func, asyncio.Event):
+            func.set()
+        else:
+            res = launch(func, args)
         if times is not None:
             times -= 1
         await asyncio.sleep_ms(1200)  # ensure we're into next second
