@@ -1,6 +1,6 @@
 # pushbutton.py
 
-# Copyright (c) 2018-2022 Peter Hinch
+# Copyright (c) 2018-2023 Peter Hinch
 # Released under the MIT License (MIT) - see LICENSE file
 
 import uasyncio as asyncio
@@ -48,7 +48,9 @@ class Pushbutton:
         if state:  # Button pressed: launch pressed func
             if self._tf:
                 launch(self._tf, self._ta)
-            if self._ld:  # There's a long func: start long press delay
+            # If there's a long func: start long press delay if no double click running
+            # (case where a short click is rapidly followed by a long one, iss 101).
+            if self._ld and not (self._df and self._dd()):
                 self._ld.trigger(Pushbutton.long_press_ms)
             if self._df:
                 if self._dd():  # Second click: timer running
