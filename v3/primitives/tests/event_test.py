@@ -108,7 +108,7 @@ def expect(v, e):
     if v == e:
         print("Pass")
     else:
-        print(f"Fail: expected {e} got {v}")
+        print(f"Fail: expected 0x{e:04x} got 0x{v:04x}")
         fail = True
 
 async def btest(btn, verbose, supp):
@@ -138,6 +138,16 @@ async def btest(btn, verbose, supp):
     await pulse()
     await asyncio.sleep_ms(100)
     await pulse()
+    await asyncio.sleep(4)
+    verbose and print("Double press", hex(val))
+    exp = 0x48 if supp else 0x52
+    expect(val, exp)
+    val = 0
+    await asyncio.sleep(1)
+    print("Start double press, 2nd press long, test")
+    await pulse()
+    await asyncio.sleep_ms(100)
+    await pulse(2000)
     await asyncio.sleep(4)
     verbose and print("Double press", hex(val))
     exp = 0x48 if supp else 0x52

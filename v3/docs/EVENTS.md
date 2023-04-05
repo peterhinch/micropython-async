@@ -493,8 +493,10 @@ Attributes of `RingbufQueue`:
  4. It has an "overwrite oldest data" synchronous write mode.
 
 Constructor mandatory arg:
- * `buf` Buffer for the queue, e.g. list `[0 for _ in range(20)]` or array. A
- buffer of size `N` can hold a maximum of `N-1` items.
+ * `buf` Buffer for the queue, e.g. list, bytearray or array. If an integer is
+ passed, a list of this size is created. A  buffer of size `N` can hold a
+ maximum of `N-1` items. Note that, where items on the queue are suitably
+ limited, bytearrays or arrays are more efficient than lists.
 
 Synchronous methods (immediate return):  
  * `qsize` No arg. Returns the number of items in the queue.

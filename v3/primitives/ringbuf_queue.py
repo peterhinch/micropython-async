@@ -1,6 +1,6 @@
 # ringbuf_queue.py Provides RingbufQueue class
 
-# Copyright (c) 2022 Peter Hinch
+# Copyright (c) 2022-2023 Peter Hinch
 # Released under the MIT License (MIT) - see LICENSE file
 
 # API differs from CPython
@@ -13,7 +13,7 @@ import uasyncio as asyncio
 
 class RingbufQueue:  # MicroPython optimised
     def __init__(self, buf):
-        self._q = buf
+        self._q = [0 for _ in range(buf)] if isinstance(buf, int) else buf
         self._size = len(buf)
         self._wi = 0
         self._ri = 0

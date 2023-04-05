@@ -123,7 +123,7 @@ class EButton:
     def _pf(self):  # Button press
         if not self._supp:
             self.press.set()  # User event
-        if not self._ltim():  # Don't retrigger long timer if already running
+        if not (self._ltim() or self._dtim()):  # Don't retrigger long timer if already running
             self._ltim.trigger()
         if self._dtim():  # Press occurred while _dtim is running
             self.double.set()  # User event
