@@ -123,13 +123,12 @@ class EButton:
     def _pf(self):  # Button press
         if not self._supp:
             self.press.set()  # User event
-        if not (self._ltim() or self._dtim()):  # Don't retrigger long timer if already running
-            self._ltim.trigger()
         if self._dtim():  # Press occurred while _dtim is running
             self.double.set()  # User event
             self._dtim.stop()  # _dtim's Event is only used if suppress
-        else:
+        else:  # Single press or 1st of a double pair.
             self._dtim.trigger()
+            self._ltim.trigger()  # Trigger long timer on 1st press of a double pair
 
     def _rf(self):  # Button release
         self._ltim.stop()
@@ -142,11 +141,12 @@ class EButton:
             self._ltim.clear()  # Clear the event
             self.long.set()  # User event
             
-    async def _dtf(self):  # Double timeout (runs if suppress is set)
+    # Runs if suppress set. Delay response to single press until sure it is a single short pulse.
+    async def _dtf(self):
         while True:
-            await self._dtim.wait()
+            await self._dtim.wait()  # Double click has timed out
             self._dtim.clear()  # Clear the event
-            if not self._ltim():  # Button was released
+            if not self._ltim():  # Button was released: not a long press.
                 self.press.set()  # User events
                 self.release.set()
 

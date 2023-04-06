@@ -116,7 +116,7 @@ async def btest(btn, verbose, supp):
     val = 0
     events = btn.press, btn.release, btn.double, btn.long
     tasks = []
-    for n, evt in enumerate(events):
+    for n, evt in enumerate(events):  # Each event has a 3-bit event counter
         tasks.append(asyncio.create_task(monitor(evt, 1 << 3 * n, verbose)))
     await asyncio.sleep(1)
     print("Start short press test")
@@ -124,6 +124,7 @@ async def btest(btn, verbose, supp):
     await asyncio.sleep(1)
     verbose and print("Test of short press", hex(val))
     expect(val, 0x09)
+
     val = 0
     await asyncio.sleep(1)
     print("Start long press test")
@@ -132,6 +133,7 @@ async def btest(btn, verbose, supp):
     verbose and print("Long press", hex(val))
     exp = 0x208 if supp else 0x209
     expect(val, exp)
+
     val = 0
     await asyncio.sleep(1)
     print("Start double press test")
@@ -142,6 +144,7 @@ async def btest(btn, verbose, supp):
     verbose and print("Double press", hex(val))
     exp = 0x48 if supp else 0x52
     expect(val, exp)
+
     val = 0
     await asyncio.sleep(1)
     print("Start double press, 2nd press long, test")
@@ -163,9 +166,11 @@ async def stest(sw, verbose):
     for n, evt in enumerate(events):
         tasks.append(asyncio.create_task(monitor(evt, 1 << 3 * n, verbose)))
     asyncio.create_task(pulse(2000))
+    print("Switch closure")
     await asyncio.sleep(1)
     expect(val, 0x08)
     await asyncio.sleep(4)  # Wait for any spurious events
+    print("Switch open")
     verbose and print("Switch close and open", hex(val))
     expect(val, 0x09)
     for task in tasks:
@@ -177,12 +182,15 @@ async def switch_test(pol, verbose):
     pin = Pin('Y1', Pin.IN)
     pout = Pin('Y2', Pin.OUT, value=pol)
     print("Testing EButton.")
-    print("suppress == False")
+    print("Testing with suppress == False")
     btn = EButton(pin)
     await btest(btn, verbose, False)
-    print("suppress == True")
+    print()
+    print("Testing with suppress == True")
+    btn.deinit()
     btn = EButton(pin, suppress=True)
     await btest(btn, verbose, True)
+    print()
     print("Testing ESwitch")
     sw = ESwitch(pin, pol)
     await stest(sw, verbose)
