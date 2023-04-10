@@ -4,8 +4,10 @@ This repository offers a suite of asynchronous device drivers for GPS devices
 which communicate with the host via a UART. GPS [NMEA-0183] sentence parsing is
 based on this excellent library [micropyGPS].
 
-The code in this V3 repo has been ported to uasyncio V3. Some modules can run
-under CPython: doing so will require Python V3.8 or later.
+The code requires uasyncio V3. Some modules can run under CPython: doing so
+will require Python V3.8 or later.
+
+The main modules have been tested on Pyboards and RP2 (Pico and Pico W).
 
 ###### [Tutorial](./TUTORIAL.md#contents)  
 ###### [Main V3 README](../README.md)
@@ -68,18 +70,21 @@ to access data such as position, altitude, course, speed, time and date.
 These notes are for the Adafruit Ultimate GPS Breakout. It may be run from 3.3V
 or 5V. If running the Pyboard from USB, GPS Vin may be wired to Pyboard V+. If
 the Pyboard is run from a voltage >5V the Pyboard 3V3 pin should be used.
+Testing on Pico and Pico W used the 3.3V output to power the GPS module.
 
-| GPS |  Pyboard   | Optional |
-|:---:|:----------:|:--------:|
-| Vin | V+ or 3V3  |          |
-| Gnd | Gnd        |          |
-| PPS | X3         |    Y     |
-| Tx  | X2 (U4 rx) |          |
-| Rx  | X1 (U4 tx) |    Y     |
+| GPS |  Pyboard   | RP2 | Optional |
+|:----|:-----------|:----|:--------:|
+| Vin | V+ or 3V3  | 3V3 |          |
+| Gnd | Gnd        | Gnd |          |
+| PPS | X3         | 2   |    Y     |
+| Tx  | X2 (U4 rx) | 1   |          |
+| Rx  | X1 (U4 tx) | 0   |    Y     |
 
-This is based on UART 4 as used in the test programs; any UART may be used. The
-UART Tx-GPS Rx connection is only necessary if using the read/write driver. The
-PPS connection is required only if using the timing driver `as_tGPS.py`. Any
+Pyboard connections are based on UART 4 as used in the test programs; any UART
+may be used. RP2 connections assume UART 0.
+
+The UART Tx-GPS Rx connection is only necessary if using the read/write driver.
+The PPS connection is required only if using the timing driver `as_tGPS.py`. Any
 pin may be used.
 
 On the Pyboard D the 3.3V output is switched. Enable it with the following
@@ -113,6 +118,7 @@ In the example below a UART is instantiated and an `AS_GPS` instance created.
 A callback is specified which will run each time a valid fix is acquired.
 The test runs for 60 seconds once data has been received.
 
+Pyboard:  
 ```python
 import uasyncio as asyncio
 import as_drivers.as_GPS as as_GPS
@@ -121,6 +127,25 @@ def callback(gps, *_):  # Runs for each valid fix
     print(gps.latitude(), gps.longitude(), gps.altitude)
 
 uart = UART(4, 9600)
+sreader = asyncio.StreamReader(uart)  # Create a StreamReader
+gps = as_GPS.AS_GPS(sreader, fix_cb=callback)  # Instantiate GPS
+
+async def test():
+    print('waiting for GPS data')
+    await gps.data_received(position=True, altitude=True)
+    await asyncio.sleep(60)  # Run for one minute
+
+asyncio.run(test())
+```
+RP2:  
+```python
+import uasyncio as asyncio
+import as_drivers.as_GPS as as_GPS
+from machine import UART, Pin
+def callback(gps, *_):  # Runs for each valid fix
+    print(gps.latitude(), gps.longitude(), gps.altitude)
+
+uart = UART(0, 9600, tx=Pin(0), rx=Pin(1), timeout=5000, timeout_char=5000)
 sreader = asyncio.StreamReader(uart)  # Create a StreamReader
 gps = as_GPS.AS_GPS(sreader, fix_cb=callback)  # Instantiate GPS
 
@@ -358,7 +383,7 @@ The following are counts since instantiation.
 
  * `utc` (property) [hrs: int, mins: int, secs: int] UTC time e.g.
  [23, 3, 58]. Note the integer seconds value. The MTK3339 chip provides a float
- buts its value is always an integer. To achieve accurate subsecond timing see
+ but its value is always an integer. To achieve accurate subsecond timing see
  [section 6](./GPS.md#6-using-gps-for-accurate-timing).
  * `local_time` (property) [hrs: int, mins: int, secs: int] Local time.
  * `date` (property) [day: int, month: int, year: int] e.g. [23, 3, 18]
@@ -447,9 +472,13 @@ This reduces to 2s the interval at which the GPS sends messages:
 ```python
 import uasyncio as asyncio
 from as_drivers.as_GPS.as_rwGPS import GPS
-from machine import UART
-
-uart = UART(4, 9600)
+# Pyboard
+#from machine import UART
+#uart = UART(4, 9600)
+# RP2
+from machine import UART, Pin
+uart = UART(0, 9600, tx=Pin(0), rx=Pin(1), timeout=5000, timeout_char=5000)
+#
 sreader = asyncio.StreamReader(uart)  # Create a StreamReader
 swriter = asyncio.StreamWriter(uart, {})
 gps = GPS(sreader, swriter)  # Instantiate GPS
@@ -633,6 +662,7 @@ test.usec()
 
 ## 6.2 Usage example
 
+Pyboard:  
 ```python
 import uasyncio as asyncio
 import pyb
@@ -651,6 +681,30 @@ async def test():
     print('Waiting for signal.')
     await gps_tim.ready()  # Wait for GPS to get a signal
     await gps_tim.set_rtc()  # Set RTC from GPS
+    while True:
+        await asyncio.sleep(1)
+        # In a precision app, get the time list without allocation:
+        t = gps_tim.get_t_split()
+        print(fstr.format(gps_tim.get_ms(), t[0], t[1], t[2], t[3]))
+
+asyncio.run(test())
+```
+RP2 (note set_rtc function is Pyboard specific)  
+```python
+import uasyncio as asyncio
+from machine import UART, Pin
+import as_drivers.as_GPS.as_tGPS as as_tGPS
+
+async def test():
+    fstr = '{}ms Time: {:02d}:{:02d}:{:02d}:{:06d}'
+    uart = UART(0, 9600, tx=Pin(0), rx=Pin(1), rxbuf=200, timeout=5000, timeout_char=5000)
+    sreader = asyncio.StreamReader(uart)
+    pps_pin = Pin(2, Pin.IN)
+    gps_tim = as_tGPS.GPS_Timer(sreader, pps_pin, local_offset=1,
+                             fix_cb=lambda *_: print("fix"),
+                             pps_cb=lambda *_: print("pps"))
+    print('Waiting for signal.')
+    await gps_tim.ready()  # Wait for GPS to get a signal
     while True:
         await asyncio.sleep(1)
         # In a precision app, get the time list without allocation:
@@ -964,7 +1018,6 @@ These tests allow NMEA parsing to be verified in the absence of GPS hardware:
  * `astests_pyb.py` Test with synthetic data on UART. GPS hardware replaced by
  a loopback on UART 4. Requires a Pyboard.
 
-# 11 References
 
 [MicroPython]:https://micropython.org/
 [frozen module]:https://learn.adafruit.com/micropython-basics-loading-modules/frozen-modules
