@@ -69,19 +69,19 @@ class GPS(as_GPS.AS_GPS):
         if value not in (4800,9600,14400,19200,38400,57600,115200):
             raise ValueError('Invalid baudrate {:d}.'.format(value))
 
-        sentence = bytearray('$PMTK251,{:d}*00\r\n'.format(value))
+        sentence = bytearray('$PMTK251,{:d}*00\r\n'.format(value).encode())
         await self._send(sentence)
 
     async def update_interval(self, ms=1000):
         if ms < 100 or ms > 10000:
             raise ValueError('Invalid update interval {:d}ms.'.format(ms))
-        sentence = bytearray('$PMTK220,{:d}*00\r\n'.format(ms))
+        sentence = bytearray('$PMTK220,{:d}*00\r\n'.format(ms).encode())
         await self._send(sentence)
         self._update_ms = ms  # Save for timing driver
 
     async def enable(self, *, gll=0, rmc=1, vtg=1, gga=1, gsa=1, gsv=5, chan=0):
         fstr = '$PMTK314,{:d},{:d},{:d},{:d},{:d},{:d},0,0,0,0,0,0,0,0,0,0,0,0,{:d}*00\r\n'
-        sentence = bytearray(fstr.format(gll, rmc, vtg, gga, gsa, gsv, chan))
+        sentence = bytearray(fstr.format(gll, rmc, vtg, gga, gsa, gsv, chan).encode())
         await self._send(sentence)
 
     async def command(self, cmd):
