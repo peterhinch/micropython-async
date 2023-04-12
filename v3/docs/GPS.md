@@ -121,7 +121,7 @@ the UART and parses them as they arrive. Valid sentences cause local bound
 variables to be updated. These can be accessed at any time with minimal latency
 to access data such as position, altitude, course, speed, time and date.
 
-###### [Top](./GPS.md#1-as_gps)
+##### [Contents](./GPS.md#1-contents)
 
 # 2 Installation
 
@@ -170,7 +170,7 @@ Code samples will need adaptation for the serial port.
 
 The library requires `uasyncio` V3 on MicroPython and `asyncio` on CPython.
 
-###### [Top](./GPS.md#1-as_gps)
+##### [Contents](./GPS.md#1-contents)
 
 # 3 Basic Usage
 
@@ -253,7 +253,7 @@ Data is logged to `/sd/log.kml` at 10s intervals.
 import as_drivers.as_gps.log_kml
 ```
 
-###### [Top](./GPS.md#1-as_gps)
+##### [Contents](./GPS.md#1-contents)
 
 # 4. The AS_GPS Class read-only driver
 
@@ -494,7 +494,7 @@ was received `reparse` would see
  basic checks on received sentences. If GPS is linked directly to the target
  (rather than via long cables) these checks are arguably not neccessary.
 
-###### [Top](./GPS.md#1-as_gps)
+##### [Contents](./GPS.md#1-contents)
 
 # 5. The GPS class read-write driver
 
@@ -690,7 +690,7 @@ followed by any args specified in the constructor.
 Other `PMTK` messages are passed to the optional message callback as described
 [in section 5.3](GPS.md#53-gps-class-constructor).
 
-###### [Top](./GPS.md#1-as_gps)
+##### [Contents](./GPS.md#1-contents)
 
 # 6. Using GPS for accurate timing
 
@@ -921,7 +921,7 @@ runs.
  * GPGSV
  * GLGSV
 
-###### [Top](./GPS.md#1-as_gps)
+##### [Contents](./GPS.md#1-contents)
 
 # 8 Developer notes
 
@@ -966,7 +966,7 @@ or at the command line:
 $ micropython -m as_drivers.as_GPS.astests
 ```
 
-###### [Top](./GPS.md#1-as_gps)
+##### [Contents](./GPS.md#1-contents)
 
 # 9. Notes on timing
 
@@ -1039,7 +1039,7 @@ asynchronously to PPS: the interval will centre on 0.5s. The assumption is that
 inaccuracy in the `ticks_us` timer measured in μs is proportional to the
 duration over which it is measured.
 
-###### [Top](./GPS.md#1-as_gps)
+##### [Contents](./GPS.md#1-contents)
 
 # 10 Files
 
@@ -1090,4 +1090,4 @@ These tests allow NMEA parsing to be verified in the absence of GPS hardware:
 [Ultimate GPS Breakout]:http://www.adafruit.com/product/746
 [micropyGPS]:https://github.com/inmcm/micropyGPS.git
 
-###### [Top](./GPS.md#1-as_gps)
+##### [Contents](./GPS.md#1-contents)
