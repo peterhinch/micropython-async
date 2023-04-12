@@ -130,13 +130,13 @@ or 5V. If running the Pyboard from USB, GPS Vin may be wired to Pyboard V+. If
 the Pyboard is run from a voltage >5V the Pyboard 3V3 pin should be used.
 Testing on Pico and Pico W used the 3.3V output to power the GPS module.
 
-| GPS |  Pyboard   | RP2 | Optional |
-|:----|:-----------|:----|:--------:|
-| Vin | V+ or 3V3  | 3V3 |          |
-| Gnd | Gnd        | Gnd |          |
-| PPS | X3         | 2   |    Y     |
-| Tx  | X2 (U4 rx) | 1   |          |
-| Rx  | X1 (U4 tx) | 0   |    Y     |
+| GPS |  Pyboard   | RP2 | Optional | Use case                        |
+|:----|:-----------|:----|:--------:|:--------------------------------|
+| Vin | V+ or 3V3  | 3V3 |          |                                 |
+| Gnd | Gnd        | Gnd |          |                                 |
+| PPS | X3         | 2   |    Y     | Precision timing applications.  |
+| Tx  | X2 (U4 rx) | 1   |          |                                 |
+| Rx  | X1 (U4 tx) | 0   |    Y     | Changing GPS module parameters. |
 
 Pyboard connections are based on UART 4 as used in the test programs; any UART
 may be used. RP2 connections assume UART 0.
