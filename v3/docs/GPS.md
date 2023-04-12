@@ -1,4 +1,4 @@
-# 1 as_GPS
+# An asynchronous GPS receiver
 
 This repository offers a suite of asynchronous device drivers for GPS devices
 which communicate with the host via a UART. GPS [NMEA-0183] sentence parsing is
@@ -7,11 +7,71 @@ based on this excellent library [micropyGPS].
 The code requires uasyncio V3. Some modules can run under CPython: doing so
 will require Python V3.8 or later.
 
-The main modules have been tested on Pyboards and RP2 (Pico and Pico W).
+The main modules have been tested on Pyboards and RP2 (Pico and Pico W). Since
+the interface is a standard UART it is expected that the modules will work on
+other hosts. Some modules use GPS for precision timing: the accuracy of these
+may be reduced on some platforms.
 
 ###### [Tutorial](./TUTORIAL.md#contents)  
 ###### [Main V3 README](../README.md)
 
+# 1. Contents
+
+ 1. [Contents](./GPS.md#1-contents)  
+  1.1 [Driver characteristics](./GPS.md#11-driver-characteristics)  
+  1.2 [Comparison with micropyGPS](./GPS.md#12-comparison-with-micropygps)  
+  1.3 [Overview](./GPS.md#13-overview)  
+ 2. [Installation](./GPS.md#2-installation)  
+  2.1 [Wiring])(./GPS.md#21-wiring)  
+  2.2 [Library installation](GPS.md#22-library-installation)  
+  2.3 [Dependency](./GPS.md#23-dependency)  
+ 3. [Basic Usage](./GPS.md-basic-usage)  
+  3.1 [Demo programs](./GPS.md#31-demo-programs)  
+ 4. [The AS_GPS Class read-only driver](./GPS.md#4-the-AS_GPS-class-read-only-driver) Base class: a general purpose driver.  
+  4.1 [Constructor](./GPS.md#41-constructor)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.1.1 [The fix callback](./GPS.md#411-the-fix-callback) Optional callback-based interface.  
+  4.2 [Public Methods](./GPS.md#42-public-methods)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.2.1 [Location](./GPS.md#412-location)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.2.2 [Course](./GPS.md#422-course)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.2.3 [Time and date](./GPS.md#423-time-and-date)  
+  4.3 [Public coroutines](./GPS.md#43-public-coroutines)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.3.1 [Data validity](./GPS.md#431-data-validity)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.3.2 [Satellite data](./GPS.md#432-satellite-data)  
+  4.4 [Public bound variables and properties](./GPS.md#44-public-bound-variables and properties)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.4.1 [Position and course](./GPS.md#441-position-and-course)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.4.2 [Statistics and status](./GPS.md#442-statistics-and-status)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.4.3 [Date and time](./GPS.md#443-date-and-time)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.4.4 [Satellite data](./GPS.md#444-satellite-data)  
+  4.5 [Subclass hooks](./GPS.md#45-subclass-hooks)  
+  4.6 [Public class variable](./GPS.md#46-public-class-variable)  
+ 5. [The GPS class read-write driver](./GPS.md#5-the-gps-class-read-write-driver) Subclass supports changing GPS hardware modes.  
+  5.1 [Test script](./GPS.md#51-test-script)  
+  5.2 [Usage example](./GPS.md#52-usage-example)  
+  5.3 [The GPS class constructor](./GPS.md#53-the-gps-class-constructor)  
+  5.4 [Public coroutines](./GPS.md#54-public-coroutines)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5.4.1 [Changing baudrate](./GPS.md#5-changing-baudrate)  
+  5.5 [Public bound variables](./GPS.md#55-public-bound-variables)  
+  5.6 [The parse method developer note](./GPS.md#56-the-parse-method-developer-note)  
+ 6. [Using GPS for accurate timing](./GPS.md#6-using-gps-for-accurate-timing)  
+  6.1 [Test scripts](./GPS.md#61-test-scripts)  
+  6.2 [Usage example](./GPS.md#62-usage-example)  
+  6.3 [GPS_Timer and GPS_RWTimer classes](./GPS.md#63-gps_timer-and-gps_rwtimer-classes)  
+  6.4 [Public methods](./GPS.md#64-public-methods)  
+  6.5 [Public coroutines](./GPS.md#65-public-coroutines)  
+  6.6 [Absolute accuracy](./GPS.md#66-absolute-accuracy)  
+  6.7 [Demo program as_GPS_time.py](./GPS.md#67-demo-program-as_gps_time)  
+ 7. [Supported sentences](./GPS.md#7-supported-sentences)  
+ 8. [Developer notes](./GPS.md#8-developer-notes) For those wanting to modify the modules.  
+  8.1 [Subclassing](./GPS.md#81-subclassing)  
+  8.2 [Special test programs](./GPS.md#82-special-test-programs)  
+ 9. [Notes on timing](./GPS.md#9-notes-on-timing)  
+  9.1 [Absolute accuracy](./GPS.md#91-absolute-accuracy)  
+ 10. [Files](./GPS.md#10-files) List of files in the repo.  
+  10.1 [Basic files](./GPS.md#101-basic-files)  
+  10.2 [Files for read write operation](./GPS.md#102-files-for-read-write-operation)
+  10.3 [Files for timing applications](./GPS.md#103-files-for-timing-applications)  
+  10.4 [Special test programs](./GPS.md#104-special-test-programs)  
+  
 ## 1.1 Driver characteristics
 
  * Asynchronous: UART messaging is handled as a background task allowing the
@@ -33,7 +93,7 @@ Testing was performed using a [Pyboard] with the Adafruit
 [Ultimate GPS Breakout] board. Most GPS devices will work with the read-only
 driver as they emit [NMEA-0183] sentences on startup.
 
-## 1.2 Comparison with [micropyGPS]
+## 1.2 Comparison with micropyGPS
 
 [NMEA-0183] sentence parsing is based on [micropyGPS] but with significant
 changes.
@@ -245,6 +305,8 @@ gps = as_GPS.AS_GPS(sreader, fix_cb=callback, cb_mask= as_GPS.RMC | as_GPS.VTG)
 
 ## 4.2 Public Methods
 
+These are grouped below by the type of data returned.
+
 ### 4.2.1 Location
 
  * `latitude` Optional arg `coord_format=as_GPS.DD`. Returns the most recent
@@ -351,7 +413,7 @@ Note that if the GPS module does not support producing GSV sentences this
 coroutine will pause forever. It can also pause for arbitrary periods if
 satellite reception is blocked, such as in a building.
 
-## 4.4 Public bound variables/properties
+## 4.4 Public bound variables and properties
 
 These are updated whenever a sentence of the relevant type has been correctly
 received from the GPS unit. For crucial navigation data the `time_since_fix`
@@ -359,7 +421,7 @@ method may be used to determine how current these values are.
 
 The sentence type which updates a value is shown in brackets e.g. (GGA).
 
-### 4.4.1 Position/course
+### 4.4.1 Position and course
 
  * `course` Track angle in degrees. (VTG).
  * `altitude` Metres above mean sea level. (GGA).
@@ -616,7 +678,7 @@ measured in seconds) polls the value, returning it when it changes.
  2 Internal antenna.  
  3 External antenna.  
 
-## 5.6 The parse method (developer note)
+## 5.6 The parse method developer note
 
 The null `parse` method in the base class is overridden. It intercepts the
 single response to `VERSION` and `ENABLE` commands and updates the above bound
@@ -821,7 +883,7 @@ accuracy and the `get_t_split` method should provide accuracy on the order of
 The reasoning behind this is discussed in
 [section 9](./GPS.md#9-notes-on-timing).
 
-## 6.7 Test/demo program as_GPS_time.py
+## 6.7 Demo program as_GPS_time
 
 Run by issuing
 ```python
