@@ -14,7 +14,7 @@
 
 import uasyncio as asyncio
 from uasyncio import Event
-from primitives.message import Message
+from threadsafe.message import Message
 import pyb
 import utime
 import math

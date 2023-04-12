@@ -11,7 +11,7 @@ import pyb
 import utime
 import math
 from .as_tGPS import GPS_Timer
-from primitives.message import Message
+from threadsafe.message import Message
 
 # Hardware assumptions. Change as required.
 PPS_PIN = pyb.Pin.board.X3

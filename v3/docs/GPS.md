@@ -5,7 +5,7 @@ which communicate with the host via a UART. GPS [NMEA-0183] sentence parsing is
 based on this excellent library [micropyGPS].
 
 The code requires uasyncio V3. Some modules can run under CPython: doing so
-will require Python V3.8 or later.
+requires Python V3.8 or later.
 
 The main modules have been tested on Pyboards and RP2 (Pico and Pico W). Since
 the interface is a standard UART it is expected that the modules will work on
@@ -22,7 +22,7 @@ may be reduced on some platforms.
   1.2 [Comparison with micropyGPS](./GPS.md#12-comparison-with-micropygps)  
   1.3 [Overview](./GPS.md#13-overview)  
  2. [Installation](./GPS.md#2-installation)  
-  2.1 [Wiring])(./GPS.md#21-wiring)  
+  2.1 [Wiring](./GPS.md#21-wiring)  
   2.2 [Library installation](GPS.md#22-library-installation)  
   2.3 [Dependency](./GPS.md#23-dependency)  
  3. [Basic Usage](./GPS.md-basic-usage)  
@@ -37,7 +37,7 @@ may be reduced on some platforms.
   4.3 [Public coroutines](./GPS.md#43-public-coroutines)  
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.3.1 [Data validity](./GPS.md#431-data-validity)  
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.3.2 [Satellite data](./GPS.md#432-satellite-data)  
-  4.4 [Public bound variables and properties](./GPS.md#44-public-bound-variables and properties)  
+  4.4 [Public bound variables and properties](./GPS.md#44-public-bound-variables-and-properties)  
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.4.1 [Position and course](./GPS.md#441-position-and-course)  
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.4.2 [Statistics and status](./GPS.md#442-statistics-and-status)  
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.4.3 [Date and time](./GPS.md#443-date-and-time)  
@@ -112,8 +112,6 @@ changes.
  * Hooks are provided for user-designed subclassing, for example to parse
  additional message types.
 
-###### [Main V3 README](../README.md)
-
 ## 1.3 Overview
 
 The `AS_GPS` object runs a coroutine which receives [NMEA-0183] sentences from
@@ -160,7 +158,7 @@ time.sleep(1)
 The library is implemented as a Python package. To install copy the following
 directories and their contents to the target hardware:  
  1. `as_drivers/as_GPS`
- 2. `primitives`
+ 2. `threadsafe` Required for timing applications only.
 
 On platforms with an underlying OS such as the Raspberry Pi ensure that the
 directories are on the Python path and that the Python version is 3.8 or later.
@@ -368,6 +366,8 @@ These are grouped below by the type of data returned.
  `as_GPS.LONG` returns a string of form 'January 1st, 2014'.
  Note that this requires the file `as_GPS_utils.py`.
 
+##### [Contents](./GPS.md#1-contents)
+
 ## 4.3 Public coroutines
 
 ### 4.3.1 Data validity
@@ -555,6 +555,7 @@ async def test():
 
 asyncio.run(test())
 ```
+##### [Contents](./GPS.md#1-contents)
 
 ## 5.3 GPS class Constructor
 
@@ -823,6 +824,8 @@ Optional positional args:
  receives the `GPS_RWTimer` instance as the first arg, followed by any args in
  the tuple.
 
+##### [Contents](./GPS.md#1-contents)
+
 ## 6.4 Public methods
 
 The methods that return an accurate GPS time of day run as fast as possible. To
@@ -902,6 +905,8 @@ runs.
  signal. Print basic statistics at the end of the run. Provides an estimate of
  some limits to the absolute accuracy of the `get_t_split` method as discussed
  above.
+
+##### [Contents](./GPS.md#1-contents)
 
 # 7. Supported Sentences
 
@@ -1067,6 +1072,8 @@ On RAM-constrained devices `as_GPS_utils.py` may be omitted in which case the
  * `ast_pbrw.py` Test/demo script.
 
 ## 10.3 Files for timing applications
+
+Note that these require the `threadsafe` directory to be copied to the target.
  
  * `as_tGPS.py` The library. Provides `GPS_Timer` and `GPS_RWTimer` classes.
  * `as_GPS_time.py` Test scripts for read only driver.
