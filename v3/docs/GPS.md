@@ -156,12 +156,16 @@ time.sleep(1)
 ## 2.2 Library installation
 
 The library is implemented as a Python package. To install copy the following
-directories and their contents to the target hardware:  
- 1. `as_drivers/as_GPS`
- 2. `threadsafe` Required for timing applications only.
+directory and its contents to the target hardware:  
+ * `as_drivers/as_GPS`
+
+The following directory is required for certain Pyboard-specific test scripts:  
+ * `threadsafe`
+
+See [section 10.3](./GPS.md#103-files-for-timing-applications).
 
 On platforms with an underlying OS such as the Raspberry Pi ensure that the
-directories are on the Python path and that the Python version is 3.8 or later.
+directory is on the Python path and that the Python version is 3.8 or later.
 Code samples will need adaptation for the serial port.
 
 ## 2.3 Dependency
@@ -1055,33 +1059,38 @@ applications will not need the read/write or timing files.
 
  * `as_GPS.py` The library. Supports the `AS_GPS` class for read-only access to
  GPS hardware.
- * `as_GPS_utils.py` Additional formatted string methods for `AS_GPS`.
- * `ast_pb.py` Test/demo program: assumes a MicroPython hardware device with
- GPS connected to UART 4.
+ * `as_GPS_utils.py` Additional formatted string methods for `AS_GPS`. On
+ RAM-constrained devices this may be omitted in which case the `date_string`
+ and `compass_direction` methods will be unavailable.
+
+Demos. Written for Pyboard but readily portable.  
+ * `ast_pb.py` Test/demo program: assumes a Pyboard with GPS connected to UART 4.
  * `log_kml.py` A simple demo which logs a route travelled to a .kml file which
  may be displayed on Google Earth.
-
-On RAM-constrained devices `as_GPS_utils.py` may be omitted in which case the
-`date_string` and `compass_direction` methods will be unavailable.
 
 ## 10.2 Files for read/write operation
 
  * `as_rwGPS.py` Supports the `GPS` class. This subclass of `AS_GPS` enables
  writing PMTK packets.
- * `as_rwGPS.py` Required if using the read/write variant.
- * `ast_pbrw.py` Test/demo script.
+
+Demo. Written for Pyboard but readily portable.  
+ * `ast_pbrw.py`
 
 ## 10.3 Files for timing applications
 
-Note that these require the `threadsafe` directory to be copied to the target.
- 
  * `as_tGPS.py` The library. Provides `GPS_Timer` and `GPS_RWTimer` classes.
- * `as_GPS_time.py` Test scripts for read only driver.
- * `as_rwGPS_time.py` Test scripts for read/write driver.
+ Cross platform.
+
+Note that the following are Pyboard specific and require the `threadsafe`
+directory to be copied to the target.
+
+ * `as_GPS_time.py` Test scripts for read only driver (Pyboard).
+ * `as_rwGPS_time.py` Test scripts for read/write driver (Pyboard).
 
 ## 10.4 Special test programs
 
-These tests allow NMEA parsing to be verified in the absence of GPS hardware:  
+These tests allow NMEA parsing to be verified in the absence of GPS hardware.
+For those modifying or extending the sentence parsing:  
 
  * `astests.py` Test with synthetic data. Run on PC under CPython 3.8+ or MicroPython.
  * `astests_pyb.py` Test with synthetic data on UART. GPS hardware replaced by

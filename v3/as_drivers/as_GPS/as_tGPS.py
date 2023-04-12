@@ -1,6 +1,4 @@
 # as_tGPS.py Using GPS for precision timing and for calibrating Pyboard RTC
-# This is STM-specific: requires pyb module.
-# Hence not as RAM-critical as as_GPS
 
 # Copyright (c) 2018-2020 Peter Hinch
 # Released under the MIT License (MIT) - see LICENSE file
