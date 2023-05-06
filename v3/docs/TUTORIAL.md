@@ -581,7 +581,7 @@ pausing execution until it succeeds.
 
 ```python
 import uasyncio as asyncio
-from uasyncio import Lock
+from uasyncio.lock import Lock
 
 async def task(i, lock):
     while 1:
@@ -611,7 +611,7 @@ The normal way to use a `Lock` is in a context manager:
 
 ```python
 import uasyncio as asyncio
-from uasyncio import Lock
+from uasyncio.lock import Lock
 
 async def task(i, lock):
     while 1:
