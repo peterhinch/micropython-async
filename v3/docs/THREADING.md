@@ -32,7 +32,8 @@ is fixed.
   2.1 [A pool](./THREADING.md#21-a-pool) Sharing a set of variables.  
   2.2 [ThreadSafeQueue](./THREADING.md#22-threadsafequeue)  
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2.1 [Blocking](./THREADING.md#221-blocking)  
-  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2.3 [Object ownership](./THREADING.md#223-object-ownership)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2.2 [Object ownership](./THREADING.md#222-object-ownership)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2.3 [A complete example](./THREADING.md#223-a-complete-example)  
  3. [Synchronisation](./THREADING.md#3-synchronisation)  
   3.1 [Threadsafe Event](./THREADING.md#31-threadsafe-event)  
   3.2 [Message](./THREADING.md#32-message) A threadsafe event with data payload.  
@@ -192,6 +193,8 @@ Globals are implemented as a `dict`. Adding or deleting an entry is unsafe in
 the main program if there is a context which accesses global data and does not
 use the GIL. This means hard ISR's and code running on another core. Given that
 shared global data is widely used, the following guidelines should be followed.
+([This pr](https://github.com/micropython/micropython/pull/11604) aims to fix
+this issue).
 
 All globals should be declared in the main program before an ISR starts to run,
 and before code on another core is started. It is valid to insert placeholder
@@ -301,7 +304,9 @@ read is in progress.
 
 This queue is designed to interface between one `uasyncio` task and a single
 thread running in a different context. This can be an interrupt service routine
-(ISR), code running in a different thread or code on a different core.
+(ISR), code running in a different thread or code on a different core. See
+[section 2.2.3](./THREADING.md#223-a-complete-example) for a complete usage
+example.
 
 Any Python object may be placed on a `ThreadSafeQueue`. If bi-directional
 communication is required between the two contexts, two `ThreadSafeQueue`
@@ -341,7 +346,6 @@ Asynchronous methods:
  * `get` No arg. Returns an object from the queue. If the queue is empty, it
  will block until an object is put on the queue. Normal retrieval is with
  `async for` but this method provides an alternative.
-
 
 In use as a data consumer the `uasyncio` code will use `async for` to retrieve
 items from the queue. If it is a data provider it will use `put` to place
@@ -428,6 +432,8 @@ the MicroPython garbage collector delete them as per the first sample.
 
 This demonstrates an echo server running on core 2. The `sender` task sends
 consecutive integers to the server, which echoes them back on a second queue.
+To install the threadsafe primitives, the `threadsafe` directory and its
+contents should be copied to the MicroPython target.
 ```python
 import uasyncio as asyncio
 from threadsafe import ThreadSafeQueue
@@ -480,7 +486,9 @@ and other pending tasks have run, the waiting task resumes.
 The `ThreadsafeFlag` has a limitation in that only a single task can wait on
 it. The `ThreadSafeEvent` overcomes this. It is subclassed from `Event` and
 presents the same interface. The `set` method may be called from an ISR or from
-code running on another core. Any number of tasks may wait on it.
+code running on another core. Any number of tasks may wait on it. To install
+the threadsafe primitives, the `threadsafe` directory and its contents should
+be copied to the MicroPython target.
 
 The following Pyboard-specific code demos its use in a hard ISR:
 ```python
@@ -546,7 +554,9 @@ the `Message` as below. A `Message` can provide a means of communication from
 an interrupt handler and a task. The handler services the hardware and issues
 `.set()` which causes the waiting task to resume (in relatively slow time).
 
-This illustrates basic usage:
+To install the threadsafe primitives, the `threadsafe` directory and its
+contents should be copied to the MicroPython target. This illustrates basic
+usage:
 ```python
 import uasyncio as asyncio
 from threadsafe import Message
