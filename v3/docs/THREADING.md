@@ -191,10 +191,11 @@ thread safe classes offered here do not yet support Unix.
 
 Globals are implemented as a `dict`. Adding or deleting an entry is unsafe in
 the main program if there is a context which accesses global data and does not
-use the GIL. This means hard ISR's and code running on another core. Given that
-shared global data is widely used, the following guidelines should be followed.
-([This pr](https://github.com/micropython/micropython/pull/11604) aims to fix
-this issue).
+use the GIL. This means hard ISR's and code running on another core. The
+following guidelines should be followed.
+
+Note that [PR 11604](https://github.com/micropython/micropython/pull/11604)
+aims to fix this issue. Once merged, the use of globals will be threadsafe.
 
 All globals should be declared in the main program before an ISR starts to run,
 and before code on another core is started. It is valid to insert placeholder
@@ -215,10 +216,10 @@ def foo():
     global bar
     bar = 42
 ```
-Once again the hazard is avoided by, in global scope, populating `bar` prior
-with a placeholder before allowing other contexts to run.
+The hazard is avoided by instantiating `bar` in global scope (populated with a
+placeholder) before allowing other contexts to run.
 
-If globals must be created and destroyed dynamically, a lock must be used.
+If globals must be created or destroyed dynamically, a lock must be used.
 
 ## 1.6 Debugging
 
