@@ -35,7 +35,7 @@ _attrs = {
     "Barrier": "barrier",
     "Condition": "condition",
     "Delay_ms": "delay_ms",
-    "Encode": "encoder_async",
+    "Encoder": "encoder",
     "Pushbutton": "pushbutton",
     "ESP32Touch": "pushbutton",
     "Queue": "queue",
