@@ -532,10 +532,10 @@ not allowed to stall: where it becomes full, new items overwrite the oldest ones
 in the queue:
 ```python
 def add_item(q, data):
-try:
-    q.put_nowait(data)
-except IndexError:
-    pass
+    try:
+        q.put_nowait(data)
+    except IndexError:
+        pass
 ```
 
 ###### [Contents](./EVENTS.md#0-contents)
