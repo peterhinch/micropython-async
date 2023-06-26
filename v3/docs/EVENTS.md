@@ -507,6 +507,8 @@ Synchronous methods (immediate return):
  * `put_nowait` Arg: the object to put on the queue. Raises `IndexError` if the
  queue is full. If the calling code ignores the exception the oldest item in
  the queue will be overwritten. In some applications this can be of use.
+ * `peek` No arg. Returns oldest entry without removing it from the queue. This
+ is a superset of the CPython compatible methods.
 
 Asynchronous methods:  
  * `put` Arg: the object to put on the queue. If the queue is full, it will

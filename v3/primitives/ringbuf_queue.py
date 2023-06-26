@@ -39,6 +39,12 @@ class RingbufQueue:  # MicroPython optimised
         self._evget.clear()
         return r
 
+    def peek(self):  # Return oldest item from the queue without removing it.
+        # Return an item if one is immediately available, else raise QueueEmpty.
+        if self.empty():
+            raise IndexError
+        return self._q[self._ri]
+
     def put_nowait(self, v):
         self._q[self._wi] = v
         self._evput.set()  # Schedule any tasks waiting on get
