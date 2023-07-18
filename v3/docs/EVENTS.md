@@ -513,7 +513,9 @@ Synchronous methods (immediate return):
 Asynchronous methods:  
  * `put` Arg: the object to put on the queue. If the queue is full, it will
  block until space is available.
-
+ * `get` Return an object from the queue. If empty, block until an item is
+ available.
+ 
 Retrieving items from the queue:
 
 The `RingbufQueue` is an asynchronous iterator. Results are retrieved using
