@@ -28,6 +28,7 @@ class Queue:
 
         self._jncnt = 0
         self._jnevt = asyncio.Event()
+        self._upd_jnevt(0) #update join event
 
     def _get(self):
         self._evget.set()  # Schedule all tasks waiting on get
@@ -48,7 +49,7 @@ class Queue:
         return self._get()
 
     def _put(self, val):
-        self._jncnt += 1
+        self._upd_jnevt(1) # update join event
         self._evput.set()  # Schedule tasks waiting on put
         self._evput.clear()
         self._queue.append(val)
@@ -76,14 +77,18 @@ class Queue:
         # any negative number, then full() is never True.
         return self.maxsize > 0 and self.qsize() >= self.maxsize
 
-    def task_done(self):
-        self._jncnt -= 1
+
+    def _upd_jnevt(self, inc:int): # #Update join count and join event
+        self._jncnt += inc
         if self._jncnt <= 0:
             self._jnevt.set()
         else:
             self._jnevt.clear()
 
-    async def join(self):
+    def task_done(self): # Task Done decrements counter
+        self._upd_jnevt(-1)
+
+    async def join(self): # Wait for join event
         await self._jnevt.wait()
 
 

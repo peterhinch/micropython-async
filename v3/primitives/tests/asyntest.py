@@ -645,29 +645,31 @@ async def q_task_done_join_consumer(q):
         print('consumer', 'got/processing {}'.format(r))
         await asyncio.sleep(.5)
         q.task_done()
-async def q_task_done_join_producer(q):
-    print('producer','loading jobs')
-    for x in range(10):
-        await q.put(x)
-    print('producer','await q.join')
+async def q_task_done_join_waiter(q):
+    print('waiter','await q.join')
     await q.join()
-    print('producer','joined!', 'task done!')
+    print('waiter','joined!', 'task done!')
 async def q_task_done_join_go():
     q = Queue()
 
+    #empty queue should not block join
+    print('test', 'await empty q.join')
+    await q.join()
+    print('test', 'pass')
+
     consumer_task = asyncio.create_task(q_task_done_join_consumer(q))
-    producer_task = asyncio.create_task(q_task_done_join_producer(q))
-    await asyncio.sleep(0)
+    waiter_task = asyncio.create_task(q_task_done_join_waiter(q))
+
+    #add jobs
+    for x in range(10):
+        await q.put(x)
 
     print('test','await q.join')
     await q.join()
     print('test','all jobs done!')
 
-    print('test','join again')
-    await q.join()
-
     await asyncio.sleep(0)
-    print('test','producer_task.done()?', producer_task.done())
+    print('test','waiter_task.done()?', waiter_task.done())
 
     consumer_task.cancel()
     await asyncio.gather(consumer_task, return_exceptions=True)
@@ -677,10 +679,11 @@ async def q_task_done_join_go():
 
 def q_task_done_join_test():
     printexp('''Test Queue task_done/join behaviors
-producer loading jobs
-producer await q.join
+test await empty q.join
+test pass
 test await q.join
 consumer got/processing 0
+waiter await q.join
 consumer got/processing 1
 consumer got/processing 2
 consumer got/processing 3
@@ -690,10 +693,9 @@ consumer got/processing 6
 consumer got/processing 7
 consumer got/processing 8
 consumer got/processing 9
-producer joined! task done!
 test all jobs done!
-test join again
-test producer_task.done()? True
+waiter joined! task done!
+test waiter_task.done()? True
 test DONE
 ''', 5)
     asyncio.run(q_task_done_join_go())
