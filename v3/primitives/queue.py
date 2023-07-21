@@ -26,6 +26,9 @@ class Queue:
         self._evput = asyncio.Event()  # Triggered by put, tested by get
         self._evget = asyncio.Event()  # Triggered by get, tested by put
 
+        self._jncnt = 0
+        self._jnevt = asyncio.Event()
+
     def _get(self):
         self._evget.set()  # Schedule all tasks waiting on get
         self._evget.clear()
@@ -45,6 +48,7 @@ class Queue:
         return self._get()
 
     def _put(self, val):
+        self._jncnt += 1
         self._evput.set()  # Schedule tasks waiting on put
         self._evput.clear()
         self._queue.append(val)
@@ -71,3 +75,15 @@ class Queue:
         # Note: if the Queue was initialized with maxsize=0 (the default) or
         # any negative number, then full() is never True.
         return self.maxsize > 0 and self.qsize() >= self.maxsize
+
+    def task_done(self):
+        self._jncnt -= 1
+        if self._jncnt <= 0:
+            self._jnevt.set()
+        else:
+            self._jnevt.clear()
+
+    async def join(self):
+        await self._jnevt.wait()
+
+
