@@ -973,7 +973,7 @@ Synchronous methods (immediate return):
  queue is full.
  * `get_nowait` No arg. Returns an object from the queue. Raises an exception
  if the queue is empty.
- * `task_done` No arg. Indicate that a task associated with an enqueued item is complete.
+ * `task_done` No arg. Indicate that a task associated with a dequeued item is complete.
 
 Asynchronous methods:  
  * `put` Arg: the object to put on the queue. If the queue is full, it will
