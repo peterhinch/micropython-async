@@ -973,12 +973,15 @@ Synchronous methods (immediate return):
  queue is full.
  * `get_nowait` No arg. Returns an object from the queue. Raises an exception
  if the queue is empty.
+ * `task_done` No arg. Indicate that a task associated with a dequeued item is complete.
 
 Asynchronous methods:  
  * `put` Arg: the object to put on the queue. If the queue is full, it will
  block until space is available.
  * `get` No arg. Returns an object from the queue. If the queue is empty, it
  will block until an object is put on the queue.
+ * `join` No arg. Block until all items in the queue have been received and
+ processed (indicated via task_done).
 
 ```python
 import uasyncio as asyncio

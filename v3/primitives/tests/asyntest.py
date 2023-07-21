@@ -34,6 +34,7 @@ test(6)  Test BoundedSemaphore.
 test(7)  Test the Condition class.
 test(8)  Test the Queue class.
 test(9)  Test the RingbufQueue class.
+test(10) Test the Queue task_done/join behavior.
 '''
     print('\x1b[32m')
     print(st)
@@ -636,6 +637,70 @@ Time to die...
 ''', 6)
     asyncio.run(rbq_go())
 
+
+# ************ Queue task_done/join test ************
+async def q_task_done_join_consumer(q):
+    while True:
+        r = await q.get()
+        print('consumer', 'got/processing {}'.format(r))
+        await asyncio.sleep(.5)
+        q.task_done()
+async def q_task_done_join_waiter(q):
+    print('waiter','await q.join')
+    await q.join()
+    print('waiter','joined!', 'task done!')
+async def q_task_done_join_go():
+    q = Queue()
+
+    #empty queue should not block join
+    print('test', 'await empty q.join')
+    await q.join()
+    print('test', 'pass')
+
+    consumer_task = asyncio.create_task(q_task_done_join_consumer(q))
+    waiter_task = asyncio.create_task(q_task_done_join_waiter(q))
+
+    #add jobs
+    for x in range(10):
+        await q.put(x)
+
+    print('test','await q.join')
+    await q.join()
+    print('test','all jobs done!')
+
+    await asyncio.sleep(0)
+    print('test','waiter_task.done()?', waiter_task.done())
+
+    consumer_task.cancel()
+    await asyncio.gather(consumer_task, return_exceptions=True)
+
+    print('test','DONE')
+
+
+def q_task_done_join_test():
+    printexp('''Test Queue task_done/join behaviors
+test await empty q.join
+test pass
+test await q.join
+consumer got/processing 0
+waiter await q.join
+consumer got/processing 1
+consumer got/processing 2
+consumer got/processing 3
+consumer got/processing 4
+consumer got/processing 5
+consumer got/processing 6
+consumer got/processing 7
+consumer got/processing 8
+consumer got/processing 9
+test all jobs done!
+waiter joined! task done!
+test waiter_task.done()? True
+test DONE
+''', 5)
+    asyncio.run(q_task_done_join_go())
+
+
 # ************ ************
 def test(n):
     try:
@@ -657,6 +722,8 @@ def test(n):
             queue_test()  # Test the Queue class.
         elif n == 9:
             rbq_test()  # Test the RingbufQueue class.
+        elif n == 10:
+            q_task_done_join_test()  # Test the Queue task_done/join behavior.
     except KeyboardInterrupt:
         print('Interrupted')
     finally:
