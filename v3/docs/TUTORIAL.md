@@ -2014,7 +2014,7 @@ asyncio.run(run())
 
 ## 6.3 Using the stream mechanism
 
-A stream is an abstraction of a device whose interface consists of a realtime
+A stream is an abstraction of a device interface which consists of a realtime
 source of bytes. Examples include UARTs, I2S devices and sockets. Many streams
 are continuous: an I2S microphone will source data until switched off and the
 interface is closed. Streams are supported by `asyncio.StreamReader` and
