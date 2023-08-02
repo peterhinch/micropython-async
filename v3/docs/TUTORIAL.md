@@ -2014,6 +2014,12 @@ asyncio.run(run())
 
 ## 6.3 Using the stream mechanism
 
+A stream is an abstraction of a device whose interface consists of a realtime
+source of bytes. Examples include UARTs, I2S devices and sockets. Many streams
+are continuous: an I2S microphone will source data until switched off and the
+interface is closed. Streams are supported by `asyncio.StreamReader` and
+`asyncio.StreamWriter` classes.
+
 This section applies to platforms other than the Unix build. The latter handles
 stream I/O in a different way described
 [here](https://github.com/micropython/micropython/issues/7965#issuecomment-960259481).
@@ -2054,6 +2060,7 @@ async def main():
 
 asyncio.run(main())
 ```
+The `.readline` method will pause until `\n` is received. The `.read`
 Writing to a `StreamWriter` occurs in two stages. The synchronous `.write`
 method concatenates data for later transmission. The asynchronous `.drain`
 causes transmission. To avoid allocation call `.drain` after each call to
@@ -2077,6 +2084,12 @@ designed such that tasks minimise the time between yielding to the scheduler to
 avoid buffer overflows and data loss. This can be ameliorated by using a larger
 UART read buffer or a lower baudrate. Alternatively hardware flow control will
 provide a solution if the data source supports it.
+
+The `StreamReader` read methods fall into two categories depending on whether
+they wait for a specific end condition. Thus `.readline` pauses until a newline
+byte has been received, `.read(-1)` waits for EOF, and `readexactly` waits for
+a precise number of bytes. Other methods return the number of bytes available
+at the time they are called (upto a maximum).
 
 ### 6.3.1 A UART driver example
 
