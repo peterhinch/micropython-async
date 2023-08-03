@@ -6,7 +6,7 @@ aims to be a compatible subset of `asyncio`. The current version is 3.0.0.
 
 ## 1.1 Documents
 
-[uasyncio official docs](http://docs.micropython.org/en/latest/library/uasyncio.html)
+[uasyncio official docs](http://docs.micropython.org/en/latest/library/asyncio.html)
 
 [Tutorial](./docs/TUTORIAL.md) Intended for users with all levels of experience
 of asynchronous programming, including beginners.

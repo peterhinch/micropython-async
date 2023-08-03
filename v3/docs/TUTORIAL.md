@@ -2076,20 +2076,32 @@ following methods: `ioctl`, `read`, `readline` and `write`. See
 [Writing streaming device drivers](./TUTORIAL.md#64-writing-streaming-device-drivers)
 for details on how such drivers may be written in Python.
 
-A UART can receive data at any time. The stream I/O mechanism checks for pending
-incoming characters whenever the scheduler has control. When a task is running
-an interrupt service routine buffers incoming characters; these will be removed
-when the task yields to the scheduler. Consequently UART applications should be
-designed such that tasks minimise the time between yielding to the scheduler to
-avoid buffer overflows and data loss. This can be ameliorated by using a larger
-UART read buffer or a lower baudrate. Alternatively hardware flow control will
-provide a solution if the data source supports it.
+###### StreamReader read methods
 
 The `StreamReader` read methods fall into two categories depending on whether
 they wait for a specific end condition. Thus `.readline` pauses until a newline
 byte has been received, `.read(-1)` waits for EOF, and `readexactly` waits for
 a precise number of bytes. Other methods return the number of bytes available
-at the time they are called (upto a maximum).
+at the time they are called (upto a maximum). Consider the following fragment:
+```python
+async def foo(device):
+    sr = StreamReader(device)
+    data = sr.read(20)
+```
+When `read` is issued, task `foo` is descheduled. Other tasks are scheduled,
+resulting in a delay. During that period, depending on the stream source, bytes
+may be received. The hardware or the device driver may buffer the data, at some
+point flagging their availability. When the concurrent tasks permit, asyncio
+polls the device. If data is available `foo` is rescheduled and pending data is
+returned. It should be evident that the number of bytes returned and the
+duration of the pause are variable.
+
+There are also implications for application and device driver design: in the
+period while the task is descheduled, incoming data must be buffered to avoid
+data loss. For example in the case of a UART an interrupt service routine
+buffers incoming characters. To avoid data loss the size of the read buffer
+should be set based on the maximum latency caused by other tasks along with the
+baudrate. The buffer size can be reduced if hardware flow control is available.
 
 ### 6.3.1 A UART driver example
 
