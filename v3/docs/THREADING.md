@@ -16,6 +16,15 @@ the `ThreadSafeFlag` class does not work under the Unix build. The classes
 presented here depend on this: none can be expected to work on Unix until this
 is fixed.
 
+To install the threadsafe classes discussed here, connect the target hardware
+to WiFi and issue:
+```python
+import mip
+mip.install("github:peterhinch/micropython-async/v3/threadsafe")
+```
+For non-networked targets use `mpremote` as described in
+[the official docs](http://docs.micropython.org/en/latest/reference/packages.html#installing-packages-with-mpremote).
+
 ###### [Main README](../README.md)
 ###### [Tutorial](./TUTORIAL.md)
 

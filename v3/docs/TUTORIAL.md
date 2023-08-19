@@ -118,12 +118,16 @@ CPython V3.8 and above.
 
 ## 0.1 Installing uasyncio
 
-Firmware builds after V1.13 incorporate `uasyncio`. Check the firmware version
-number reported on boot and upgrade if necessary.
-
+The latest release build of firmware or a newer nightly build is recommended.
 This repository has optional unofficial primitives and extensions. To install
-these the repo should be cloned to a PC. The directories `primitives` and
-`threadsafe` (with contents) should be copied to the hardware plaform.
+these, connect the target hardware to WiFi and issue:
+```python
+import mip
+mip.install("github:peterhinch/micropython-async/v3/primitives")
+mip.install("github:peterhinch/micropython-async/v3/threadsafe")
+```
+For non-networked targets use `mpremote` as described in
+[the official docs](http://docs.micropython.org/en/latest/reference/packages.html#installing-packages-with-mpremote).
 
 ###### [Main README](../README.md)
 

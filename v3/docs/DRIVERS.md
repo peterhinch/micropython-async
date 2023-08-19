@@ -42,9 +42,14 @@ goes outside defined bounds.
 
 # 2. Installation and usage
 
-The drivers require firmware version >=1.15. The drivers are in the primitives
-package. To install copy the `primitives` directory and its contents to the
-target hardware.
+The latest release build of firmware or a newer nightly build is recommended.
+To install the library, connect the target hardware to WiFi and issue:
+```python
+import mip
+mip.install("github:peterhinch/micropython-async/v3/primitives")
+```
+For non-networked targets use `mpremote` as described in
+[the official docs](http://docs.micropython.org/en/latest/reference/packages.html#installing-packages-with-mpremote).
 
 Drivers are imported with:
 ```python
