@@ -23,6 +23,7 @@ class Encoder:
         self._v = v * div  # Initialise hardware value
         self._cv = v  # Current (divided) value
         self.delay = delay  # Pause (ms) for motion to stop/limit callback frequency
+        self._trig = asyncio.Event()
 
         if ((vmin is not None) and v < vmin) or ((vmax is not None) and v > vmax):
             raise ValueError('Incompatible args: must have vmin <= v <= vmax')
@@ -74,8 +75,17 @@ class Encoder:
             self._cv = lcv  # update ._cv for .value() before CB.
             if lcv != plcv:
                 cb(lcv, lcv - plcv, *args)  # Run user CB in uasyncio context
+                self._trig.set()  # Enable async iterator
             pcv = cv
             plcv = lcv
+
+    def __aiter__(self):
+        return self
+
+    def __anext__(self):
+        await self._trig.wait()
+        self.trig.clear()
+        return self._cv
 
     def value(self):
         return self._cv
