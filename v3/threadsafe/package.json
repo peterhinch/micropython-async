@@ -1,0 +1,9 @@
+{
+  "urls": [
+    ["threadsafe/__init__.py", "github:peterhinch/micropython-async/v3/threadsafe/__init__.py"],
+    ["threadsafe/message.py", "github:peterhinch/micropython-async/v3/threadsafe/message.py"],
+    ["threadsafe/threadsafe_event.py", "github:peterhinch/micropython-async/v3/threadsafe/threadsafe_event.py"],
+    ["threadsafe/threadsafe_queue.py", "github:peterhinch/micropython-async/v3/threadsafe/threadsafe_queue.py"],
+  ],
+  "version": "0.1"
+}
