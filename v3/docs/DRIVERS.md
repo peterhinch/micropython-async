@@ -542,6 +542,25 @@ operations are applied is:
  2. Restrict the divided value by any maximum or minimum.
  3. Reduce modulo N if specified.
 
+An `Encoder` instance is an asynchronous iterator. This enables it to be used
+as follows, with successive values being retrieved with `async for`:
+```python
+from machine import Pin
+import uasyncio as asyncio
+from primitives import Encoder
+
+async def main():
+    px = Pin(16, Pin.IN, Pin.PULL_UP)  # Change to match hardware
+    py = Pin(17, Pin.IN, Pin.PULL_UP)
+    enc = Encoder(px, py, div=4)  # div mtches mechanical detents
+    async for value in enc:
+        print(f"Value = {value}")
+
+try:
+    asyncio.run(main())
+finally:
+    asyncio.new_event_loop()
+```
 See [this doc](https://github.com/peterhinch/micropython-samples/blob/master/encoders/ENCODERS.md)
 for further information on encoders and their limitations.
 
