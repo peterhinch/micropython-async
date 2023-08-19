@@ -84,7 +84,7 @@ class Encoder:
 
     def __anext__(self):
         await self._trig.wait()
-        self.trig.clear()
+        self._trig.clear()
         return self._cv
 
     def value(self):
