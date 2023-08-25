@@ -3,11 +3,6 @@
 # Copyright (c) 2022 Peter Hinch
 # Released under the MIT License (MIT) - see LICENSE file
 
-try:
-    import uasyncio as asyncio
-except ImportError:
-    import asyncio
-
 _attrs = {
     "ThreadSafeEvent": "threadsafe_event",
     "ThreadSafeQueue": "threadsafe_queue",

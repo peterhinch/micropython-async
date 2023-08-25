@@ -1,12 +1,12 @@
-# 1. Guide to uasyncio
+# 1. Guide to asyncio
 
-MicroPython's `uasyncio` is pre-installed on all platforms except severely
+MicroPython's `asyncio` is pre-installed on all platforms except severely
 constrained ones such as the 1MB ESP8266. It supports CPython 3.8 syntax and
 aims to be a compatible subset of `asyncio`. The current version is 3.0.0.
 
 ## 1.1 Documents
 
-[uasyncio official docs](http://docs.micropython.org/en/latest/library/asyncio.html)
+[asyncio official docs](http://docs.micropython.org/en/latest/library/asyncio.html)
 
 [Tutorial](./docs/TUTORIAL.md) Intended for users with all levels of experience
 of asynchronous programming, including beginners.
@@ -16,14 +16,14 @@ describes device drivers for switches, pushbuttons, ESP32 touch buttons, ADC's
 and incremental encoders.
 
 [Interrupts](https://github.com/peterhinch/micropython-async/blob/master/v3/docs/INTERRUPTS.md)
-is a guide to interfacing interrupts to `uasyncio`.
+is a guide to interfacing interrupts to `asyncio`.
 
 [Event-based programming](./docs/EVENTS.md) is a guide to a way of writing
 applications and device drivers which largely does away with callbacks. The doc
-assumes some knowledge of `uasyncio`.
+assumes some knowledge of `asyncio`.
 
 [Threading](./docs/THREADING.md) is a guide to the use of multi-threaded and
-multi-core programming. Code is offered to enable a `uasyncio` application to
+multi-core programming. Code is offered to enable a `asyncio` application to
 deal with blocking functions.
 
 ## 1.2 Debugging tools
@@ -31,11 +31,11 @@ deal with blocking functions.
 [aiorepl](https://github.com/micropython/micropython-lib/tree/master/micropython/aiorepl)
 This official tool enables an application to launch a REPL which is active
 while the application is running. From this you can modify and query the
-application and run `uasyncio` scripts concurrently with the running
+application and run `asyncio` scripts concurrently with the running
 application.
 
 [monitor](https://github.com/peterhinch/micropython-monitor) enables a running
-`uasyncio` application to be monitored using a Pi Pico, ideally with a scope or
+`asyncio` application to be monitored using a Pi Pico, ideally with a scope or
 logic analyser. Normally requires only one GPIO pin on the target.
 
 ![Image](https://github.com/peterhinch/micropython-monitor/raw/master/images/monitor.jpg)
@@ -58,14 +58,14 @@ Documented in the [tutorial](./docs/TUTORIAL.md). Comprises:
 ### 1.3.3 Threadsafe primitives
 
 [This doc](https://github.com/peterhinch/micropython-async/blob/master/v3/docs/THREADING.md)
-describes issues linking `uasyncio` code with code running on other cores or in
+describes issues linking `asyncio` code with code running on other cores or in
 other threads. The `threadsafe` directory provides:
 
  * A threadsafe primitive `Message`.
  * `ThreadSafeQueue`
  * `ThreadSafeEvent` Extends `ThreadsafeFlag`.
 
-The doc also provides code to enable `uasyncio` to handle blocking functions
+The doc also provides code to enable `asyncio` to handle blocking functions
 using threading.
 
 ### 1.3.4 Asynchronous device drivers
@@ -101,24 +101,24 @@ useful in their own right:
 
 These notes are intended for users familiar with `asyncio` under CPython.
 
-The MicroPython language is based on CPython 3.4. The `uasyncio` library now
+The MicroPython language is based on CPython 3.4. The `asyncio` library now
 supports a subset of the CPython 3.8 `asyncio` library. There are non-standard
 extensions to optimise services such as millisecond level timing. Its design
 focus is on high performance. Scheduling runs without RAM allocation.
 
-The `uasyncio` library supports the following features:
+The `asyncio` library supports the following features:
 
  * `async def` and `await` syntax.
  * Awaitable classes (using `__iter__` rather than `__await__`).
  * Asynchronous context managers.
  * Asynchronous iterators.
- * `uasyncio.sleep(seconds)`.
- * Timeouts (`uasyncio.wait_for`).
+ * `asyncio.sleep(seconds)`.
+ * Timeouts (`asyncio.wait_for`).
  * Task cancellation (`Task.cancel`).
  * Gather.
 
 It supports millisecond level timing with the following:
- * `uasyncio.sleep_ms(time)`
+ * `asyncio.sleep_ms(time)`
 
 It includes the following CPython compatible synchronisation primitives:
  * `Event`.
