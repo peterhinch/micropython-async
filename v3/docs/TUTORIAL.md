@@ -17,7 +17,7 @@ import uasyncio as asyncio
 # Contents
 
  0. [Introduction](./TUTORIAL.md#0-introduction)  
-  0.1 [Installing asyncio](./TUTORIAL.md#01-installing-asyncio) Also the optional extensions.  
+  0.1 [Installing asyncio primitives](./TUTORIAL.md#01-installing-asyncio-primitives) Extensions used in the demos.  
  1. [Cooperative scheduling](./TUTORIAL.md#1-cooperative-scheduling)  
   1.1 [Modules](./TUTORIAL.md#11-modules)  
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.1.1 [Primitives](./TUTORIAL.md#111-primitives)  
@@ -122,9 +122,8 @@ under MicroPython and CPython 3.8.
 This tutorial aims to present a consistent programming style compatible with
 CPython V3.8 and above.
 
-## 0.1 Installing asyncio
+## 0.1 Installing asyncio primitives
 
-The latest release build of firmware or a newer nightly build is recommended.
 This repository has optional unofficial primitives and extensions. To install
 these, connect the target hardware to WiFi and issue:
 ```python
@@ -151,11 +150,17 @@ pitfalls associated with truly asynchronous threads of execution.
 
 The directory `primitives` contains a Python package containing the following:
  * Synchronisation primitives: "micro" versions of CPython's classes.
- * Additional Python primitives including an ISR-compatible version of `Event`
- and a software retriggerable delay class.
+ * Additional Python primitives including a software retriggerable delay class
+ and a MicroPython optimised `ringbuf_queue`.
  * Primitives for interfacing hardware. These comprise classes for debouncing
- switches and pushbuttons and an asynchronous ADC class. These are documented
- [here](./DRIVERS.md).
+ switches and pushbuttons, an `Encoder` class and an asynchronous ADC class.
+ These are documented [here](./DRIVERS.md).
+ * Primitives for event-based coding which aims to reduce the use of callbacks
+ and is discussed [here](./EVENTS.md).
+
+The directory `threadsafe` includes primitives designed to interface `asyncio`
+tasks to code running on other threads. These are documented
+[here](./THREADING.md).
 
 See above for installation.
 
