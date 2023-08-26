@@ -3,11 +3,19 @@
 # Copyright (c) 2021-2022 Peter Hinch
 # Released under the MIT License (MIT) - see LICENSE file
 
-# Thanks are due to @ilium007 for identifying the issue of tracking detents,
+# For an explanation of the design please see 
+# [ENCODERS.md](https://github.com/peterhinch/micropython-samples/blob/master/encoders/ENCODERS.md)
+
+# Thanks are due to the following collaborators:
+# @ilium007 for identifying the issue of tracking detents,
 # https://github.com/peterhinch/micropython-async/issues/82.
-# Also to Mike Teachman (@miketeachman) for design discussions and testing
+
+# Mike Teachman (@miketeachman) for design discussions and testing
 # against a state table design
 # https://github.com/miketeachman/micropython-rotary/blob/master/rotary.py
+
+# Raul Kompaß (@rkompass) for suggesting a bugfix here
+# https://forum.micropython.org/viewtopic.php?f=15&t=9929&p=66175#p66156
 
 import uasyncio as asyncio
 from machine import Pin
