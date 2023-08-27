@@ -34,6 +34,10 @@ while the application is running. From this you can modify and query the
 application and run `asyncio` scripts concurrently with the running
 application.
 
+[aioprof](https://gitlab.com/alelec/aioprof/-/tree/main) A profiler for
+`asyncio` applications: show the number of calls and the total time used by
+each task. Author Matt Trentini.
+
 [monitor](https://github.com/peterhinch/micropython-monitor) enables a running
 `asyncio` application to be monitored using a Pi Pico, ideally with a scope or
 logic analyser. Normally requires only one GPIO pin on the target.
