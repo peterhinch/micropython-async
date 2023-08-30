@@ -354,8 +354,8 @@ asyncio.run(main())
 The CPython [docs](https://docs.python.org/3/library/asyncio-task.html#creating-tasks)
 have a warning that a reference to the task instance should be saved for the
 task's duration. This was raised in 
-[this issue](https://github.com/micropython/micropython/issues/12299). I don't
-believe MicroPython `asyncio` suffers from this bug, but writers of code which
+[this issue](https://github.com/micropython/micropython/issues/12299).
+MicroPython `asyncio` does not suffer from this bug, but writers of code which
 must work in CPython and MicroPython should take note.
 
 ###### [Contents](./TUTORIAL.md#contents)
