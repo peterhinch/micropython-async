@@ -255,8 +255,9 @@ async def bar(x):
         await asyncio.sleep(1)  # Pause 1s
 
 async def main():
+    tasks = [None] * 3  # For CPython compaibility must store a reference see Note
     for x in range(3):
-        asyncio.create_task(bar(x))
+        tasks[x] = asyncio.create_task(bar(x))
     await asyncio.sleep(10)
 
 asyncio.run(main())
@@ -342,21 +343,40 @@ async def bar(x):
         await asyncio.sleep(1)  # Pause 1s
 
 async def main():
+    tasks = [None] * 3  # For CPython compaibility must store a reference see Note
     for x in range(3):
-        asyncio.create_task(bar(x))
+        tasks[x] = asyncio.create_task(bar(x))
     print('Tasks are running')
     await asyncio.sleep(10)
 
 asyncio.run(main())
 ```
-##### Note
+### Note on CPython compatibility
 
 The CPython [docs](https://docs.python.org/3/library/asyncio-task.html#creating-tasks)
 have a warning that a reference to the task instance should be saved for the
 task's duration. This was raised in 
 [this issue](https://github.com/micropython/micropython/issues/12299).
 MicroPython `asyncio` does not suffer from this bug, but writers of code which
-must work in CPython and MicroPython should take note.
+must work in CPython and MicroPython should take note. Code samples in this doc
+are CPython-compatible, but following version is valid in MicroPython:
+```python
+import asyncio
+async def bar(x):
+    count = 0
+    while True:
+        count += 1
+        print('Instance: {} count: {}'.format(x, count))
+        await asyncio.sleep(1)  # Pause 1s
+
+async def main():
+    for x in range(3):
+        asyncio.create_task(bar(x))  # No reference stored
+    print('Tasks are running')
+    await asyncio.sleep(10)
+
+asyncio.run(main())
+```
 
 ###### [Contents](./TUTORIAL.md#contents)
 
@@ -491,7 +511,7 @@ def set_global_exception():
 async def main():
     set_global_exception()  # Debug aid
     my_class = MyClass()  # Constructor might create tasks
-    asyncio.create_task(my_class.foo())  # Or you might do this
+    task = asyncio.create_task(my_class.foo())  # Or you might do this
     await my_class.run_forever()  # Non-terminating method
 try:
     asyncio.run(main())
@@ -613,8 +633,9 @@ async def task(i, lock):
 
 async def main():
     lock = Lock()  # The Lock instance
+    tasks = [None] * 3  # For CPython compaibility must store a reference see Note
     for n in range(1, 4):
-        asyncio.create_task(task(n, lock))
+        tasks[n - 1] = asyncio.create_task(task(n, lock))
     await asyncio.sleep(10)
 
 asyncio.run(main())  # Run for 10s
@@ -642,8 +663,9 @@ async def task(i, lock):
  
 async def main():
     lock = Lock()  # The Lock instance
+    tasks = [None] * 3  # For CPython compaibility must store a reference see Note
     for n in range(1, 4):
-        asyncio.create_task(task(n, lock))
+        tasks[n - 1] = asyncio.create_task(task(n, lock))
     await asyncio.sleep(10)
 
 asyncio.run(main())  # Run for 10s
@@ -671,7 +693,7 @@ async def waiter(event):
 
 async def main():
     event = Event()
-    asyncio.create_task(waiter(event))
+    task = asyncio.create_task(waiter(event))
     await asyncio.sleep(2)
     print('Setting event')
     event.set()
@@ -821,7 +843,7 @@ async def main():
     tasks = [asyncio.create_task(bar(70))]
     tasks.append(barking(21))
     tasks.append(asyncio.wait_for(foo(10), 7))
-    asyncio.create_task(do_cancel(tasks[0]))
+    can = asyncio.create_task(do_cancel(tasks[0]))
     res = None
     try:
         res = await asyncio.gather(*tasks, return_exceptions=True)
@@ -939,8 +961,9 @@ async def foo(n, sema):
 
 async def main():
     sema = Semaphore()
+    tasks = [None] * 3  # For CPython compaibility must store a reference see Note
     for num in range(3):
-        asyncio.create_task(foo(num, sema))
+        tasks[num] = asyncio.create_task(foo(num, sema))
     await asyncio.sleep(2)
 
 asyncio.run(main())
@@ -1022,8 +1045,8 @@ async def consume(queue):
 
 async def queue_go(delay):
     queue = Queue()
-    asyncio.create_task(consume(queue))
-    asyncio.create_task(produce(queue))
+    t1 = asyncio.create_task(consume(queue))
+    t2 = asyncio.create_task(produce(queue))
     await asyncio.sleep(delay)
     print("Done")
 
@@ -1188,8 +1211,9 @@ async def main():
     sw1 = asyncio.StreamWriter(UART(1, 9600), {})
     sw2 = asyncio.StreamWriter(UART(2, 1200), {})
     barrier = Barrier(3)
+    tasks = [None] * 2  # For CPython compaibility must store a reference see Note
     for n, sw in enumerate((sw1, sw2)):
-        asyncio.create_task(sender(barrier, sw, n + 1))
+        tasks[n] = asyncio.create_task(sender(barrier, sw, n + 1))
     await provider(barrier)
 
 asyncio.run(main())
@@ -1321,8 +1345,9 @@ async def foo(n, d):
 
 async def my_app():
     d = Delay_ms()
+    tasks = [None] * 4  # For CPython compaibility must store a reference see Note
     for n in range(4):
-        asyncio.create_task(foo(n, d))
+        tasks[n] = asyncio.create_task(foo(n, d))
     d.trigger(3000)
     print('Waiting on d')
     await d.wait()
@@ -1632,7 +1657,7 @@ async def foo():
     print('Does not print')  # Because bar() raised an exception
 
 async def main():
-    asyncio.create_task(foo())
+    task = asyncio.create_task(foo())
     for _ in range(5):
         print('Working')  # Carries on after the exception
         await asyncio.sleep(0.5)
@@ -1675,7 +1700,7 @@ async def bar():
 async def main():
     loop = asyncio.get_event_loop()
     loop.set_exception_handler(_handle_exception)
-    asyncio.create_task(bar())
+    task = asyncio.create_task(bar())
     for _ in range(5):
         print('Working')
         await asyncio.sleep(0.5)
@@ -2270,7 +2295,7 @@ class PinCall(io.IOBase):
         self.cbf_args = cbf_args
         self.pinval = pin.value()
         self.sreader = asyncio.StreamReader(self)
-        asyncio.create_task(self.run())
+        self.task = asyncio.create_task(self.run())
 
     async def run(self):
         while True:
@@ -2680,7 +2705,7 @@ class LED_async():
     def __init__(self, led_no):
         self.led = pyb.LED(led_no)
         self.rate = 0
-        asyncio.create_task(self.run())
+        self.task = asyncio.create_task(self.run())
 
     async def run(self):
         while True:
