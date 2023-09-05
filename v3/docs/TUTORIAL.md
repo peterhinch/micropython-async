@@ -862,9 +862,10 @@ The `TaskGroup` class is unofficially provided by
 suited to applications where one or more of a group of tasks is subject to
 runtime exceptions. A `TaskGroup` is instantiated in an asynchronous context
 manager. The `TaskGroup` instantiates member tasks. When all have run to
-completion, the context manager terminates. Return values from member tasks
-cannot be retrieved. Results should be passed in other ways such as via bound
-variables, queues etc.
+completion, the context manager terminates. Where `gather` is static, a task
+group can be dynamic: a task in a group may spawn further group members. Return
+values from member tasks cannot be retrieved. Results should be passed in other
+ways such as via bound variables, queues etc.
 
 An exception in a member task not trapped by that task is propagated to the
 task that created the `TaskGroup`. All tasks in the `TaskGroup` then terminate
@@ -922,6 +923,9 @@ async def main():
 
 asyncio.run(main())
 ```
+[This doc](https://vorpus.org/blog/notes-on-structured-concurrency-or-go-statement-considered-harmful/)
+provides background on the theory behind task groups and how they can improve
+program structure and reliablity.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
