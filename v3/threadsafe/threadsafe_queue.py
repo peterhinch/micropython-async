@@ -12,7 +12,7 @@ import uasyncio as asyncio
 class ThreadSafeQueue:  # MicroPython optimised
     def __init__(self, buf):
         self._q = [0 for _ in range(buf)] if isinstance(buf, int) else buf
-        self._size = len(buf)
+        self._size = len(self._q)
         self._wi = 0
         self._ri = 0
         self._evput = asyncio.ThreadSafeFlag()  # Triggered by put, tested by get
