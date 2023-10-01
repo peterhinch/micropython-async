@@ -7,6 +7,7 @@ _attrs = {
     "ThreadSafeEvent": "threadsafe_event",
     "ThreadSafeQueue": "threadsafe_queue",
     "Message": "message",
+    "Context": "context",
 }
 
 # Copied from uasyncio.__init__.py

@@ -4,6 +4,7 @@
     ["threadsafe/message.py", "github:peterhinch/micropython-async/v3/threadsafe/message.py"],
     ["threadsafe/threadsafe_event.py", "github:peterhinch/micropython-async/v3/threadsafe/threadsafe_event.py"],
     ["threadsafe/threadsafe_queue.py", "github:peterhinch/micropython-async/v3/threadsafe/threadsafe_queue.py"]
+    ["threadsafe/context.py", "github:peterhinch/micropython-async/v3/threadsafe/context.py"]
   ],
   "version": "0.1"
 }

@@ -22,8 +22,10 @@ to WiFi and issue:
 import mip
 mip.install("github:peterhinch/micropython-async/v3/threadsafe")
 ```
-For non-networked targets use `mpremote` as described in
-[the official docs](http://docs.micropython.org/en/latest/reference/packages.html#installing-packages-with-mpremote).
+On any target `mpremote` may be used:
+```bash
+$ mpremote mip install github:peterhinch/micropython-async/v3/threadsafe
+```
 
 ###### [Main README](../README.md)
 ###### [Tutorial](./TUTORIAL.md)
@@ -47,6 +49,8 @@ For non-networked targets use `mpremote` as described in
   3.1 [Threadsafe Event](./THREADING.md#31-threadsafe-event)  
   3.2 [Message](./THREADING.md#32-message) A threadsafe event with data payload.  
  4. [Taming blocking functions](./THREADING.md#4-taming-blocking-functions) Enabling uasyncio to handle blocking code.  
+  4.1 [Basic approach](./THREADING.md#41-basic-approach)  
+  4.2 [More general solution](./THREADING,md#42-more-general-solution)  
  5. [Sharing a stream device](./THREADING.md#5-sharing-a-stream-device)  
  6. [Glossary](./THREADING.md#6-glossary) Terminology of realtime coding.  
 
@@ -188,7 +192,7 @@ thread safe classes offered here do not yet support Unix.
  is only required if mutual consistency of the three values is essential.
  3. In the absence of a GIL some operations on built-in objects are not thread
  safe. For example adding or deleting items in a `dict`. This extends to global
- variables which are implemented as a `dict`. See [Globals](./THREADING.md#15-globals).
+ variables because these are implemented as a `dict`. See [Globals](./THREADING.md#15-globals).
  4. The observations in 1.3 re user defined data structures and `uasyncio`
  interfacing apply.
  5. Code running on a core other than that running `uasyncio` may block for
@@ -643,7 +647,13 @@ again before it is accessed, the first data item will be lost.
 
 Blocking functions or methods have the potential of stalling the `uasyncio`
 scheduler. Short of rewriting them to work properly the only way to tame them
-is to run them in another thread. The following is a way to achieve this.
+is to run them in another thread. Any function to be run in this way must
+conform to the guiedelines above, notably with regard to allocation and side
+effects.
+
+## 4.1 Basic approach
+
+The following is a way to "unblock" a single function or method.
 ```python
 async def unblock(func, *args, **kwargs):
     def wrap(func, message, args, kwargs):
@@ -698,6 +708,42 @@ async def main():
 asyncio.run(main())
 ```
 ###### [Contents](./THREADING.md#contents)
+
+## 4.1 More general solution
+
+This provides a queueing mechanism. A task can assign a blocking function to a
+core even if the core is already busy. Further it allows for multiple cores or
+threads; these are defined as `Context` instances. Typical use:
+```python
+from threadsafe import Context
+
+core1 = Context()  # Has an instance of _thread, so a core on RP2
+
+def rats(t, n):  # Arbitrary blocking function or method
+    time.sleep(t)
+    return n * n
+
+async def some_task():
+    await core1.assign(rats, t=3, n=99)  # rats() runs on other core
+```
+#### Context class
+
+Constructor arg:
+ * `qsize=10` Size of function queue.
+
+Asynchronous method:
+ * `assign(func, *args, **kwargs)` Accepts a synchronous function with optional
+ args. These are placed on a queue for execution in the `Context` instance. The
+ method pauses until execution is complete, returning the fuction's return
+ value.
+
+The `Context` class constructor spawns a thread which waits on the `Context`
+queue. The`assign` method accepts a fuction and creates a `Job` instance. This
+includes a `ThreadSafeFlag` along with the function and its args. The `Assign`
+method places the `Job` on the queue and waits on the `ThreadSafeFlag`.
+
+The thread removes a `Job` from the queue and executes it. When complete it
+assigns the return value to the `Job` and sets the `ThreadSafeFlag`.
 
 # 5. Sharing a stream device
 
