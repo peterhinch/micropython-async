@@ -1,15 +1,15 @@
 # Synopsis
 
-Using `Event` instances rather than callbacks in `uasyncio` device drivers can
+Using `Event` instances rather than callbacks in `asyncio` device drivers can
 simplify their design and standardise their APIs. It can also simplify
 application logic.
 
-This document assumes familiarity with `uasyncio`. See [official docs](http://docs.micropython.org/en/latest/library/uasyncio.html) and
+This document assumes familiarity with `asyncio`. See [official docs](http://docs.micropython.org/en/latest/library/asyncio.html) and
 [unofficial tutorial](https://github.com/peterhinch/micropython-async/blob/master/v3/docs/TUTORIAL.md).
 
 # 0. Contents
 
- 1. [An alternative to callbacks in uasyncio code](./EVENTS.md#1-an-alternative-to-callbacks-in-uasyncio-code)  
+ 1. [An alternative to callbacks in asyncio code](./EVENTS.md#1-an-alternative-to-callbacks-in-asyncio-code)  
  2. [Rationale](./EVENTS.md#2-rationale)  
  3. [Device driver design](./EVENTS.md#3-device-driver-design)  
  4. [Primitives](./EVENTS.md#4-primitives) Facilitating Event-based application logic  
@@ -25,10 +25,11 @@ This document assumes familiarity with `uasyncio`. See [official docs](http://do
   6.2 [EButton](./EVENTS.md#62-ebutton) Debounced pushbutton with double and long press events  
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6.2.1 [The suppress constructor argument](./EVENTS.md#621-the-suppress-constructor-argument)  
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6.2.2 [The sense constructor argument](./EVENTS.md#622-the-sense-constructor-argument)  
+  6.3 [Keyboard](./EVENTS.md#63-keyboard) A crosspoint array of pushbuttons.  
  7. [Ringbuf queue](./EVENTS.md#7-ringbuf-queue) A MicroPython optimised queue primitive.  
 [Appendix 1 Polling](./EVENTS.md#100-appendix-1-polling)  
 
-# 1. An alternative to callbacks in uasyncio code
+# 1. An alternative to callbacks in asyncio code
 
 Callbacks have two merits. They are familiar, and they enable an interface
 which allows an asynchronous application to be accessed by synchronous code.
@@ -49,7 +50,7 @@ async def handle_messages(input_stream):
 Callbacks are not a natural fit in this model. Viewing the declaration of a
 synchronous function, it is not evident how the function gets called or in what
 context the code runs. Is it an ISR? Is it called from another thread or core?
-Or is it a callback running in a `uasyncio` context? You cannot tell without
+Or is it a callback running in a `asyncio` context? You cannot tell without
 trawling the code. By contrast, a routine such as the above example is a self
 contained process whose context and intended behaviour are evident.
 
@@ -93,15 +94,15 @@ know to access this driver interface is the name of the bound `Event`.
 This doc aims to demostrate that the event based approach can simplify
 application logic by eliminating the need for callbacks.
 
-The design of `uasyncio` V3 and its `Event` class enables this approach
+The design of `asyncio` V3 and its `Event` class enables this approach
 because:
  1. A task waiting on an `Event` is put on a queue where it consumes no CPU
  cycles until the event is triggered.
- 2. The design of `uasyncio` can support large numbers of tasks (hundreds) on
+ 2. The design of `asyncio` can support large numbers of tasks (hundreds) on
  a typical microcontroller. Proliferation of tasks is not a problem, especially
  where they are small and spend most of the time paused waiting on queues.
 
-This contrasts with other schedulers (such as `uasyncio` V2) where there was no
+This contrasts with other schedulers (such as `asyncio` V2) where there was no
 built-in `Event` class; typical `Event` implementations used
 [polling](./EVENTS.md#100-appendix-1-polling) and were convenience objects
 rather than performance solutions.
@@ -151,7 +152,7 @@ Drivers exposing `Event` instances include:
 
 Applying `Events` to typical logic problems requires two new primitives:
 `WaitAny` and `WaitAll`. Each is an ELO. These primitives may be cancelled or
-subject to a timeout with `uasyncio.wait_for()`, although judicious use of
+subject to a timeout with `asyncio.wait_for()`, although judicious use of
 `Delay_ms` offers greater flexibility than `wait_for`.
 
 ## 4.1 WaitAny
@@ -325,13 +326,16 @@ async def foo():
 
 This document describes drivers for mechanical switches and pushbuttons. These
 have event based interfaces exclusively and support debouncing. The drivers are
-simplified alternatives for 
+simplified alternatives for
 [Switch](https://github.com/peterhinch/micropython-async/blob/master/v3/primitives/switch.py)
 and [Pushbutton](https://github.com/peterhinch/micropython-async/blob/master/v3/primitives/pushbutton.py),
 which also support callbacks.
 
 ## 6.1 ESwitch
 
+```python
+from primitives import ESwitch
+```
 This provides a debounced interface to a switch connected to gnd or to 3V3. A
 pullup or pull down resistor should be supplied to ensure a valid logic level
 when the switch is open. The default constructor arg `lopen=1` is for a switch
@@ -348,7 +352,7 @@ Constructor arguments:
  down as appropriate.
  2. `lopen=1` Electrical level when switch is open circuit i.e. 1 is 3.3V, 0 is
  gnd.
- 
+
 Methods:
 
  1. `__call__` Call syntax e.g. `myswitch()` returns the logical debounced
@@ -363,7 +367,7 @@ Bound objects:
 Application code is responsible for clearing the `Event` instances.  
 Usage example:
 ```python
-import uasyncio as asyncio
+import asyncio
 from machine import Pin
 from primitives import ESwitch
 es = ESwitch(Pin("Y1", Pin.IN, Pin.PULL_UP))
@@ -390,7 +394,11 @@ asyncio.run(main())
 ###### [Contents](./EVENTS.md#0-contents)
 
 ## 6.2 EButton
- 
+
+```python
+from primitives import EButton
+```
+
 This extends the functionality of `ESwitch` to provide additional events for
 long and double presses.
 
@@ -479,12 +487,63 @@ determine whether the button is closed or open.
 
 ###### [Contents](./EVENTS.md#0-contents)
 
+## 6.3 Keyboard
+
+```python
+from primitives import Keyboard
+```
+A `Keyboard` provides an interface to a set of pushbuttons arranged as a
+crosspoint array. If a key is pressed its array index (scan code) is placed on a
+ queue. Keypresses are retrieved with `async for`. The driver operates by
+ polling each row, reading the response of each column. N-key rollover is
+ supported - this is the case where a key is pressed before the prior key has
+ been released.
+
+ Example usage:
+```python
+import asyncio
+from primitives import Keyboard
+from machine import Pin
+rowpins = [Pin(p, Pin.OUT) for p in range(10, 14)]
+colpins = [Pin(p, Pin.IN, Pin.PULL_DOWN) for p in range(16, 20)]
+
+async def main():
+    kp = Keyboard(rowpins, colpins)
+    async for scan_code in kp:
+        print(scan_code)
+        if not scan_code:
+            break  # Quit on key with code 0
+
+asyncio.run(main())
+```
+Constructor mandatory args:
+ * `rowpins` A list or tuple of initialised output pins.
+ * `colpins` A list or tuple of initialised input pins (pulled down).
+Constructor optional keyword only args:
+ * `buffer=bytearray(10)` Keyboard buffer.
+ * `db_delay=50` Debounce delay in ms.
+
+The `Keyboard` class is subclassed from [Ringbuf queue](./EVENTS.md#7-ringbuf-queue)
+enabling scan codes to be retrieved with an asynchronous iterator.
+
+In typical use the scan code would be used as the index into a string of
+keyboard characters ordered to match the physical layout of the keys. If data
+is not removed from the buffer, on overflow the oldest scan code is discarded.
+There is no limit on the number of rows or columns however if more than 256 keys
+are used, the `buffer` arg would need to be adapted to handle scan codes > 255.
+
+###### [Contents](./EVENTS.md#0-contents)
+
 # 7. Ringbuf Queue
+
+```python
+from primitives import RingbufQueue
+```
 
 The API of the `Queue` aims for CPython compatibility. This is at some cost to
 efficiency. As the name suggests, the `RingbufQueue` class uses a pre-allocated
 circular buffer which may be of any mutable type supporting the buffer protocol
-e.g. `list`, `array` or `bytearray`. 
+e.g. `list`, `array` or `bytearray`.
 
 Attributes of `RingbufQueue`:
  1. It is of fixed size, `Queue` can grow to arbitrary size.
@@ -515,7 +574,7 @@ Asynchronous methods:
  block until space is available.
  * `get` Return an object from the queue. If empty, block until an item is
  available.
- 
+
 Retrieving items from the queue:
 
 The `RingbufQueue` is an asynchronous iterator. Results are retrieved using
@@ -539,7 +598,6 @@ def add_item(q, data):
     except IndexError:
         pass
 ```
-
 ###### [Contents](./EVENTS.md#0-contents)
 
 # 100 Appendix 1 Polling
@@ -547,20 +605,20 @@ def add_item(q, data):
 The primitives or drivers referenced here do not use polling with the following
 exceptions:
  1. Switch and pushbutton drivers. These poll the `Pin` instance for electrical
- reasons described below. 
+ reasons described below.
  2. `ThreadSafeFlag` and subclass `Message`: these use the stream mechanism.
 
 Other drivers and primitives are designed such that paused tasks are waiting on
 queues and are therefore using no CPU cycles.
 
 [This reference][1e] states that bouncing contacts can assume invalid logic
-levels for a period. It is a reaonable assumption that `Pin.value()` always
+levels for a period. It is a reasonable assumption that `Pin.value()` always
 returns 0 or 1: the drivers are designed to cope with any sequence of such
 readings. By contrast, the behaviour of IRQ's under such conditions may be
 abnormal. It would be hard to prove that IRQ's could never be missed, across
 all platforms and input conditions.
 
-Pin polling aims to use minimal resources, the main overhead being `uasyncio`'s
+Pin polling aims to use minimal resources, the main overhead being `asyncio`'s
 task switching overhead: typically about 250 μs. The default polling interval
 is 50 ms giving an overhead of ~0.5%.
 

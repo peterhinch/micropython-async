@@ -38,7 +38,8 @@ $ mpremote mip install github:peterhinch/micropython-async/v3/threadsafe
   1.3 [Threaded code on one core](./THREADING.md#13-threaded-code-on-one-core)  
   1.4 [Threaded code on multiple cores](./THREADING.md#14-threaded-code-on-multiple-cores)  
   1.5 [Globals](./THREADING.md#15-globals)  
-  1.6 [Debugging](./THREADING.md#16-debugging)  
+  1.6 [Allocation](./THREADING.md#16-allocation)  
+  1.7 [Debugging](./THREADING.md#17-debugging)  
  2. [Sharing data](./THREADING.md#2-sharing-data)  
   2.1 [A pool](./THREADING.md#21-a-pool) Sharing a set of variables.  
   2.2 [ThreadSafeQueue](./THREADING.md#22-threadsafequeue)  
@@ -146,7 +147,7 @@ async def foo():
         await process(d)
 ```
 
-## 1.2 Soft Interrupt Service Routines 
+## 1.2 Soft Interrupt Service Routines
 
 This also includes code scheduled by `micropython.schedule()` which is assumed
 to have been called from a hard ISR.
@@ -234,10 +235,20 @@ placeholder) before allowing other contexts to run.
 
 If globals must be created or destroyed dynamically, a lock must be used.
 
-## 1.6 Debugging
+## 1.6 Allocation
+
+Memory allocation must be prevented from occurring while a garbage collection
+(GC) is in progress. Normally this is handled transparently by the GIL; where
+there is no GIL a lock is used. The one exception is the case of a hard ISR. It
+is invalid to have a hard ISR waiting on a lock. Consequently hard ISR's are
+disallowed from allocating and an exception is thrown if this is attempted.
+
+Consequently code running in all other contexts is free to allocate.
+
+## 1.7 Debugging
 
 A key practical point is that coding errors in synchronising threads can be
-hard to locate: consequences can be extremely rare bugs or (in the case of 
+hard to locate: consequences can be extremely rare bugs or (in the case of
 multi-core systems) crashes. It is vital to be careful in the way that
 communication between the contexts is achieved. This doc aims to provide some
 guidelines and code to assist in this task.
@@ -463,7 +474,7 @@ def core_2(getq, putq):  # Run on core 2
             putq.put_sync(x, block=True)  # Wait if queue fills.
         buf.clear()
         sleep_ms(30)
-        
+
 async def sender(to_core2):
     x = 0
     while True:
@@ -648,8 +659,7 @@ again before it is accessed, the first data item will be lost.
 Blocking functions or methods have the potential of stalling the `uasyncio`
 scheduler. Short of rewriting them to work properly the only way to tame them
 is to run them in another thread. Any function to be run in this way must
-conform to the guiedelines above, notably with regard to allocation and side
-effects.
+conform to the guiedelines above, notably with regard to side effects.
 
 ## 4.1 Basic approach
 

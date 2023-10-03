@@ -5,6 +5,7 @@
 
 import uasyncio as asyncio
 from . import Delay_ms
+from . import RingbufQueue
 
 # An Event-like class that can wait on an iterable of Event-like instances.
 # .wait pauses until any passed event is set.
@@ -28,7 +29,7 @@ class WaitAny:
         await event.wait()
         self.evt.set()
         self.trig_event = event
- 
+
     def event(self):
         return self.trig_event
 
@@ -140,7 +141,7 @@ class EButton:
             await self._ltim.wait()
             self._ltim.clear()  # Clear the event
             self.long.set()  # User event
-            
+
     # Runs if suppress set. Delay response to single press until sure it is a single short pulse.
     async def _dtf(self):
         while True:
@@ -164,3 +165,40 @@ class EButton:
             task.cancel()
         for evt in (self.press, self.double, self.long, self.release):
             evt.clear()
+
+# A crosspoint array of pushbuttons
+# Tuples/lists of pins. Rows are OUT, cols are IN
+class Keyboard(RingbufQueue):
+    def __init__(self, rowpins, colpins, *, buffer=bytearray(10), db_delay=50):
+        super().__init__(buffer)
+        self.rowpins = rowpins
+        self.colpins = colpins
+        self.db_delay = db_delay  # Deounce delay in ms
+        for opin in self.rowpins:  # Initialise output pins
+            opin(0)
+        asyncio.create_task(self.scan(len(rowpins) * len(colpins)))
+
+    async def scan(self, nbuttons):
+        prev = 0
+        while True:
+            await asyncio.sleep_ms(0)
+            cur = 0
+            for opin in self.rowpins:
+                opin(1)  # Assert output
+                for ipin in self.colpins:
+                    cur <<= 1
+                    cur |= ipin()
+                opin(0)
+            if cur != prev:  # State change
+                pressed = cur & ~prev
+                prev = cur
+                if pressed:  # Ignore button release
+                    for v in range(nbuttons):  # Find button index
+                        if pressed & 1:
+                            break
+                        pressed >>= 1
+                    try:
+                        self.put_nowait(v)
+                    except IndexError:  # q full. Overwrite oldest
+                        pass
+                    await asyncio.sleep_ms(self.db_delay)  # Wait out bounce
