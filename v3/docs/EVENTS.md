@@ -528,7 +528,7 @@ Constructor optional keyword only args:
  * `__getitem__(self, scan_code)` Return the state of a given pin. Enables code
  that causes actions after a button press, for example on release or auto-repeat
  while pressed.
- 
+
 The `Keyboard` class is subclassed from [Ringbuf queue](./EVENTS.md#7-ringbuf-queue)
 enabling scan codes to be retrieved with an asynchronous iterator.
 
@@ -538,6 +538,36 @@ is not removed from the buffer, on overflow the oldest scan code is discarded.
 There is no limit on the number of rows or columns however if more than 256 keys
 are used, the `buffer` arg would need to be adapted to handle scan codes > 255.
 
+Usage example. Keypresses on a numeric keypad are sent to a UART with auto
+ repeat.
+```python
+import asyncio
+from primitives import Keyboard, Delay_ms
+from machine import Pin, UART
+
+async def repeat(tim, uart, ch):  # Send at least one char
+    while True:
+        uart.write(ch)
+        tim.clear()  # Clear any pre-existing event
+        tim.trigger()  # Start the timer
+        await tim.wait()
+
+async def main():  # Run forever
+    rowpins = [Pin(p, Pin.OUT) for p in range(10, 14)]
+    colpins = [Pin(p, Pin.IN, Pin.PULL_DOWN) for p in range(16, 20)]
+    uart = UART(0, 9600, tx=0, rx=1)
+    pad = Keyboard(rowpins, colpins)
+    tim = Delay_ms(duration=200)  # 200ms auto repeat timer
+    cmap = "123456789*0#"  # Numeric keypad character map
+    async for scan_code in pad:
+        ch = cmap[scan_code]  # Get character
+        rpt = asyncio.create_task(repeat(tim, uart, ch))
+        while pad[scan_code]:  # While key is held down
+            await asyncio.sleep_ms(0)
+        rpt.cancel()
+
+asyncio.run(main())
+```
 ##### Application note
 
 Scanning of the keyboard occurs rapidly, and built-in pull-down resistors have a
