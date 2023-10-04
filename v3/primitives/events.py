@@ -174,12 +174,15 @@ class Keyboard(RingbufQueue):
         self.rowpins = rowpins
         self.colpins = colpins
         self.db_delay = db_delay  # Deounce delay in ms
+        self._state = 0  # State of all keys as bit array
         for opin in self.rowpins:  # Initialise output pins
             opin(0)
         asyncio.create_task(self.scan(len(rowpins) * len(colpins)))
 
+    def __getitem__(self, scan_code):
+        return bool(self._state & (1 << scan_code))
+
     async def scan(self, nbuttons):
-        prev = 0
         while True:
             await asyncio.sleep_ms(0)
             cur = 0
@@ -189,9 +192,9 @@ class Keyboard(RingbufQueue):
                     cur <<= 1
                     cur |= ipin()
                 opin(0)
-            if cur != prev:  # State change
-                pressed = cur & ~prev
-                prev = cur
+            if cur != self._state:  # State change
+                pressed = cur & ~self._state
+                self._state = cur
                 if pressed:  # Ignore button release
                     for v in range(nbuttons):  # Find button index
                         if pressed & 1:

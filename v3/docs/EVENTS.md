@@ -519,10 +519,16 @@ asyncio.run(main())
 Constructor mandatory args:
  * `rowpins` A list or tuple of initialised output pins.
  * `colpins` A list or tuple of initialised input pins (pulled down).
+
 Constructor optional keyword only args:
  * `buffer=bytearray(10)` Keyboard buffer.
  * `db_delay=50` Debounce delay in ms.
 
+ Magic method:
+ * `__getitem__(self, scan_code)` Return the state of a given pin. Enables code
+ that causes actions after a button press, for example on release or auto-repeat
+ while pressed.
+ 
 The `Keyboard` class is subclassed from [Ringbuf queue](./EVENTS.md#7-ringbuf-queue)
 enabling scan codes to be retrieved with an asynchronous iterator.
 
@@ -531,6 +537,13 @@ keyboard characters ordered to match the physical layout of the keys. If data
 is not removed from the buffer, on overflow the oldest scan code is discarded.
 There is no limit on the number of rows or columns however if more than 256 keys
 are used, the `buffer` arg would need to be adapted to handle scan codes > 255.
+
+##### Application note
+
+Scanning of the keyboard occurs rapidly, and built-in pull-down resistors have a
+high value. If the capacitance between wires is high, spurious keypresses may be
+registed. To prevent this it is wise to add physical resistors between the input
+pins and gnd. A value in the region of 1KΩ to 5KΩ is recommended.
 
 ###### [Contents](./EVENTS.md#0-contents)
 
