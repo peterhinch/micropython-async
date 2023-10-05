@@ -176,12 +176,12 @@ class Keyboard(RingbufQueue):
         self._state = 0  # State of all keys as bitmap
         for opin in self.rowpins:  # Initialise output pins
             opin(0)
-        asyncio.create_task(self.scan(db_delay))
+        asyncio.create_task(self.scan(len(rowpins) * len(colpins), db_delay))
 
     def __getitem__(self, scan_code):
         return bool(self._state & (1 << scan_code))
 
-    async def scan(self, db_delay):
+    async def scan(self, nkeys, db_delay):
         while True:
             cur = 0  # Current bitmap of key states
             for opin in self.rowpins:
@@ -190,16 +190,14 @@ class Keyboard(RingbufQueue):
                     cur <<= 1
                     cur |= ipin()
                 opin(0)
-            pressed = cur & ~self._state  # Newly pressed
-            if pressed:  # There is a newly pressed button
-                sc = 0  # Find its scan code
-                while not pressed & 1:
+            if pressed := (cur & ~self._state):  # 1's are newly pressed button(s)
+                for sc in range(nkeys):
+                    if pressed & 1:
+                        try:
+                            self.put_nowait(sc)
+                        except IndexError:  # q full. Overwrite oldest
+                            pass
                     pressed >>= 1
-                    sc += 1
-                try:
-                    self.put_nowait(sc)
-                except IndexError:  # q full. Overwrite oldest
-                    pass
             changed = cur ^ self._state  # Any new press or release
             self._state = cur
             await asyncio.sleep_ms(db_delay if changed else 0)  # Wait out bounce
