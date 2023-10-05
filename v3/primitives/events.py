@@ -173,35 +173,33 @@ class Keyboard(RingbufQueue):
         super().__init__(buffer)
         self.rowpins = rowpins
         self.colpins = colpins
-        self.db_delay = db_delay  # Deounce delay in ms
-        self._state = 0  # State of all keys as bit array
+        self._state = 0  # State of all keys as bitmap
         for opin in self.rowpins:  # Initialise output pins
             opin(0)
-        asyncio.create_task(self.scan(len(rowpins) * len(colpins)))
+        asyncio.create_task(self.scan(db_delay))
 
     def __getitem__(self, scan_code):
         return bool(self._state & (1 << scan_code))
 
-    async def scan(self, nbuttons):
+    async def scan(self, db_delay):
         while True:
-            await asyncio.sleep_ms(0)
-            cur = 0
+            cur = 0  # Current bitmap of key states
             for opin in self.rowpins:
                 opin(1)  # Assert output
                 for ipin in self.colpins:
                     cur <<= 1
                     cur |= ipin()
                 opin(0)
-            if cur != self._state:  # State change
-                pressed = cur & ~self._state
-                self._state = cur
-                if pressed:  # Ignore button release
-                    for v in range(nbuttons):  # Find button index
-                        if pressed & 1:
-                            break
-                        pressed >>= 1
-                    try:
-                        self.put_nowait(v)
-                    except IndexError:  # q full. Overwrite oldest
-                        pass
-                    await asyncio.sleep_ms(self.db_delay)  # Wait out bounce
+            pressed = cur & ~self._state  # Newly pressed
+            if pressed:  # There is a newly pressed button
+                sc = 0  # Find its scan code
+                while not pressed & 1:
+                    pressed >>= 1
+                    sc += 1
+                try:
+                    self.put_nowait(sc)
+                except IndexError:  # q full. Overwrite oldest
+                    pass
+            changed = cur ^ self._state  # Any new press or release
+            self._state = cur
+            await asyncio.sleep_ms(db_delay if changed else 0)  # Wait out bounce
