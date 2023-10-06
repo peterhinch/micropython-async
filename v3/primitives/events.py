@@ -175,7 +175,7 @@ class Keyboard(RingbufQueue):
         self.colpins = colpins
         self._state = 0  # State of all keys as bitmap
         for opin in self.rowpins:  # Initialise output pins
-            opin(0)
+            opin(1)
         asyncio.create_task(self.scan(len(rowpins) * len(colpins), db_delay))
 
     def __getitem__(self, scan_code):
@@ -183,13 +183,13 @@ class Keyboard(RingbufQueue):
 
     async def scan(self, nkeys, db_delay):
         while True:
-            cur = 0  # Current bitmap of key states
+            cur = 0  # Current bitmap of logical key states
             for opin in self.rowpins:
-                opin(1)  # Assert output
+                opin(0)  # Assert output
                 for ipin in self.colpins:
                     cur <<= 1
-                    cur |= ipin()
-                opin(0)
+                    cur |= ipin() ^ 1  # Convert physical to logical
+                opin(1)
             if pressed := (cur & ~self._state):  # 1's are newly pressed button(s)
                 for sc in range(nkeys):
                     if pressed & 1:

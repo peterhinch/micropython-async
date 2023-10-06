@@ -494,18 +494,18 @@ from primitives import Keyboard
 ```
 A `Keyboard` provides an interface to a set of pushbuttons arranged as a
 crosspoint array. If a key is pressed its array index (scan code) is placed on a
- queue. Keypresses are retrieved with `async for`. The driver operates by
- polling each row, reading the response of each column. N-key rollover is
- supported - this is the case where a key is pressed before the prior key has
- been released.
+queue. Keypresses are retrieved with `async for`. The driver operates by
+polling each row, reading the response of each column. 1-key rollover is
+supported - this is the case where a key is pressed before the prior key has
+been released.
 
- Example usage:
+Example usage:
 ```python
 import asyncio
 from primitives import Keyboard
 from machine import Pin
-rowpins = [Pin(p, Pin.OUT) for p in range(10, 14)]
-colpins = [Pin(p, Pin.IN, Pin.PULL_DOWN) for p in range(16, 20)]
+rowpins = [Pin(p, Pin.OPEN_DRAIN) for p in range(10, 14)]
+colpins = [Pin(p, Pin.IN, Pin.PULL_UP) for p in range(16, 20)]
 
 async def main():
     kp = Keyboard(rowpins, colpins)
@@ -553,7 +553,7 @@ async def repeat(tim, uart, ch):  # Send at least one char
         await tim.wait()
 
 async def main():  # Run forever
-    rowpins = [Pin(p, Pin.OUT) for p in range(10, 14)]
+    rowpins = [Pin(p, Pin.OPEN_DRAIN) for p in range(10, 14)]
     colpins = [Pin(p, Pin.IN, Pin.PULL_DOWN) for p in range(16, 20)]
     uart = UART(0, 9600, tx=0, rx=1)
     pad = Keyboard(rowpins, colpins)
@@ -570,10 +570,10 @@ asyncio.run(main())
 ```
 ##### Application note
 
-Scanning of the keyboard occurs rapidly, and built-in pull-down resistors have a
+Scanning of the keyboard occurs rapidly, and built-in pull-up resistors have a
 high value. If the capacitance between wires is high, spurious keypresses may be
-registed. To prevent this it is wise to add physical resistors between the input
-pins and gnd. A value in the region of 1KΩ to 5KΩ is recommended.
+registered. To prevent this it is wise to add physical resistors between the
+input pins and 3.3V. A value in the region of 1KΩ to 5KΩ is recommended.
 
 ###### [Contents](./EVENTS.md#0-contents)
 
