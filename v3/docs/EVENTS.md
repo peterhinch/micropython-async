@@ -620,7 +620,7 @@ enabling scan codes and event types to be retrieved with an asynchronous iterato
 
 ```python
 import asyncio
-from primitives import SwArray
+from primitives.sw_array import SwArray, CLOSE, OPEN, LONG, DOUBLE, SUPPRESS
 from machine import Pin
 rowpins = [Pin(p, Pin.OPEN_DRAIN) for p in range(10, 14)]
 colpins = [Pin(p, Pin.IN, Pin.PULL_UP) for p in range(16, 20)]

@@ -48,8 +48,10 @@ To install the library, connect the target hardware to WiFi and issue:
 import mip
 mip.install("github:peterhinch/micropython-async/v3/primitives")
 ```
-For non-networked targets use `mpremote` as described in
-[the official docs](http://docs.micropython.org/en/latest/reference/packages.html#installing-packages-with-mpremote).
+For any target including non-networked ones use `mpremote`:
+```bash
+$ mpremote mip install "github:peterhinch/micropython-async/v3/primitives"
+```
 
 Drivers are imported with:
 ```python
@@ -102,7 +104,7 @@ implicit: contact bounce will not cause spurious execution of the `callable`.
 Constructor argument (mandatory):
 
  1. `pin` The initialised Pin instance.
- 
+
 Methods:
 
  1. `close_func` Args: `func` (mandatory) a `callable` to run on contact
