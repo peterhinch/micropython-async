@@ -575,6 +575,67 @@ high value. If the capacitance between wires is high, spurious keypresses may be
 registered. To prevent this it is wise to add physical resistors between the
 input pins and 3.3V. A value in the region of 1KΩ to 5KΩ is recommended.
 
+## 6.4 SwArray
+```python
+from primitives import SwArray
+```
+An `SwArray` is similar to a `Keyboard` except that single, double and long
+presses are supported. Items in the array may be switches or pushbuttons,
+however if switches are used they must be diode-isolated. This is because
+pushbuttons are normally open, while switches may be left in open or closed
+states. If more than two switches are closed, unwanted electrical connections
+are made.  
+![Image](./isolate.jpg)
+
+Constructor mandatory args:
+ * `rowpins` A list or tuple of initialised output pins.
+ * `colpins` A list or tuple of initialised input pins (pulled down).
+ * `cfg` An integer defining conditions requiring a response. See Module
+ Constants below.
+
+Constructor optional keyword only args:
+ * `bufsize=10` Size of buffer.
+
+ Magic method:
+ * `__getitem__(self, scan_code)` Return the state of a given pin. Enables code
+ that causes actions after a button press, for example on release or auto-repeat
+ while pressed.
+
+ Class variables:
+ * `debounce_ms = 50`
+ * `long_press_ms = 1000`
+ * `double_click_ms = 400`
+
+Module constants.  
+The `cfg` constructor arg may be defined as the bitwise or of these constants.
+If the `CLOSE` bit is specified, switch closures will be reported
+ * `CLOSE = const(1)` Contact closure.
+ * `OPEN = const(2)` Contact opening.
+ * `LONG = const(4)` Contact closure longer than `long_press_ms`.
+ * `DOUBLE = const(8)` Two closures in less than `double_click_ms`.
+ * `SUPPRESS = const(16)`  # Disambiguate. For explanation see `EButton`.
+
+The `SwArray` class is subclassed from [Ringbuf queue](./EVENTS.md#7-ringbuf-queue)
+enabling scan codes and event types to be retrieved with an asynchronous iterator.
+
+```python
+import asyncio
+from primitives import SwArray
+from machine import Pin
+rowpins = [Pin(p, Pin.OPEN_DRAIN) for p in range(10, 14)]
+colpins = [Pin(p, Pin.IN, Pin.PULL_UP) for p in range(16, 20)]
+
+async def main():
+    cfg = CLOSE | OPEN  #LONG | DOUBLE | SUPPRESS
+    swa = SwArray(rowpins, colpins, cfg)
+    async for scan_code, evt in swa:
+        print(scan_code, evt)
+        if not scan_code:
+            break  # Quit on key with code 0
+
+asyncio.run(main())
+```
+
 ###### [Contents](./EVENTS.md#0-contents)
 
 # 7. Ringbuf Queue

@@ -11,7 +11,8 @@
     ["primitives/queue.py", "github:peterhinch/micropython-async/v3/primitives/queue.py"],
     ["primitives/ringbuf_queue.py", "github:peterhinch/micropython-async/v3/primitives/ringbuf_queue.py"],
     ["primitives/semaphore.py", "github:peterhinch/micropython-async/v3/primitives/semaphore.py"],
-    ["primitives/switch.py", "github:peterhinch/micropython-async/v3/primitives/switch.py"]
+    ["primitives/switch.py", "github:peterhinch/micropython-async/v3/primitives/switch.py"],
+    ["primitives/sw_array.py", "github:peterhinch/micropython-async/v3/primitives/sw_array.py"]
   ],
   "version": "0.1"
 }
