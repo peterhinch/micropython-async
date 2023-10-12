@@ -584,8 +584,8 @@ presses are supported. Items in the array may be switches or pushbuttons,
 however if switches are used they must be diode-isolated. This is because
 pushbuttons are normally open, while switches may be left in open or closed
 states. If more than two switches are closed, unwanted electrical connections
-are made.  
-![Image](./isolate.jpg)
+are made. The diodes prevent this.  
+![Image](./isolate.png)
 
 Constructor mandatory args:
  * `rowpins` A list or tuple of initialised output pins.
