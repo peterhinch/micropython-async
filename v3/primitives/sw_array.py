@@ -47,10 +47,11 @@ CLOSE = const(1)  # cfg comprises the OR of these constants
 OPEN = const(2)
 LONG = const(4)
 DOUBLE = const(8)
-SUPPRESS = const(16)  # Disambiguate
+SUPPRESS = const(16)  # Disambiguate: see docs.
 
-# Entries in queue are (scan_code, event) where event is an OR of above constants
-# Tuples/lists of pins. Rows are OUT, cols are IN
+# Entries in queue are (scan_code, event) where event is an OR of above constants.
+# rowpins/colpins are tuples/lists of pins. Rows are OUT, cols are IN.
+# cfg is a logical OR of above constants. If a bit is 0 that state will never be reported.
 class SwArray(RingbufQueue):
     debounce_ms = 50  # Attributes can be varied by user
     long_press_ms = 1000
@@ -60,12 +61,12 @@ class SwArray(RingbufQueue):
         self._rowpins = rowpins
         self._colpins = colpins
         self._cfg = cfg
-        self._state = 0  # State of all keys as bitmap
+        self._state = 0  # State of all buttons as bitmap
         self._flags = 0  # Busy bitmap
         self._basic = not bool(cfg & (SUPPRESS | LONG | DOUBLE))  # Basic mode
         self._suppress = bool(cfg & SUPPRESS)
         for opin in self._rowpins:  # Initialise output pins
-            opin(1)
+            opin(1)  # open circuit
         asyncio.create_task(self._scan(len(rowpins) * len(colpins)))
 
     def __getitem__(self, scan_code):
@@ -96,6 +97,8 @@ class SwArray(RingbufQueue):
         self._put(sc, OPEN)
         self._busy(sc, False)
 
+    def keymap(self):  # Return a bitmap of debounced state of all buttons/switches
+        return self._state
     # Handle long, double. Switch has closed.
     async def _defer(self, sc):
         # Wait for contact closure to be registered: let calling loop complete
@@ -123,7 +126,7 @@ class SwArray(RingbufQueue):
     async def _scan(self, nkeys):
         db_delay = SwArray.debounce_ms
         while True:
-            cur = 0  # Current bitmap of logical key states (1 == pressed)
+            cur = 0  # Current bitmap of logical button states (1 == pressed)
             for opin in self._rowpins:
                 opin(0)  # Assert output
                 for ipin in self._colpins:
@@ -133,7 +136,7 @@ class SwArray(RingbufQueue):
             curb = cur  # Copy current bitmap
             if changed := (cur ^ self._state):  # 1's are newly canged button(s)
                 for sc in range(nkeys):
-                    if (changed & 1):  # Current key has changed state
+                    if (changed & 1):  # Current button has changed state
                         if self._basic:  # No timed behaviour
                             self._put(sc, CLOSE if cur & 1 else OPEN)
                         elif cur & 1:  # Closed
