@@ -355,7 +355,7 @@ asyncio.run(main())
 
 The CPython [docs](https://docs.python.org/3/library/asyncio-task.html#creating-tasks)
 have a warning that a reference to the task instance should be saved for the
-task's duration. This was raised in 
+task's duration. This was raised in
 [this issue](https://github.com/micropython/micropython/issues/12299).
 MicroPython `asyncio` does not suffer from this bug, but writers of code which
 must work in CPython and MicroPython should take note. Code samples in this doc
@@ -660,7 +660,7 @@ async def task(i, lock):
         async with lock:
             print("Acquired lock in task", i)
             await asyncio.sleep(0.5)
- 
+
 async def main():
     lock = Lock()  # The Lock instance
     tasks = [None] * 3  # For CPython compaibility must store a reference see Note
@@ -773,7 +773,7 @@ until all passed `Event`s have been set:
 from primitives import WaitAll
 evt1 = Event()
 evt2 = Event()
-wa = WaitAll((evt1, evt2)).wait() 
+wa = WaitAll((evt1, evt2)).wait()
 # Launch tasks that might trigger these events
 await wa
 # Both were triggered
@@ -1003,7 +1003,7 @@ application. Such a queue is termed "thread safe".
 The `Queue` class is an unofficial implementation whose API is a subset of that
 of CPython's `asyncio.Queue`. Like `asyncio.Queue` this class is not thread
 safe. A queue class optimised for MicroPython is presented in
-[Ringbuf queue](./EVENTS.md#7-ringbuf-queue). A thread safe version is
+[Ringbuf Queue](./DRIVERS.md#7-ringbuf-queue). A thread safe version is
 documented in [ThreadSafeQueue](./THREADING.md#22-threadsafequeue).
 
 Constructor:  
@@ -1264,106 +1264,12 @@ indicate that is has passed the critical point.
 ## 3.8 Delay_ms class
 
 This implements the software equivalent of a retriggerable monostable or a
-watchdog timer. It has an internal boolean `running` state. When instantiated
-the `Delay_ms` instance does nothing, with `running` `False` until triggered.
-Then `running` becomes `True` and a timer is initiated. This can be prevented
-from timing out by triggering it again (with a new timeout duration). So long
-as it is triggered before the time specified in the preceeding trigger it will
-never time out.
+watchdog timer. On timeout it can launch a callback or coroutine. It exposes an
+`Event` allowing a task to pause until a timeout occurs. The delay period may be
+altered dynamically.
 
-If it does time out the `running` state will revert to `False`. This can be
-interrogated by the object's `running()` method. In addition a `callable` can
-be specified to the constructor. A `callable` can be a callback or a coroutine.
-A callback will execute when a timeout occurs; where the `callable` is a
-coroutine it will be converted to a `Task` and run asynchronously.
-
-Constructor arguments (defaults in brackets):
-
- 1. `func` The `callable` to call on timeout (default `None`).
- 2. `args` A tuple of arguments for the `callable` (default `()`).
- 3. `can_alloc` Unused arg, retained to avoid breaking code.
- 4. `duration` Integer, default 1000 ms. The default timer period where no value
- is passed to the `trigger` method.
-
-Synchronous methods:
-
- 1. `trigger` optional argument `duration=0`. A timeout will occur after
- `duration` ms unless retriggered. If no arg is passed the period will be that
- of the `duration` passed to the constructor. The method can be called from a
- hard or soft ISR. It is now valid for `duration` to be less than the current
- time outstanding.
- 2. `stop` No argument. Cancels the timeout, setting the `running` status
- `False`. The timer can be restarted by issuing `trigger` again. Also clears
- the `Event` described in `wait` below.
- 3. `running` No argument. Returns the running status of the object.
- 4. `__call__` Alias for running.
- 5. `rvalue` No argument. If a timeout has occurred and a callback has run,
- returns the return value of the callback. If a coroutine was passed, returns
- the `Task` instance. This allows the `Task` to be cancelled or awaited.
- 6. `callback` args `func=None`, `args=()`. Allows the callable and its args to
- be assigned, reassigned or disabled at run time.
- 7. `deinit` No args. Cancels the running task. See [Object scope](./TUTORIAL.md#44-object-scope).
- 8. `clear` No args. Clears the `Event` described in `wait` below.
- 9. `set` No args. Sets the `Event` described in `wait` below.
-
-Asynchronous method:
- 1. `wait` One or more tasks may wait on a `Delay_ms` instance. Pause until the
- delay instance has timed out.
-
-In this example a `Delay_ms` instance is created with the default duration of
-1 sec. It is repeatedly triggered for 5 secs, preventing the callback from
-running. One second after the triggering ceases, the callback runs.
-
-```python
-import asyncio
-from primitives import Delay_ms
-
-async def my_app():
-    d = Delay_ms(callback, ('Callback running',))
-    print('Holding off callback')
-    for _ in range(10):  # Hold off for 5 secs
-        await asyncio.sleep_ms(500)
-        d.trigger()
-    print('Callback will run in 1s')
-    await asyncio.sleep(2)
-    print('Done')
-
-def callback(v):
-    print(v)
-
-try:
-    asyncio.run(my_app())
-finally:
-    asyncio.new_event_loop()  # Clear retained state
-```
-This example illustrates multiple tasks waiting on a `Delay_ms`. No callback is
-used.
-```python
-import asyncio
-from primitives import Delay_ms
-
-async def foo(n, d):
-    await d.wait()
-    d.clear()  # Task waiting on the Event must clear it
-    print('Done in foo no.', n)
-
-async def my_app():
-    d = Delay_ms()
-    tasks = [None] * 4  # For CPython compaibility must store a reference see Note
-    for n in range(4):
-        tasks[n] = asyncio.create_task(foo(n, d))
-    d.trigger(3000)
-    print('Waiting on d')
-    await d.wait()
-    print('Done in my_app.')
-    await asyncio.sleep(1)
-    print('Test complete.')
-
-try:
-    asyncio.run(my_app())
-finally:
-    _ = asyncio.new_event_loop()  # Clear retained state
-```
+It may be found in the `primitives` directory and is documented in
+[Delay_ms class](./DRIVERS.md#8-delay_ms class).
 
 ## 3.9 Message
 
@@ -1382,10 +1288,15 @@ It may be found in the `threadsafe` directory and is documented
 ## 3.10 Synchronising to hardware
 
 The following hardware-related classes are documented [here](./DRIVERS.md):
+ * `ESwitch` A debounced switch with an `Event` interface.
  * `Switch` A debounced switch which can trigger open and close user callbacks.
+ * `EButton` Debounced pushbutton with `Event` instances for pressed, released,
+ long press or double-press.
  * `Pushbutton` Debounced pushbutton with callbacks for pressed, released, long
  press or double-press.
  * `ESP32Touch` Extends `Pushbutton` class to support ESP32 touchpads.
+ * `Keyboard` Interface a crosspoint array of buttons e.g. keypads.
+ * `SwArray` Interface a crosspoint array of pushbuttons or switches.
  * `Encoder` An asynchronous interface for control knobs with switch contacts
  configured as a quadrature encoder.
  * `AADC` Asynchronous ADC. A task can pause until the value read from an ADC
@@ -2925,7 +2836,7 @@ The above comments refer to an ideal scheduler. Currently `asyncio` is not in
 this category, with worst-case latency being > `N`ms. The conclusions remain
 valid.
 
-This, along with other issues, is discussed in 
+This, along with other issues, is discussed in
 [Interfacing asyncio to interrupts](./INTERRUPTS.md).
 
 ###### [Contents](./TUTORIAL.md#contents)

@@ -10,25 +10,25 @@ MicroPython's `asyncio` when used in a microcontroller context.
  3. [Interfacing switches](./DRIVERS.md#3-interfacing-switches)   
   3.1 [ESwitch class](./DRIVERS.md#31-eswitch-class) Switch debouncer with event interface.  
   3.2 [Switch class](./DRIVERS.md#32-switch-class) Switch debouncer with callbacks.  
- 4. [Interfacing pushbuttons](./DRIVERS.md#4-interfacing-pushbuttons) Extends Switch for long and double-click events  
-  4.1 [EButton class](./DRIVERS.md#41-ebutton-class) Pushbutton with Event-based interface.  
-  4.2 [Pushbutton class](./DRIVERS.md#42-pushbutton-class)  
-  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.2.1 [The suppress constructor argument](./DRIVERS.md#431-the-suppress-constructor-argument)  
-  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.2.2 [The sense constructor argument](./DRIVERS.md#432-the-sense-constructor-argument)  
+ 4. [Interfacing pushbuttons](./DRIVERS.md#4-interfacing-pushbuttons) Access short, long and double-click events.  
+  4.1 [EButton class](./DRIVERS.md#41-ebutton-class) Debounced pushbutton with Event-based interface.  
+  4.2 [Pushbutton class](./DRIVERS.md#42-pushbutton-class) Debounced pushbutton with callback interface.  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.2.1 [The suppress constructor argument](./DRIVERS.md#421-the-suppress-constructor-argument)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.2.2 [The sense constructor argument](./DRIVERS.md#422-the-sense-constructor-argument)  
   4.3 [ESP32Touch class](./DRIVERS.md#43-esp32touch-class)  
-  4.4 [keyboard class](./DRIVERS.md#44-keyboard-class)  
-  4.5 [SwArray class](./DRIVERS.md#45-swarray-class)  
+  4.4 [Keyboard class](./DRIVERS.md#44-keyboard-class) Retrieve characters from a keypad.  
+  4.5 [SwArray class](./DRIVERS.md#45-swarray-class) Interface a crosspoint array of switches or buttons.  
   4.6 [Suppress mode](./DRIVERS.md#46-suppress-mode) Reduce the number of events/callbacks.  
  5. [ADC monitoring](./DRIVERS.md#5-adc-monitoring) Pause until an ADC goes out of bounds  
   5.1 [AADC class](./DRIVERS.md#51-aadc-class)  
   5.2 [Design note](./DRIVERS.md#52-design-note)  
- 6. [Quadrature encoders](./DRIVERS.md#6-quadrature-encoders)  
+ 6. [Quadrature encoders](./DRIVERS.md#6-quadrature-encoders) Asynchronous interface for rotary encoders.  
   6.1 [Encoder class](./DRIVERS.md#61-encoder-class)  
  7. [Ringbuf Queue](./DRIVERS.md#7-ringbuf-queue) A MicroPython optimised queue primitive.  
- 8. [Additional functions](./DRIVERS.md#8-additional-functions)  
-  8.1 [launch](./DRIVERS.md#81-launch) Run a coro or callback interchangeably  
-  8.2 [set_global_exception](./DRIVERS.md#82-set_global_exception) Simplify debugging with a global exception handler.  
- 9. [Event based interface](./DRIVERS.md#9-event-based-interface) An alternative interface to Switch and Pushbutton objects.  
+ 8. [Delay_ms class](./DRIVERS.md#8-delay_ms class) A flexible retriggerable delay with callback or Event interface.  
+ 9. [Additional functions](./DRIVERS.md#9-additional-functions)  
+  9.1 [launch](./DRIVERS.md#91-launch) Run a coro or callback interchangeably.  
+  9.2 [set_global_exception](./DRIVERS.md#92-set_global_exception) Simplify debugging with a global exception handler.  
 
 ###### [Tutorial](./TUTORIAL.md#contents)
 
@@ -43,15 +43,21 @@ to the existing CPython-compatible primitives.
 
 ## 1.1 API design
 
-The traditional interface to asynchronous external events is a callback. When
-the event occurs, the device driver runs a user-specified callback. Some classes
-described here offer a callback interface; newer designs have abandoned this in
-favour of asynchronous interfaces by exposing `Event` or asynchronous iterator
-interfaces. Note that where callbacks are used the term `callable` implies a
-Python `callable`: namely a function, bound method, coroutine or bound
-coroutine. Any of these may be supplied as a callback function.
+The traditional interface to asynchronous external events is via a callback.
+When the event occurs, the device driver runs a user-specified callback. Some
+classes described here offer a callback interface. Where callbacks are used the
+term `callable` implies a Python `callable`: namely a function, bound method,
+coroutine or bound coroutine. Any of these may be supplied as a callback
+function.
 
-Asynchronous interfaces allow the use of callbacks using patterns like the
+
+Newer class designs abandon callbacks in favour of asynchronous interfaces. This
+is done by exposing `Event` or asynchronous iterator interfaces. It is arguable
+that callbacks are outdated. Handling of arguments and return values is
+inelegant and there are usually better ways using asynchronous coding. In
+particular MicroPython's `asyncio` implements asynchronous interfaces in an
+efficient manner. A task waiting on an `Event` consumes minimal resources. If a
+user wishes to use a callback it may readily be achieved using patterns like the
 following. In this case the device is an asynchronous iterator:
 ```python
    async def run_callback(device, callback, *args):
@@ -66,10 +72,6 @@ async def run_callback(device, callback, *args):
         device.clear()  # Clear it down
         callback(*args)
 ```
-It is arguable that callbacks are outdated. Handling of arguments and return
-values is messy and there are usually better ways using asynchronous coding. In
-particular MicroPython's `asyncio` implements asynchronous interfaces in an
-efficient manner. A task waiting on an `Event` consumes minimal resources.
 
 ## 1.2 Switches
 
@@ -131,13 +133,14 @@ To prevent this it is wise to add physical resistors between the input pins and
 
 # 2. Installation and usage
 
-The latest release build of firmware or a newer nightly build is recommended.
+The latest release build of firmware or a newer preview build is recommended.
 To install the library, connect the target hardware to WiFi and issue:
 ```python
 import mip
 mip.install("github:peterhinch/micropython-async/v3/primitives")
 ```
-For any target including non-networked ones use `mpremote`:
+For any target including non-networked ones use
+[mpremote](https://docs.micropython.org/en/latest/reference/mpremote.html):
 ```bash
 $ mpremote mip install "github:peterhinch/micropython-async/v3/primitives"
 ```
@@ -171,7 +174,7 @@ minimal driver providing an `Event` interface. The latter supports callbacks and
 ## 3.1 ESwitch class
 
 ```python
-from primitives import ESwitch  # evennts.py
+from primitives import ESwitch  # events.py
 ```
 This provides a debounced interface to a switch connected to gnd or to 3V3. A
 pullup or pull down resistor should be supplied to ensure a valid logic level
@@ -185,7 +188,7 @@ pin = Pin(pin_id, Pin.IN, Pin.PULL_UP)
 ```
 Constructor arguments:
 
- 1. `pin` The Pin instance: should be initialised as an input with a pullup or
+ 1. `pin` The `Pin` instance: should be initialised as an input with a pullup or
  down as appropriate.
  2. `lopen=1` Electrical level when switch is open circuit i.e. 1 is 3.3V, 0 is
  gnd.
@@ -298,7 +301,7 @@ The `primitives` module provides the following classes for interfacing
 pushbuttons. The following support normally open or normally closed buttons
 connected to gnd or to 3V3:
 * `EButton` Provides an `Event` based interface.
-* `Pushbutton` Offers `Event`s and/or callbacks.
+* `Pushbutton` Offers `Event`s and/or callbacks.  
 The following support normally open pushbuttons connected in a crosspoint array.
 * `Keyboard` An asynchronous iterator responding to button presses.
 * `SwArray` As above, but also supporting open, double and long events.
@@ -328,7 +331,7 @@ Constructor arguments:
  1. `pin` Mandatory. The initialised Pin instance.
  2. `suppress=False`. See [Suppress mode](./DRIVERS.md#46-suppress-mode).
  3. `sense=None`. Optionally define the electrical connection: see
- [section 4.2.1](./EVENTS.md#421-the-sense-constructor-argument).
+ [section 4.2.1](./DRIVERS.md#411-the-sense-constructor-argument).
 
 Methods:
 
@@ -395,7 +398,8 @@ Please see the note on timing in [section 3](./DRIVERS.md#3-interfacing-switches
 Constructor arguments:
 
  1. `pin` Mandatory. The initialised Pin instance.
- 2. `suppress` Default `False`. See  [Suppress mode](./DRIVERS.md#46-suppress-mode).
+ 2. `suppress` Default `False`. See
+ [section 4.2.2](./DRIVERS.md#422-the-suppress-constructor-argument).
  3. `sense` Default `None`. Option to define electrical connection. See
  [section 4.2.1](./DRIVERS.md#421-the-sense-constructor-argument).
 
@@ -619,7 +623,7 @@ async def receiver(uart):
         print('Received', res)
 
 async def main():  # Run forever
-    rowpins = [Pin(p, Pin.OPEN_DRAIN) for p in range(10, 14)]
+    rowpins = [Pin(p, Pin.OPEN_DRAIN) for p in range(10, 13)]
     colpins = [Pin(p, Pin.IN, Pin.PULL_UP) for p in range(16, 20)]
     uart = UART(0, 9600, tx=0, rx=1)
     asyncio.create_task(receiver(uart))
@@ -635,12 +639,14 @@ asyncio.run(main())
 ## 4.5 SwArray class
 
 ```python
-from primitives import SwArray  # sw_array.py
+from primitives.sw_array import SwArray, CLOSE, OPEN, LONG, DOUBLE, SUPPRESS
 ```
 An `SwArray` is similar to a `Keyboard` except that single, double and long
 presses are supported. Items in the array may be switches or pushbuttons,
 however if switches are used they must be diode-isolated. For the reason see
-[Switches](./DRIVERS.md#12-switches).
+[Switches](./DRIVERS.md#12-switches). It is an asynchronous iterator with events
+being retrieved with `async for`: this returns a pair of integers being the scan
+code and a bit representing the event which occurred.
 
 Constructor mandatory args:
  * `rowpins` A list or tuple of initialised open drain output pins.
@@ -668,8 +674,8 @@ Constructor optional keyword only args:
  * `double_click_ms = 400` Threshold for double-click detection.
 
 Module constants.  
-The folowing constants are provided to simplify defining the `cfg` constructor
-arg. This may be defined as a bitwise or of selected constants. For example if
+The following constants are provided to simplify defining the `cfg` constructor
+arg. This may be defined as a bitwise `or` of selected constants. For example if
 the `CLOSE` bit is specified, switch closures will be reported. An omitted event
 will be ignored. Where the array comprises switches it is usual to specify only
 `CLOSE` and/or `OPEN`. This invokes a more efficient mode of operation because
@@ -678,11 +684,17 @@ timing is not required.
  * `OPEN` Contact opening.
  * `LONG` Contact closure longer than `long_press_ms`.
  * `DOUBLE` Two closures in less than `double_click_ms`.
- * `SUPPRESS` Disambiguate. For explanation see `EButton`.
+ * `SUPPRESS` Disambiguate. For explanation see
+ [Suppress mode](./DRIVERS.md#46-suppress-mode). If all the above bits are set,
+ a double click will result in `DOUBLE` and `OPEN` responses. If the `OPEN` bit
+ were clear, only `DOUBLE` would occur.
 
 The `SwArray` class is subclassed from [Ringbuf Queue](./DRIVERS.md#7-ringbuf-queue).
 This is an asynchronous iterator, enabling scan codes and event types to be
-retrieved as state changes occur with `async for`:
+retrieved as state changes occur. The event type is a single bit corresponding
+to the above constants.
+
+Usage example:
 ```python
 import asyncio
 from primitives.sw_array import SwArray, CLOSE, OPEN, LONG, DOUBLE, SUPPRESS
@@ -948,6 +960,9 @@ efficiency. As the name suggests, the `RingbufQueue` class uses a pre-allocated
 circular buffer which may be of any mutable type supporting the buffer protocol
 e.g. `list`, `array` or `bytearray`.
 
+It should be noted that `Queue`, `RingbufQueue` (and CPython's `Queue`) are not
+thread safe. See [Threading](./THREADING.md).
+
 Attributes of `RingbufQueue`:
  1. It is of fixed size, `Queue` can grow to arbitrary size.
  2. It uses pre-allocated buffers of various types (`Queue` uses a `list`).
@@ -1003,9 +1018,114 @@ def add_item(q, data):
 ```
 ###### [Contents](./DRIVERS.md#0-contents)
 
-# 8. Additional functions
+## 3.8 Delay_ms class
 
-## 8.1 Launch
+This implements the software equivalent of a retriggerable monostable or a
+watchdog timer. It has an internal boolean `running` state. When instantiated
+the `Delay_ms` instance does nothing, with `running` `False` until triggered.
+Then `running` becomes `True` and a timer is initiated. This can be prevented
+from timing out by triggering it again (with a new timeout duration). So long
+as it is triggered before the time specified in the preceding trigger it will
+never time out.
+
+If it does time out the `running` state will revert to `False`. This can be
+interrogated by the object's `running()` method. In addition a `callable` can
+be specified to the constructor. A `callable` can be a callback or a coroutine.
+A callback will execute when a timeout occurs; where the `callable` is a
+coroutine it will be converted to a `Task` and run asynchronously.
+
+Constructor arguments (defaults in brackets):
+
+ 1. `func` The `callable` to call on timeout (default `None`).
+ 2. `args` A tuple of arguments for the `callable` (default `()`).
+ 3. `can_alloc` Unused arg, retained to avoid breaking code.
+ 4. `duration` Integer, default 1000 ms. The default timer period where no value
+ is passed to the `trigger` method.
+
+Synchronous methods:
+
+ 1. `trigger` optional argument `duration=0`. A timeout will occur after
+ `duration` ms unless retriggered. If no arg is passed the period will be that
+ of the `duration` passed to the constructor. The method can be called from a
+ hard or soft ISR. It is now valid for `duration` to be less than the current
+ time outstanding.
+ 2. `stop` No argument. Cancels the timeout, setting the `running` status
+ `False`. The timer can be restarted by issuing `trigger` again. Also clears
+ the `Event` described in `wait` below.
+ 3. `running` No argument. Returns the running status of the object.
+ 4. `__call__` Alias for running.
+ 5. `rvalue` No argument. If a timeout has occurred and a callback has run,
+ returns the return value of the callback. If a coroutine was passed, returns
+ the `Task` instance. This allows the `Task` to be cancelled or awaited.
+ 6. `callback` args `func=None`, `args=()`. Allows the callable and its args to
+ be assigned, reassigned or disabled at run time.
+ 7. `deinit` No args. Cancels the running task. See [Object scope](./TUTORIAL.md#44-object-scope).
+ 8. `clear` No args. Clears the `Event` described in `wait` below.
+ 9. `set` No args. Sets the `Event` described in `wait` below.
+
+Asynchronous method:
+ 1. `wait` One or more tasks may wait on a `Delay_ms` instance. Pause until the
+ delay instance has timed out.
+
+In this example a `Delay_ms` instance is created with the default duration of
+1 sec. It is repeatedly triggered for 5 secs, preventing the callback from
+running. One second after the triggering ceases, the callback runs.
+
+```python
+import asyncio
+from primitives import Delay_ms
+
+async def my_app():
+    d = Delay_ms(callback, ('Callback running',))
+    print('Holding off callback')
+    for _ in range(10):  # Hold off for 5 secs
+        await asyncio.sleep_ms(500)
+        d.trigger()
+    print('Callback will run in 1s')
+    await asyncio.sleep(2)
+    print('Done')
+
+def callback(v):
+    print(v)
+
+try:
+    asyncio.run(my_app())
+finally:
+    asyncio.new_event_loop()  # Clear retained state
+```
+This example illustrates multiple tasks waiting on a `Delay_ms`. No callback is
+used.
+```python
+import asyncio
+from primitives import Delay_ms
+
+async def foo(n, d):
+    await d.wait()
+    d.clear()  # Task waiting on the Event must clear it
+    print('Done in foo no.', n)
+
+async def my_app():
+    d = Delay_ms()
+    tasks = [None] * 4  # For CPython compaibility must store a reference see Note
+    for n in range(4):
+        tasks[n] = asyncio.create_task(foo(n, d))
+    d.trigger(3000)
+    print('Waiting on d')
+    await d.wait()
+    print('Done in my_app.')
+    await asyncio.sleep(1)
+    print('Test complete.')
+
+try:
+    asyncio.run(my_app())
+finally:
+    _ = asyncio.new_event_loop()  # Clear retained state
+```
+###### [Contents](./DRIVERS.md#0-contents)
+
+# 9. Additional functions
+
+## 9.1 Launch
 
 Import as follows:
 ```python
@@ -1017,7 +1137,7 @@ runs it and returns the callback's return value. If a coro is passed, it is
 converted to a `task` and run asynchronously. The return value is the `task`
 instance. A usage example is in `primitives/switch.py`.
 
-## 8.2 set_global_exception
+## 9.2 set_global_exception
 
 Import as follows:
 ```python
@@ -1045,59 +1165,5 @@ the default behaviour is for the task to stop but for the rest of the code to
 continue to run. This means that the failure can be missed and the sequence of
 events can be hard to deduce. A global handler ensures that the entire
 application stops allowing the traceback and other debug prints to be studied.
-
-###### [Contents](./DRIVERS.md#0-contents)
-
-# 9. Event based interface
-
-The `Switch` and `Pushbutton` classes offer a traditional callback-based
-interface. While familiar, it has drawbacks and requires extra code to perform
-tasks like retrieving the result of a callback or, where a task is launched,
-cancelling that task. The reason for this API is historical; an efficient
-`Event` class only materialised with `uasyncio` V3. The class ensures that a
-task waiting on an `Event` consumes minimal processor time.
-
-It is suggested that this API is used in new projects.
-
-The event based interface to `Switch` and `Pushbutton` classes is engaged by
-passing `None` to the methods used to register callbacks. This causes a bound
-`Event` to be instantiated, which may be accessed by user code.
-
-The following shows the name of the bound `Event` created when `None` is passed
-to a method:
-
-| Class      | method       | Event   |
-|:-----------|:-------------|:--------|
-| Switch     | close_func   | close   |
-| Switch     | open_func    | open    |
-| Pushbutton | press_func   | press   |
-| Pushbutton | release_func | release |
-| Pushbutton | long_func    | long    |
-| Pushbutton | double_func  | double  |
-
-Typical usage is as follows:
-```python
-import asyncio
-from primitives import Switch
-from pyb import Pin
-
-async def foo(evt):
-    while True:
-        evt.clear()  # re-enable the event
-        await evt.wait()  # minimal resources used while paused
-        print("Switch closed.")
-        # Omitted code runs each time the switch closes
-
-async def main():
-    sw = Switch(Pin("X1", Pin.IN, Pin.PULL_UP))
-    sw.close_func(None)  # Use event based interface
-    await foo(sw.close)  # Pass the bound event to foo
-
-asyncio.run(main())
-```
-With appropriate code the behaviour of the callback based interface may be
-replicated, but with added benefits. For example the omitted code in `foo`
-could run a callback-style synchronous method, retrieving its value.
-Alternatively the code could create a task which could be cancelled.
 
 ###### [Contents](./DRIVERS.md#0-contents)
