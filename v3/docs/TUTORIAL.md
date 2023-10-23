@@ -1269,7 +1269,7 @@ watchdog timer. On timeout it can launch a callback or coroutine. It exposes an
 altered dynamically.
 
 It may be found in the `primitives` directory and is documented in
-[Delay_ms class](./DRIVERS.md#8-delay_ms class).
+[Delay_ms class](./DRIVERS.md#8-delay_ms-class).
 
 ## 3.9 Message
 

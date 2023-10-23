@@ -1018,7 +1018,7 @@ def add_item(q, data):
 ```
 ###### [Contents](./DRIVERS.md#0-contents)
 
-## 3.8 Delay_ms class
+# 8. Delay_ms class
 
 This implements the software equivalent of a retriggerable monostable or a
 watchdog timer. It has an internal boolean `running` state. When instantiated
