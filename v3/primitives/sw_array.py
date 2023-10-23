@@ -10,14 +10,14 @@ from time import ticks_ms, ticks_diff
 # A crosspoint array of pushbuttons
 # Tuples/lists of pins. Rows are OUT, cols are IN
 class Keyboard(RingbufQueue):
-    def __init__(self, rowpins, colpins, *, buffer=bytearray(10), db_delay=50):
-        super().__init__(buffer)
+    def __init__(self, rowpins, colpins, *, bufsize=10, db_delay=50):
+        super().__init__(bytearray(bufsize) if isinstance(bufsize, int) else bufsize)
         self.rowpins = rowpins
         self.colpins = colpins
         self._state = 0  # State of all keys as bitmap
         for opin in self.rowpins:  # Initialise output pins
             opin(1)
-        asyncio.create_task(self.scan(len(rowpins) * len(colpins), db_delay))
+        self._run = asyncio.create_task(self.scan(len(rowpins) * len(colpins), db_delay))
 
     def __getitem__(self, scan_code):
         return bool(self._state & (1 << scan_code))
@@ -43,6 +43,10 @@ class Keyboard(RingbufQueue):
             self._state = cur
             await asyncio.sleep_ms(db_delay if changed else 0)  # Wait out bounce
 
+    def deinit(self):
+        self._run.cancel()
+
+
 CLOSE = const(1)  # cfg comprises the OR of these constants
 OPEN = const(2)
 LONG = const(4)
@@ -56,6 +60,7 @@ class SwArray(RingbufQueue):
     debounce_ms = 50  # Attributes can be varied by user
     long_press_ms = 1000
     double_click_ms = 400
+
     def __init__(self, rowpins, colpins, cfg, *, bufsize=10):
         super().__init__(bufsize)
         self._rowpins = rowpins
@@ -67,7 +72,7 @@ class SwArray(RingbufQueue):
         self._suppress = bool(cfg & SUPPRESS)
         for opin in self._rowpins:  # Initialise output pins
             opin(1)  # open circuit
-        asyncio.create_task(self._scan(len(rowpins) * len(colpins)))
+        self._run = asyncio.create_task(self._scan(len(rowpins) * len(colpins)))
 
     def __getitem__(self, scan_code):
         return bool(self._state & (1 << scan_code))
@@ -99,6 +104,7 @@ class SwArray(RingbufQueue):
 
     def keymap(self):  # Return a bitmap of debounced state of all buttons/switches
         return self._state
+
     # Handle long, double. Switch has closed.
     async def _defer(self, sc):
         # Wait for contact closure to be registered: let calling loop complete
@@ -136,7 +142,7 @@ class SwArray(RingbufQueue):
             curb = cur  # Copy current bitmap
             if changed := (cur ^ self._state):  # 1's are newly canged button(s)
                 for sc in range(nkeys):
-                    if (changed & 1):  # Current button has changed state
+                    if changed & 1:  # Current button has changed state
                         if self._basic:  # No timed behaviour
                             self._put(sc, CLOSE if cur & 1 else OPEN)
                         elif cur & 1:  # Closed
@@ -147,3 +153,6 @@ class SwArray(RingbufQueue):
             changed = curb ^ self._state  # Any new press or release
             self._state = curb
             await asyncio.sleep_ms(db_delay if changed else 0)  # Wait out bounce
+
+    def deinit(self):
+        self._run.cancel()

@@ -165,7 +165,7 @@ The last ELO to trigger a `WaitAny` instance may also be retrieved by issuing
 the instance's `.event()` method.
 ```python
 from primitives import WaitAny
-async def foo(elo1, elo2)
+async def foo(elo1, elo2):
     evt = await WaitAny((elo1, elo2)).wait()
     if evt is elo1:
         # Handle elo1
@@ -457,7 +457,7 @@ order. Some
 applications may require only a single `Event` to be triggered. Setting
 `suppress=True` ensures this. Outcomes are as follows:
 
-| Occurence    | Events set      | Time of pimary event         |
+| Occurrence   | Events set      | Time of primary event        |
 |:-------------|:----------------|:-----------------------------|
 | Short press  | press, release  | After `.double_click_ms`     |
 | Double press | double, release | When the second press occurs |

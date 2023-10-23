@@ -1,44 +1,133 @@
-# 0. Introduction
+This document describes classes designed to enhance the capability of
+MicroPython's `asyncio` when used in a microcontroller context.
 
-Drivers for switches and pushbuttons are provided. Switch and button drivers
-support debouncing. The switch driver provides for running a callback or
-launching a coroutine (coro) on contact closure and/or opening. The pushbutton
-driver extends this to support long-press and double-click events. The drivers
-now support an optional event driven interface as a more flexible alternative
-to callbacks.
+# 0. Contents
 
-An `Encoder` class is provided to support rotary control knobs based on
-quadrature encoder switches. This is not intended for high throughput encoders
-as used in CNC machines where
-[an interrupt based solution](https://github.com/peterhinch/micropython-samples#47-rotary-incremental-encoder)
-is required.
-
-The asynchronous ADC supports pausing a task until the value read from an ADC
-goes outside defined bounds.
-
-# 1. Contents
-
- 1. [Contents](./DRIVERS.md#1-contents)  
+ 1. [Introduction](./DRIVERS.md#1-introduction)  
+  1.1 [API Design](./DRIVERS.md#11-api-design) Callbacks vs. asynchronous interfaces.  
+  1.2 [Switches](./DRIVERS.md#12-switches) Electrical considerations.  
  2. [Installation and usage](./DRIVERS.md#2-installation-and-usage)  
- 3. [Interfacing switches](./DRIVERS.md#3-interfacing-switches) Switch debouncer with callbacks.  
-  3.1 [Switch class](./DRIVERS.md#31-switch-class)  
-  3.2 [Event interface](./DRIVERS.md#32-event-interface)  
+ 3. [Interfacing switches](./DRIVERS.md#3-interfacing-switches)   
+  3.1 [ESwitch class](./DRIVERS.md#31-eswitch-class) Switch debouncer with event interface.  
+  3.2 [Switch class](./DRIVERS.md#32-switch-class) Switch debouncer with callbacks.  
  4. [Interfacing pushbuttons](./DRIVERS.md#4-interfacing-pushbuttons) Extends Switch for long and double-click events  
-  4.1 [Pushbutton class](./DRIVERS.md#41-pushbutton-class)  
-  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.1.1 [The suppress constructor argument](./DRIVERS.md#411-the-suppress-constructor-argument)  
-  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.1.2 [The sense constructor argument](./DRIVERS.md#412-the-sense-constructor-argument)  
-  4.2 [ESP32Touch class](./DRIVERS.md#42-esp32touch-class)  
+  4.1 [EButton class](./DRIVERS.md#41-ebutton-class) Pushbutton with Event-based interface.  
+  4.2 [Pushbutton class](./DRIVERS.md#42-pushbutton-class)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.2.1 [The suppress constructor argument](./DRIVERS.md#431-the-suppress-constructor-argument)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.2.2 [The sense constructor argument](./DRIVERS.md#432-the-sense-constructor-argument)  
+  4.3 [ESP32Touch class](./DRIVERS.md#43-esp32touch-class)  
+  4.4 [keyboard class](./DRIVERS.md#44-keyboard-class)  
+  4.5 [SwArray class](./DRIVERS.md#45-swarray-class)  
+  4.6 [Suppress mode](./DRIVERS.md#46-suppress-mode) Reduce the number of events/callbacks.  
  5. [ADC monitoring](./DRIVERS.md#5-adc-monitoring) Pause until an ADC goes out of bounds  
   5.1 [AADC class](./DRIVERS.md#51-aadc-class)  
   5.2 [Design note](./DRIVERS.md#52-design-note)  
  6. [Quadrature encoders](./DRIVERS.md#6-quadrature-encoders)  
   6.1 [Encoder class](./DRIVERS.md#61-encoder-class)  
- 7. [Additional functions](./DRIVERS.md#7-additional-functions)  
-  7.1 [launch](./DRIVERS.md#71-launch) Run a coro or callback interchangeably  
-  7.2 [set_global_exception](./DRIVERS.md#72-set_global_exception) Simplify debugging with a global exception handler.  
- 8. [Event based interface](./DRIVERS.md#8-event-based-interface) An alternative interface to Switch and Pushbutton objects.  
+ 7. [Ringbuf Queue](./DRIVERS.md#7-ringbuf-queue) A MicroPython optimised queue primitive.  
+ 8. [Additional functions](./DRIVERS.md#8-additional-functions)  
+  8.1 [launch](./DRIVERS.md#81-launch) Run a coro or callback interchangeably  
+  8.2 [set_global_exception](./DRIVERS.md#82-set_global_exception) Simplify debugging with a global exception handler.  
+ 9. [Event based interface](./DRIVERS.md#9-event-based-interface) An alternative interface to Switch and Pushbutton objects.  
 
 ###### [Tutorial](./TUTORIAL.md#contents)
+
+# 1. Introduction
+
+The classes presented here include asynchronous interfaces to switches,
+pushbuttons, incremental encoders and ADC's. Specifically they are interfaces to
+devices defined in the `machine` module rather than device drivers for external
+hardware: as such they are grouped with synchronisation primitives. There are
+also synchronisation primitives providing a microcontroller-optimised alternative
+to the existing CPython-compatible primitives.
+
+## 1.1 API design
+
+The traditional interface to asynchronous external events is a callback. When
+the event occurs, the device driver runs a user-specified callback. Some classes
+described here offer a callback interface; newer designs have abandoned this in
+favour of asynchronous interfaces by exposing `Event` or asynchronous iterator
+interfaces. Note that where callbacks are used the term `callable` implies a
+Python `callable`: namely a function, bound method, coroutine or bound
+coroutine. Any of these may be supplied as a callback function.
+
+Asynchronous interfaces allow the use of callbacks using patterns like the
+following. In this case the device is an asynchronous iterator:
+```python
+   async def run_callback(device, callback, *args):
+       async for result in device:
+           callback(result, *args)
+```
+or, where the device presents an `Event` interface:
+```python
+async def run_callback(device, callback, *args):
+    while True:
+        await device.wait()  # Wait on the Event
+        device.clear()  # Clear it down
+        callback(*args)
+```
+It is arguable that callbacks are outdated. Handling of arguments and return
+values is messy and there are usually better ways using asynchronous coding. In
+particular MicroPython's `asyncio` implements asynchronous interfaces in an
+efficient manner. A task waiting on an `Event` consumes minimal resources.
+
+## 1.2 Switches
+
+From an electrical standpoint switches and pushbuttons are identical, however
+from a programming perspective a switch is either open or closed, while a
+pushbutton may be subject to single or double clicks, or to long presses.
+Consequently switch drivers expose a simpler interface with a consequent saving
+in code size.
+
+All switch drivers rely on millisecond-level timing: callback functions must
+be designed to terminate rapidly. This applies to all functions in the
+application; coroutines should yield regularly. If these constraints are not
+met, switch events can be missed.
+
+All switches are prone to contact bounce, with a consequent risk of spurious
+events: the drivers presented here embody debouncing. The phenomenon of contact
+bounce is discussed in [this document](http://www.ganssle.com/debouncing.htm).
+
+Two ways of wiring switches are supported. For small numbers of switches, the
+switch may link a pin to `gnd` with the pin being configured as an input with a
+pull up resistor. Interfacing such a switch is simple:
+```Python
+import asyncio
+from machine import Pin
+from primitives import ESwitch
+es = ESwitch(Pin(16, Pin.IN, Pin.PULL_UP))
+
+async def closure():
+    while True:
+        es.close.clear()  # Clear the Event
+        await es.close.wait()  # Wait for contact closure
+        print("Closed")  # Run code
+
+asyncio.run(closure())
+```
+
+As the number of switches increases, consumption of GPIO pins can be
+problematic. A solution is to wire the switches as a crosspoint array with the
+driver polling each row in turn and reading the columns. This is the usual configuration of keypads.
+
+![Image](./images/keypad.png)
+
+Crosspoint connection requires precautions to
+cater for the case where multiple contacts are closed simultaneously, as this
+can have the effect of linking two output pins. Risk of damage is averted by
+defining the outputs as open drain. This allows for one key rollover: if a
+second key is pressed before the first is released, the keys will be read
+correctly. Invalid contact closures may be registered if more than two contacts
+are closed. This also applies where the matrix comprises switches rather than
+buttons. In this case diode isolation is required:  
+
+![Image](./images/isolate.png)
+
+Whether or not diodes are used the column input pins must be pulled up. Scanning
+of the array occurs rapidly, and built-in pull-up resistors have a high value.
+If the capacitance between wires is high, spurious closures may be registered.
+To prevent this it is wise to add physical resistors between the input pins and
+3.3V. A value in the region of 1KΩ to 5KΩ is recommended.
 
 # 2. Installation and usage
 
@@ -71,29 +160,84 @@ from primitives.tests.adctest import test
 test()
 ```
 
-###### [Contents](./DRIVERS.md#1-contents)
+###### [Contents](./DRIVERS.md#0-contents)
 
 # 3. Interfacing switches
 
-The `primitives.switch` module provides the `Switch` class. This supports
-debouncing a normally open switch connected between a pin and ground. Can run
-callbacks or schedule coros on contact closure and/or opening. As an
-alternative to a callback based interface, bound `Event` objects may be
-triggered on switch state changes. To use an `Event` based interface
-exclusively see the simpler [ESwitch class](./EVENTS.md#61-eswitch).
+The `primitives` module provides `ESwitch` and `Switch` classes. The former is a
+minimal driver providing an `Event` interface. The latter supports callbacks and
+`Event`s.
 
-In the following text the term `callable` implies a Python `callable`: namely a
-function, bound method, coroutine or bound coroutine. The term implies that any
-of these may be supplied.
+## 3.1 ESwitch class
 
-### Timing
+```python
+from primitives import ESwitch  # evennts.py
+```
+This provides a debounced interface to a switch connected to gnd or to 3V3. A
+pullup or pull down resistor should be supplied to ensure a valid logic level
+when the switch is open. The default constructor arg `lopen=1` is for a switch
+connected between the pin and gnd, with a pullup to 3V3. Typically the pullup
+is internal, the pin being as follows:
+```python
+from machine import Pin
+pin_id = 0  # Depends on hardware
+pin = Pin(pin_id, Pin.IN, Pin.PULL_UP)
+```
+Constructor arguments:
 
-The `Switch` class relies on millisecond-level timing: callback functions must
-be designed to terminate rapidly. This applies to all functions in the
-application; coroutines should yield regularly. If these constraints are not
-met, switch events can be missed.
+ 1. `pin` The Pin instance: should be initialised as an input with a pullup or
+ down as appropriate.
+ 2. `lopen=1` Electrical level when switch is open circuit i.e. 1 is 3.3V, 0 is
+ gnd.
 
-## 3.1 Switch class
+Methods:
+
+ 1. `__call__()` Call syntax e.g. `myswitch()` returns the logical debounced
+ state of the switch i.e. 0 if open, 1 if closed.
+ 2. `deinit()` No args. Cancels the polling task and clears bound `Event`s.
+
+Class variable:
+ 1. `debounce_ms=50` Debounce time in ms.
+
+Bound objects:
+ 1. `close` An `Event` instance. Set on contact closure.
+ 2. `open` An `Event` instance. Set on contact open.
+
+Application code is responsible for clearing the `Event` instances.  
+Usage example:
+```python
+import asyncio
+from machine import Pin
+from primitives import ESwitch
+es = ESwitch(Pin("Y1", Pin.IN, Pin.PULL_UP))
+
+async def closure():
+    while True:
+        es.close.clear()
+        await es.close.wait()
+        print("Closed")
+
+async def open():
+    while True:
+        es.open.clear()
+        await es.open.wait()
+        print("Open")
+
+async def main():
+    asyncio.create_task(open())
+    await closure()  # Run forever
+
+asyncio.run(main())
+```
+
+## 3.2 Switch class
+
+```python
+from primitives import Switch  # switch.py
+```
+This can run callbacks or schedule coros on contact closure and/or opening. As
+an alternative to a callback based interface, bound `Event` objects may be
+triggered on switch state changes.
 
 This assumes a normally open switch connected between a pin and ground. The pin
 should be initialised as an input with a pullup. A `callable` may be specified
@@ -107,21 +251,21 @@ Constructor argument (mandatory):
 
 Methods:
 
- 1. `close_func` Args: `func` (mandatory) a `callable` to run on contact
- closure. `args` a tuple of arguments for the `callable` (default `()`)
- 2. `open_func` Args: `func` (mandatory) a `callable` to run on contact open.
- `args` a tuple of arguments for the `callable` (default `()`)
- 3. `__call__` Call syntax e.g. `myswitch()` returns the physical debounced
+ 1. `close_func(func, args=())` Args: `func` a `callable` to run on contact
+ closure, `args` a tuple of arguments for the `callable`.
+ 2. `open_func(func, args=())` Args: `func` a `callable` to run on contact open,
+ `args` a tuple of arguments for the `callable`.
+ 3. `__call__()` Call syntax e.g. `myswitch()` returns the physical debounced
  state of the switch i.e. 0 if grounded, 1 if connected to `3V3`.
- 4. `deinit` No args. Cancels the running task.
+ 4. `deinit()` No args. Cancels the running task.
 
 Class attribute:
- 1. `debounce_ms` Debounce time in ms. Default 50.
+ 1. `debounce_ms=50` Debounce time in ms.
 
 ```python
 from pyb import LED
 from machine import Pin
-import uasyncio as asyncio
+import asyncio
 from primitives import Switch
 
 async def pulse(led, ms):
@@ -139,43 +283,98 @@ async def my_app():
 asyncio.run(my_app())  # Run main application code
 ```
 
-## 3.2 Event interface
+#### Event interface
 
 This enables a task to wait on a switch state as represented by a bound `Event`
 instance. A bound contact closure `Event` is created by passing `None` to
 `.close_func`, in which case the `Event` is named `.close`. Likewise a `.open`
 `Event` is created by passing `None` to `open_func`.
 
-This is discussed further in
-[Event based interface](./DRIVERS.md#8-event-based-interface) which includes a
-code example. This API and the simpler [ESwitch class](./EVENTS.md#61-eswitch)
-is recommended for new projects.
-
-###### [Contents](./DRIVERS.md#1-contents)
+###### [Contents](./DRIVERS.md#0-contents)
 
 # 4. Interfacing pushbuttons
 
-The `primitives.pushbutton` module provides the `Pushbutton` class for use with
-simple mechanical, spring-loaded push buttons. This class is a generalisation
-of the `Switch` class. `Pushbutton` supports open or normally closed buttons
-connected to ground or 3V3. To a human, pushing a button is seen as a single
-event, but the micro-controller sees voltage changes corresponding to two
-events: press and release. A long button press adds the component of time and a
-double-click appears as four voltage changes. The asynchronous `Pushbutton`
-class provides the logic required to handle these user interactions by
-monitoring these events over time.
+The `primitives` module provides the following classes for interfacing
+pushbuttons. The following support normally open or normally closed buttons
+connected to gnd or to 3V3:
+* `EButton` Provides an `Event` based interface.
+* `Pushbutton` Offers `Event`s and/or callbacks.
+The following support normally open pushbuttons connected in a crosspoint array.
+* `Keyboard` An asynchronous iterator responding to button presses.
+* `SwArray` As above, but also supporting open, double and long events.
+The latter can also support switches in a diode-isolated array.
 
-Instances of this class can run a `callable` on press, release, double-click or
-long press events.
+## 4.1 EButton class
 
-As an alternative to callbacks bound `Event` instances may be created which are
-triggered by press, release, double-click or long press events. This mode of
-operation is more flexible than the use of callbacks and is covered in
-[Event based interface](./DRIVERS.md#8-event-based-interface). To use an
-`Event` based interface exclusively see the simpler
-[EButton class](./EVENTS.md#62-ebutton).
+```python
+from primitives import EButton  # events.py
+```
 
-## 4.1 Pushbutton class
+This extends the functionality of `ESwitch` to provide additional events for
+long and double presses.
+
+This can support normally open or normally closed switches, connected to `gnd`
+(with a pullup) or to `3V3` (with a pull-down). The `Pin` object should be
+initialised appropriately. The default state of the switch can be passed in the
+optional "sense" parameter on the constructor, otherwise the assumption is that
+on instantiation the button is not pressed.
+
+The EButton class uses logical rather than physical state: a button's state
+is considered `True` if pressed, otherwise `False` regardless of its physical
+implementation.
+
+Constructor arguments:
+
+ 1. `pin` Mandatory. The initialised Pin instance.
+ 2. `suppress=False`. See [Suppress mode](./DRIVERS.md#46-suppress-mode).
+ 3. `sense=None`. Optionally define the electrical connection: see
+ [section 4.2.1](./EVENTS.md#421-the-sense-constructor-argument).
+
+Methods:
+
+ 1. `__call__()` Call syntax e.g. `mybutton()` Returns the logical debounced
+ state of the button (`True` corresponds to pressed).
+ 2. `rawstate()` Returns the logical instantaneous state of the button. There
+ is probably no reason to use this.
+ 3. `deinit()` No args. Cancels the running task and clears all events.
+
+Bound `Event`s:
+
+ 1. `press` Set on button press.
+ 2. `release` Set on button release.
+ 3. `long` Set if button press is longer than `EButton.long_press_ms`.
+ 4. `double` Set if two button preses occur within `EButton.double_click_ms`.
+
+Application code is responsible for clearing any `Event`s that are used.
+
+Class attributes:
+ 1. `debounce_ms=50` Debounce time in ms. Default 50.
+ 2. `long_press_ms=1000` Threshold time in ms for a long press.
+ 3. `double_click_ms=400` Threshold time in ms for a double-click.
+
+### 4.1.1 The sense constructor argument
+
+In most applications it can be assumed that, at power-up, pushbuttons are not
+pressed. The default `None` value uses this assumption to read the pin state
+and to assign the result to the `False` (not pressed) state at power up. This
+works with normally open or normally closed buttons wired to either supply
+rail; this without programmer intervention.
+
+In certain use cases this assumption does not hold, and `sense` must explicitly
+be specified. This defines the logical state of the un-pressed button. Hence
+`sense=0` defines a button connected in such a way that when it is not pressed,
+the voltage on the pin is gnd.
+
+Whenever the pin value changes, the new value is compared with `sense` to
+determine whether the button is closed or open.
+
+###### [Contents](./DRIVERS.md#0-contents)
+
+## 4.2 Pushbutton class
+
+```py
+from primitives import Pushbutton  # pushbutton.py
+```
 
 This can support normally open or normally closed switches, connected to `gnd`
 (with a pullup) or to `3V3` (with a pull-down). The `Pin` object should be
@@ -196,30 +395,29 @@ Please see the note on timing in [section 3](./DRIVERS.md#3-interfacing-switches
 Constructor arguments:
 
  1. `pin` Mandatory. The initialised Pin instance.
- 2. `suppress` Default `False`. See
- [section 4.1.1](./DRIVERS.md#411-the-suppress-constructor-argument).
+ 2. `suppress` Default `False`. See  [Suppress mode](./DRIVERS.md#46-suppress-mode).
  3. `sense` Default `None`. Option to define electrical connection. See
- [section 4.1.2](./DRIVERS.md#412-the-sense-constructor-argument).
+ [section 4.2.1](./DRIVERS.md#421-the-sense-constructor-argument).
 
 Methods:
 
- 1. `press_func` Args: `func=False` a `callable` to run on button push,
- `args=()` a tuple of arguments for the `callable`.
- 2. `release_func` Args: `func=False` a `callable` to run on button release,
- `args=()` a tuple of arguments for the `callable`.
- 3. `long_func` Args: `func=False` a `callable` to run on long button push,
- `args=()` a tuple of arguments for the `callable`.
- 4. `double_func` Args: `func=False` a `callable` to run on double push,
- `args=()` a tuple of arguments for the `callable`.
- 5. `__call__` Call syntax e.g. `mybutton()` Returns the logical debounced
+ 1. `press_func(func=False, args=())` Args: `func` a `callable` to run on button
+ push, `args` a tuple of arguments for the `callable`.
+ 2. `release_func(func=False, args=())` Args: `func` a `callable` to run on
+ button release, `args` a tuple of arguments for the `callable`.
+ 3. `long_func(func=False, args=())` Args: `func` a `callable` to run on long
+ button push, `args` a tuple of arguments for the `callable`.
+ 4. `double_func(func=False, args=())` Args: `func` a `callable` to run on
+ double button push, `args` a tuple of arguments for the `callable`.
+ 5. `__call__()` Call syntax e.g. `mybutton()` Returns the logical debounced
  state of the button (`True` corresponds to pressed).
  6. `rawstate()` Returns the logical instantaneous state of the button. There
  is probably no reason to use this.
- 7. `deinit` No args. Cancels the running task.
+ 7. `deinit()` No args. Cancels the running debounce task.
 
 Methods 1 - 4 may be called at any time. If `False` is passed for a callable,
 any existing callback will be disabled. If `None` is passed, a bound `Event` is
-created. See [Event based interface](./DRIVERS.md#8-event-based-interface).
+created. See below for `Event` names.
 
 Class attributes:
  1. `debounce_ms` Debounce time in ms. Default 50.
@@ -230,7 +428,7 @@ A simple Pyboard demo:
 ```python
 from pyb import LED
 from machine import Pin
-import uasyncio as asyncio
+import asyncio
 from primitives import Pushbutton
 
 def toggle(led):
@@ -246,52 +444,12 @@ async def my_app():
 asyncio.run(my_app())  # Run main application code
 ```
 
-A `Pushbutton` subset is available
-[here](https://github.com/kevinkk525/pysmartnode/blob/dev/pysmartnode/utils/abutton.py):
-this implementation avoids the use of the `Delay_ms` class to minimise the
-number of coroutines.
+### 4.2.1 The suppress constructor argument
 
-### 4.1.1 The suppress constructor argument
-
-The purpose of the `suppress` argument is to disambiguate the response when an
-application requires either, or both, long-press and double-click events. It
-works by modifying the behavior of the `release_func`. By design, whenever a
-button is pressed, the `press_func` runs immediately. This minimal latency is
-ideal for applications such as games. The `Pushbutton` class provides the
-ability to suppress 'intermediate' events and reduce them down to one single
-event. The `suppress` argument is useful for applications where long-press,
-single-press, and double-click events are desired, such as clocks, watches, or
-menu navigation. However, long-press and double-click detection introduces
-additional latency to ensure correct classification of events and is therefore
-not suitable for all applications. To illustrate the default library behavior,
-consider how long button presses and double-clicks are interpreted.
-
-A long press is seen as three events:
-
- * `press_func`
- * `long_func`
- * `release_func`
-
-Similarly, a double-click is seen as five events:
-
- * `press_func`
- * `release_func`
- * `press_func`
- * `release_func`
- * `double_func`
-
-There can be a need for a callable which runs if a button is pressed, but only
-if a double-click or long-press function does not run. The suppress argument
-changes the behaviour of the `release_func` to fill that role. This has timing
-implications. The soonest that the absence of a long press can be detected is
-on button release. Absence of a double-click can only be detected when the
-double-click timer times out without a second press occurring.
-
+See [Suppress mode](./DRIVERS.md#46-suppress-mode) for the purpose of this arg.
 Note: `suppress` affects the behaviour of the `release_func` only. Other
-callbacks including `press_func` behave normally.
-
-If the `suppress = True` constructor argument is set, the `release_func` will
-be launched as follows:
+callbacks including `press_func` behave normally. If the `suppress = True`
+constructor argument is set, the `release_func` will be launched as follows:
 
  * If `double_func` does not exist on rapid button release.
  * If `double_func` exists, after the expiration of the double-click timer.
@@ -306,28 +464,7 @@ the case of a single short press, the `release_func` will be delayed until the
 expiry of the double-click timer (because until that time a second click might
 occur).
 
-The following script may be used to demonstrate the effect of this argument. As
-written, it assumes a Pi Pico with a push button attached between GPIO 18 and
-Gnd, with the primitives installed.
-```python
-from machine import Pin
-import uasyncio as asyncio
-from primitives import Pushbutton
-
-btn = Pin(18, Pin.IN, Pin.PULL_UP)  # Adapt for your hardware
-pb = Pushbutton(btn, suppress=True)
-
-async def main():
-    short_press = pb.release_func(print, ("SHORT",))
-    double_press = pb.double_func(print, ("DOUBLE",))
-    long_press = pb.long_func(print, ("LONG",))
-    while True:
-        await asyncio.sleep(1)
-
-asyncio.run(main())
-```
-
-### 4.1.2 The sense constructor argument
+### 4.2.2 The sense constructor argument
 
 In most applications it can be assumed that, at power-up, pushbuttons are not
 pressed. The default `None` value uses this assumption to assign the `False`
@@ -344,7 +481,23 @@ When the pin value changes, the new value is compared with `sense` to determine
 if the button is closed or open. This is to allow the designer to specify if
 the `closed` state of the button is active `high` or active `low`.
 
-## 4.2 ESP32Touch class
+#### Event interface
+
+Event names, where `None` is passed to a method listed below, are as follows:  
+| method       | Event   |
+|:-------------|:--------|
+| press_func   | press   |
+| release_func | release |
+| long_func    | long    |
+| double_func  | double  |
+
+###### [Contents](./DRIVERS.md#0-contents)
+
+## 4.3 ESP32Touch class
+
+```py
+from primitives import ESP32Touch  # pushbutton.py
+```
 
 This subclass of `Pushbutton` supports ESP32 touchpads providing a callback
 based interface. See the
@@ -365,7 +518,7 @@ threshold is currently 80% but this is subject to change.
 Example usage:
 ```python
 from machine import Pin
-import uasyncio as asyncio
+import asyncio
 from primitives import ESP32Touch
 
 ESP32Touch.threshold(70)  # optional
@@ -389,7 +542,215 @@ The best threshold value depends on physical design. Directly touching a large
 pad will result in a low value from `machine.TouchPad.read()`. A small pad
 covered with an insulating film will yield a smaller change.
 
-###### [Contents](./DRIVERS.md#1-contents)
+###### [Contents](./DRIVERS.md#0-contents)
+
+## 4.4 Keyboard class
+
+```python
+from primitives import Keyboard  # sw_array.py
+```
+A `Keyboard` provides an interface to a set of pushbuttons arranged as a
+crosspoint array. If a key is pressed its array index (scan code) is placed on a
+queue. Keypresses are retrieved with `async for`. The driver operates by
+polling each row, reading the response of each column. 1-key rollover is
+supported - this is the case where a key is pressed before the prior key has
+been released.
+
+Constructor mandatory args:
+ * `rowpins` A list or tuple of initialised open drain output pins.
+ * `colpins` A list or tuple of initialised input pins (pulled up).
+
+Constructor optional keyword only args:
+ * `bufsize=10)` Size of keyboard buffer.
+ * `db_delay=50` Debounce delay in ms.
+
+ Methods:
+ * `deinit(self)` Cancels the running task.
+ * `__getitem__(self, scan_code)` Returns a `bool` being the instantaneous
+ debounced state of a given pin. Enables code that causes actions after a button
+ press, for example on release or auto-repeat while pressed.
+
+The `Keyboard` class is subclassed from [Ringbuf Queue](./DRIVERS.md#7-ringbuf-queue)
+enabling scan codes to be retrieved with an asynchronous iterator.
+Example usage:
+```python
+import asyncio
+from primitives import Keyboard
+from machine import Pin
+rowpins = [Pin(p, Pin.OPEN_DRAIN) for p in range(10, 14)]
+colpins = [Pin(p, Pin.IN, Pin.PULL_UP) for p in range(16, 20)]
+
+async def main():
+    kp = Keyboard(rowpins, colpins)
+    async for scan_code in kp:
+        print(scan_code)
+        if not scan_code:
+            break  # Quit on key with code 0
+
+asyncio.run(main())
+```
+In typical use the scan code would be used as the index into a string of
+keyboard characters ordered to match the physical layout of the keys. If data
+is not removed from the buffer, on overflow the oldest scan code is discarded.
+There is no limit on the number of rows or columns however if more than 256 keys
+are used, the `bufsize` arg would need to be adapted to handle scan codes > 255.
+In this case an `array` or `list` object would be passed.
+
+Usage example. Keypresses on a numeric keypad are sent to a UART with auto
+repeat. Optionally link GPIO0 and GPIO1 to view the result.
+```python
+import asyncio
+from primitives import Keyboard
+from machine import Pin, UART
+cmap = b"123456789*0#"  # Numeric keypad character map
+
+async def repeat(kpad, scan_code, uart):  # Send at least one char
+    ch = cmap[scan_code : scan_code + 1]  # Get character
+    uart.write(ch)
+    await asyncio.sleep_ms(400)  # Longer initial delay
+    while kpad[scan_code]:  # While key is pressed
+        uart.write(ch)
+        await asyncio.sleep_ms(150)  # Faster repeat
+
+async def receiver(uart):
+    sreader = asyncio.StreamReader(uart)
+    while True:
+        res = await sreader.readexactly(1)
+        print('Received', res)
+
+async def main():  # Run forever
+    rowpins = [Pin(p, Pin.OPEN_DRAIN) for p in range(10, 14)]
+    colpins = [Pin(p, Pin.IN, Pin.PULL_UP) for p in range(16, 20)]
+    uart = UART(0, 9600, tx=0, rx=1)
+    asyncio.create_task(receiver(uart))
+    kpad = Keyboard(rowpins, colpins)
+    async for scan_code in kpad:
+        rpt = asyncio.create_task(repeat(kpad, scan_code, uart))
+
+asyncio.run(main())
+```
+
+###### [Contents](./DRIVERS.md#0-contents)
+
+## 4.5 SwArray class
+
+```python
+from primitives import SwArray  # sw_array.py
+```
+An `SwArray` is similar to a `Keyboard` except that single, double and long
+presses are supported. Items in the array may be switches or pushbuttons,
+however if switches are used they must be diode-isolated. For the reason see
+[Switches](./DRIVERS.md#12-switches).
+
+Constructor mandatory args:
+ * `rowpins` A list or tuple of initialised open drain output pins.
+ * `colpins` A list or tuple of initialised input pins (pulled up).
+ * `cfg` An integer defining conditions requiring a response. See Module
+ Constants below.
+
+Constructor optional keyword only args:
+ * `bufsize=10` Size of buffer.
+
+ Methods:
+ * `deinit(self)` Cancels the running task.
+ * `__getitem__(self, scan_code)` Returns a `bool` being the instantaneous
+ debounced state of a given pin. Enables code that causes actions after a button
+ press. For example after a press a pin might periodically be polled to achieve
+ auto-repeat until released.
+
+ Synchronous bound method:
+ * `keymap()` Return an integer representing a bitmap of the debounced state of
+ all switches in the array. 1 == closed.
+
+ Class variables:
+ * `debounce_ms = 50` Assumed maximum duration of contact bounce.
+ * `long_press_ms = 1000` Threshold for long press detection.
+ * `double_click_ms = 400` Threshold for double-click detection.
+
+Module constants.  
+The folowing constants are provided to simplify defining the `cfg` constructor
+arg. This may be defined as a bitwise or of selected constants. For example if
+the `CLOSE` bit is specified, switch closures will be reported. An omitted event
+will be ignored. Where the array comprises switches it is usual to specify only
+`CLOSE` and/or `OPEN`. This invokes a more efficient mode of operation because
+timing is not required.
+ * `CLOSE` Report contact closure.
+ * `OPEN` Contact opening.
+ * `LONG` Contact closure longer than `long_press_ms`.
+ * `DOUBLE` Two closures in less than `double_click_ms`.
+ * `SUPPRESS` Disambiguate. For explanation see `EButton`.
+
+The `SwArray` class is subclassed from [Ringbuf Queue](./DRIVERS.md#7-ringbuf-queue).
+This is an asynchronous iterator, enabling scan codes and event types to be
+retrieved as state changes occur with `async for`:
+```python
+import asyncio
+from primitives.sw_array import SwArray, CLOSE, OPEN, LONG, DOUBLE, SUPPRESS
+from machine import Pin
+rowpins = [Pin(p, Pin.OPEN_DRAIN) for p in range(10, 14)]
+colpins = [Pin(p, Pin.IN, Pin.PULL_UP) for p in range(16, 20)]
+cfg = CLOSE | OPEN  #LONG | DOUBLE | SUPPRESS
+
+async def main():
+    swa = SwArray(rowpins, colpins, cfg)
+    async for scan_code, evt in swa:
+        print(scan_code, evt)
+        if not scan_code:
+            break  # Quit on key with code 0
+
+asyncio.run(main())
+```
+###### [Contents](./DRIVERS.md#0-contents)
+
+## 4.6 Suppress mode
+
+The pushbutton drivers support a mode known as `suppress`. This option reduces
+the number of events (or callbacks) that occur in the case of a double click.
+Consider a button double-click. By default with `suppress=False` the following
+events will occur in order:
+
+ * `press`
+ * `release`
+ * `press`
+ * `release`
+ * `double`
+
+Similarly a long press will trigger `press`, `long` and `release` in that
+order. Some applications may require only one event to be triggered. Setting
+`suppress=True` ensures this. Outcomes are as follows:
+
+| Occurrence   | Events set      | Time of primary event        |
+|:-------------|:----------------|:-----------------------------|
+| Short press  | press, release  | After `.double_click_ms`     |
+| Double press | double, release | When the second press occurs |
+| Long press   | long, release   | After `long_press_ms`        |
+
+The tradeoff is that the `press` and `release` events are delayed: the soonest
+it is possible to detect the lack of a double click is `.double_click_ms`ms
+after a short button press. Hence in the case of a short press when `suppress`
+is `True`, `press` and `release` events are set on expiration of the double
+click timer.
+
+The following script may be used to demonstrate the effect of `suppress`. As
+written, it assumes a Pi Pico with a push button attached between GPIO 18 and
+Gnd, with the primitives installed.
+```python
+from machine import Pin
+import asyncio
+from primitives import Pushbutton
+
+btn = Pin(18, Pin.IN, Pin.PULL_UP)  # Adapt for your hardware
+
+async def main():
+    pb = Pushbutton(btn, suppress=True)
+    pb.release_func(print, ("SHORT",))
+    pb.double_func(print, ("DOUBLE",))
+    pb.long_func(print, ("LONG",))
+    await asyncio.sleep(60)  # Run for one minute
+
+asyncio.run(main())
+```
+###### [Contents](./DRIVERS.md#0-contents)
 
 # 5. ADC monitoring
 
@@ -400,7 +761,7 @@ value. Data from ADC's is usually noisy. Relative bounds provide a simple (if
 crude) means of eliminating this. Absolute bounds can be used to raise an alarm
 or log data, if the value goes out of range. Typical usage:
 ```python
-import uasyncio as asyncio
+import asyncio
 from machine import ADC
 import pyb
 from primitives import AADC
@@ -415,6 +776,10 @@ asyncio.run(foo())
 ```
 
 ## 5.1 AADC class
+
+```py
+from primitives import AADC  # aadc.py
+```
 
 `AADC` instances are awaitable. This is the principal mode of use.
 
@@ -441,7 +806,7 @@ In the sample below the coroutine pauses until the ADC is in range, then pauses
 until it goes out of range.
 
 ```python
-import uasyncio as asyncio
+import asyncio
 from machine import ADC
 from primitives import AADC
 
@@ -464,21 +829,21 @@ obvious design. It was chosen because the plan for `uasyncio` is that it will
 include an option for prioritising I/O. I wanted this class to be able to use
 this for applications requiring rapid response.
 
-###### [Contents](./DRIVERS.md#1-contents)
+###### [Contents](./DRIVERS.md#0-contents)
 
 # 6. Quadrature encoders
 
 The [Encoder](https://github.com/peterhinch/micropython-async/blob/master/v3/primitives/encoder.py)
 class is an asynchronous driver for control knobs based on quadrature encoder
-switches such as
-[this Adafruit product](https://www.adafruit.com/product/377). The driver is
-not intended for applications such as CNC machines where
-[a solution such as this one](https://github.com/peterhinch/micropython-samples#47-rotary-incremental-encoder)
-is required. Drivers for NC machines must never miss an edge. Contact bounce or
-vibration induced jitter can cause transitions to occur at a high rate; these
-must be tracked. Consequently callbacks occur in an interrupt context with the
-associated concurrency issues. These issues, along with general discussion of
-MicroPython encoder drivers, are covered
+switches such as [this Adafruit product](https://www.adafruit.com/product/377).
+The driver is not intended for applications such as CNC machines. Drivers for NC
+machines must never miss an edge. Contact bounce or vibration induced jitter can
+cause transitions to occur at a high rate; these must be tracked which
+challenges software based solutions.
+
+Another issue affecting some solutions is that callbacks occur in an interrupt
+context. This can lead to concurrency issues. These issues, along with general
+discussion of MicroPython encoder drivers, are covered
 [in this doc](https://github.com/peterhinch/micropython-samples/blob/master/encoders/ENCODERS.md).
 
 This driver runs the user supplied callback in an `asyncio` context, so that
@@ -504,6 +869,10 @@ virtual encoder at the time it was triggered and the signed change in this
 value since the previous time the callback ran.
 
 ## 6.1 Encoder class
+
+```python
+from primitives import Encoder  # encoder.py
+```
 
 Existing users: the `delay` parameter is now a constructor arg rather than a
 class varaiable.
@@ -548,7 +917,7 @@ An `Encoder` instance is an asynchronous iterator. This enables it to be used
 as follows, with successive values being retrieved with `async for`:
 ```python
 from machine import Pin
-import uasyncio as asyncio
+import asyncio
 from primitives import Encoder
 
 async def main():
@@ -566,11 +935,77 @@ finally:
 See [this doc](https://github.com/peterhinch/micropython-samples/blob/master/encoders/ENCODERS.md)
 for further information on encoders and their limitations.
 
-###### [Contents](./DRIVERS.md#1-contents)
+###### [Contents](./DRIVERS.md#0-contents)
 
-# 7. Additional functions
+# 7. Ringbuf Queue
 
-## 7.1 Launch
+```python
+from primitives import RingbufQueue  # ringbuf_queue.py
+```
+
+The API of the `Queue` aims for CPython compatibility. This is at some cost to
+efficiency. As the name suggests, the `RingbufQueue` class uses a pre-allocated
+circular buffer which may be of any mutable type supporting the buffer protocol
+e.g. `list`, `array` or `bytearray`.
+
+Attributes of `RingbufQueue`:
+ 1. It is of fixed size, `Queue` can grow to arbitrary size.
+ 2. It uses pre-allocated buffers of various types (`Queue` uses a `list`).
+ 3. It is an asynchronous iterator allowing retrieval with `async for`.
+ 4. It has an "overwrite oldest data" synchronous write mode.
+
+Constructor mandatory arg:
+ * `buf` Buffer for the queue, e.g. list, bytearray or array. If an integer is
+ passed, a list of this size is created. A  buffer of size `N` can hold a
+ maximum of `N-1` items. Note that, where items on the queue are suitably
+ limited, bytearrays or arrays are more efficient than lists.
+
+Synchronous methods (immediate return):  
+ * `qsize` No arg. Returns the number of items in the queue.
+ * `empty` No arg. Returns `True` if the queue is empty.
+ * `full` No arg. Returns `True` if the queue is full.
+ * `get_nowait` No arg. Returns an object from the queue. Raises `IndexError`
+ if the queue is empty.
+ * `put_nowait` Arg: the object to put on the queue. Raises `IndexError` if the
+ queue is full. If the calling code ignores the exception the oldest item in
+ the queue will be overwritten. In some applications this can be of use.
+ * `peek` No arg. Returns oldest entry without removing it from the queue. This
+ is a superset of the CPython compatible methods.
+
+Asynchronous methods:  
+ * `put` Arg: the object to put on the queue. If the queue is full, it will
+ block until space is available.
+ * `get` Return an object from the queue. If empty, block until an item is
+ available.
+
+Retrieving items from the queue:
+
+The `RingbufQueue` is an asynchronous iterator. Results are retrieved using
+`async for`:
+```python
+async def handle_queued_data(q):
+    async for obj in q:
+        await asyncio.sleep(0)  # See below
+        # Process obj
+```
+The `sleep` is necessary if you have multiple tasks waiting on the queue,
+otherwise one task hogs all the data.
+
+The following illustrates putting items onto a `RingbufQueue` where the queue is
+not allowed to stall: where it becomes full, new items overwrite the oldest ones
+in the queue:
+```python
+def add_item(q, data):
+    try:
+        q.put_nowait(data)
+    except IndexError:
+        pass
+```
+###### [Contents](./DRIVERS.md#0-contents)
+
+# 8. Additional functions
+
+## 8.1 Launch
 
 Import as follows:
 ```python
@@ -582,7 +1017,7 @@ runs it and returns the callback's return value. If a coro is passed, it is
 converted to a `task` and run asynchronously. The return value is the `task`
 instance. A usage example is in `primitives/switch.py`.
 
-## 7.2 set_global_exception
+## 8.2 set_global_exception
 
 Import as follows:
 ```python
@@ -593,7 +1028,7 @@ handler to simplify debugging. The function takes no args. It is called as
 follows:
 
 ```python
-import uasyncio as asyncio
+import asyncio
 from primitives import set_global_exception
 
 async def main():
@@ -611,9 +1046,9 @@ continue to run. This means that the failure can be missed and the sequence of
 events can be hard to deduce. A global handler ensures that the entire
 application stops allowing the traceback and other debug prints to be studied.
 
-###### [Contents](./DRIVERS.md#1-contents)
+###### [Contents](./DRIVERS.md#0-contents)
 
-# 8. Event based interface
+# 9. Event based interface
 
 The `Switch` and `Pushbutton` classes offer a traditional callback-based
 interface. While familiar, it has drawbacks and requires extra code to perform
@@ -642,7 +1077,7 @@ to a method:
 
 Typical usage is as follows:
 ```python
-import uasyncio as asyncio
+import asyncio
 from primitives import Switch
 from pyb import Pin
 
@@ -665,4 +1100,4 @@ replicated, but with added benefits. For example the omitted code in `foo`
 could run a callback-style synchronous method, retrieving its value.
 Alternatively the code could create a task which could be cancelled.
 
-###### [Contents](./DRIVERS.md#1-contents)
+###### [Contents](./DRIVERS.md#0-contents)
