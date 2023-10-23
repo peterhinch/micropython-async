@@ -25,7 +25,7 @@ MicroPython's `asyncio` when used in a microcontroller context.
  6. [Quadrature encoders](./DRIVERS.md#6-quadrature-encoders) Asynchronous interface for rotary encoders.  
   6.1 [Encoder class](./DRIVERS.md#61-encoder-class)  
  7. [Ringbuf Queue](./DRIVERS.md#7-ringbuf-queue) A MicroPython optimised queue primitive.  
- 8. [Delay_ms class](./DRIVERS.md#8-delay_ms class) A flexible retriggerable delay with callback or Event interface.  
+ 8. [Delay_ms class](./DRIVERS.md#8-delay_ms-class) A flexible retriggerable delay with callback or Event interface.  
  9. [Additional functions](./DRIVERS.md#9-additional-functions)  
   9.1 [launch](./DRIVERS.md#91-launch) Run a coro or callback interchangeably.  
   9.2 [set_global_exception](./DRIVERS.md#92-set_global_exception) Simplify debugging with a global exception handler.  
