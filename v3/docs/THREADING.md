@@ -719,7 +719,7 @@ asyncio.run(main())
 ```
 ###### [Contents](./THREADING.md#contents)
 
-## 4.1 More general solution
+## 4.2 More general solution
 
 This provides a queueing mechanism. A task can assign a blocking function to a
 core even if the core is already busy. Further it allows for multiple cores or
