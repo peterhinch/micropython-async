@@ -42,6 +42,7 @@ import uasyncio as asyncio
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.4.1 [BoundedSemaphore](./TUTORIAL.md#341-boundedsemaphore)  
   3.5 [Queue](./TUTORIAL.md#35-queue)  
   3.6 [ThreadSafeFlag](./TUTORIAL.md#36-threadsafeflag) Synchronisation with asynchronous events and interrupts.  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.6.1 [Querying a ThreadSafeFlag](./TUTORIAL.md#361-querying-a-threadsafeflag) Check its state without blocking.  
   3.7 [Barrier](./TUTORIAL.md#37-barrier)  
   3.8 [Delay_ms](./TUTORIAL.md#38-delay_ms-class) Software retriggerable delay.  
   3.9 [Message](./TUTORIAL.md#39-message)  
@@ -1148,6 +1149,48 @@ processing received data.
 
 See [Threadsafe Event](./THREADING.md#31-threadsafe-event) for a thread safe
 class which allows multiple tasks to wait on it.
+
+### 3.6.1 Querying a ThreadSafeFlag
+
+The state of a ThreadSafeFlag may be tested as follows:
+```python
+import asyncio
+from select import poll, POLLIN
+from time import ticks_us, ticks_diff
+
+async def foo(tsf):  # Periodically set the ThreadSafeFlag
+    while True:
+        await asyncio.sleep(1)
+        tsf.set()
+
+def ready(tsf, poller):
+    poller.register(tsf, POLLIN)
+
+    def is_rdy():
+        return len([t for t in poller.ipoll(0) if t[0] is tsf]) > 0
+
+    return is_rdy
+
+async def test():
+    tsf = asyncio.ThreadSafeFlag()
+    tsk = asyncio.create_task(foo(tsf))
+    mpoll = poll()
+    tsf_ready = ready(tsf, mpoll)  # Create a ready function
+    for _ in range(25):  # Run for 5s
+        if tsf_ready():
+            print("tsf ready")
+            t = ticks_us()
+            await tsf.wait()
+            print(f"got tsf in {ticks_diff(ticks_us(), t)}us")
+        else:
+            print("Not ready")
+            await asyncio.sleep_ms(200)
+
+asyncio.run(test())
+```
+The `ready` closure returns a nonblocking function which tests the status of a
+given flag. In the above example `.wait()` is not called until the flag has been
+set, consequently `.wait()` returns rapidly.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
