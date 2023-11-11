@@ -866,7 +866,7 @@ behaviour.
 
 The `Encoder` can be instantiated in such a way that its effective resolution
 can be reduced. A virtual encoder with lower resolution can be useful in some
-applications.
+applications. In particular it can track the "clicks" of a mechanical detent.
 
 The driver allows limits to be assigned to the virtual encoder's value so that
 a dial running from (say) 0 to 100 may be implemented. If limits are used,
@@ -908,10 +908,10 @@ Constructor arguments:
  receives two integer args, `v` being the virtual encoder's current value and
  `delta` being the signed difference between the current value and the previous
  one. Further args may be appended by the following.
- 9. `args=()` An optional tuple of positionl args for the callback.
+ 9. `args=()` An optional tuple of positional args for the callback.
  10. `delay=100` After motion is detected the driver waits for `delay` ms before
- reading the current position. A delay can be used to limit the rate at which
- the callback is invoked. This is a minimal approach. See
+ reading the current position. A delay limits the rate at which the callback is
+ invoked and improves debouncing. This is a minimal approach. See
  [this script](https://github.com/peterhinch/micropython-async/blob/master/v3/primitives/tests/encoder_stop.py)
  for a way to create a callback which runs only when the encoder stops moving.
 

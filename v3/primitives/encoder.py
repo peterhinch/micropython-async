@@ -1,9 +1,9 @@
 # encoder.py Asynchronous driver for incremental quadrature encoder.
 
-# Copyright (c) 2021-2022 Peter Hinch
+# Copyright (c) 2021-2023 Peter Hinch
 # Released under the MIT License (MIT) - see LICENSE file
 
-# For an explanation of the design please see 
+# For an explanation of the design please see
 # [ENCODERS.md](https://github.com/peterhinch/micropython-samples/blob/master/encoders/ENCODERS.md)
 
 # Thanks are due to the following collaborators:
@@ -19,11 +19,33 @@
 
 import uasyncio as asyncio
 from machine import Pin
+from select import poll, POLLIN
+
+
+def ready(tsf, poller):
+    r = (tsf, POLLIN)
+    poller.register(*r)
+
+    def is_rdy():
+        return r in poller.ipoll(0)
+
+    return is_rdy
+
 
 class Encoder:
-
-    def __init__(self, pin_x, pin_y, v=0, div=1, vmin=None, vmax=None,
-                 mod=None, callback=lambda a, b : None, args=(), delay=100):
+    def __init__(
+        self,
+        pin_x,
+        pin_y,
+        v=0,
+        div=1,
+        vmin=None,
+        vmax=None,
+        mod=None,
+        callback=lambda a, b: None,
+        args=(),
+        delay=100,
+    ):
         self._pin_x = pin_x
         self._pin_y = pin_y
         self._x = pin_x()
@@ -34,8 +56,9 @@ class Encoder:
         self._trig = asyncio.Event()
 
         if ((vmin is not None) and v < vmin) or ((vmax is not None) and v > vmax):
-            raise ValueError('Incompatible args: must have vmin <= v <= vmax')
+            raise ValueError("Incompatible args: must have vmin <= v <= vmax")
         self._tsf = asyncio.ThreadSafeFlag()
+        self._tsf_ready = ready(self._tsf, poll())  # Create a ready function
         trig = Pin.IRQ_RISING | Pin.IRQ_FALLING
         try:
             xirq = pin_x.irq(trigger=trig, handler=self._x_cb, hard=True)
@@ -67,6 +90,8 @@ class Encoder:
         plcv = pcv  # Previous value after limits applied
         delay = self.delay
         while True:
+            if delay > 0 and self._tsf_ready():  # Ensure ThreadSafeFlag is clear
+                await self._tsf.wait()
             await self._tsf.wait()
             await asyncio.sleep_ms(delay)  # Wait for motion to stop.
             hv = self._v  # Sample hardware (atomic read).
