@@ -2059,7 +2059,10 @@ async def main():
 
 asyncio.run(main())
 ```
-The `.readline` method will pause until `\n` is received. The `.read`
+The `.readline` method will pause until `\n` is received.
+
+###### StreamWriter write methods
+
 Writing to a `StreamWriter` occurs in two stages. The synchronous `.write`
 method concatenates data for later transmission. The asynchronous `.drain`
 causes transmission. To avoid allocation call `.drain` after each call to
