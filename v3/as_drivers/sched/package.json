@@ -1,0 +1,13 @@
+{
+  "urls": [
+    ["sched/primitives/__init__.py", "github:peterhinch/micropython-async/v3/sched/primitives/__init__.py"],
+    ["sched/__init__.py", "github:peterhinch/micropython-async/v3/sched/__init__.py"],
+    ["sched/asynctest.py", "github:peterhinch/micropython-async/v3/sched/asynctest.py"],
+    ["sched/cron.py", "github:peterhinch/micropython-async/v3/sched/cron.py"],
+    ["sched/crontest.py", "github:peterhinch/micropython-async/v3/sched/crontest.py"],
+    ["sched/sched.py", "github:peterhinch/micropython-async/v3/sched/sched.py"],
+    ["sched/simulate.py", "github:peterhinch/micropython-async/v3/sched/simulate.py"],
+    ["sched/synctest.py", "github:peterhinch/micropython-async/v3/sched/synctest.py"]
+  ],
+  "version": "0.1"
+}
