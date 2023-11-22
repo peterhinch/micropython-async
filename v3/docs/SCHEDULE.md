@@ -3,7 +3,7 @@
  1. [Scheduling tasks](./SCHEDULE.md#1-scheduling-tasks)  
  2. [Overview](./SCHEDULE.md#2-overview)  
  3. [Installation](./SCHEDULE.md#3-installation)  
- 4. [The schedule function](./SCHEDULE.md#4-the-schedule-function) The primary interface for uasyncio  
+ 4. [The schedule function](./SCHEDULE.md#4-the-schedule-function) The primary interface for asyncio  
   4.1 [Time specifiers](./SCHEDULE.md#41-time-specifiers)  
   4.2 [Calendar behaviour](./SCHEDULE.md#42-calendar-behaviour) Calendars can be tricky...  
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.2.1 [Behaviour of mday and wday values](./SCHEDULE.md#421-behaviour-of-mday-and-wday-values)  
@@ -37,8 +37,8 @@ It is partly inspired by the Unix cron table, also by the
 latter it is less capable but is small, fast and designed for microcontroller
 use. Repetitive and one-shot events may be created.
 
-It is ideally suited for use with `uasyncio` and basic use requires minimal
-`uasyncio` knowledge. Users intending only to schedule callbacks can simply
+It is ideally suited for use with `asyncio` and basic use requires minimal
+`asyncio` knowledge. Users intending only to schedule callbacks can simply
 adapt the example code. It can be used in synchronous code and an example is
 provided.
 
@@ -48,13 +48,13 @@ and the Unix build.
 # 2. Overview
 
 The `schedule` function (`sched/sched.py`) is the interface for use with
-`uasyncio`. The function takes a callback and causes that callback to run at
+`asyncio`. The function takes a callback and causes that callback to run at
 specified times. A coroutine may be substituted for the callback - at the
 specified times it will be promoted to a `Task` and run.
 
 The `schedule` function instantiates a `cron` object (in `sched/cron.py`). This
 is the core of the scheduler: it is a closure created with a time specifier and
-returning the time to the next scheduled event. Users of `uasyncio` do not need
+returning the time to the next scheduled event. Users of `asyncio` do not need
 to deal with `cron` instances.
 
 This library can also be used in synchronous code, in which case `cron`
@@ -64,23 +64,28 @@ instances must explicitly be created.
 
 # 3. Installation
 
-Copy the `sched` directory and contents to the target's filesystem. It requires
-`uasyncio` V3 which is included in daily firmware builds and in release builds
-after V1.12.
-
-To install to an SD card using [rshell](https://github.com/dhylands/rshell)
-move to the parent directory of `sched` and issue:
+Copy the `sched` directory and contents to the target's filesystem. This may be
+done with the official [mpremote](https://docs.micropython.org/en/latest/reference/mpremote.html):
+```bash
+$ mpremote mip install "github:peterhinch/micropython-async/v3/as_drivers/sched"
+```
+On networked platforms it may be installed with [mip](https://docs.micropython.org/en/latest/reference/packages.html).
+```py
+>>> mip.install("github:peterhinch/micropython-async/v3/as_drivers/sched")
+```
+Currently these tools install to `/lib` on the built-in Flash memory. To install
+to a Pyboard's SD card [rshell](https://github.com/dhylands/rshell) may be used.
+Move to the SD card root, run `rshell` and issue:
 ```
 > rsync sched /sd/sched
 ```
-Adapt the destination as appropriate for your hardware.
 
 The following files are installed in the `sched` directory.
  1. `cron.py` Computes time to next event.
- 2. `sched.py` The `uasyncio` `schedule` function: schedule a callback or coro.
+ 2. `sched.py` The `asyncio` `schedule` function: schedule a callback or coro.
  3. `primitives/__init__.py` Necessary for `sched.py`.
  4. `asynctest.py` Demo of asynchronous scheduling.
- 5. `synctest.py` Synchronous scheduling demo. For `uasyncio` phobics only.
+ 5. `synctest.py` Synchronous scheduling demo. For `asyncio` phobics only.
  6. `crontest.py` A test for `cron.py` code.
  7. `simulate.py` A simple script which may be adapted to prove that a `cron`
  instance will behave as expected. See [The simulate script](./SCHEDULE.md#8-the-simulate-script).
@@ -125,7 +130,7 @@ import sched.asynctest
 ```
 This is the demo code.
 ```python
-import uasyncio as asyncio
+import asyncio as asyncio
 from sched.sched import schedule
 from time import localtime
 
@@ -157,7 +162,7 @@ finally:
 ```
 The event-based interface can be simpler than using callables:
 ```python
-import uasyncio as asyncio
+import asyncio as asyncio
 from sched.sched import schedule
 from time import localtime
 
@@ -201,7 +206,7 @@ Setting `secs=None` will cause a `ValueError`.
 
 Passing an iterable to `secs` is not recommended: this library is intended for
 scheduling relatively long duration events. For rapid sequencing, schedule a
-coroutine which awaits `uasyncio` `sleep` or `sleep_ms` routines. If an
+coroutine which awaits `asyncio` `sleep` or `sleep_ms` routines. If an
 iterable is passed, triggers must be at least ten seconds apart or a
 `ValueError` will result.
 
@@ -253,7 +258,7 @@ asyncio.create_task(schedule(foo, month=(2, 7, 10), hrs=1, mins=59))
 ## 4.3 Limitations
 
 The underlying `cron` code has a resolution of 1 second. The library is
-intended for scheduling infrequent events (`uasyncio` has its own approach to
+intended for scheduling infrequent events (`asyncio` has its own approach to
 fast scheduling).
 
 Specifying `secs=None` will cause a `ValueError`. The minimum interval between
@@ -269,7 +274,7 @@ to the Unix build where daylight saving needs to be considered.
 
 ## 4.4 The Unix build
 
-Asynchronous use requires `uasyncio` V3, so ensure this is installed on the
+Asynchronous use requires `asyncio` V3, so ensure this is installed on the
 Linux target.
 
 The synchronous and asynchronous demos run under the Unix build. The module is
@@ -283,7 +288,7 @@ is to avoid scheduling the times in your region where this occurs (01.00.00 to
 
 # 5. The cron object
 
-This is the core of the scheduler. Users of `uasyncio` do not need to concern
+This is the core of the scheduler. Users of `asyncio` do not need to concern
 themseleves with it. It is documented for those wishing to modify the code and
 for those wanting to perform scheduling in synchronous code.
 
@@ -342,7 +347,7 @@ applications. On my reference board timing drifted by 1.4mins/hr, an error of
 
 Boards with internet connectivity can periodically synchronise to an NTP server
 but this carries a risk of sudden jumps in the system time which may disrupt
-`uasyncio` and the scheduler.
+`asyncio` and the scheduler.
 
 ##### [Top](./SCHEDULE.md#0-contents)
 
@@ -403,9 +408,9 @@ main()
 ```
 
 In my opinion the asynchronous version is cleaner and easier to understand. It
-is also more versatile because the advanced features of `uasyncio` are
+is also more versatile because the advanced features of `asyncio` are
 available to the application including cancellation of scheduled tasks. The
-above code is incompatible with `uasyncio` because of the blocking calls to
+above code is incompatible with `asyncio` because of the blocking calls to
 `time.sleep()`.
 
 ## 7.1 Initialisation
