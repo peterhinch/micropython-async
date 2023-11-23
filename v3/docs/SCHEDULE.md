@@ -3,14 +3,16 @@
  1. [Scheduling tasks](./SCHEDULE.md#1-scheduling-tasks)  
  2. [Overview](./SCHEDULE.md#2-overview)  
  3. [Installation](./SCHEDULE.md#3-installation)  
- 4. [The schedule function](./SCHEDULE.md#4-the-schedule-function) The primary interface for asyncio  
+ 4. [The schedule coroutine](./SCHEDULE.md#4-the-schedule-coroutine) The primary interface for asyncio.  
   4.1 [Time specifiers](./SCHEDULE.md#41-time-specifiers)  
   4.2 [Calendar behaviour](./SCHEDULE.md#42-calendar-behaviour) Calendars can be tricky...  
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.2.1 [Behaviour of mday and wday values](./SCHEDULE.md#421-behaviour-of-mday-and-wday-values)  
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.2.2 [Time causing month rollover](./SCHEDULE.md#422-time-causing-month-rollover)  
   4.3 [Limitations](./SCHEDULE.md#43-limitations)  
   4.4 [The Unix build](./SCHEDULE.md#44-the-unix-build)  
- 5. [The cron object](./SCHEDULE.md#5-the-cron-object) For hackers and synchronous coders  
+  4.5 [Callback interface](./SCHEDULE.md#45-callback-interface) Alternative interface using callbacks.  
+  4.6 [Event interface](./SCHEDULE.md#46-event-interface) Alternative interface using Event instances.  
+5. [The cron object](./SCHEDULE.md#5-the-cron-object) The rest of this doc is for hackers and synchronous coders.   
   5.1 [The time to an event](./SCHEDULE.md#51-the-time-to-an-event)  
   5.2 [How it works](./SCHEDULE.md#52-how-it-works)  
  6. [Hardware timing limitations](./SCHEDULE.md#6-hardware-timing-limitations)  
@@ -19,6 +21,7 @@
  8. [The simulate script](./SCHEDULE.md#8-the-simulate-script) Rapidly test sequences.  
 
 Release note:  
+23rd Nov 2023 Add asynchronous iterator interface.
 3rd April 2023 Fix issue #100. Where an iterable is passed to `secs`, triggers
 must now be at least 10s apart (formerly 2s).
 
@@ -38,34 +41,40 @@ latter it is less capable but is small, fast and designed for microcontroller
 use. Repetitive and one-shot events may be created.
 
 It is ideally suited for use with `asyncio` and basic use requires minimal
-`asyncio` knowledge. Users intending only to schedule callbacks can simply
-adapt the example code. It can be used in synchronous code and an example is
-provided.
+`asyncio` knowledge. Example code is provided offering various ways of
+responding to timing triggers including running callbacks. The module can be
+also be used in synchronous code and an example is provided.
 
 It is cross-platform and has been tested on Pyboard, Pyboard D, ESP8266, ESP32
 and the Unix build.
 
 # 2. Overview
 
-The `schedule` function (`sched/sched.py`) is the interface for use with
-`asyncio`. The function takes a callback and causes that callback to run at
-specified times. A coroutine may be substituted for the callback - at the
-specified times it will be promoted to a `Task` and run.
+The `schedule` coroutine (`sched/sched.py`) is the interface for use with
+`asyncio`. Three interface alternatives are offered which vary in the behaviour:
+which occurs when a scheduled trigger occurs:
+1. An asynchronous iterator is triggered.
+2. A user defined `Event` is set.
+3. A user defined callback or coroutine is launched.
 
-The `schedule` function instantiates a `cron` object (in `sched/cron.py`). This
-is the core of the scheduler: it is a closure created with a time specifier and
-returning the time to the next scheduled event. Users of `asyncio` do not need
-to deal with `cron` instances.
+One or more `schedule` tasks may be assigned to a `Sequence` instance. This
+enables an `async for` statement to be triggered whenever any of the `schedule`
+tasks is triggered.
 
-This library can also be used in synchronous code, in which case `cron`
-instances must explicitly be created.
+Under the hood the `schedule` function instantiates a `cron` object (in
+`sched/cron.py`). This is the core of the scheduler: it is a closure created
+with a time specifier and returning the time to the next scheduled event. Users
+of `asyncio` do not need to deal with `cron` instances. This library can also be
+used in synchronous code, in which case `cron` instances must explicitly be
+created.
 
 ##### [Top](./SCHEDULE.md#0-contents)
 
 # 3. Installation
 
-Copy the `sched` directory and contents to the target's filesystem. This may be
-done with the official [mpremote](https://docs.micropython.org/en/latest/reference/mpremote.html):
+The `sched` directory and contents must be copied to the target's filesystem.
+This may be done with the official
+[mpremote](https://docs.micropython.org/en/latest/reference/mpremote.html):
 ```bash
 $ mpremote mip install "github:peterhinch/micropython-async/v3/as_drivers/sched"
 ```
@@ -75,7 +84,7 @@ On networked platforms it may be installed with [mip](https://docs.micropython.o
 ```
 Currently these tools install to `/lib` on the built-in Flash memory. To install
 to a Pyboard's SD card [rshell](https://github.com/dhylands/rshell) may be used.
-Move to the SD card root, run `rshell` and issue:
+Move to `as_drivers` on the PC, run `rshell` and issue:
 ```
 > rsync sched /sd/sched
 ```
@@ -94,16 +103,19 @@ The following files are installed in the `sched` directory.
 The `crontest` script is only of interest to those wishing to adapt `cron.py`.
 It will run on any MicroPython target.
 
-# 4. The schedule function
+# 4. The schedule coroutine
 
-This enables a callback or coroutine to be run at intervals. The callable can
-be specified to run forever, once only or a fixed number of times. `schedule`
-is an asynchronous function.
+This enables a response to be triggered at intervals. The response can be
+specified to occur forever, once only or a fixed number of times. `schedule`
+is a coroutine and is typically run as a background task as follows:
+```python
+asyncio.create_task(schedule(foo, 'every 4 mins', hrs=None, mins=range(0, 60, 4)))
+```
 
 Positional args:
- 1. `func` The callable (callback or coroutine) to run. Alternatively an
- `Event` may be passed (see below).
- 2. Any further positional args are passed to the callable.
+ 1. `func` This may be a callable (callback or coroutine) to run, a user defined
+ `Event` or an instance of a `Sequence`.
+ 2. Any further positional args are passed to the callable or the `Sequence`.
 
 Keyword-only args. Args 1..6 are
 [Time specifiers](./SCHEDULE.md#41-time-specifiers): a variety of data types
@@ -125,65 +137,37 @@ the value returned by that run of the callable.
 Because `schedule` does not terminate promptly it is usually started with
 `asyncio.create_task`, as in the following example where a callback is
 scheduled at various times. The code below may be run by issuing
-```python
-import sched.asynctest
-```
-This is the demo code.
-```python
-import asyncio as asyncio
-from sched.sched import schedule
-from time import localtime
-
-def foo(txt):  # Demonstrate callback
-    yr, mo, md, h, m, s, wd = localtime()[:7]
-    fst = 'Callback {} {:02d}:{:02d}:{:02d} on {:02d}/{:02d}/{:02d}'
-    print(fst.format(txt, h, m, s, md, mo, yr))
-
-async def bar(txt):  # Demonstrate coro launch
-    yr, mo, md, h, m, s, wd = localtime()[:7]
-    fst = 'Coroutine {} {:02d}:{:02d}:{:02d} on {:02d}/{:02d}/{:02d}'
-    print(fst.format(txt, h, m, s, md, mo, yr))
-    await asyncio.sleep(0)
-
-async def main():
-    print('Asynchronous test running...')
-    asyncio.create_task(schedule(foo, 'every 4 mins', hrs=None, mins=range(0, 60, 4)))
-    asyncio.create_task(schedule(foo, 'every 5 mins', hrs=None, mins=range(0, 60, 5)))
-    # Launch a coroutine
-    asyncio.create_task(schedule(bar, 'every 3 mins', hrs=None, mins=range(0, 60, 3)))
-    # Launch a one-shot task
-    asyncio.create_task(schedule(foo, 'one shot', hrs=None, mins=range(0, 60, 2), times=1))
-    await asyncio.sleep(900)  # Quit after 15 minutes
-
-try:
-    asyncio.run(main())
-finally:
-    _ = asyncio.new_event_loop()
-```
 The event-based interface can be simpler than using callables:
+
+The remainder of this section describes the asynchronous iterator interface as
+this is the simplest to use. The other interfaces are discussed in
+* [4.5 Callback interface](./SCHEDULE.md#45-callback-interface)
+* [4.6 Event interface](./SCHEDULE.md#46-event-interface)
+
+One or more `schedule` instances are collected in a `Sequence` object. This
+supports the asynchronous iterator interface:
 ```python
-import asyncio as asyncio
-from sched.sched import schedule
+import uasyncio as asyncio
+from sched.sched import schedule, Sequence
 from time import localtime
 
 async def main():
     print("Asynchronous test running...")
-    evt = asyncio.Event()
-    asyncio.create_task(schedule(evt, hrs=10, mins=range(0, 60, 4)))
-    while True:
-        await evt.wait()  # Multiple tasks may wait on an Event
-        evt.clear()  # It must be cleared.
+    seq = Sequence()  # A Sequence comprises one or more schedule instances
+    asyncio.create_task(schedule(seq, 'every 4 mins', hrs=None, mins=range(0, 60, 4)))
+    asyncio.create_task(schedule(seq, 'every 5 mins', hrs=None, mins=range(0, 60, 5)))
+    asyncio.create_task(schedule(seq, 'every 3 mins', hrs=None, mins=range(0, 60, 3)))
+    # A one-shot trigger
+    asyncio.create_task(schedule(seq, 'one shot', hrs=None, mins=range(0, 60, 2), times=1))
+    async for args in seq:
         yr, mo, md, h, m, s, wd = localtime()[:7]
-        print(f"Event {h:02d}:{m:02d}:{s:02d} on {md:02d}/{mo:02d}/{yr}")
+        print(f"Event {h:02d}:{m:02d}:{s:02d} on {md:02d}/{mo:02d}/{yr} args: {args}")
 
 try:
     asyncio.run(main())
 finally:
     _ = asyncio.new_event_loop()
 ```
-See [tutorial](https://github.com/peterhinch/micropython-async/blob/master/v3/docs/TUTORIAL.md#32-event).
-Also [this doc](https://github.com/peterhinch/micropython-async/blob/master/v3/docs/EVENTS.md)
-for a discussion of event-based programming.
 
 ##### [Top](./SCHEDULE.md#0-contents)
 
@@ -283,6 +267,81 @@ consequence of DST is that there are impossible times when clocks go forward
 and duplicates when they go back. Scheduling those times will fail. A solution
 is to avoid scheduling the times in your region where this occurs (01.00.00 to
 02.00.00 in March and October here).
+
+##### [Top](./SCHEDULE.md#0-contents)
+
+## 4.5 Callback interface
+
+In this instance a user defined `callable` is passed as the first `schedule` arg.
+A `callable` may be a function or a coroutine. It is possible for multiple
+`schedule` instances to call the same callback, as in the example below. The
+code is included in the library as `sched/asyntest.py` and may be run as below.
+```python
+import sched.asynctest
+```
+This is the demo code.
+```python
+import uasyncio as asyncio
+from sched.sched import schedule
+from time import localtime
+
+def foo(txt):  # Demonstrate callback
+    yr, mo, md, h, m, s, wd = localtime()[:7]
+    fst = 'Callback {} {:02d}:{:02d}:{:02d} on {:02d}/{:02d}/{:02d}'
+    print(fst.format(txt, h, m, s, md, mo, yr))
+
+async def bar(txt):  # Demonstrate coro launch
+    yr, mo, md, h, m, s, wd = localtime()[:7]
+    fst = 'Coroutine {} {:02d}:{:02d}:{:02d} on {:02d}/{:02d}/{:02d}'
+    print(fst.format(txt, h, m, s, md, mo, yr))
+    await asyncio.sleep(0)
+
+async def main():
+    print('Asynchronous test running...')
+    asyncio.create_task(schedule(foo, 'every 4 mins', hrs=None, mins=range(0, 60, 4)))
+    asyncio.create_task(schedule(foo, 'every 5 mins', hrs=None, mins=range(0, 60, 5)))
+    # Launch a coroutine
+    asyncio.create_task(schedule(bar, 'every 3 mins', hrs=None, mins=range(0, 60, 3)))
+    # Launch a one-shot task
+    asyncio.create_task(schedule(foo, 'one shot', hrs=None, mins=range(0, 60, 2), times=1))
+    await asyncio.sleep(900)  # Quit after 15 minutes
+
+try:
+    asyncio.run(main())
+finally:
+    _ = asyncio.new_event_loop()
+```
+##### [Top](./SCHEDULE.md#0-contents)
+
+## 4.6 Event interface
+
+In this instance a user defined `Event` is passed as the first `schedule` arg.
+It is possible for multiple `schedule` instances to trigger the same `Event`.
+The user is responsible for clearing the `Event`. This interface has a drawback
+in that extra positional args passed to `schedule` are lost.
+```python
+import uasyncio as asyncio
+from sched.sched import schedule
+from time import localtime
+
+async def main():
+    print("Asynchronous test running...")
+    evt = asyncio.Event()
+    asyncio.create_task(schedule(evt, hrs=10, mins=range(0, 60, 4)))
+    while True:
+        await evt.wait()  # Multiple tasks may wait on an Event
+        evt.clear()  # It must be cleared.
+        yr, mo, md, h, m, s, wd = localtime()[:7]
+        print(f"Event {h:02d}:{m:02d}:{s:02d} on {md:02d}/{mo:02d}/{yr}")
+
+try:
+    asyncio.run(main())
+finally:
+    _ = asyncio.new_event_loop()
+```
+See [tutorial](https://github.com/peterhinch/micropython-async/blob/master/v3/docs/TUTORIAL.md#32-event).
+Also [this doc](https://github.com/peterhinch/micropython-async/blob/master/v3/docs/EVENTS.md)
+for a discussion of event-based programming.
 
 ##### [Top](./SCHEDULE.md#0-contents)
 
@@ -450,9 +509,9 @@ def wait_for(**kwargs):
 
 # 8. The simulate script
 
-This enables the behaviour of sets of args to `schedule` to be rapidly checked.
-The `sim` function should be adapted to reflect the application specifics. The
-default is:
+In `sched/simulate.py`. This enables the behaviour of sets of args to `schedule`
+to be rapidly checked. The `sim` function should be adapted to reflect the
+application specifics. The default is:
 ```python
 def sim(*args):
     set_time(*args)

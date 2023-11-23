@@ -14,6 +14,25 @@ _MAXT = const(1000)
 # Wait prior to a sequence start
 _PAUSE = const(2)
 
+
+class Sequence:  # Enable asynchronous iterator interface
+    def __init__(self):
+        self._evt = asyncio.Event()
+        self._args = None
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        await self._evt.wait()
+        self._evt.clear()
+        return self._args
+
+    def trigger(self, args):
+        self._args = args
+        self._evt.set()
+
+
 async def schedule(func, *args, times=None, **kwargs):
     async def long_sleep(t):  # Sleep with no bounds. Immediate return if t < 0.
         while t > 0:
@@ -23,16 +42,20 @@ async def schedule(func, *args, times=None, **kwargs):
     tim = mktime(localtime()[:3] + (0, 0, 0, 0, 0))  # Midnight last night
     now = round(time())  # round() is for Unix
     fcron = cron(**kwargs)  # Cron instance for search.
-    while tim < now:  # Find first event in sequence
+    while tim < now:  # Find first future trigger in sequence
         # Defensive. fcron should never return 0, but if it did the loop would never quit
         tim += max(fcron(tim), 1)
-    await long_sleep(tim - now - _PAUSE) # Time to wait (can be < 0)
+    # Wait until just before the first future trigger
+    await long_sleep(tim - now - _PAUSE)  # Time to wait (can be < 0)
 
-    while times is None or times > 0:
-        tw = fcron(round(time()))  # Time to wait (s)
+    while times is None or times > 0:  # Until all repeats are done (or forever).
+        tw = fcron(round(time()))  # Time to wait (s) (fcron is stateless).
         await long_sleep(tw)
+        res = None
         if isinstance(func, asyncio.Event):
             func.set()
+        elif isinstance(func, Sequence):
+            func.trigger(args)
         else:
             res = launch(func, args)
         if times is not None:
