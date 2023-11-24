@@ -115,7 +115,9 @@ asyncio.create_task(schedule(foo, 'every 4 mins', hrs=None, mins=range(0, 60, 4)
 Positional args:
  1. `func` This may be a callable (callback or coroutine) to run, a user defined
  `Event` or an instance of a `Sequence`.
- 2. Any further positional args are passed to the callable or the `Sequence`.
+ 2. Any further positional args are passed to the callable or the `Sequence`;
+ these args can be used to enable the triggered object to determine the source
+ of the trigger.
 
 Keyword-only args. Args 1..6 are
 [Time specifiers](./SCHEDULE.md#41-time-specifiers): a variety of data types
@@ -168,6 +170,9 @@ try:
 finally:
     _ = asyncio.new_event_loop()
 ```
+Note that the asynchronous iterator produces a `tuple` of the args passed to the
+`schedule` that triggered it. This enables the code to determine the source of
+the trigger.
 
 ##### [Top](./SCHEDULE.md#0-contents)
 

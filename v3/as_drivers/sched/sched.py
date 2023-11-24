@@ -11,7 +11,8 @@ from sched.cron import cron
 
 # uasyncio can't handle long delays so split into 1000s (1e6 ms) segments
 _MAXT = const(1000)
-# Wait prior to a sequence start
+# Wait prior to a sequence start: see
+# https://github.com/peterhinch/micropython-async/blob/master/v3/docs/SCHEDULE.md#71-initialisation
 _PAUSE = const(2)
 
 
