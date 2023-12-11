@@ -21,6 +21,8 @@
  8. [The simulate script](./SCHEDULE.md#8-the-simulate-script) Rapidly test sequences.  
 
 Release note:  
+11th Dec 2023 Document astronomy module, allowing scheduling based on Sun and
+Moon rise and set times.
 23rd Nov 2023 Add asynchronous iterator interface.
 3rd April 2023 Fix issue #100. Where an iterable is passed to `secs`, triggers
 must now be at least 10s apart (formerly 2s).
@@ -47,6 +49,10 @@ also be used in synchronous code and an example is provided.
 
 It is cross-platform and has been tested on Pyboard, Pyboard D, ESP8266, ESP32
 and the Unix build.
+
+The `astronomy` module extends this to enable tasks to be scheduled at times
+related to Sun and Moon rise and set times. This is documented
+[here](https://github.com/peterhinch/micropython-samples/blob/master/astronomy/README.md).
 
 # 2. Overview
 
@@ -102,6 +108,12 @@ The following files are installed in the `sched` directory.
 
 The `crontest` script is only of interest to those wishing to adapt `cron.py`.
 It will run on any MicroPython target.
+
+The [astronomy](https://github.com/peterhinch/micropython-samples/blob/master/astronomy/README.md)
+module may be installed with
+```bash
+$ mpremote mip install "github:peterhinch/micropython-samples/astronomy"
+```
 
 # 4. The schedule coroutine
 
