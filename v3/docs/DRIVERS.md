@@ -423,10 +423,13 @@ Methods 1 - 4 may be called at any time. If `False` is passed for a callable,
 any existing callback will be disabled. If `None` is passed, a bound `Event` is
 created. See below for `Event` names.
 
-Class attributes:
+Class variables:
  1. `debounce_ms` Debounce time in ms. Default 50.
  2. `long_press_ms` Threshold time in ms for a long press. Default 1000.
  3. `double_click_ms` Threshold time in ms for a double-click. Default 400.
+
+ If these variables are changed, it should be done prior to instantiating the
+ class.
 
 A simple Pyboard demo:
 ```python
