@@ -429,7 +429,7 @@ Class variables:
  3. `double_click_ms` Threshold time in ms for a double-click. Default 400.
 
  If these variables are changed, it should be done prior to instantiating the
- class.
+ class. The double click time must be less than the long press time.
 
 A simple Pyboard demo:
 ```python
