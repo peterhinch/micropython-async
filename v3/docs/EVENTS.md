@@ -20,9 +20,10 @@ This document assumes familiarity with `asyncio`. See [official docs](http://doc
   5.1 [Use of Delay_ms](./EVENTS.md#51-use-of-delay_ms) A retriggerable delay  
   5.2 [Long and very long button press](./EVENTS.md#52-long-and-very-long-button-press)  
   5.3 [Application example](./EVENTS.md#53-application-example)  
- 6. [Drivers](./EVENTS.md#6-drivers) Minimal Event-based drivers  
-  6.1 [ESwitch](./EVENTS.md#61-eswitch) Debounced switch  
-  6.2 [EButton](./EVENTS.md#62-ebutton) Debounced pushbutton with double and long press events  
+ 6. [ELO class](./EVENTS.md#6-elo-class) Convert a coroutine or task to an event-like object.
+ 7. [Drivers](./EVENTS.md#7-drivers) Minimal Event-based drivers  
+  7.1 [ESwitch](./EVENTS.md#71-eswitch) Debounced switch  
+  7.2 [EButton](./EVENTS.md#72-ebutton) Debounced pushbutton with double and long press events  
 
 [Appendix 1 Polling](./EVENTS.md#100-appendix-1-polling)  
 
@@ -60,6 +61,11 @@ The first simplifies the design of drivers and standardises their interface.
 Users only need to know the names of the bound `Event` instances. By contast
 there is no standard way to specify callbacks, to define the passing of
 callback arguments or to define how to retrieve their return values.
+
+There are other ways to define an API without callbacks, notably the stream
+mechanism and the use of asynchronous iterators with `async for`. This doc
+discusses the `Event` based approach which is ideal for sporadic occurrences
+such as responding to user input.
 
 ###### [Contents](./EVENTS.md#0-contents)
 
@@ -135,6 +141,10 @@ ELO examples are:
 | [Delay_ms][2m]       | Y    | Y     | Y   | Self-setting      |
 | [WaitAll](./EVENTS.md#42-waitall)              | Y    | Y     | N   | See below         |
 | [WaitAny](./EVENTS.md#41-waitany)              | Y    | Y     | N   |                   |
+| [ELO instances](./EVENTS.md#44-elo-class)  | Y    | N     | N   |                   |
+
+The `ELO` class converts coroutines or `Task` instances to event-like objects,
+allowing them to be included in the arguments of event based primitives.
 
 Drivers exposing `Event` instances include:
 
@@ -316,19 +326,118 @@ async def foo():
         else:
             # Normal outcome, process readings
 ```
+###### [Contents](./EVENTS.md#0-contents)
+
+# 6. ELO class
+
+This converts a task to an "event-like object", enabling tasks to be included in
+`WaitAll` and `WaitAny` arguments. An `ELO` instance is a wrapper for a `Task`
+instance and its lifetime is that of its `Task`. The constructor can take a
+coroutine or a task as its first argument; in the former case the coro is
+converted to a `Task`.
+
+#### Constructor args
+
+1. `coro` This may be a coroutine or a `Task` instance.
+2. `*args` Positional args for a coroutine (ignored if a `Task` is passed).
+3. `**kwargs` Keyword args for a coroutine (ignored if a `Task` is passed).
+
+If a coro is passed it is immediately converted to a `Task` and scheduled for
+execution.
+
+#### Asynchronous method
+
+1. `wait` Pauses until the `Task` is complete or is cancelled. In the latter
+case no exception is thrown.
+
+#### Synchronous method
+
+1. `__call__` Returns the instance's `Task`. If the instance's `Task` was
+cancelled the `CancelledError` exception is returned. The function call operator
+allows a running task to be accessed, e.g. for cancellation. It also enables return values to be
+retrieved.
+
+#### Usage example
+
+In most use cases an `ELO` instance is a throw-away object which allows a coro
+to participate in an event-based primitive:
+```python
+evt = asyncio.Event()
+async def my_coro(t):
+    await asyncio.wait(t)
+
+async def foo():  # Puase until the event has been triggered and coro has completed
+    await WaitAll((evt, ELO(my_coro, 5))).wait()  # Note argument passing
+```
+#### Retrieving results
+
+A task may return a result on completion. This may be accessed by awaiting the
+`ELO` instance's `Task`. A reference to the `Task` may be acquired with function
+call syntax. The following code fragment illustrates usage. It assumes that
+`task` has already been created, and that `my_coro` is a coroutine taking an
+integer arg. There is an `EButton` instance `ebutton` and execution pauses until
+tasks have run to completion and the button has been pressed.
+```python
+async def foo():
+    elos = (ELO(my_coro, 5), ELO(task))
+    events = (ebutton.press,)
+    await WaitAll(elos + events).wait()
+    for e in elos:  # Retrieve results from each task
+        r = await e()  # Works even though task has already completed
+        print(r)
+```
+This works because it is valid to `await` a task which has already completed.
+The `await` returns immediately with the result. If `WaitAny` were used an `ELO`
+instance might contain a running task. In this case the line
+```python
+r = await e()
+```
+would pause before returning the result.
+
+#### Cancellation
+
+The `Task` in `ELO` instance `elo` may be retrieved by issuing `elo()`. For
+example the following will subject an `ELO` instance to a timeout:
+```python
+async def elo_timeout(elo, t):
+    await asyncio.sleep(t)
+    elo().cancel()  # Retrieve the Task and cancel it
+
+async def foo():
+    elo = ELO(my_coro, 5)
+    asyncio.create_task(elo_timeout(2))
+    await WaitAll((elo, ebutton.press)).wait()  # Until button press and ELO either finished or timed out
+```
+If the `ELO` task is cancelled, `.wait` terminates; the exception is retained.
+Thus `WaitAll` or `WaitAny` behaves as if the task had terminated normally. A
+subsequent call to `elo()` will return the exception. In an application
+where the task might return a result or be cancelled, the following may be used:
+```python
+async def foo():
+    elos = (ELO(my_coro, 5), ELO(task))
+    events = (ebutton.press,)
+    await WaitAll(elos + events).wait()
+    for e in elos:  # Check each task
+        t = e()
+        if isinstance(t, asyncio.CancelledError):
+            # Handle exception
+        else:  # Retrieve results
+            r = await t  # Works even though task has already completed
+            print(r)
+```
 
 ###### [Contents](./EVENTS.md#0-contents)
 
-# 6. Drivers
+# 7. Drivers
 
 The following device drivers provide an `Event` based interface for switches and
 pushbuttons.
 
-## 6.1 ESwitch
+## 7.1 ESwitch
 
 This is now documented [here](./DRIVERS.md#31-eswitch-class).
 
-## 6.2 EButton
+## 7.2 EButton
 
 This is now documented [here](./DRIVERS.md#41-ebutton-class).
 

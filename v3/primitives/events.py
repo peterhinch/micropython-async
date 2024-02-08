@@ -1,6 +1,6 @@
 # events.py Event based primitives
 
-# Copyright (c) 2022 Peter Hinch
+# Copyright (c) 2022-2024 Peter Hinch
 # Released under the MIT License (MIT) - see LICENSE file
 
 import uasyncio as asyncio
@@ -34,8 +34,9 @@ class WaitAny:
         return self.trig_event
 
     def clear(self):
-        for evt in (x for x in self.events if hasattr(x, 'clear')):
+        for evt in (x for x in self.events if hasattr(x, "clear")):
             evt.clear()
+
 
 # An Event-like class that can wait on an iterable of Event-like instances,
 # .wait pauses until all passed events have been set.
@@ -46,6 +47,7 @@ class WaitAll:
     async def wait(self):
         async def wt(event):
             await event.wait()
+
         tasks = (asyncio.create_task(wt(event)) for event in self.events)
         try:
             await asyncio.gather(*tasks)
@@ -54,15 +56,65 @@ class WaitAll:
                 task.cancel()
 
     def clear(self):
-        for evt in (x for x in self.events if hasattr(x, 'clear')):
+        for evt in (x for x in self.events if hasattr(x, "clear")):
             evt.clear()
+
+
+# Convert to an event-like object: either a running task or a coro with args.
+# Motivated by a suggestion from @sandyscott iss #116
+class ELO_x:
+    def __init__(self, coro, *args, **kwargs):
+        self._coro = coro
+        self._args = args
+        self._kwargs = kwargs
+        self._task = None  # Current running task (or exception)
+
+    async def wait(self):
+        cr = self._coro
+        istask = isinstance(cr, asyncio.Task)  # Instantiated with a Task
+        if istask and isinstance(self._task, asyncio.CancelledError):
+            return  # Previously awaited and was cancelled/timed out
+        self._task = cr if istask else asyncio.create_task(cr(*self._args, **self._kwargs))
+        try:
+            await self._task
+        except asyncio.CancelledError as e:
+            self._task = e  # Let WaitAll or WaitAny complete
+
+    # User can retrieve task/coro results by awaiting .task() (even if task had
+    # run to completion). If task was cancelled CancelledError is returned.
+    # If .task() is called before .wait() returns None or result of prior .wait()
+    # Caller issues isinstance(task, CancelledError)
+    def task(self):
+        return self._task
+
+
+# Convert to an event-like object: either a running task or a coro with args.
+# Motivated by a suggestion from @sandyscott iss #116
+class ELO:
+    def __init__(self, coro, *args, **kwargs):
+        tsk = isinstance(coro, asyncio.Task)  # Instantiated with a Task
+        self._task = coro if tsk else asyncio.create_task(coro(*args, **kwargs))
+
+    async def wait(self):
+        try:
+            await self._task
+        except asyncio.CancelledError as e:
+            self._task = e  # Let WaitAll or WaitAny complete
+
+    # User can retrieve task/coro results by awaiting elo() (even if task had
+    # run to completion). If task was cancelled CancelledError is returned.
+    # If .task() is called before .wait() returns None or result of prior .wait()
+    # Caller issues isinstance(task, CancelledError)
+    def __call__(self):
+        return self._task
+
 
 # Minimal switch class having an Event based interface
 class ESwitch:
     debounce_ms = 50
 
     def __init__(self, pin, lopen=1):  # Default is n/o switch returned to gnd
-        self._pin = pin # Should be initialised for input with pullup
+        self._pin = pin  # Should be initialised for input with pullup
         self._lopen = lopen  # Logic level in "open" state
         self.open = asyncio.Event()
         self.close = asyncio.Event()
@@ -92,6 +144,7 @@ class ESwitch:
         self.open.clear()
         self.close.clear()
 
+
 # Minimal pushbutton class having an Event based interface
 class EButton:
     debounce_ms = 50  # Attributes can be varied by user
@@ -103,13 +156,14 @@ class EButton:
         self._supp = suppress
         self._sense = pin() if sense is None else sense
         self._state = self.rawstate()  # Initial logical state
-        self._ltim = Delay_ms(duration = EButton.long_press_ms)
-        self._dtim = Delay_ms(duration = EButton.double_click_ms)
+        self._ltim = Delay_ms(duration=EButton.long_press_ms)
+        self._dtim = Delay_ms(duration=EButton.double_click_ms)
         self.press = asyncio.Event()  # *** API ***
         self.double = asyncio.Event()
         self.long = asyncio.Event()
         self.release = asyncio.Event()  # *** END API ***
-        self._tasks = [asyncio.create_task(self._poll(EButton.debounce_ms))]  # Tasks run forever. Poll contacts
+        # Tasks run forever. Poll contacts
+        self._tasks = [asyncio.create_task(self._poll(EButton.debounce_ms))]
         self._tasks.append(asyncio.create_task(self._ltf()))  # Handle long press
         if suppress:
             self._tasks.append(asyncio.create_task(self._dtf()))  # Double timer

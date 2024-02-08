@@ -11,6 +11,8 @@ except ImportError:
 
 async def _g():
     pass
+
+
 type_coro = type(_g())
 
 # If a callback is passed, run it and return.
@@ -22,13 +24,17 @@ def launch(func, tup_args):
         res = asyncio.create_task(res)
     return res
 
+
 def set_global_exception():
     def _handle_exception(loop, context):
         import sys
+
         sys.print_exception(context["exception"])
         sys.exit()
+
     loop = asyncio.get_event_loop()
     loop.set_exception_handler(_handle_exception)
+
 
 _attrs = {
     "AADC": "aadc",
@@ -44,6 +50,7 @@ _attrs = {
     "Switch": "switch",
     "WaitAll": "events",
     "WaitAny": "events",
+    "ELO": "events",
     "ESwitch": "events",
     "EButton": "events",
     "RingbufQueue": "ringbuf_queue",
