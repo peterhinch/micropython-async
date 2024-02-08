@@ -37,7 +37,6 @@ import uasyncio as asyncio
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.2.1 [Wait on multiple events](./TUTORIAL.md#321-wait-on-multiple-events) Pause until 1 of N events is set.  
   3.3 [Coordinating multiple tasks](./TUTORIAL.md#33-coordinating-multiple-tasks)  
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.3.1 [gather](./TUTORIAL.md#331-gather)  
-  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.3.2 [TaskGroups](./TUTORIAL.md#332-taskgroups) Not yet in official build.  
   3.4 [Semaphore](./TUTORIAL.md#34-semaphore)  
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.4.1 [BoundedSemaphore](./TUTORIAL.md#341-boundedsemaphore)  
   3.5 [Queue](./TUTORIAL.md#35-queue)  
@@ -134,6 +133,10 @@ mip.install("github:peterhinch/micropython-async/v3/threadsafe")
 ```
 For non-networked targets use `mpremote` as described in
 [the official docs](http://docs.micropython.org/en/latest/reference/packages.html#installing-packages-with-mpremote).
+```bash
+$ mpremote mip install github:peterhinch/micropython-async/v3/primitives
+$ mpremote mip install github:peterhinch/micropython-async/v3/threadsafe
+```
 
 ###### [Main README](../README.md)
 
@@ -276,7 +279,7 @@ line `main.py` and runs forever.
 
 ## 2.2 Coroutines and Tasks
 
-The fundmental building block of `asyncio` is a coro. This is defined with
+The fundamental building block of `asyncio` is a coro. This is defined with
 `async def` and usually contains at least one `await` statement. This minimal
 example waits 1 second before printing a message:
 
@@ -285,12 +288,16 @@ async def bar():
     await asyncio.sleep(1)
     print('Done')
 ```
-
-V3 `asyncio` introduced the concept of a `Task`. A `Task` instance is created
-from a coro by means of the `create_task` method, which causes the coro to be
-scheduled for execution and returns a `Task` instance. In many cases, coros and
-tasks are interchangeable: the official docs refer to them as `awaitable`, for
-the reason that either of them may be the target of an `await`. Consider this:
+Just as a function does nothing until called, a coro does nothing until awaited
+or converted to a `Task`. The `create_task` method takes a coro as its argument
+and returns a `Task` instance, which is scheduled for execution. In
+```python
+async def foo():
+    await coro
+```
+`coro` is run with `await` pausing until `coro` has completed. Sometimes coros
+and tasks are interchangeable: the CPython docs refer to them as `awaitable`,
+because either may be the target of an `await`. Consider this:
 
 ```python
 import asyncio
@@ -856,79 +863,6 @@ async def main():
 
 asyncio.run(main())
 ```
-### 3.3.2 TaskGroups
-
-The `TaskGroup` class is unofficially provided by
-[this PR](https://github.com/micropython/micropython/pull/8791). It is well
-suited to applications where one or more of a group of tasks is subject to
-runtime exceptions. A `TaskGroup` is instantiated in an asynchronous context
-manager. The `TaskGroup` instantiates member tasks. When all have run to
-completion, the context manager terminates. Where `gather` is static, a task
-group can be dynamic: a task in a group may spawn further group members. Return
-values from member tasks cannot be retrieved. Results should be passed in other
-ways such as via bound variables, queues etc.
-
-An exception in a member task not trapped by that task is propagated to the
-task that created the `TaskGroup`. All tasks in the `TaskGroup` then terminate
-in an orderly fashion: cleanup code in any `finally` clause will run. When all
-cleanup code has completed, the context manager completes, and execution passes
-to an exception handler in an outer scope.
-
-If a member task is cancelled in code, that task terminates in an orderly way
-but the other members continue to run.
-
-The following illustrates the basic salient points of using a `TaskGroup`:
-```python
-import asyncio
-async def foo(n):
-    for x in range(10 + n):
-        print(f"Task {n} running.")
-        await asyncio.sleep(1 + n/10)
-    print(f"Task {n} done")
-
-async def main():
-    async with asyncio.TaskGroup() as tg:  # Context manager pauses until members terminate
-        for n in range(4):
-            tg.create_task(foo(n))  # tg.create_task() creates a member task
-    print("TaskGroup done")  # All tasks have terminated
-
-asyncio.run(main())
-```
-This more complete example illustrates an exception which is not trapped by the
-member task. Cleanup code on all members runs when the exception occurs,
-followed by exception handling code in `main()`.
-```python
-import asyncio
-fail = True  # Set False to demo normal completion
-async def foo(n):
-    print(f"Task {n} running...")
-    try:
-        for x in range(10 + n):
-            await asyncio.sleep(1 + n/10)
-            if n==0 and x==5 and fail:
-                raise OSError("Uncaught exception in task.")
-        print(f"Task {n} done")
-    finally:
-        print(f"Task {n} cleanup")
-
-async def main():
-    try:
-        async with asyncio.TaskGroup() as tg:
-            for n in range(4):
-                tg.create_task(foo(n))
-        print("TaskGroup done")  # Does not get here if a task throws exception
-    except Exception as e:
-        print(f'TaskGroup caught exception: "{e}"')
-    finally:
-        print("TaskGroup finally")
-
-asyncio.run(main())
-```
-[This doc](https://vorpus.org/blog/notes-on-structured-concurrency-or-go-statement-considered-harmful/)
-provides background on the theory behind task groups and how they can improve
-program structure and reliablity.
-
-###### [Contents](./TUTORIAL.md#contents)
 
 ## 3.4 Semaphore
 
@@ -2061,7 +1995,7 @@ asyncio.run(main())
 ```
 The `.readline` method will pause until `\n` is received.
 
-###### StreamWriter write methods
+##### StreamWriter write methods
 
 Writing to a `StreamWriter` occurs in two stages. The synchronous `.write`
 method concatenates data for later transmission. The asynchronous `.drain`
@@ -2078,7 +2012,7 @@ following methods: `ioctl`, `read`, `readline` and `write`. See
 [Writing streaming device drivers](./TUTORIAL.md#64-writing-streaming-device-drivers)
 for details on how such drivers may be written in Python.
 
-###### StreamReader read methods
+##### StreamReader read methods
 
 The `StreamReader` read methods fall into two categories depending on whether
 they wait for a specific end condition. Thus `.readline` pauses until a newline
