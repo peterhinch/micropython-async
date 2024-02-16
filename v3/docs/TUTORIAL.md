@@ -800,14 +800,17 @@ yet officially supported by MicroPython.
 
 ### 3.3.1 gather
 
-This official `asyncio` asynchronous method causes a number of tasks to run,
-pausing until all have either run to completion or been terminated by
+This official `asyncio` asynchronous method causes a number of awaitables to
+run, pausing until all have either run to completion or been terminated by
 cancellation or timeout. It returns a list of the return values of each task.
 
 Its call signature is
 ```python
-res = await asyncio.gather(*tasks, return_exceptions=False)
+res = await asyncio.gather(*awaitables, return_exceptions=False)
 ```
+`awaitables` may comprise tasks or coroutines, the latter being converted to
+tasks.
+
 The keyword-only boolean arg `return_exceptions` determines the behaviour in
 the event of a cancellation or timeout of tasks. If `False`, the `gather`
 terminates immediately, raising the relevant exception which should be trapped
@@ -2038,6 +2041,40 @@ data loss. For example in the case of a UART an interrupt service routine
 buffers incoming characters. To avoid data loss the size of the read buffer
 should be set based on the maximum latency caused by other tasks along with the
 baudrate. The buffer size can be reduced if hardware flow control is available.
+
+##### StreamReader read timeout
+
+It is possible to apply a timeout to a stream. One approach is to subclass
+`StreamReader` as follows:
+```python
+class StreamReaderTo(asyncio.StreamReader):
+    def __init__(self, source):
+        super().__init__(source)
+        self._delay_ms = Delay_ms()  # Allocate once only
+
+    # Task cancels itself if timeout elapses without a byte being received
+    async def readintotim(self, buf: bytearray, toms: int) -> int:  # toms: timeout in ms
+        mvb = memoryview(buf)
+        timer = self._delay_ms
+        timer.callback(asyncio.current_task().cancel)
+        timer.trigger(toms)  # Start cancellation timer
+        n = 0
+        nbytes = len(buf)
+        try:
+            while n < nbytes:
+                n += await super().readinto(mvb[n:])
+                timer.trigger(toms)  # Retrigger when bytes received
+        except asyncio.CancelledError:
+            pass
+        timer.stop()
+        return n
+```
+This adds a `.readintotim` asynchronous method. Like `.readinto` it reads into a
+supplied buffer but the read is subject to a timeout `to` in ms. The read pauses
+until either the buffer is full or until bytes stop arriving for a time longer
+than `to`. The method returns the number of bytes received. If fewer bytes were
+received than would fill the buffer, a timeout occurred. The script
+[stream_to.py](../as_demos/stream_to.py) demonstrates this.
 
 ### 6.3.1 A UART driver example
 
