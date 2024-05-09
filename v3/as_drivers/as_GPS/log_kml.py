@@ -9,10 +9,10 @@
 # Logging stops and the file is closed when the user switch is pressed.
 
 from .as_GPS import KML, AS_GPS
-import uasyncio as asyncio
+import asyncio
 import pyb
 
-str_start = '''<?xml version="1.0" encoding="UTF-8"?>
+str_start = """<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
 <Document>
 <Style id="yellowPoly">
@@ -30,14 +30,14 @@ str_start = '''<?xml version="1.0" encoding="UTF-8"?>
 <tesselate>1</tesselate>
 <altitudeMode>absolute</altitudeMode>
 <coordinates>
-'''
+"""
 
-str_end = '''
+str_end = """
 </coordinates>
 </LineString></Placemark>
- 
+
 </Document></kml>
-'''
+"""
 
 red, green, yellow = pyb.LED(1), pyb.LED(2), pyb.LED(3)
 sw = pyb.Switch()
@@ -46,22 +46,23 @@ sw = pyb.Switch()
 def toggle_led(*_):
     red.toggle()
 
-async def log_kml(fn='/sd/log.kml', interval=10):
+
+async def log_kml(fn="/sd/log.kml", interval=10):
     yellow.on()  # Waiting for data
     uart = pyb.UART(4, 9600, read_buf_len=200)  # Data on X2
     sreader = asyncio.StreamReader(uart)
     gps = AS_GPS(sreader, fix_cb=toggle_led)
     await gps.data_received(True, True, True, True)
     yellow.off()
-    with open(fn, 'w') as f:
+    with open(fn, "w") as f:
         f.write(str_start)
         while not sw.value():
             f.write(gps.longitude_string(KML))
-            f.write(',')
+            f.write(",")
             f.write(gps.latitude_string(KML))
-            f.write(',')
+            f.write(",")
             f.write(str(gps.altitude))
-            f.write('\r\n')
+            f.write("\r\n")
             for _ in range(interval * 10):
                 await asyncio.sleep_ms(100)
                 if sw.value():
@@ -70,5 +71,6 @@ async def log_kml(fn='/sd/log.kml', interval=10):
         f.write(str_end)
     red.off()
     green.on()
+
 
 asyncio.run(log_kml())

@@ -6,7 +6,7 @@
 # Copyright (c) 2018-2020 Peter Hinch
 # Released under the MIT License (MIT) - see LICENSE file
 
-import uasyncio as asyncio
+import asyncio
 import pyb
 import utime
 import math
@@ -17,12 +17,12 @@ from threadsafe.message import Message
 PPS_PIN = pyb.Pin.board.X3
 UART_ID = 4
 
-print('Available tests:')
-print('calibrate(minutes=5) Set and calibrate the RTC.')
-print('drift(minutes=5) Repeatedly print the difference between RTC and GPS time.')
-print('time(minutes=1) Print get_ms() and get_t_split values.')
-print('usec(minutes=1) Measure accuracy of usec timer.')
-print('Press ctrl-d to reboot after each test.')
+print("Available tests:")
+print("calibrate(minutes=5) Set and calibrate the RTC.")
+print("drift(minutes=5) Repeatedly print the difference between RTC and GPS time.")
+print("time(minutes=1) Print get_ms() and get_t_split values.")
+print("usec(minutes=1) Measure accuracy of usec timer.")
+print("Press ctrl-d to reboot after each test.")
 
 # Setup for tests. Red LED toggles on fix, green on PPS interrupt.
 async def setup():
@@ -31,15 +31,21 @@ async def setup():
     uart = pyb.UART(UART_ID, 9600, read_buf_len=200)
     sreader = asyncio.StreamReader(uart)
     pps_pin = pyb.Pin(PPS_PIN, pyb.Pin.IN)
-    return GPS_Timer(sreader, pps_pin, local_offset=1,
-                             fix_cb=lambda *_: red.toggle(),
-                             pps_cb=lambda *_: green.toggle())
+    return GPS_Timer(
+        sreader,
+        pps_pin,
+        local_offset=1,
+        fix_cb=lambda *_: red.toggle(),
+        pps_cb=lambda *_: green.toggle(),
+    )
+
 
 # Test terminator: task sets the passed event after the passed time.
 async def killer(end_event, minutes):
-    print('Will run for {} minutes.'.format(minutes))
+    print("Will run for {} minutes.".format(minutes))
     await asyncio.sleep(minutes * 60)
     end_event.set()
+
 
 # ******** Calibrate and set the Pyboard RTC ********
 async def do_cal(minutes):
@@ -47,8 +53,10 @@ async def do_cal(minutes):
     await gps.calibrate(minutes)
     gps.close()
 
+
 def calibrate(minutes=5):
     asyncio.run(do_cal(minutes))
+
 
 # ******** Drift test ********
 # Every 10s print the difference between GPS time and RTC time
@@ -56,38 +64,41 @@ async def drift_test(terminate, gps):
     dstart = await gps.delta()
     while not terminate.is_set():
         dt = await gps.delta()
-        print('{}  Delta {}μs'.format(gps.time_string(), dt))
+        print("{}  Delta {}μs".format(gps.time_string(), dt))
         await asyncio.sleep(10)
     return dt - dstart
 
+
 async def do_drift(minutes):
-    print('Setting up GPS.')
+    print("Setting up GPS.")
     gps = await setup()
-    print('Waiting for time data.')
+    print("Waiting for time data.")
     await gps.ready()
     terminate = asyncio.Event()
     asyncio.create_task(killer(terminate, minutes))
-    print('Setting RTC.')
+    print("Setting RTC.")
     await gps.set_rtc()
-    print('Measuring drift.')
+    print("Measuring drift.")
     change = await drift_test(terminate, gps)
-    ush = int(60 * change/minutes)
+    ush = int(60 * change / minutes)
     spa = int(ush * 365 * 24 / 1000000)
-    print('Rate of change {}μs/hr {}secs/year'.format(ush, spa))
+    print("Rate of change {}μs/hr {}secs/year".format(ush, spa))
     gps.close()
+
 
 def drift(minutes=5):
     asyncio.run(do_drift(minutes))
 
+
 # ******** Time printing demo ********
 # Every 10s print the difference between GPS time and RTC time
 async def do_time(minutes):
-    fstr = '{}ms Time: {:02d}:{:02d}:{:02d}:{:06d}'
-    print('Setting up GPS.')
+    fstr = "{}ms Time: {:02d}:{:02d}:{:02d}:{:06d}"
+    print("Setting up GPS.")
     gps = await setup()
-    print('Waiting for time data.')
+    print("Waiting for time data.")
     await gps.ready()
-    print('Setting RTC.')
+    print("Setting RTC.")
     await gps.set_rtc()
     terminate = asyncio.Event()
     asyncio.create_task(killer(terminate, minutes))
@@ -98,8 +109,10 @@ async def do_time(minutes):
         print(fstr.format(gps.get_ms(), t[0], t[1], t[2], t[3]))
     gps.close()
 
+
 def time(minutes=1):
     asyncio.run(do_time(minutes))
+
 
 # ******** Measure accracy of μs clock ********
 # At 9600 baud see occasional lag of up to 3ms followed by similar lead.
@@ -111,6 +124,8 @@ def time(minutes=1):
 
 # Callback occurs in interrupt context
 us_acquired = None
+
+
 def us_cb(my_gps, tick, led):
     global us_acquired  # Time of previous PPS edge in ticks_us()
     if us_acquired is not None:
@@ -119,6 +134,7 @@ def us_cb(my_gps, tick, led):
     us_acquired = my_gps.acquired
     led.toggle()
 
+
 # Setup initialises with above callback
 async def us_setup(tick):
     red = pyb.LED(1)
@@ -126,15 +142,21 @@ async def us_setup(tick):
     uart = pyb.UART(UART_ID, 9600, read_buf_len=200)
     sreader = asyncio.StreamReader(uart)
     pps_pin = pyb.Pin(PPS_PIN, pyb.Pin.IN)
-    return GPS_Timer(sreader, pps_pin, local_offset=1,
-                     fix_cb=lambda *_: red.toggle(),
-                     pps_cb=us_cb, pps_cb_args=(tick, yellow))
+    return GPS_Timer(
+        sreader,
+        pps_pin,
+        local_offset=1,
+        fix_cb=lambda *_: red.toggle(),
+        pps_cb=us_cb,
+        pps_cb_args=(tick, yellow),
+    )
+
 
 async def do_usec(minutes):
     tick = Message()
-    print('Setting up GPS.')
+    print("Setting up GPS.")
     gps = await us_setup(tick)
-    print('Waiting for time data.')
+    print("Waiting for time data.")
     await gps.ready()
     max_us = 0
     min_us = 0
@@ -149,7 +171,7 @@ async def do_usec(minutes):
         tick.clear()
         err = 1000000 - usecs
         count += 1
-        print('Timing discrepancy is {:4d}μs {}'.format(err, '(skipped)' if count < 3 else ''))
+        print("Timing discrepancy is {:4d}μs {}".format(err, "(skipped)" if count < 3 else ""))
         if count < 3:  # Discard 1st two samples from statistics
             continue  # as these can be unrepresentative
         max_us = max(max_us, err)
@@ -157,9 +179,14 @@ async def do_usec(minutes):
         sd += err * err
         nsamples += 1
     # SD: apply Bessel's correction for infinite population
-    sd = int(math.sqrt(sd/(nsamples - 1)))
-    print('Timing discrepancy is: {:5d}μs max {:5d}μs min.  Standard deviation {:4d}μs'.format(max_us, min_us, sd))
+    sd = int(math.sqrt(sd / (nsamples - 1)))
+    print(
+        "Timing discrepancy is: {:5d}μs max {:5d}μs min.  Standard deviation {:4d}μs".format(
+            max_us, min_us, sd
+        )
+    )
     gps.close()
+
 
 def usec(minutes=1):
     asyncio.run(do_usec(minutes))

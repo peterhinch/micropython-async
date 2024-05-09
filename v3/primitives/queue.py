@@ -6,7 +6,7 @@
 # Code is based on Paul Sokolovsky's work.
 # This is a temporary solution until uasyncio V3 gets an efficient official version
 
-import uasyncio as asyncio
+import asyncio
 
 
 # Exception raised by get_nowait().
@@ -18,8 +18,8 @@ class QueueEmpty(Exception):
 class QueueFull(Exception):
     pass
 
-class Queue:
 
+class Queue:
     def __init__(self, maxsize=0):
         self.maxsize = maxsize
         self._queue = []
@@ -28,7 +28,7 @@ class Queue:
 
         self._jncnt = 0
         self._jnevt = asyncio.Event()
-        self._upd_jnevt(0) #update join event
+        self._upd_jnevt(0)  # update join event
 
     def _get(self):
         self._evget.set()  # Schedule all tasks waiting on get
@@ -49,7 +49,7 @@ class Queue:
         return self._get()
 
     def _put(self, val):
-        self._upd_jnevt(1) # update join event
+        self._upd_jnevt(1)  # update join event
         self._evput.set()  # Schedule tasks waiting on put
         self._evput.clear()
         self._queue.append(val)
@@ -77,18 +77,15 @@ class Queue:
         # any negative number, then full() is never True.
         return self.maxsize > 0 and self.qsize() >= self.maxsize
 
-
-    def _upd_jnevt(self, inc:int): # #Update join count and join event
+    def _upd_jnevt(self, inc: int):  # #Update join count and join event
         self._jncnt += inc
         if self._jncnt <= 0:
             self._jnevt.set()
         else:
             self._jnevt.clear()
 
-    def task_done(self): # Task Done decrements counter
+    def task_done(self):  # Task Done decrements counter
         self._upd_jnevt(-1)
 
-    async def join(self): # Wait for join event
+    async def join(self):  # Wait for join event
         await self._jnevt.wait()
-
-

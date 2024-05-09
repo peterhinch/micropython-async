@@ -5,7 +5,7 @@ MicroPython, where a UART cannot be used. An example is where one device is an
 ESP8266 board. While this has one bidirectional UART, this may be in use either
 as a REPL console, for viewing debug output, or for other puposes.
 
-It is intended for use in asynchronous programs and uses uasyncio.
+It is intended for use in asynchronous programs and uses asyncio.
 
 The module offers a bidirectional full duplex communication channel between two
 hardware devices. Its unit of communication is an arbitrary Python object
@@ -21,14 +21,14 @@ indefinitely.
 The module will run on devices with minimal features and makes no assumptions
 about processing performance: at a physical level the interface is synchronous.
 If each device has two pins which can be used for output and two for input and
-supports uasyncio it should work.
+supports asyncio it should work.
 
 ###### [Main README](./README.md)
 
 ## Example usage
 
 ```python
-import uasyncio as asyncio
+import asyncio
 from syncom import SynCom
 from machine import Pin
 

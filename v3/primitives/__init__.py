@@ -3,10 +3,7 @@
 # Copyright (c) 2018-2022 Peter Hinch
 # Released under the MIT License (MIT) - see LICENSE file
 
-try:
-    import uasyncio as asyncio
-except ImportError:
-    import asyncio
+import asyncio
 
 
 async def _g():

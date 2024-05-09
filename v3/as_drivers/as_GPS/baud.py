@@ -1,8 +1,9 @@
 # baud.py Test uasyncio at high baudrate
 import pyb
-import uasyncio as asyncio
+import asyncio
 import utime
 import as_drivers.as_rwGPS as as_rwGPS
+
 # Outcome
 # Sleep Buffer
 # 0     None    OK, length limit 74
@@ -21,8 +22,9 @@ import as_drivers.as_rwGPS as as_rwGPS
 BAUDRATE = 115200
 red, green, yellow, blue = pyb.LED(1), pyb.LED(2), pyb.LED(3), pyb.LED(4)
 
+
 async def setup():
-    print('Initialising')
+    print("Initialising")
     uart = pyb.UART(4, 9600)
     sreader = asyncio.StreamReader(uart)
     swriter = asyncio.StreamWriter(uart, {})
@@ -31,12 +33,14 @@ async def setup():
     await gps.baudrate(BAUDRATE)
     uart.init(BAUDRATE)
 
+
 def setbaud():
     asyncio.run(setup())
-    print('Baudrate set to 115200.')
+    print("Baudrate set to 115200.")
+
 
 async def gps_test():
-    print('Initialising')
+    print("Initialising")
     uart = pyb.UART(4, BAUDRATE, read_buf_len=400)
     sreader = asyncio.StreamReader(uart)
     swriter = asyncio.StreamWriter(uart, {})
@@ -50,6 +54,7 @@ async def gps_test():
         print(l, maxlen, minlen, res)
         red.toggle()
         utime.sleep_ms(10)
+
 
 def test():
     asyncio.run(gps_test())

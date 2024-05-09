@@ -161,7 +161,7 @@ this is the simplest to use. The other interfaces are discussed in
 One or more `schedule` instances are collected in a `Sequence` object. This
 supports the asynchronous iterator interface:
 ```python
-import uasyncio as asyncio
+import asyncio
 from sched.sched import schedule, Sequence
 from time import localtime
 
@@ -298,7 +298,7 @@ import sched.asynctest
 ```
 This is the demo code.
 ```python
-import uasyncio as asyncio
+import asyncio
 from sched.sched import schedule
 from time import localtime
 
@@ -337,7 +337,7 @@ It is possible for multiple `schedule` instances to trigger the same `Event`.
 The user is responsible for clearing the `Event`. This interface has a drawback
 in that extra positional args passed to `schedule` are lost.
 ```python
-import uasyncio as asyncio
+import asyncio
 from sched.sched import schedule
 from time import localtime
 

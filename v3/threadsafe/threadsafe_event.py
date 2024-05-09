@@ -3,7 +3,7 @@
 # Copyright (c) 2022 Peter Hinch
 # Released under the MIT License (MIT) - see LICENSE file
 
-import uasyncio as asyncio
+import asyncio
 
 
 class ThreadSafeEvent(asyncio.Event):
@@ -33,4 +33,3 @@ class ThreadSafeEvent(asyncio.Event):
                 raise
         else:
             await super().wait()
-

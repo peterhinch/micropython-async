@@ -4,7 +4,7 @@
 # Link X1 and X2 to test.
 
 # We run with no UART timeout: UART read never blocks.
-import uasyncio as asyncio
+import asyncio
 from machine import UART
 
 uart = UART(4, 9600, timeout=0)

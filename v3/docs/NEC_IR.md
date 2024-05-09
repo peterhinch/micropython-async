@@ -13,8 +13,8 @@ The driver and test programs run on the Pyboard and ESP8266.
 This solution provides an example of an asynchronous device driver. A more
 complete IR solution may be found
 [here](https://github.com/peterhinch/micropython_ir). This supports other
-protocols and IR "blasting". It does not use `uasyncio` but is nonblocking and
-is compatible with `uasyncio` applications.
+protocols and IR "blasting". It does not use `asyncio` but is nonblocking and
+is compatible with `asyncio` applications.
 
 # Demo scripts
 
@@ -39,7 +39,7 @@ Copy `primitives` and contents to the target.
 
 # Dependencies
 
-The driver requires the `uasyncio` V3 library and the `primitives` package
+The driver requires the `asyncio` V3 library and the `primitives` package
 from this repository.
 
 # Usage
@@ -158,4 +158,4 @@ against the check byte. This code is returned on failure.
 
  1. `aremote.py` The device driver.
  2. `art.py` A test program to characterise a remote.
- 3. `art1.py` 
+ 3. `art1.py`

@@ -8,11 +8,12 @@
 # from primitives.message import Message
 # See https://github.com/micropython/micropython/issues/7965 for code below
 import sys
+
 ok = hasattr(sys.implementation, "_machine")  # MicroPython
 if ok:
     ok = "linux" not in sys.implementation._machine
 if ok:
-    import uasyncio as asyncio
+    import asyncio
 else:
     print("Message is MicroPython only, and not on Unix build.")
     sys.exit(1)
@@ -21,6 +22,7 @@ else:
 # A coro or hard/soft ISR raising the message issues.set(payload)
 # .clear() should be issued by at least one waiting task and before
 # next event.
+
 
 class Message(asyncio.Event):
     def __init__(self):
@@ -35,7 +37,7 @@ class Message(asyncio.Event):
     def __iter__(self):
         yield from self.wait()
         return self._data
-    
+
     async def _waiter(self):  # Runs if 1st task is cancelled
         await self._tsf.wait()
         super().set()

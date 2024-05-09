@@ -23,45 +23,49 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-import uasyncio as asyncio
+import asyncio
 from machine import Pin, I2C
 from .asi2c import Responder
 import ujson
 import gc
+
 gc.collect()
 
-i2c = I2C(scl=Pin(0),sda=Pin(2))  # software I2C
+i2c = I2C(scl=Pin(0), sda=Pin(2))  # software I2C
 syn = Pin(5)
 ack = Pin(4)
 chan = Responder(i2c, syn, ack)
 
+
 async def receiver():
     sreader = asyncio.StreamReader(chan)
     await chan.ready()
-    print('started')
+    print("started")
     for _ in range(5):  # Test flow control
         res = await sreader.readline()
-        print('Received', ujson.loads(res))
+        print("Received", ujson.loads(res))
         await asyncio.sleep(4)
     while True:
         res = await sreader.readline()
-        print('Received', ujson.loads(res))
+        print("Received", ujson.loads(res))
+
 
 async def sender():
     swriter = asyncio.StreamWriter(chan, {})
     txdata = [0, 0]
     while True:
         txdata[0] = gc.mem_free()
-        await swriter.awrite(''.join((ujson.dumps(txdata), '\n')))
+        await swriter.awrite("".join((ujson.dumps(txdata), "\n")))
         txdata[1] += 1
         await asyncio.sleep_ms(1500)
         gc.collect()
+
 
 asyncio.create_task(receiver())
 try:
     asyncio.run(sender())
 except KeyboardInterrupt:
-    print('Interrupted')
+    print("Interrupted")
 finally:
     asyncio.new_event_loop()
     chan.close()  # for subsequent runs

@@ -5,11 +5,12 @@
 
 # from primitives.tests.event_test import *
 
-import uasyncio as asyncio
+import asyncio
 from primitives import Delay_ms, WaitAny, ESwitch, WaitAll, EButton
 from pyb import Pin
 
 events = [asyncio.Event() for _ in range(4)]
+
 
 async def set_events(*ev):
     for n in ev:
@@ -17,19 +18,23 @@ async def set_events(*ev):
         print("Setting", n)
         events[n].set()
 
+
 def clear(msg):
     print(msg)
     for e in events:
         e.clear()
+
 
 async def can(obj, tim):
     await asyncio.sleep(tim)
     print("About to cancel")
     obj.cancel()
 
+
 async def foo(tsk):
     print("Waiting")
     await tsk
+
 
 async def wait_test():
     msg = """
@@ -85,10 +90,12 @@ done
         print("Timeout")
     print("done")
 
+
 val = 0
 fail = False
 pout = None
 polarity = 0
+
 
 async def monitor(evt, v, verbose):
     global val
@@ -98,10 +105,12 @@ async def monitor(evt, v, verbose):
         val += v
         verbose and print("Got", hex(v), hex(val))
 
+
 async def pulse(ms=100):
     pout(1 ^ polarity)
     await asyncio.sleep_ms(ms)
     pout(polarity)
+
 
 def expect(v, e):
     global fail
@@ -110,6 +119,7 @@ def expect(v, e):
     else:
         print(f"Fail: expected 0x{e:04x} got 0x{v:04x}")
         fail = True
+
 
 async def btest(btn, verbose, supp):
     global val, fail
@@ -158,6 +168,7 @@ async def btest(btn, verbose, supp):
     for task in tasks:
         task.cancel()
 
+
 async def stest(sw, verbose):
     global val, fail
     val = 0
@@ -176,11 +187,12 @@ async def stest(sw, verbose):
     for task in tasks:
         task.cancel()
 
+
 async def switch_test(pol, verbose):
     global val, pout, polarity
     polarity = pol
-    pin = Pin('Y1', Pin.IN)
-    pout = Pin('Y2', Pin.OUT, value=pol)
+    pin = Pin("Y1", Pin.IN)
+    pout = Pin("Y2", Pin.OUT, value=pol)
     print("Testing EButton.")
     print("Testing with suppress == False")
     btn = EButton(pin)
@@ -196,8 +208,9 @@ async def switch_test(pol, verbose):
     await stest(sw, verbose)
     print("Failures occurred.") if fail else print("All tests passed.")
 
+
 def tests():
-    txt="""
+    txt = """
     \x1b[32m
     Available tests:
     1. test_switches(polarity=1, verbose=False) Test the ESwitch and Ebutton classe.
@@ -208,13 +221,19 @@ def tests():
     """
     print(txt)
 
+
 tests()
+
+
 def test_switches(polarity=1, verbose=False):
     try:
-        asyncio.run(switch_test(polarity, verbose))  # polarity 1/0 is normal (off) electrical state.
+        asyncio.run(
+            switch_test(polarity, verbose)
+        )  # polarity 1/0 is normal (off) electrical state.
     finally:
         asyncio.new_event_loop()
         tests()
+
 
 def test_wait():
     try:

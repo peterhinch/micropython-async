@@ -3,7 +3,7 @@
 # Copyright (c) 2022-2024 Peter Hinch
 # Released under the MIT License (MIT) - see LICENSE file
 
-import uasyncio as asyncio
+import asyncio
 from . import Delay_ms
 from . import RingbufQueue
 

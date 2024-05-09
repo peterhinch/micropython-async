@@ -17,13 +17,13 @@
 
 from machine import Pin
 import utime as time
-import uasyncio as asyncio
+import asyncio
 
 # ********************************** GLOBAL CONSTANTS: TARGET BOARD PIN NUMBERS *************************************
 
 # Supply board pin numbers as a tuple in order Rs, E, D4, D5, D6, D7
 
-PINLIST = ('Y1','Y2','Y6','Y5','Y4','Y3')  # As used in testing.
+PINLIST = ("Y1", "Y2", "Y6", "Y5", "Y4", "Y3")  # As used in testing.
 
 # **************************************************** LCD CLASS ****************************************************
 # Initstring:
@@ -45,14 +45,16 @@ PINLIST = ('Y1','Y2','Y6','Y5','Y4','Y3')  # As used in testing.
 # lcd_byte and lcd_nybble method use explicit delays. This is because execution
 # time is short relative to general latency (on the order of 300μs).
 
+
 class LCD:  # LCD objects appear as read/write lists
-    INITSTRING = b'\x33\x32\x28\x0C\x06\x01'
-    LCD_LINES = b'\x80\xC0'  # LCD RAM address for the 1st and 2nd line (0 and 40H)
+    INITSTRING = b"\x33\x32\x28\x0C\x06\x01"
+    LCD_LINES = b"\x80\xC0"  # LCD RAM address for the 1st and 2nd line (0 and 40H)
     CHR = True
     CMD = False
     E_PULSE = 50  # Timing constants in uS
     E_DELAY = 50
-    def __init__(self, pinlist, cols, rows = 2):  # Init with pin nos for enable, rs, D4, D5, D6, D7
+
+    def __init__(self, pinlist, cols, rows=2):  # Init with pin nos for enable, rs, D4, D5, D6, D7
         self.initialising = True
         self.LCD_E = Pin(pinlist[1], Pin.OUT)  # Create and initialise the hardware pins
         self.LCD_RS = Pin(pinlist[0], Pin.OUT)
@@ -81,7 +83,7 @@ class LCD:  # LCD objects appear as read/write lists
 
     def lcd_byte(self, bits, mode):  # Send byte to data pins: bits = data
         self.LCD_RS.value(mode)  # mode = True  for character, False for command
-        self.lcd_nybble(bits >>4)  # send high bits
+        self.lcd_nybble(bits >> 4)  # send high bits
         self.lcd_nybble(bits)  # then low ones
 
     def __setitem__(self, line, message):  # Send string to display line 0 or 1
@@ -94,7 +96,7 @@ class LCD:  # LCD objects appear as read/write lists
         return self.lines[line]
 
     async def runlcd(self):  # Periodically check for changed text and update LCD if so
-        while(True):
+        while True:
             for row in range(self.rows):
                 if self.dirty[row]:
                     msg = self[row]

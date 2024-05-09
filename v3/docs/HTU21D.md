@@ -10,7 +10,7 @@ chips.
 
 This driver was derived from the synchronous Pyboard-specific driver
 [here](https://github.com/manitou48/pyboard/blob/master/htu21d.py). It is
-designed to be multi-platform and uses `uasyncio` to achieve asynchronous (non-
+designed to be multi-platform and uses `asyncio` to achieve asynchronous (non-
 blocking) operation. The driver maintains `temperature` and `humidity` bound
 variables as a non-blocking background task. Consequently reading the values is
 effectively instantaneous.
@@ -29,7 +29,7 @@ Files:
 # The test script
 
 This runs on any Pyboard or ESP32. for other platforms pin numbers will need to
-be changed. 
+be changed.
 
 | Pin  | Pyboard | ESP32 |
 |:----:|:-------:|:-----:|
@@ -65,7 +65,7 @@ instantiated. Prior to this the values will be `None`. To avoid such invalid
 readings the class is awaitable and may be used as follows.
 
 ```python
-import uasyncio as asyncio
+import asyncio
 from machine import Pin, I2C
 from as_drivers.htu21d import HTU21D
 

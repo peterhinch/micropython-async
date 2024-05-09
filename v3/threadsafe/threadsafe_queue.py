@@ -6,7 +6,7 @@
 # Uses pre-allocated ring buffer: can use list or array
 # Asynchronous iterator allowing consumer to use async for
 
-import uasyncio as asyncio
+import asyncio
 
 
 class ThreadSafeQueue:  # MicroPython optimised

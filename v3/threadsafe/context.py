@@ -1,6 +1,6 @@
 # context.py: Run functions or methods on another core or in another thread
 
-import uasyncio as asyncio
+import asyncio
 import _thread
 from threadsafe import ThreadSafeQueue
 
@@ -13,11 +13,13 @@ class Job:
         self.rval = None  # Return value
         self.done = asyncio.ThreadSafeFlag()  # "done" indicator
 
+
 def worker(q):  # Runs forever on a core executing jobs as they arrive
     while True:
         job = q.get_sync(True)  # Block until a Job arrives
         job.rval = job.func(*job.args, **job.kwargs)
         job.done.set()
+
 
 class Context:
     def __init__(self, qsize=10):

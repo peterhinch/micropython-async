@@ -23,45 +23,48 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-import uasyncio as asyncio
+import asyncio
 from machine import Pin, I2C
 from .asi2c import Responder
 import ujson
 import os
 
 i2c = I2C(2)
-#i2c = I2C(scl=Pin('Y9'),sda=Pin('Y10'))  # software I2C
-syn = Pin('Y11')
-ack = Pin('X6')
+# i2c = I2C(scl=Pin('Y9'),sda=Pin('Y10'))  # software I2C
+syn = Pin("Y11")
+ack = Pin("X6")
 chan = Responder(i2c, syn, ack)
-if os.uname().machine.split(' ')[0][:4] == 'PYBD':
+if os.uname().machine.split(" ")[0][:4] == "PYBD":
     Pin.board.EN_3V3.value(1)
+
 
 async def receiver():
     sreader = asyncio.StreamReader(chan)
     await chan.ready()
-    print('started')
+    print("started")
     for _ in range(5):  # Test flow control
         res = await sreader.readline()
-        print('Received', ujson.loads(res))
+        print("Received", ujson.loads(res))
         await asyncio.sleep(4)
     while True:
         res = await sreader.readline()
-        print('Received', ujson.loads(res))
+        print("Received", ujson.loads(res))
+
 
 async def sender():
     swriter = asyncio.StreamWriter(chan, {})
     txdata = [0, 0]
     while True:
-        await swriter.awrite(''.join((ujson.dumps(txdata), '\n')))
+        await swriter.awrite("".join((ujson.dumps(txdata), "\n")))
         txdata[1] += 1
         await asyncio.sleep_ms(1500)
+
 
 asyncio.create_task(receiver())
 try:
     asyncio.run(sender())
 except KeyboardInterrupt:
-    print('Interrupted')
+    print("Interrupted")
 finally:
     asyncio.new_event_loop()
     chan.close()  # for subsequent runs

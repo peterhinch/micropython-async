@@ -839,8 +839,8 @@ asyncio.run(foo())
 ```
 ## 5.2 Design note
 
-The `AADC` class uses the `uasyncio` stream I/O mechanism. This is not the most
-obvious design. It was chosen because the plan for `uasyncio` is that it will
+The `AADC` class uses the `asyncio` stream I/O mechanism. This is not the most
+obvious design. It was chosen because the plan for `asyncio` is that it will
 include an option for prioritising I/O. I wanted this class to be able to use
 this for applications requiring rapid response.
 
@@ -863,7 +863,7 @@ discussion of MicroPython encoder drivers, are covered
 
 This driver runs the user supplied callback in an `asyncio` context, so that
 the callback runs only when other tasks have yielded to the scheduler. This
-ensures that the callback runs with the same rules as apply to any `uasyncio`
+ensures that the callback runs with the same rules as apply to any `asyncio`
 task. This offers safety, even if the task triggers complex application
 behaviour.
 

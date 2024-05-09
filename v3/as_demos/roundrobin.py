@@ -9,7 +9,7 @@
 # 4249 - with a hack where sleep_ms(0) was replaced with yield
 # Using sleep_ms(0) 2750
 
-import uasyncio as asyncio
+import asyncio
 
 count = 0
 period = 5
@@ -20,15 +20,15 @@ async def foo(n):
     while True:
         await asyncio.sleep_ms(0)
         count += 1
-        print('Foo', n)
+        print("Foo", n)
 
 
 async def main(delay):
     for n in range(1, 4):
         asyncio.create_task(foo(n))
-    print('Testing for {:d} seconds'.format(delay))
+    print("Testing for {:d} seconds".format(delay))
     await asyncio.sleep(delay)
 
 
 asyncio.run(main(period))
-print('Coro executions per sec =', count/period)
+print("Coro executions per sec =", count / period)

@@ -8,7 +8,7 @@
 
 import machine
 import ustruct
-import uasyncio as asyncio
+import asyncio
 from micropython import const
 
 _ADDRESS = const(0x40)  # HTU21D Address
@@ -20,14 +20,15 @@ _READ_USER_REG = const(0xE7)
 # value[0], value[1] = Raw temp/hum data, value[2] = CRC
 # Polynomial = 0x0131 = x^8 + x^5 + x^4 + 1
 
+
 class HTU21D:
-    START_TEMP_MEASURE = b'\xF3'  # Commands
-    START_HUMD_MEASURE = b'\xF5'
+    START_TEMP_MEASURE = b"\xF3"  # Commands
+    START_HUMD_MEASURE = b"\xF5"
 
     def __init__(self, i2c, read_delay=10):
         self.i2c = i2c
         if _ADDRESS not in self.i2c.scan():
-            raise OSError('No HTU21D device found.')
+            raise OSError("No HTU21D device found.")
         self.temperature = None
         self.humidity = None
         asyncio.create_task(self._run(read_delay))
@@ -48,15 +49,15 @@ class HTU21D:
         self.i2c.writeto(_ADDRESS, cmd)  # Start reading
         await asyncio.sleep_ms(_PAUSE_MS)  # Wait for device
         value = self.i2c.readfrom(_ADDRESS, 3)  # Read result, check CRC8
-        data, crc = ustruct.unpack('>HB', value)
+        data, crc = ustruct.unpack(">HB", value)
         remainder = (data << 8) | crc
         while bit > 128:
-            if(remainder & bit):
+            if remainder & bit:
                 remainder ^= divisor
             divisor >>= 1
             bit >>= 1
         if remainder:
-            raise OSError('HTU21D CRC Fail')
+            raise OSError("HTU21D CRC Fail")
         return data & 0xFFFC  # Clear the status bits
 
     def user_register(self):  # Read the user register byte (should be 2)

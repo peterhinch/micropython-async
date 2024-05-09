@@ -23,7 +23,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-import uasyncio as asyncio
+import asyncio
 import machine
 import utime
 import gc
@@ -38,8 +38,18 @@ class Initiator(Channel):
     t_poll = 100  # ms between Initiator polling Responder
     rxbufsize = 200
 
-    def __init__(self, i2c, pin, pinack, reset=None, verbose=True,
-                 cr_go=False, go_args=(), cr_fail=False, f_args=()):
+    def __init__(
+        self,
+        i2c,
+        pin,
+        pinack,
+        reset=None,
+        verbose=True,
+        cr_go=False,
+        go_args=(),
+        cr_fail=False,
+        f_args=(),
+    ):
         super().__init__(i2c, pin, pinack, verbose, self.rxbufsize)
         self.reset = reset
         self.cr_go = cr_go
@@ -65,7 +75,7 @@ class Initiator(Channel):
         self.close()  # Leave own pin high
         if self.reset is not None:
             rspin, rsval, rstim = self.reset
-            self.verbose and print('Resetting target.')
+            self.verbose and print("Resetting target.")
             rspin(rsval)  # Pulse reset line
             await asyncio.sleep_ms(rstim)
             rspin(not rsval)
@@ -74,8 +84,8 @@ class Initiator(Channel):
         while True:
             # If hardware link exists reboot Responder
             await self.reboot()
-            self.txbyt = b''
-            self.rxbyt = b''
+            self.txbyt = b""
+            self.rxbyt = b""
             await self._sync()
             await asyncio.sleep(1)  # Ensure Responder is ready
             if self.cr_go:
@@ -96,7 +106,7 @@ class Initiator(Channel):
             if self.cr_fail:
                 await self.cr_fail(*self.f_args)
             if self.reset is None:  # No means of recovery
-                raise OSError('Responder fail.')
+                raise OSError("Responder fail.")
 
     def _send(self, d):
         # CRITICAL TIMING. Trigger interrupt on responder immediately before
@@ -114,7 +124,7 @@ class Initiator(Channel):
         if self.rxbyt:
             siz[1] |= 0x80  # Hold off further received data
         else:
-            siz[1] &= 0x7f
+            siz[1] &= 0x7F
         self._send(siz)
         if self.txbyt and self.cantx:
             self._send(self.txbyt)
@@ -125,14 +135,14 @@ class Initiator(Channel):
         self.i2c.recv(sn)
         self.waitfor(0)
         self.own(0)
-        n = sn[0] + ((sn[1] & 0x7f) << 8)  # no of bytes to receive
+        n = sn[0] + ((sn[1] & 0x7F) << 8)  # no of bytes to receive
         if n > self.rxbufsize:
-            raise ValueError('Receive data too large for buffer.')
+            raise ValueError("Receive data too large for buffer.")
         self.cantx = not bool(sn[1] & 0x80)
         if n:
             self.waitfor(1)  # Wait for responder to request send
             self.own(1)  # Acknowledge
-            mv = self.rx_mv[0: n]  # mv is a memoryview instance
+            mv = self.rx_mv[0:n]  # mv is a memoryview instance
             self.i2c.recv(mv)
             self.waitfor(0)
             self.own(0)

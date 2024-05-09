@@ -4,10 +4,7 @@
 
 # Now uses Event rather than polling.
 
-try:
-    import uasyncio as asyncio
-except ImportError:
-    import asyncio
+import asyncio
 
 from . import launch
 
@@ -16,7 +13,8 @@ from . import launch
 # At that point the callback is executed. Then the barrier is 'opened' and
 # execution of all participants resumes.
 
-class Barrier():
+
+class Barrier:
     def __init__(self, participants, func=None, args=()):
         self._participants = participants
         self._count = participants
@@ -36,9 +34,9 @@ class Barrier():
         return self._res
 
     def trigger(self):
-        self._count -=1
+        self._count -= 1
         if self._count < 0:
-            raise ValueError('Too many tasks accessing Barrier')
+            raise ValueError("Too many tasks accessing Barrier")
         if self._count > 0:
             return False  # At least 1 other task has not reached barrier
         # All other tasks are waiting
@@ -50,4 +48,4 @@ class Barrier():
         return True
 
     def busy(self):
-        return  self._count < self._participants
+        return self._count < self._participants

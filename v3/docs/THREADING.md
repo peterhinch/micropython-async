@@ -1,6 +1,6 @@
-# Linking uasyncio and other contexts
+# Linking asyncio and other contexts
 
-This document is primarily for those wishing to interface `uasyncio` code with
+This document is primarily for those wishing to interface `asyncio` code with
 that running under the `_thread` module. It presents classes for that purpose
 which may also find use for communicating between threads and in interrupt
 service routine (ISR) applications. It provides an overview of the problems
@@ -9,7 +9,7 @@ implicit in pre-emptive multi tasking.
 It is not an introduction into ISR coding. For this see
 [the official docs](http://docs.micropython.org/en/latest/reference/isr_rules.html)
 and [this doc](https://github.com/peterhinch/micropython-async/blob/master/v3/docs/INTERRUPTS.md)
-which provides specific guidance on interfacing `uasyncio` with ISR's.
+which provides specific guidance on interfacing `asyncio` with ISR's.
 
 Because of [this issue](https://github.com/micropython/micropython/issues/7965)
 the `ThreadSafeFlag` class does not work under the Unix build. The classes
@@ -49,7 +49,7 @@ $ mpremote mip install github:peterhinch/micropython-async/v3/threadsafe
  3. [Synchronisation](./THREADING.md#3-synchronisation)  
   3.1 [Threadsafe Event](./THREADING.md#31-threadsafe-event)  
   3.2 [Message](./THREADING.md#32-message) A threadsafe event with data payload.  
- 4. [Taming blocking functions](./THREADING.md#4-taming-blocking-functions) Enabling uasyncio to handle blocking code.  
+ 4. [Taming blocking functions](./THREADING.md#4-taming-blocking-functions) Enabling asyncio to handle blocking code.  
   4.1 [Basic approach](./THREADING.md#41-basic-approach)  
   4.2 [More general solution](./THREADING,md#42-more-general-solution)  
  5. [Sharing a stream device](./THREADING.md#5-sharing-a-stream-device)  
@@ -57,7 +57,7 @@ $ mpremote mip install github:peterhinch/micropython-async/v3/threadsafe
 
 # 1. Introduction
 
-Various issues arise when `uasyncio` applications interface with code running
+Various issues arise when `asyncio` applications interface with code running
 in a different context. Supported contexts are:
  1. A hard interrupt service routine (ISR).
  2. A soft ISR. This includes code scheduled by `micropython.schedule()`.
@@ -70,7 +70,7 @@ contexts differ in their use of the GIL [see glossary](./THREADING.md#5-glossary
 
 This section compares the characteristics of the four contexts. Consider this
 function which updates a global dictionary `d` from a hardware device. The
-dictionary is shared with a `uasyncio` task. (The function serves to illustrate
+dictionary is shared with a `asyncio` task. (The function serves to illustrate
 concurrency issues: it is not the most effcient way to transfer data.)
 ```python
 def update_dict():
@@ -79,13 +79,13 @@ def update_dict():
     d["z"] = read_data(2)
 ```
 This might be called in a hard or soft ISR, in a thread running on the same
-core as `uasyncio`, or in a thread running on a different core. Each of these
+core as `asyncio`, or in a thread running on a different core. Each of these
 contexts has different characteristics, outlined below. In all these cases
-"thread safe" constructs are needed to interface `uasyncio` tasks with code
+"thread safe" constructs are needed to interface `asyncio` tasks with code
 running in these contexts. The official `ThreadSafeFlag`, or the classes
 documented here, may be used.
 
-Beware that some apparently obvious ways to interface an ISR to `uasyncio`
+Beware that some apparently obvious ways to interface an ISR to `asyncio`
 introduce subtle bugs discussed in
 [this doc](https://github.com/peterhinch/micropython-async/blob/master/v3/docs/INTERRUPTS.md)
 referenced above. The only reliable interface is via a thread safe class,
@@ -110,7 +110,7 @@ usually `ThreadSafeFlag`.
  avoid disrupting the main program or delaying other ISR's. ISR code should not
  call blocking routines. It should not wait on locks because there is no way
  for the interrupted code to release the lock. See locks below.
- 4. If a burst of interrupts can occur faster than `uasyncio` can schedule the
+ 4. If a burst of interrupts can occur faster than `asyncio` can schedule the
  handling task, data loss can occur. Consider using a `ThreadSafeQueue`. Note
  that if this high rate is sustained something will break: the overall design
  needs review. It may be necessary to discard some data items.
@@ -173,12 +173,12 @@ to have been called from a hard ISR.
  the application needs mutual consistency between the dictionary values, a lock
  is needed to ensure that a read cannot be scheduled while an update is in
  progress.
- 3. The above means that, for example, calling `uasyncio.create_task` from a
- thread is unsafe as it can destroy the mutual consistency of `uasyncio` data
+ 3. The above means that, for example, calling `asyncio.create_task` from a
+ thread is unsafe as it can destroy the mutual consistency of `asyncio` data
  structures.
- 4. Code running on a thread other than that running `uasyncio` may block for
+ 4. Code running on a thread other than that running `asyncio` may block for
  as long as necessary (an application of threading is to handle blocking calls
- in a way that allows `uasyncio` to continue running).
+ in a way that allows `asyncio` to continue running).
 
 ## 1.4 Threaded code on multiple cores
 
@@ -187,16 +187,16 @@ thread safe classes offered here do not yet support Unix.
 
  1. There is no common GIL. This means that under some conditions Python built
  in objects can be corrupted.
- 2. In the code sample there is a risk of the `uasyncio` task reading the dict
+ 2. In the code sample there is a risk of the `asyncio` task reading the dict
  at the same moment as it is being written. Updating a dictionary data entry is
  atomic: there is no risk of corrupt data being read. In the code sample a lock
  is only required if mutual consistency of the three values is essential.
  3. In the absence of a GIL some operations on built-in objects are not thread
  safe. For example adding or deleting items in a `dict`. This extends to global
  variables because these are implemented as a `dict`. See [Globals](./THREADING.md#15-globals).
- 4. The observations in 1.3 re user defined data structures and `uasyncio`
+ 4. The observations in 1.3 re user defined data structures and `asyncio`
  interfacing apply.
- 5. Code running on a core other than that running `uasyncio` may block for
+ 5. Code running on a core other than that running `asyncio` may block for
  as long as necessary.
 
 [See this reference from @jimmo](https://github.com/orgs/micropython/discussions/10135#discussioncomment-4309865).
@@ -303,7 +303,7 @@ In this instance if the producer, running in a different context, changes
 lock should be used.
 
 Locking is recommended where the producer runs in a different thread from
-`uasyncio`. However the consumer might hold the lock for some time: in the
+`asyncio`. However the consumer might hold the lock for some time: in the
 first sample it will take time for the scheduler to execute the `process()`
 call, and the call itself will take time to run. In cases where the duration
 of a lock is problematic a `ThreadSafeQueue` is more appropriate than a locked
@@ -318,8 +318,8 @@ def producer():
     values["Y"] = sensor_read(1)
     values["Z"] = sensor_read(2)
 ```
-and the ISR would run to completion before `uasyncio` resumed. However the ISR
-might run while the `uasyncio` task was reading the values: to ensure mutual
+and the ISR would run to completion before `asyncio` resumed. However the ISR
+might run while the `asyncio` task was reading the values: to ensure mutual
 consistency of the dict values the consumer should disable interrupts while the
 read is in progress.
 
@@ -327,7 +327,7 @@ read is in progress.
 
 ## 2.2 ThreadSafeQueue
 
-This queue is designed to interface between one `uasyncio` task and a single
+This queue is designed to interface between one `asyncio` task and a single
 thread running in a different context. This can be an interrupt service routine
 (ISR), code running in a different thread or code on a different core. See
 [section 2.2.3](./THREADING.md#223-a-complete-example) for a complete usage
@@ -358,10 +358,10 @@ Synchronous methods.
  * `full` No arg. Returns `True` if the queue is full.
  * `get_sync` Arg `block=False`. Returns an object from the queue. Raises
  `IndexError` if the queue is empty, unless `block==True` in which case the
- method blocks until the `uasyncio` tasks put an item on the queue.
+ method blocks until the `asyncio` tasks put an item on the queue.
  * `put_sync` Args: the object to put on the queue, `block=False`. Raises
  `IndexError` if the  queue is full unless `block==True` in which case the
- method blocks until the `uasyncio` tasks remove an item from the queue.
+ method blocks until the `asyncio` tasks remove an item from the queue.
 
 See the note below re blocking methods.
 
@@ -372,7 +372,7 @@ Asynchronous methods:
  will block until an object is put on the queue. Normal retrieval is with
  `async for` but this method provides an alternative.
 
-In use as a data consumer the `uasyncio` code will use `async for` to retrieve
+In use as a data consumer the `asyncio` code will use `async for` to retrieve
 items from the queue. If it is a data provider it will use `put` to place
 objects on the queue.
 
@@ -403,7 +403,7 @@ while True:
 Data consumer (block while empty):
 ```python
 while True:
-    data = q.get(block=True)  # May take a while if the uasyncio side is slow
+    data = q.get(block=True)  # May take a while if the asyncio side is slow
     process(data)  # Do something with it
 ```
 
@@ -417,7 +417,7 @@ calling.
 
 The synchronous `get_sync` and `put_sync` methods have blocking modes invoked
 by passing `block=True`. Blocking modes are primarily intended for use in the
-non-`uasyncio ` context. If invoked in a `uasyncio` task they must not be
+non-`asyncio ` context. If invoked in a `asyncio` task they must not be
 allowed to block because it would lock up the scheduler. Nor should they be
 allowed to block in an ISR where blocking can have unpredictable consequences.
 
@@ -460,7 +460,7 @@ consecutive integers to the server, which echoes them back on a second queue.
 To install the threadsafe primitives, the `threadsafe` directory and its
 contents should be copied to the MicroPython target.
 ```python
-import uasyncio as asyncio
+import asyncio
 from threadsafe import ThreadSafeQueue
 import _thread
 from time import sleep_ms
@@ -498,11 +498,11 @@ asyncio.run(main())
 
 # 3. Synchronisation
 
-The principal means of synchronising `uasyncio` code with that running in
+The principal means of synchronising `asyncio` code with that running in
 another context is the `ThreadsafeFlag`. This is discussed in the
-[official docs](http://docs.micropython.org/en/latest/library/uasyncio.html#class-threadsafeflag)
+[official docs](https://docs.micropython.org/en/latest/library/asyncio.html#asyncio.ThreadSafeFlag)
 and [tutorial](https://github.com/peterhinch/micropython-async/blob/master/v3/docs/TUTORIAL.md#36-threadsafeflag).
-In essence a single `uasyncio` task waits on a shared `ThreadSafeEvent`. Code
+In essence a single `asyncio` task waits on a shared `ThreadSafeEvent`. Code
 running in another context sets the flag. When the scheduler regains control
 and other pending tasks have run, the waiting task resumes.
 
@@ -517,7 +517,7 @@ be copied to the MicroPython target.
 
 The following Pyboard-specific code demos its use in a hard ISR:
 ```python
-import uasyncio as asyncio
+import asyncio
 from threadsafe import ThreadSafeEvent
 from pyb import Timer
 
@@ -583,7 +583,7 @@ To install the threadsafe primitives, the `threadsafe` directory and its
 contents should be copied to the MicroPython target. This illustrates basic
 usage:
 ```python
-import uasyncio as asyncio
+import asyncio
 from threadsafe import Message
 
 async def waiter(msg):
@@ -604,7 +604,7 @@ asyncio.run(main())
 The following example shows multiple tasks awaiting a `Message`.
 ```python
 from threadsafe import Message
-import uasyncio as asyncio
+import asyncio
 
 async def bar(msg, n):
     while True:
@@ -629,7 +629,7 @@ asyncio.run(main())
 ```
 Receiving messages in an asynchronous iterator:
 ```python
-import uasyncio as asyncio
+import asyncio
 from threadsafe import Message
 
 async def waiter(msg):
@@ -656,7 +656,7 @@ again before it is accessed, the first data item will be lost.
 
 # 4. Taming blocking functions
 
-Blocking functions or methods have the potential of stalling the `uasyncio`
+Blocking functions or methods have the potential of stalling the `asyncio`
 scheduler. Short of rewriting them to work properly the only way to tame them
 is to run them in another thread. Any function to be run in this way must
 conform to the guiedelines above, notably with regard to side effects.
@@ -673,7 +673,7 @@ async def unblock(func, *args, **kwargs):
     return await msg
 ```
 Given a blocking function `blocking` taking two positional and two keyword args
-it may be awaited in a `uasyncio` task with
+it may be awaited in a `asyncio` task with
 ```python
     res = await unblock(blocking, 1, 2, c = 3, d = 4)
 ```
@@ -687,7 +687,7 @@ a timeout then it may be possible to code a solution.
 The following is a complete example where blocking is demonstrated with
 `time.sleep`.
 ```python
-import uasyncio as asyncio
+import asyncio
 from threadsafe import Message
 import _thread
 from time import sleep
@@ -704,7 +704,7 @@ async def unblock(func, *args, **kwargs):
     _thread.start_new_thread(wrap, (func, msg, args, kwargs))
     return await msg
 
-async def busywork():  # Prove uasyncio is running.
+async def busywork():  # Prove asyncio is running.
     while True:
         print("#", end="")
         await asyncio.sleep_ms(200)
@@ -761,7 +761,7 @@ Typical stream devices are a UART or a socket. These are typically employed to
 exchange multi-byte messages between applications running on different systems.
 
 When sharing a stream device between concurrent functions, similar issues arise
-whether the functions are `uasyncio` tasks or code with hard concurrency. In
+whether the functions are `asyncio` tasks or code with hard concurrency. In
 the case of transmission of multi-character messages a lock must be used to
 ensure that transmitted characters cannot become interleaved.
 
@@ -791,8 +791,8 @@ ISR's offer very low latency but require careful coding - see
 
 ### Context
 
-In MicroPython terms a `context` may be viewed as a stream of bytecodes. A
-`uasyncio` program comprises a single context: execution is passed between
+In MicroPython terms a `context` may be viewed as a stream of bytecodes. An
+`asyncio` program comprises a single context: execution is passed between
 tasks and the scheduler as a single stream of code. By contrast code in an ISR
 can preempt the main stream to run its own stream. This is also true of threads
 which can preempt each other at arbitrary times, and code on another core

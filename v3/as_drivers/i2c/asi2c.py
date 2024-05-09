@@ -23,7 +23,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-import uasyncio as asyncio
+import asyncio
 import machine
 import utime
 from micropython import const
@@ -52,21 +52,21 @@ class Channel(io.IOBase):
         own.init(mode=machine.Pin.OUT, value=1)
         rem.init(mode=machine.Pin.IN, pull=machine.Pin.PULL_UP)
         # I/O
-        self.txbyt = b''  # Data to send
+        self.txbyt = b""  # Data to send
         self.txsiz = bytearray(2)  # Size of .txbyt encoded as 2 bytes
-        self.rxbyt = b''
+        self.rxbyt = b""
         self.rxbuf = bytearray(rxbufsize)
         self.rx_mv = memoryview(self.rxbuf)
         self.cantx = True  # Remote can accept data
 
     async def _sync(self):
-        self.verbose and print('Synchronising')
+        self.verbose and print("Synchronising")
         self.own(0)
         while self.rem():
             await asyncio.sleep_ms(100)
         # Both pins are now low
         await asyncio.sleep(0)
-        self.verbose and print('Synchronised')
+        self.verbose and print("Synchronised")
         self.synchronised = True
 
     def waitfor(self, val):  # Initiator overrides
@@ -78,7 +78,7 @@ class Channel(io.IOBase):
         self.rxbyt = bytes(msg)
 
     def _txdone(self):
-        self.txbyt = b''
+        self.txbyt = b""
         self.txsiz[0] = 0
         self.txsiz[1] = 0
 
@@ -98,13 +98,13 @@ class Channel(io.IOBase):
         return ret
 
     def readline(self):
-        n = self.rxbyt.find(b'\n')
+        n = self.rxbyt.find(b"\n")
         if n == -1:
             t = self.rxbyt[:]
-            self.rxbyt = b''
+            self.rxbyt = b""
         else:
             t = self.rxbyt[: n + 1]
-            self.rxbyt = self.rxbyt[n + 1:]
+            self.rxbyt = self.rxbyt[n + 1 :]
         return t.decode()
 
     def read(self, n):
@@ -122,7 +122,7 @@ class Channel(io.IOBase):
                 return 0  # Waiting for existing data to go out
             l = len(buf)
             self.txbyt = buf
-            self.txsiz[0] = l & 0xff
+            self.txsiz[0] = l & 0xFF
             self.txsiz[1] = l >> 8
             return l
         return 0
@@ -142,6 +142,7 @@ class Channel(io.IOBase):
 # Responder is I2C master. It is cross-platform and uses machine.
 # It does not handle errors: if I2C fails it dies and awaits reset by initiator.
 # send_recv is triggered by Interrupt from Initiator.
+
 
 class Responder(Channel):
     addr = 0x12
@@ -166,14 +167,14 @@ class Responder(Channel):
         self.own(1)
         self.waitfor(0)
         self.own(0)
-        n = sn[0] + ((sn[1] & 0x7f) << 8)  # no of bytes to receive
+        n = sn[0] + ((sn[1] & 0x7F) << 8)  # no of bytes to receive
         if n > self.rxbufsize:
-            raise ValueError('Receive data too large for buffer.')
+            raise ValueError("Receive data too large for buffer.")
         self.cantx = not bool(sn[1] & 0x80)  # Can Initiator accept a payload?
         if n:
             self.waitfor(1)
             utime.sleep_us(_DELAY)
-            mv = memoryview(self.rx_mv[0: n])  # allocates
+            mv = memoryview(self.rx_mv[0:n])  # allocates
             self.i2c.readfrom_into(addr, mv)
             self.own(1)
             self.waitfor(0)
@@ -183,12 +184,12 @@ class Responder(Channel):
         self.own(1)  # Request to send
         self.waitfor(1)
         utime.sleep_us(_DELAY)
-        dtx = self.txbyt != b'' and self.cantx  # Data to send
+        dtx = self.txbyt != b"" and self.cantx  # Data to send
         siz = self.txsiz if dtx else txnull
         if self.rxbyt:
             siz[1] |= 0x80  # Hold off Initiator TX
         else:
-            siz[1] &= 0x7f
+            siz[1] &= 0x7F
         self.i2c.writeto(addr, siz)  # Was getting ENODEV occasionally on Pyboard
         self.own(0)
         self.waitfor(0)

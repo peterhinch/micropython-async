@@ -3,14 +3,16 @@
 # Copyright (c) 2018-2022 Peter Hinch
 # Released under the MIT License (MIT) - see LICENSE file
 
-import uasyncio as asyncio
+import asyncio
 import utime as time
 from . import launch
 
+
 class Switch:
     debounce_ms = 50
+
     def __init__(self, pin):
-        self.pin = pin # Should be initialised for input with pullup
+        self.pin = pin  # Should be initialised for input with pullup
         self._open_func = False
         self._close_func = False
         self.switchstate = self.pin.value()  # Get initial state

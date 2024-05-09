@@ -3,7 +3,7 @@
 # Copyright (c) 2020-2023 Peter Hinch
 # Released under the MIT License (MIT) - see LICENSE file
 
-import uasyncio as asyncio
+import asyncio
 from sched.primitives import launch
 from time import time, mktime, localtime
 from sched.cron import cron

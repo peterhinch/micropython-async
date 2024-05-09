@@ -23,18 +23,20 @@
 # THE SOFTWARE.
 
 # Run on ESP8266
-import uasyncio as asyncio
+import asyncio
 from syncom import SynCom
 from machine import Pin, freq
 import gc
 
+
 async def passive_task(chan):
     while True:
         obj = await chan.await_obj()
-        if obj is not None:                 # Ignore timeouts
-#        print('passive received: ', obj)
-            obj[2] += 1                     # modify object and send it back
+        if obj is not None:  # Ignore timeouts
+            #        print('passive received: ', obj)
+            obj[2] += 1  # modify object and send it back
             chan.send(obj)
+
 
 async def heartbeat():
     led = Pin(2, Pin.OUT)
@@ -43,10 +45,11 @@ async def heartbeat():
         led(not led())
         gc.collect()
 
+
 def test():
     freq(160000000)
-    dout = Pin(14, Pin.OUT, value = 0)     # Define pins
-    ckout = Pin(15, Pin.OUT, value = 0)    # clocks must be initialised to zero.
+    dout = Pin(14, Pin.OUT, value=0)  # Define pins
+    ckout = Pin(15, Pin.OUT, value=0)  # clocks must be initialised to zero.
     din = Pin(13, Pin.IN)
     ckin = Pin(12, Pin.IN)
 
@@ -60,5 +63,6 @@ def test():
         pass
     finally:
         ckout(0)
+
 
 test()

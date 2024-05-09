@@ -4,7 +4,7 @@ This repository offers a suite of asynchronous device drivers for GPS devices
 which communicate with the host via a UART. GPS [NMEA-0183] sentence parsing is
 based on this excellent library [micropyGPS].
 
-The code requires uasyncio V3. Some modules can run under CPython: doing so
+The code requires asyncio V3. Some modules can run under CPython: doing so
 requires Python V3.8 or later.
 
 The main modules have been tested on Pyboards and RP2 (Pico and Pico W). Since
@@ -71,7 +71,7 @@ may be reduced on some platforms.
   10.2 [Files for read write operation](./GPS.md#102-files-for-read-write-operation)
   10.3 [Files for timing applications](./GPS.md#103-files-for-timing-applications)  
   10.4 [Special test programs](./GPS.md#104-special-test-programs)  
-  
+
 ## 1.1 Driver characteristics
 
  * Asynchronous: UART messaging is handled as a background task allowing the
@@ -98,8 +98,8 @@ driver as they emit [NMEA-0183] sentences on startup.
 [NMEA-0183] sentence parsing is based on [micropyGPS] but with significant
 changes.
 
- * As asynchronous drivers they require `uasyncio` on [MicroPython] or
- `asyncio` under Python 3.8+.
+ * As asynchronous drivers they require `asyncio` on [MicroPython] or under
+ Python 3.8+.
  * Sentence parsing is adapted for asynchronous use.
  * Rollover of local time into the date value enables worldwide use.
  * RAM allocation is cut by various techniques to lessen heap fragmentation.
@@ -170,7 +170,7 @@ Code samples will need adaptation for the serial port.
 
 ## 2.3 Dependency
 
-The library requires `uasyncio` V3 on MicroPython and `asyncio` on CPython.
+The library requires `asyncio` V3 on MicroPython and `asyncio` on CPython.
 
 ##### [Contents](./GPS.md#1-contents)
 
@@ -182,7 +182,7 @@ The test runs for 60 seconds once data has been received.
 
 Pyboard:  
 ```python
-import uasyncio as asyncio
+import asyncio
 import as_drivers.as_GPS as as_GPS
 from machine import UART
 def callback(gps, *_):  # Runs for each valid fix
@@ -201,7 +201,7 @@ asyncio.run(test())
 ```
 RP2:  
 ```python
-import uasyncio as asyncio
+import asyncio
 import as_drivers.as_GPS as as_GPS
 from machine import UART, Pin
 def callback(gps, *_):  # Runs for each valid fix
@@ -222,7 +222,7 @@ asyncio.run(test())
 This example achieves the same thing without using a callback:
 
 ```python
-import uasyncio as asyncio
+import asyncio
 import as_drivers.as_GPS as as_GPS
 from machine import UART
 
@@ -361,7 +361,7 @@ These are grouped below by the type of data returned.
  * `time_since_fix` No args. Returns time in milliseconds since last valid fix.
 
  * `time_string` Optional arg `local=True`. Returns the current time in form
- 'hh:mm:ss.sss'. If `local` is `False` returns UTC time. 
+ 'hh:mm:ss.sss'. If `local` is `False` returns UTC time.
 
  * `date_string` Optional arg `formatting=MDY`. Returns the date as
  a string. Formatting options:  
@@ -536,7 +536,7 @@ LED's:
 This reduces to 2s the interval at which the GPS sends messages:
 
 ```python
-import uasyncio as asyncio
+import asyncio
 from as_drivers.as_GPS.as_rwGPS import GPS
 # Pyboard
 #from machine import UART
@@ -644,7 +644,7 @@ Further, there are problems (at least with my GPS firmware build) where setting
 baudrates only works for certain rates. This is clearly an issue with the GPS
 unit; rates of 19200, 38400, 57600 and 115200 work. Setting 4800 sets 115200.
 Importantly 9600 does nothing. Hence the only way to restore the default is to
-perform a `FULL_COLD_START`. The test programs do this. 
+perform a `FULL_COLD_START`. The test programs do this.
 
 If you change the GPS baudrate the UART should be re-initialised immediately
 after the `baudrate` coroutine terminates:
@@ -731,7 +731,7 @@ test.usec()
 
 Pyboard:  
 ```python
-import uasyncio as asyncio
+import asyncio
 import pyb
 import as_drivers.as_GPS.as_tGPS as as_tGPS
 
@@ -758,7 +758,7 @@ asyncio.run(test())
 ```
 RP2 (note set_rtc function is Pyboard specific)  
 ```python
-import uasyncio as asyncio
+import asyncio
 from machine import UART, Pin
 import as_drivers.as_GPS.as_tGPS as as_tGPS
 
@@ -1100,7 +1100,7 @@ For those modifying or extending the sentence parsing:
 [MicroPython]:https://micropython.org/
 [frozen module]:https://learn.adafruit.com/micropython-basics-loading-modules/frozen-modules
 [NMEA-0183]:http://aprs.gids.nl/nmea/
-[TinyGPS]:http://arduiniana.org/libraries/tinygps/ 
+[TinyGPS]:http://arduiniana.org/libraries/tinygps/
 [pyboard]:http://docs.micropython.org/en/latest/pyboard/pyboard/quickref.html
 [MTK_command]:https://github.com/inmcm/MTK_commands
 [Ultimate GPS Breakout]:http://www.adafruit.com/product/746

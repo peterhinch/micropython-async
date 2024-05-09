@@ -25,37 +25,38 @@
 # Run on Pyboard
 from machine import Pin, Signal
 from pyb import LED
-import uasyncio as asyncio
+import asyncio
 from utime import ticks_ms, ticks_diff
 from syncom import SynCom, SynComError
 
 
 async def initiator_task(channel):
     while True:
-        so = ['test', 0, 0]
-        for x in range(4):          # Test full duplex by sending 4 in succession
+        so = ["test", 0, 0]
+        for x in range(4):  # Test full duplex by sending 4 in succession
             so[1] = x
             channel.send(so)
             await asyncio.sleep_ms(0)
-        while True:                 # Receive the four responses
+        while True:  # Receive the four responses
             si = await channel.await_obj()  # Deal with queue
             if si is None:
-                print('Timeout: restarting.')
+                print("Timeout: restarting.")
                 return
-            print('initiator received', si)
-            if si[1] == 3:          # received last one
+            print("initiator received", si)
+            if si[1] == 3:  # received last one
                 break
-        while True:                 # At 2 sec intervals send an object and get response
+        while True:  # At 2 sec intervals send an object and get response
             await asyncio.sleep(2)
-            print('sending', so)
+            print("sending", so)
             channel.send(so)
             tim = ticks_ms()
             so = await channel.await_obj()  # wait for response
             duration = ticks_diff(ticks_ms(), tim)
             if so is None:
-                print('Timeout: restarting.')
+                print("Timeout: restarting.")
                 return
-            print('initiator received', so, 'timing', duration)
+            print("initiator received", so, "timing", duration)
+
 
 async def heartbeat():
     led = LED(1)
@@ -63,13 +64,14 @@ async def heartbeat():
         await asyncio.sleep_ms(500)
         led.toggle()
 
+
 def test():
-    dout = Pin(Pin.board.Y5, Pin.OUT_PP, value = 0)   # Define pins
-    ckout = Pin(Pin.board.Y6, Pin.OUT_PP, value = 0)  # Don't assert clock until data is set
+    dout = Pin(Pin.board.Y5, Pin.OUT_PP, value=0)  # Define pins
+    ckout = Pin(Pin.board.Y6, Pin.OUT_PP, value=0)  # Don't assert clock until data is set
     din = Pin(Pin.board.Y7, Pin.IN)
     ckin = Pin(Pin.board.Y8, Pin.IN)
     reset = Pin(Pin.board.Y4, Pin.OPEN_DRAIN)
-    sig_reset = Signal(reset, invert = True)
+    sig_reset = Signal(reset, invert=True)
 
     channel = SynCom(False, ckin, ckout, din, dout, sig_reset, 10000)
 
@@ -82,5 +84,6 @@ def test():
         pass
     finally:
         ckout.value(0)
+
 
 test()

@@ -5,15 +5,16 @@
 # Copyright (c) 2018-2022 Peter Hinch
 # Released under the MIT License (MIT) - see LICENSE file
 
-import uasyncio as asyncio
+import asyncio
 from utime import ticks_add, ticks_diff, ticks_ms
 from . import launch
 
-class Delay_ms:
 
+class Delay_ms:
     class DummyTimer:  # Stand-in for the timer class. Can be cancelled.
         def cancel(self):
             pass
+
     _fake = DummyTimer()
 
     def __init__(self, func=None, args=(), duration=1000):
@@ -29,7 +30,7 @@ class Delay_ms:
         self.clear = self._tout.clear
         self.set = self._tout.set
         self._ttask = self._fake  # Timer task
-        self._mtask = asyncio.create_task(self._run()) #Main task
+        self._mtask = asyncio.create_task(self._run())  # Main task
 
     async def _run(self):
         while True:
@@ -46,7 +47,7 @@ class Delay_ms:
         if self._func is not None:
             self._retn = launch(self._func, self._args)
 
-# API
+    # API
     # trigger may be called from hard ISR.
     def trigger(self, duration=0):  # Update absolute end time, 0-> ctor default
         if self._mtask is None:

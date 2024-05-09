@@ -17,7 +17,7 @@
 # Raul Kompaß (@rkompass) for suggesting a bugfix here
 # https://forum.micropython.org/viewtopic.php?f=15&t=9929&p=66175#p66156
 
-import uasyncio as asyncio
+import asyncio
 from machine import Pin
 from select import poll, POLLIN
 

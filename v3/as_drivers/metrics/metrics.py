@@ -2,7 +2,7 @@
 # Released under the MIT licence
 # Copyright (c) Peter Hinch 2020
 
-import uasyncio as asyncio
+import asyncio
 import gc
 from utime import ticks_us, ticks_diff
 
@@ -12,7 +12,8 @@ def metrics():
     max_d = 0
     min_d = 100_000_000
     tot_d = 0
-    st = 'Max {}μs Min {}μs Avg {}μs No. of calls {} Freq {}'
+    st = "Max {}μs Min {}μs Avg {}μs No. of calls {} Freq {}"
+
     async def func():
         nonlocal ncalls, max_d, min_d, tot_d
         while True:
@@ -27,14 +28,16 @@ def metrics():
                     tot_d += dt
                 ncalls += 1
                 t_last = t
-            print(st.format(max_d, min_d, tot_d//ncalls, ncalls, ncalls//10))
+            print(st.format(max_d, min_d, tot_d // ncalls, ncalls, ncalls // 10))
             gc.collect()
-            print('mem free', gc.mem_free())
+            print("mem free", gc.mem_free())
             ncalls = 0
             max_d = 0
             min_d = 100_000_000
             tot_d = 0
+
     return func
+
 
 # Example of call
 async def main():
@@ -42,4 +45,5 @@ async def main():
     while True:
         await asyncio.sleep(0)
 
-#asyncio.run(main())
+
+# asyncio.run(main())

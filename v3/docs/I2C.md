@@ -6,7 +6,7 @@ supporting `StreamReader` and `StreamWriter` classes. In doing so, it emulates
 the behaviour of a full duplex link despite the fact that the underlying I2C
 link is half duplex.
 
-This version is for `uasyncio` V3 which requires firmware V1.13 or later -
+This version is for `asyncio` V3 which requires firmware V1.13 or later -
 until the release of V1.13 a daily build is required.
 
 One use case is to provide a UART-like interface to an ESP8266 while leaving
@@ -23,14 +23,14 @@ module. The `Responder` may be any hardware running MicroPython and supporting
 `machine`.
 
 If the `Responder` (typically an ESP8266) crashes the resultant I2C failure is
-detected by the `Initiator` which can issue a hardware reboot to the 
+detected by the `Initiator` which can issue a hardware reboot to the
 `Responder` enabling the link to recover. This can occur transparently to the
 application and is covered in detail
 [in section 5.3](./I2C.md#53-responder-crash-detection).
 
 ## Changes
 
-V0.18 Apr 2020 Ported to `uasyncio` V3. Convert to Python package. Test script
+V0.18 Apr 2020 Ported to `asyncio` V3. Convert to Python package. Test script
 pin numbers changed to be WBUS_DIP28 fiendly.  
 V0.17 Dec 2018 Initiator: add optional "go" and "fail" user coroutines.  
 V0.16 Minor improvements and bugfixes. Eliminate `timeout` option which caused
@@ -67,7 +67,7 @@ V0.1 Initial release.
  5. `i2c_esp.py` Responder test/demo for ESP8266.
 
 #### Dependency:  
- 1. `uasyncio` Official V3 library.
+ 1. `asyncio` Official V3 library.
 
 #### Installation  
 Copy the `as_drivers/i2c` directory and contents to the target hardware.
@@ -130,7 +130,7 @@ at a fixed rate to limit the interrupt overhead on `Responder`. This implies a
 latency on communications in either direction; the rate (maximum latency) is
 under application control. By default it is 100ms.
 
-The module will run under official or `fast_io` builds of `uasyncio`. Owing to
+The module will run under official or `fast_io` builds of `asyncio`. Owing to
 the latency discussed above, the choice has little effect on the performance of
 this interface.
 
@@ -173,7 +173,7 @@ the REPL.
 On Pyboard:
 
 ```python
-import uasyncio as asyncio
+import asyncio
 from pyb import I2C  # Only pyb supports slave mode
 from machine import Pin
 from as_drivers.i2c.asi2c_i import Initiator
@@ -211,7 +211,7 @@ finally:
 On ESP8266:
 
 ```python
-import uasyncio as asyncio
+import asyncio
 from machine import Pin, I2C
 from as_drivers.i2c.asi2c import Responder
 
@@ -254,7 +254,7 @@ objects.
 
 Method:
  1. `close` No args. Restores the interface to its power-up state.
- 
+
 Coroutine:
  1. `ready` No args. Pause until synchronisation has been achieved.
 
@@ -386,7 +386,7 @@ the Pyboard.
 Exchanges of data occur via `Initiator._sendrx()`, a synchronous method. This
 blocks the schedulers at each end for a duration dependent on the number of
 bytes being transferred. Tests were conducted with the supplied test scripts
-and the official version of `uasyncio`. Note that these scripts send short
+and the official version of `asyncio`. Note that these scripts send short
 strings.
 
 With `Responder` running on a Pyboard V1.1 the duration of the ISR was up to

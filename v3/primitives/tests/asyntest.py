@@ -10,20 +10,23 @@
 # from primitives.tests.asyntest import test
 
 try:
-    import uasyncio as asyncio
+    import asyncio
 except ImportError:
     import asyncio
 import sys
+
 unix = "linux" in sys.implementation._machine
 
 from primitives import Barrier, Semaphore, BoundedSemaphore, Condition, Queue, RingbufQueue
+
 try:
     from threadsafe import Message
 except:
     pass
 
+
 def print_tests():
-    st = '''Available functions:
+    st = """Available functions:
 test(0)  Print this list.
 test(1)  Test message acknowledge.
 test(2)  Test Message and Lock objects.
@@ -35,34 +38,39 @@ test(7)  Test the Condition class.
 test(8)  Test the Queue class.
 test(9)  Test the RingbufQueue class.
 test(10) Test the Queue task_done/join behavior.
-'''
-    print('\x1b[32m')
+"""
+    print("\x1b[32m")
     print(st)
-    print('\x1b[39m')
+    print("\x1b[39m")
+
 
 print_tests()
 
+
 def printexp(exp, runtime=0):
-    print('Expected output:')
-    print('\x1b[32m')
+    print("Expected output:")
+    print("\x1b[32m")
     print(exp)
-    print('\x1b[39m')
+    print("\x1b[39m")
     if runtime:
-        print('Running (runtime = {}s):'.format(runtime))
+        print("Running (runtime = {}s):".format(runtime))
     else:
-        print('Running (runtime < 1s):')
+        print("Running (runtime < 1s):")
+
 
 # ************ Test Message class ************
 # Demo use of acknowledge message
 
+
 async def message_wait(message, ack_message, n):
     try:
         await message
-        print(f'message_wait {n} got message: {message.value()}')
+        print(f"message_wait {n} got message: {message.value()}")
         if ack_message is not None:
             ack_message.set()
     except asyncio.CancelledError:
         print(f"message_wait {n} cancelled")
+
 
 async def run_ack(n):
     message = Message()
@@ -72,28 +80,31 @@ async def run_ack(n):
         t0 = asyncio.create_task(message_wait(message, ack1, 1))
         t1 = asyncio.create_task(message_wait(message, ack2, 2))
         message.set(count)
-        print('message was set')
+        print("message was set")
         await ack1
         ack1.clear()
-        print('Cleared ack1')
+        print("Cleared ack1")
         await ack2
         ack2.clear()
-        print('Cleared ack2')
+        print("Cleared ack2")
         message.clear()
-        print('Cleared message')
+        print("Cleared message")
         await asyncio.sleep(1)
     t0.cancel()
     t1.cancel()
+
 
 async def msg_send(msg, items):
     for item in items:
         await asyncio.sleep_ms(400)
         msg.set(item)
 
+
 async def msg_recv(msg):  # Receive using asynchronous iterator
     async for data in msg:
         print("Got", data)
         msg.clear()
+
 
 async def ack_coro():
     print("Test multiple tasks waiting on a message.")
@@ -133,11 +144,13 @@ async def ack_coro():
     print("I've seen attack ships burn on the shoulder of Orion...")
     print("Time to die...")
 
+
 def ack_test():
     if unix:
         print("Message class is incompatible with Unix build.")
         return
-    printexp('''Running (runtime = 12s):
+    printexp(
+        """Running (runtime = 12s):
 Test multiple tasks waiting on a message.
 message was set
 message_wait 1 got message: 0
@@ -174,49 +187,58 @@ Setting message
 message_wait 1 got message: Test message
 I've seen attack ships burn on the shoulder of Orion...
 Time to die...
-''', 12)
+""",
+        12,
+    )
     asyncio.run(ack_coro())
+
 
 # ************ Test Lock and Message classes ************
 
+
 async def run_lock(n, lock):
-    print('run_lock {} waiting for lock'.format(n))
+    print("run_lock {} waiting for lock".format(n))
     await lock.acquire()
-    print('run_lock {} acquired lock'.format(n))
+    print("run_lock {} acquired lock".format(n))
     await asyncio.sleep(1)  # Delay to demo other coros waiting for lock
     lock.release()
-    print('run_lock {} released lock'.format(n))
+    print("run_lock {} released lock".format(n))
+
 
 async def messageset(message):
-    print('Waiting 5 secs before setting message')
+    print("Waiting 5 secs before setting message")
     await asyncio.sleep(5)
     message.set()
-    print('message was set')
+    print("message was set")
+
 
 async def messagewait(message):
-    print('waiting for message')
+    print("waiting for message")
     await message
-    print('got message')
+    print("got message")
     message.clear()
 
+
 async def run_message_test():
-    print('Test Lock class')
+    print("Test Lock class")
     lock = asyncio.Lock()
     asyncio.create_task(run_lock(1, lock))
     asyncio.create_task(run_lock(2, lock))
     asyncio.create_task(run_lock(3, lock))
-    print('Test Message class')
+    print("Test Message class")
     message = Message()
     asyncio.create_task(messageset(message))
     await messagewait(message)  # run_message_test runs fast until this point
-    print('Message status {}'.format('Incorrect' if message.is_set() else 'OK'))
-    print('Tasks complete')
+    print("Message status {}".format("Incorrect" if message.is_set() else "OK"))
+    print("Tasks complete")
+
 
 def msg_test():
     if unix:
         print("Message class is incompatible with Unix build.")
         return
-    printexp('''Test Lock class
+    printexp(
+        """Test Lock class
 Test Message class
 waiting for message
 run_lock 1 waiting for lock
@@ -233,24 +255,31 @@ message was set
 got message
 Message status OK
 Tasks complete
-''', 5)
+""",
+        5,
+    )
     asyncio.run(run_message_test())
 
+
 # ************ Barrier test ************
+
 
 async def killer(duration):
     await asyncio.sleep(duration)
 
+
 def callback(text):
     print(text)
 
+
 async def report(barrier):
     for i in range(5):
-        print('{} '.format(i), end='')
+        print("{} ".format(i), end="")
         await barrier
 
+
 async def do_barrier_test():
-    barrier = Barrier(3, callback, ('Synch',))
+    barrier = Barrier(3, callback, ("Synch",))
     for _ in range(2):
         for _ in range(3):
             asyncio.create_task(report(barrier))
@@ -258,8 +287,10 @@ async def do_barrier_test():
         print()
     await asyncio.sleep(1)
 
+
 def barrier_test():
-    printexp('''Running (runtime = 3s):
+    printexp(
+        """Running (runtime = 3s):
 0 0 0 Synch
 1 1 1 Synch
 2 2 2 Synch
@@ -270,10 +301,14 @@ def barrier_test():
 2 2 2 Synch
 3 3 3 Synch
 4 4 4 Synch
-''', 3)
+""",
+        3,
+    )
     asyncio.run(do_barrier_test())
 
+
 # ************ Barrier test 1 ************
+
 
 async def my_coro(text):
     try:
@@ -282,16 +317,18 @@ async def my_coro(text):
             await asyncio.sleep(1)
             print(text)
     except asyncio.CancelledError:
-        print('my_coro was cancelled.')
+        print("my_coro was cancelled.")
+
 
 async def report1(barrier, x):
     await asyncio.sleep(x)
-    print('report instance', x, 'waiting')
+    print("report instance", x, "waiting")
     await barrier
-    print('report instance', x, 'done')
+    print("report instance", x, "done")
+
 
 async def bart():
-    barrier = Barrier(4, my_coro, ('my_coro running',))
+    barrier = Barrier(4, my_coro, ("my_coro running",))
     for x in range(3):
         asyncio.create_task(report1(barrier, x))
     await asyncio.sleep(4)
@@ -304,8 +341,10 @@ async def bart():
     barrier.result().cancel()
     await asyncio.sleep(2)
 
+
 def barrier_test1():
-    printexp('''Running (runtime = 5s):
+    printexp(
+        """Running (runtime = 5s):
 report instance 0 waiting
 report instance 1 waiting
 report instance 2 waiting
@@ -317,19 +356,24 @@ my_coro was cancelled.
 
 Exact report instance done sequence may vary, but 3 instances should report
 done before my_coro runs.
-''', 5)
+""",
+        5,
+    )
     asyncio.run(bart())
+
 
 # ************ Semaphore test ************
 
+
 async def run_sema(n, sema, barrier):
-    print('run_sema {} trying to access semaphore'.format(n))
+    print("run_sema {} trying to access semaphore".format(n))
     async with sema:
-        print('run_sema {} acquired semaphore'.format(n))
+        print("run_sema {} acquired semaphore".format(n))
         # Delay demonstrates other coros waiting for semaphore
-        await asyncio.sleep(1 + n/10)  # n/10 ensures deterministic printout
-    print('run_sema {} has released semaphore'.format(n))
+        await asyncio.sleep(1 + n / 10)  # n/10 ensures deterministic printout
+    print("run_sema {} has released semaphore".format(n))
     barrier.trigger()
+
 
 async def run_sema_test(bounded):
     num_coros = 5
@@ -344,11 +388,12 @@ async def run_sema_test(bounded):
     try:
         semaphore.release()
     except ValueError:
-        print('Bounded semaphore exception test OK')
+        print("Bounded semaphore exception test OK")
+
 
 def semaphore_test(bounded=False):
     if bounded:
-        exp = '''run_sema 0 trying to access semaphore
+        exp = """run_sema 0 trying to access semaphore
 run_sema 0 acquired semaphore
 run_sema 1 trying to access semaphore
 run_sema 1 acquired semaphore
@@ -365,9 +410,9 @@ run_sema 4 has released semaphore
 run_sema 3 has released semaphore
 Bounded semaphore exception test OK
 
-Exact sequence of acquisition may vary when 3 and 4 compete for semaphore.'''
+Exact sequence of acquisition may vary when 3 and 4 compete for semaphore."""
     else:
-        exp = '''run_sema 0 trying to access semaphore
+        exp = """run_sema 0 trying to access semaphore
 run_sema 0 acquired semaphore
 run_sema 1 trying to access semaphore
 run_sema 1 acquired semaphore
@@ -383,20 +428,23 @@ run_sema 2 has released semaphore
 run_sema 3 has released semaphore
 run_sema 4 has released semaphore
 
-Exact sequence of acquisition may vary when 3 and 4 compete for semaphore.'''
+Exact sequence of acquisition may vary when 3 and 4 compete for semaphore."""
     printexp(exp, 3)
     asyncio.run(run_sema_test(bounded))
+
 
 # ************ Condition test ************
 
 cond = Condition()
 tim = 0
 
+
 async def cond01():
     while True:
         await asyncio.sleep(2)
         with await cond:
             cond.notify(2)  # Notify 2 tasks
+
 
 async def cond03():  # Maintain a count of seconds
     global tim
@@ -405,22 +453,26 @@ async def cond03():  # Maintain a count of seconds
         await asyncio.sleep(1)
         tim += 1
 
+
 async def cond02(n, barrier):
     with await cond:
-        print('cond02', n, 'Awaiting notification.')
+        print("cond02", n, "Awaiting notification.")
         await cond.wait()
-        print('cond02', n, 'triggered. tim =', tim)
+        print("cond02", n, "triggered. tim =", tim)
         barrier.trigger()
 
+
 def predicate():
-    return tim >= 8 # 12
+    return tim >= 8  # 12
+
 
 async def cond04(n, barrier):
     with await cond:
-        print('cond04', n, 'Awaiting notification and predicate.')
+        print("cond04", n, "Awaiting notification and predicate.")
         await cond.wait_for(predicate)
-        print('cond04', n, 'triggered. tim =', tim)
+        print("cond04", n, "triggered. tim =", tim)
         barrier.trigger()
+
 
 async def cond_go():
     ntasks = 7
@@ -438,10 +490,12 @@ async def cond_go():
     t1.cancel()
     t3.cancel()
     await asyncio.sleep_ms(0)
-    print('Done.')
+    print("Done.")
+
 
 def condition_test():
-    printexp('''cond02 0 Awaiting notification.
+    printexp(
+        """cond02 0 Awaiting notification.
 cond02 1 Awaiting notification.
 cond02 2 Awaiting notification.
 cond02 3 Awaiting notification.
@@ -458,25 +512,32 @@ cond02 0 triggered. tim = 7
 cond04 99 Awaiting notification and predicate.
 cond04 99 triggered. tim = 9
 Done.
-''', 13)
+""",
+        13,
+    )
     asyncio.run(cond_go())
 
+
 # ************ Queue test ************
+
 
 async def slow_process():
     await asyncio.sleep(2)
     return 42
 
+
 async def bar(q):
-    print('Waiting for slow process.')
+    print("Waiting for slow process.")
     result = await slow_process()
-    print('Putting result onto queue')
+    print("Putting result onto queue")
     await q.put(result)  # Put result on q
+
 
 async def foo(q):
     print("Running foo()")
     result = await q.get()
-    print('Result was {}'.format(result))
+    print("Result was {}".format(result))
+
 
 async def q_put(n, q):
     for x in range(8):
@@ -484,10 +545,12 @@ async def q_put(n, q):
         await q.put(obj)
         await asyncio.sleep(0)
 
+
 async def q_get(n, q):
     for x in range(8):
         await q.get()
         await asyncio.sleep(0)
+
 
 async def putter(q):
     # put some item, then sleep
@@ -497,9 +560,10 @@ async def putter(q):
 
 
 async def getter(q):
-   # checks for new items, and relies on the "blocking" of the get method
+    # checks for new items, and relies on the "blocking" of the get method
     for _ in range(20):
         await q.get()
+
 
 async def queue_go():
     q = Queue(10)
@@ -517,7 +581,7 @@ async def queue_go():
         await q.get()
         await asyncio.sleep(0.1)
     assert q.empty()
-    print('Competing put tasks test complete')
+    print("Competing put tasks test complete")
 
     for n in range(4):
         asyncio.create_task(q_get(n, q))
@@ -528,17 +592,16 @@ async def queue_go():
         await asyncio.sleep(0.3)
         x += 1
     assert q.qsize() == 10
-    print('Competing get tasks test complete')
-    await asyncio.gather(
-        putter(q),
-        getter(q)
-        )
-    print('Queue tests complete')
+    print("Competing get tasks test complete")
+    await asyncio.gather(putter(q), getter(q))
+    print("Queue tests complete")
     print("I've seen attack ships burn off the shoulder of Orion...")
     print("Time to die...")
 
+
 def queue_test():
-    printexp('''Running (runtime = 20s):
+    printexp(
+        """Running (runtime = 20s):
 Running foo()
 Waiting for slow process.
 Putting result onto queue
@@ -551,15 +614,20 @@ Queue tests complete
 I've seen attack ships burn off the shoulder of Orion...
 Time to die...
 
-''', 20)
+""",
+        20,
+    )
     asyncio.run(queue_go())
 
+
 # ************ RingbufQueue test ************
+
 
 async def qread(q, lst, twr):
     async for item in q:
         lst.append(item)
         await asyncio.sleep_ms(twr)
+
 
 async def read(q, t, twr=0):
     lst = []
@@ -569,10 +637,12 @@ async def read(q, t, twr=0):
         pass
     return lst
 
+
 async def put_list(q, lst, twp=0):
     for item in lst:
         await q.put(item)
         await asyncio.sleep_ms(twp)
+
 
 async def rbq_go():
     q = RingbufQueue([0 for _ in range(10)])  # 10 elements
@@ -581,17 +651,17 @@ async def rbq_go():
     asyncio.create_task(put_list(q, pl, 100))
     rl = await read(q, 2)
     assert pl == rl
-    print('done')
+    print("done")
     print("Write waits on slow read.")
     asyncio.create_task(put_list(q, pl))
     rl = await read(q, 2, 100)
     assert pl == rl
-    print('done')
+    print("done")
     print("Testing full, empty and qsize methods.")
     assert q.empty()
     assert q.qsize() == 0
     assert not q.full()
-    await put_list(q, (1,2,3))
+    await put_list(q, (1, 2, 3))
     assert not q.empty()
     assert q.qsize() == 3
     assert not q.full()
@@ -620,8 +690,10 @@ async def rbq_go():
     print("I've seen attack ships burn off the shoulder of Orion...")
     print("Time to die...")
 
+
 def rbq_test():
-    printexp('''Running (runtime = 6s):
+    printexp(
+        """Running (runtime = 6s):
 Read waits on slow write.
 done
 Write waits on slow read.
@@ -634,7 +706,9 @@ Tests complete.
 I've seen attack ships burn off the shoulder of Orion...
 Time to die...
 
-''', 6)
+""",
+        6,
+    )
     asyncio.run(rbq_go())
 
 
@@ -642,43 +716,48 @@ Time to die...
 async def q_task_done_join_consumer(q):
     while True:
         r = await q.get()
-        print('consumer', 'got/processing {}'.format(r))
-        await asyncio.sleep(.5)
+        print("consumer", "got/processing {}".format(r))
+        await asyncio.sleep(0.5)
         q.task_done()
+
+
 async def q_task_done_join_waiter(q):
-    print('waiter','await q.join')
+    print("waiter", "await q.join")
     await q.join()
-    print('waiter','joined!', 'task done!')
+    print("waiter", "joined!", "task done!")
+
+
 async def q_task_done_join_go():
     q = Queue()
 
-    #empty queue should not block join
-    print('test', 'await empty q.join')
+    # empty queue should not block join
+    print("test", "await empty q.join")
     await q.join()
-    print('test', 'pass')
+    print("test", "pass")
 
     consumer_task = asyncio.create_task(q_task_done_join_consumer(q))
     waiter_task = asyncio.create_task(q_task_done_join_waiter(q))
 
-    #add jobs
+    # add jobs
     for x in range(10):
         await q.put(x)
 
-    print('test','await q.join')
+    print("test", "await q.join")
     await q.join()
-    print('test','all jobs done!')
+    print("test", "all jobs done!")
 
     await asyncio.sleep(0)
-    print('test','waiter_task.done()?', waiter_task.done())
+    print("test", "waiter_task.done()?", waiter_task.done())
 
     consumer_task.cancel()
     await asyncio.gather(consumer_task, return_exceptions=True)
 
-    print('test','DONE')
+    print("test", "DONE")
 
 
 def q_task_done_join_test():
-    printexp('''Test Queue task_done/join behaviors
+    printexp(
+        """Test Queue task_done/join behaviors
 test await empty q.join
 test pass
 test await q.join
@@ -697,7 +776,9 @@ test all jobs done!
 waiter joined! task done!
 test waiter_task.done()? True
 test DONE
-''', 5)
+""",
+        5,
+    )
     asyncio.run(q_task_done_join_go())
 
 
@@ -713,7 +794,7 @@ def test(n):
         elif n == 4:
             barrier_test1()  # Test the Barrier class.
         elif n == 5:
-            semaphore_test(False) # Test Semaphore
+            semaphore_test(False)  # Test Semaphore
         elif n == 6:
             semaphore_test(True)  # Test BoundedSemaphore.
         elif n == 7:
@@ -725,7 +806,7 @@ def test(n):
         elif n == 10:
             q_task_done_join_test()  # Test the Queue task_done/join behavior.
     except KeyboardInterrupt:
-        print('Interrupted')
+        print("Interrupted")
     finally:
         asyncio.new_event_loop()
         print_tests()

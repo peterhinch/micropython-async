@@ -13,15 +13,12 @@
 
 # Ported to uasyncio V3 OK.
 
-try:
-    import uasyncio as asyncio
-except ImportError:
-    import asyncio
+import asyncio
 
 try:
     from micropython import const
 except ImportError:
-    const = lambda x : x
+    const = lambda x: x
 
 from math import modf
 
@@ -66,10 +63,12 @@ class AS_GPS(object):
     # https://stackoverflow.com/questions/9847213/how-do-i-get-the-day-of-week-given-a-date-in-python?noredirect=1&lq=1
     # Adapted for Python 3 and Pyboard RTC format.
     @staticmethod
-    def _week_day(year, month, day, offset = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334]):
+    def _week_day(
+        year, month, day, offset=[0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334]
+    ):
         aux = year - 1700 - (1 if month <= 2 else 0)
         # day_of_week for 1700/1/1 = 5, Friday
-        day_of_week  = 5
+        day_of_week = 5
         # partial sum of days betweem current date and 1700/1/1
         day_of_week += (aux + (1 if month <= 2 else 0)) * 365
         # leap year correction
@@ -89,12 +88,14 @@ class AS_GPS(object):
             return False
         x = 1
         crc_xor = 0
-        while res[x] != '*':
+        while res[x] != "*":
             crc_xor ^= ord(res[x])
             x += 1
         return crc_xor == crc
 
-    def __init__(self, sreader, local_offset=0, fix_cb=lambda *_ : None, cb_mask=RMC, fix_cb_args=()):
+    def __init__(
+        self, sreader, local_offset=0, fix_cb=lambda *_: None, cb_mask=RMC, fix_cb_args=()
+    ):
         self._sreader = sreader  # If None testing: update is called with simulated data
         self._fix_cb = fix_cb
         self.cb_mask = cb_mask
@@ -104,6 +105,7 @@ class AS_GPS(object):
         # CPython compatibility. Import utime or time for fix time handling.
         try:
             import utime
+
             self._get_time = utime.ticks_ms
             self._time_diff = utime.ticks_diff
             self._localtime = utime.localtime
@@ -112,19 +114,21 @@ class AS_GPS(object):
             # Otherwise default to time module for non-embedded implementations
             # Should still support millisecond resolution.
             import time
+
             self._get_time = time.time
             self._time_diff = lambda start, end: 1000 * (start - end)
             self._localtime = time.localtime
             self._mktime = time.mktime
 
         # Key: currently supported NMEA sentences. Value: parse method.
-        self.supported_sentences = {'RMC': self._gprmc, 
-                                    'GGA': self._gpgga,
-                                    'VTG': self._gpvtg,
-                                    'GSA': self._gpgsa,
-                                    'GSV': self._gpgsv,
-                                    'GLL': self._gpgll,
-                                    }
+        self.supported_sentences = {
+            "RMC": self._gprmc,
+            "GGA": self._gpgga,
+            "VTG": self._gpvtg,
+            "GSA": self._gpgsa,
+            "GSV": self._gpgsv,
+            "GLL": self._gpgll,
+        }
 
         #####################
         # Object Status Flags
@@ -149,8 +153,8 @@ class AS_GPS(object):
         self.msecs = 0
 
         # Position/Motion
-        self._latitude = [0, 0.0, 'N']  # (°, mins, N/S)
-        self._longitude = [0, 0.0, 'W']  # (°, mins, E/W)
+        self._latitude = [0, 0.0, "N"]  # (°, mins, N/S)
+        self._longitude = [0, 0.0, "W"]  # (°, mins, E/W)
         self._speed = 0.0  # Knot
         self.course = 0.0  # ° clockwise from N
         self.altitude = 0.0  # Metres
@@ -184,7 +188,7 @@ class AS_GPS(object):
         while True:
             res = await self._sreader.readline()
             try:
-                res = res.decode('utf8')
+                res = res.decode("utf8")
             except UnicodeError:  # Garbage: can happen e.g. on baudrate change
                 continue
             asyncio.create_task(self._update(res))
@@ -194,14 +198,14 @@ class AS_GPS(object):
     async def _update(self, line):
         line = line.rstrip()  # Copy line
         # Basic integrity check: may have received partial line e.g on power up
-        if not line.startswith('$') or not '*' in line or len(line) > self._SENTENCE_LIMIT:
+        if not line.startswith("$") or not "*" in line or len(line) > self._SENTENCE_LIMIT:
             return
         # 2.4ms on Pyboard:
         if self.FULL_CHECK and not all(10 <= ord(c) <= 126 for c in line):
             return  # Bad character received
 
-        a = line.split(',')
-        segs = a[:-1] + a[-1].split('*')
+        a = line.split(",")
+        segs = a[:-1] + a[-1].split("*")
         await asyncio.sleep(0)
 
         if self.FULL_CHECK:  # 6ms on Pyboard
@@ -215,7 +219,7 @@ class AS_GPS(object):
         segs = segs[:-1]  # and checksum
         seg0 = segs[0]  # e.g. GPGLL
         segx = seg0[2:]  # e.g. GLL
-        if seg0.startswith('G') and segx in self.supported_sentences:
+        if seg0.startswith("G") and segx in self.supported_sentences:
             try:
                 s_type = self.supported_sentences[segx](segs)  # Parse
             except ValueError:
@@ -258,7 +262,7 @@ class AS_GPS(object):
         lon_mins = float(l_string[3:])
         lon_hemi = gps_segments[idx_long + 1]
 
-        if lat_hemi not in 'NS'or lon_hemi not in 'EW':
+        if lat_hemi not in "NS" or lon_hemi not in "EW":
             raise ValueError
         self._latitude[0] = lat_degs  # In-place to avoid allocation
         self._latitude[1] = lat_mins
@@ -297,12 +301,12 @@ class AS_GPS(object):
     # Sentence Parsers
     ########################################
 
-# For all parsers:
-# Initially the ._valid bit for the sentence type is cleared.
-# On error a ValueError is raised: trapped by the caller.
-# On successful parsing the ._valid bit is set.
-# The ._valid mechanism enables the data_received coro to determine what
-# sentence types have been received.
+    # For all parsers:
+    # Initially the ._valid bit for the sentence type is cleared.
+    # On error a ValueError is raised: trapped by the caller.
+    # On successful parsing the ._valid bit is set.
+    # The ._valid mechanism enables the data_received coro to determine what
+    # sentence types have been received.
 
     # Chip sends rubbish RMC messages before first PPS pulse, but these have
     # data valid set to 'V' (void)
@@ -310,13 +314,13 @@ class AS_GPS(object):
         self._valid &= ~RMC
         # Check Receiver Data Valid Flag ('A' active)
         if not self.battery:
-            if gps_segments[2] != 'A':
+            if gps_segments[2] != "A":
                 raise ValueError
 
         # UTC Timestamp and date. Can raise ValueError.
         self._set_date_time(gps_segments[1], gps_segments[9])
         # Check Receiver Data Valid Flag ('A' active)
-        if gps_segments[2] != 'A':
+        if gps_segments[2] != "A":
             raise ValueError
 
         # Data from Receiver is Valid/Has Fix. Longitude / Latitude
@@ -328,10 +332,12 @@ class AS_GPS(object):
         course = float(gps_segments[8]) if gps_segments[8] else 0.0
         # Add Magnetic Variation if firmware supplies it
         if gps_segments[10]:
-            mv = float(gps_segments[10])  # Float conversions can throw ValueError, caught by caller.
-            if gps_segments[11] not in ('EW'):
+            mv = float(
+                gps_segments[10]
+            )  # Float conversions can throw ValueError, caught by caller.
+            if gps_segments[11] not in ("EW"):
                 raise ValueError
-            self.magvar = mv if gps_segments[11] == 'E' else -mv
+            self.magvar = mv if gps_segments[11] == "E" else -mv
         # Update Object Data
         self._speed = spd_knt
         self.course = course
@@ -341,7 +347,7 @@ class AS_GPS(object):
     def _gpgll(self, gps_segments):  # Parse GLL sentence
         self._valid &= ~GLL
         # Check Receiver Data Valid Flag
-        if gps_segments[6] != 'A':  # Invalid. Don't update data
+        if gps_segments[6] != "A":  # Invalid. Don't update data
             raise ValueError
 
         # Data from Receiver is Valid/Has Fix. Longitude / Latitude
@@ -429,9 +435,13 @@ class AS_GPS(object):
 
         # Calculate  Number of Satelites to pull data for and thus how many segment positions to read
         if num_sv_sentences == current_sv_sentence:
-            sat_segment_limit = ((sats_in_view % 4) * 4) + 4  # Last sentence may have 1-4 satellites
+            sat_segment_limit = (
+                (sats_in_view % 4) * 4
+            ) + 4  # Last sentence may have 1-4 satellites
         else:
-            sat_segment_limit = 20  # Non-last sentences have 4 satellites and thus read up to position 20
+            sat_segment_limit = (
+                20  # Non-last sentences have 4 satellites and thus read up to position 20
+            )
 
         # Try to recover data for up to 4 satellites in sentence
         for sats in range(4, sat_segment_limit, 4):
@@ -444,18 +454,18 @@ class AS_GPS(object):
                     raise ValueError  # Abandon
 
                 try:  # elevation can be null (no value) when not tracking
-                    elevation = int(gps_segments[sats+1])
-                except (ValueError,IndexError):
+                    elevation = int(gps_segments[sats + 1])
+                except (ValueError, IndexError):
                     elevation = None
 
                 try:  # azimuth can be null (no value) when not tracking
-                    azimuth = int(gps_segments[sats+2])
-                except (ValueError,IndexError):
+                    azimuth = int(gps_segments[sats + 2])
+                except (ValueError, IndexError):
                     azimuth = None
 
                 try:  # SNR can be null (no value) when not tracking
-                    snr = int(gps_segments[sats+3])
-                except (ValueError,IndexError):
+                    snr = int(gps_segments[sats + 3])
+                except (ValueError, IndexError):
                     snr = None
             # If no PRN is found, then the sentence has no more satellites to read
             else:
@@ -484,8 +494,7 @@ class AS_GPS(object):
     #########################################
 
     # Data Validity. On startup data may be invalid. During an outage it will be absent.
-    async def data_received(self, position=False, course=False, date=False,
-                            altitude=False):
+    async def data_received(self, position=False, course=False, date=False, altitude=False):
         self._valid = 0  # Assume no messages at start
         result = False
         while not result:
@@ -517,7 +526,7 @@ class AS_GPS(object):
             return [self._latitude[0], mins, seconds, self._latitude[2]]
         elif coord_format == DM:
             return self._latitude
-        raise ValueError('Unknown latitude format.')
+        raise ValueError("Unknown latitude format.")
 
     def longitude(self, coord_format=DD):
         # Format Longitude Data Correctly
@@ -530,7 +539,7 @@ class AS_GPS(object):
             return [self._longitude[0], mins, seconds, self._longitude[2]]
         elif coord_format == DM:
             return self._longitude
-        raise ValueError('Unknown longitude format.')
+        raise ValueError("Unknown longitude format.")
 
     def speed(self, units=KNOT):
         if units == KNOT:
@@ -539,7 +548,7 @@ class AS_GPS(object):
             return self._speed * 1.852
         if units == MPH:
             return self._speed * 1.151
-        raise ValueError('Unknown speed units.')
+        raise ValueError("Unknown speed units.")
 
     async def get_satellite_data(self):
         self._total_sv_sentences = 0
@@ -556,36 +565,37 @@ class AS_GPS(object):
 
     def compass_direction(self):  # Return cardinal point as string.
         from .as_GPS_utils import compass_direction
+
         return compass_direction(self)
 
     def latitude_string(self, coord_format=DM):
         if coord_format == DD:
-            return '{:3.6f}° {:s}'.format(*self.latitude(DD))
+            return "{:3.6f}° {:s}".format(*self.latitude(DD))
         if coord_format == DMS:
             return """{:3d}° {:2d}' {:2d}" {:s}""".format(*self.latitude(DMS))
         if coord_format == KML:
             form_lat = self.latitude(DD)
-            return '{:4.6f}'.format(form_lat[0] if form_lat[1] == 'N' else -form_lat[0])
+            return "{:4.6f}".format(form_lat[0] if form_lat[1] == "N" else -form_lat[0])
         return "{:3d}° {:3.4f}' {:s}".format(*self.latitude(coord_format))
 
     def longitude_string(self, coord_format=DM):
         if coord_format == DD:
-            return '{:3.6f}° {:s}'.format(*self.longitude(DD))
+            return "{:3.6f}° {:s}".format(*self.longitude(DD))
         if coord_format == DMS:
             return """{:3d}° {:2d}' {:2d}" {:s}""".format(*self.longitude(DMS))
         if coord_format == KML:
             form_long = self.longitude(DD)
-            return '{:4.6f}'.format(form_long[0] if form_long[1] == 'E' else -form_long[0])
+            return "{:4.6f}".format(form_long[0] if form_long[1] == "E" else -form_long[0])
         return "{:3d}° {:3.4f}' {:s}".format(*self.longitude(coord_format))
 
     def speed_string(self, unit=KPH):
-        sform = '{:3.2f} {:s}'
+        sform = "{:3.2f} {:s}"
         speed = self.speed(unit)
         if unit == MPH:
-            return sform.format(speed, 'mph')
+            return sform.format(speed, "mph")
         elif unit == KNOT:
-            return sform.format(speed, 'knots')
-        return sform.format(speed, 'km/h')
+            return sform.format(speed, "knots")
+        return sform.format(speed, "km/h")
 
     # Return local time (hrs: int, mins: int, secs:float)
     @property
@@ -608,8 +618,9 @@ class AS_GPS(object):
 
     def time_string(self, local=True):
         hrs, mins, secs = self.local_time if local else self.utc
-        return '{:02d}:{:02d}:{:02d}'.format(hrs, mins, secs)
+        return "{:02d}:{:02d}:{:02d}".format(hrs, mins, secs)
 
     def date_string(self, formatting=MDY):
         from .as_GPS_utils import date_string
+
         return date_string(self, formatting)

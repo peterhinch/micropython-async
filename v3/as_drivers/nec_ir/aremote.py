@@ -5,17 +5,18 @@
 # Copyright Peter Hinch 2017 Released under the MIT license
 
 from sys import platform
-import uasyncio as asyncio
+import asyncio
 from primitives.message import Message
 from micropython import const
 from array import array
 from utime import ticks_ms, ticks_us, ticks_diff
-if platform == 'pyboard':
+
+if platform == "pyboard":
     from pyb import Pin, ExtInt
 else:
     from machine import Pin
 
-ESP32 = platform == 'esp32' or platform == 'esp32_LoBo'
+ESP32 = platform == "esp32" or platform == "esp32_LoBo"
 
 # Save RAM
 # from micropython import alloc_emergency_exception_buf
@@ -39,7 +40,7 @@ _EDGECOUNT = const(68)  # No. of edges in data block
 # exceed the worst case block transmission time, but (with asyncio latency) be
 # less than the interval between a block start and a repeat code start (108ms)
 # Value of 73 allows for up to 35ms latency.
-class NEC_IR():
+class NEC_IR:
     def __init__(self, pin, callback, extended, *args):  # Optional args for callback
         self._ev_start = Message()
         self._callback = callback
@@ -47,11 +48,11 @@ class NEC_IR():
         self._addr = 0
         self.block_time = 80 if extended else 73  # Allow for some tx tolerance (?)
         self._args = args
-        self._times = array('i',  (0 for _ in range(_EDGECOUNT + 1)))  # +1 for overrun
-        if platform == 'pyboard':
+        self._times = array("i", (0 for _ in range(_EDGECOUNT + 1)))  # +1 for overrun
+        if platform == "pyboard":
             ExtInt(pin, ExtInt.IRQ_RISING_FALLING, Pin.PULL_NONE, self._cb_pin)
         else:  # PR5962 ESP8266 hard IRQ's not supported
-            pin.irq(handler = self._cb_pin, trigger = (Pin.IRQ_FALLING | Pin.IRQ_RISING))
+            pin.irq(handler=self._cb_pin, trigger=(Pin.IRQ_FALLING | Pin.IRQ_RISING))
         self._edge = 0
         self._ev_start.clear()
         asyncio.create_task(self._run())
@@ -81,7 +82,7 @@ class NEC_IR():
             width = ticks_diff(self._times[1], self._times[0])
             if width > 4000:  # 9ms leading mark for all valid data
                 width = ticks_diff(self._times[2], self._times[1])
-                if width > 3000: # 4.5ms space for normal data
+                if width > 3000:  # 4.5ms space for normal data
                     if self._edge < _EDGECOUNT:
                         # Haven't received the correct number of edges
                         val = BADBLOCK
@@ -94,19 +95,19 @@ class NEC_IR():
                             val >>= 1
                             if ticks_diff(self._times[edge + 1], self._times[edge]) > 1120:
                                 val |= 0x80000000
-                elif width > 1700: # 2.5ms space for a repeat code. Should have exactly 4 edges.
+                elif width > 1700:  # 2.5ms space for a repeat code. Should have exactly 4 edges.
                     val = REPEAT if self._edge == 4 else BADREP
         addr = 0
         if val >= 0:  # validate. Byte layout of val ~cmd cmd ~addr addr
-            addr = val & 0xff
-            cmd = (val >> 16) & 0xff
-            if addr == ((val >> 8) ^ 0xff) & 0xff:  # 8 bit address OK
-                val = cmd if cmd == (val >> 24) ^ 0xff else BADDATA
+            addr = val & 0xFF
+            cmd = (val >> 16) & 0xFF
+            if addr == ((val >> 8) ^ 0xFF) & 0xFF:  # 8 bit address OK
+                val = cmd if cmd == (val >> 24) ^ 0xFF else BADDATA
                 self._addr = addr
             else:
-                addr |= val & 0xff00  # pass assumed 16 bit address to callback
+                addr |= val & 0xFF00  # pass assumed 16 bit address to callback
                 if self._extended:
-                    val = cmd if cmd == (val >> 24) ^ 0xff else BADDATA
+                    val = cmd if cmd == (val >> 24) ^ 0xFF else BADDATA
                     self._addr = addr
                 else:
                     val = BADADDR

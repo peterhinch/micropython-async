@@ -8,7 +8,7 @@
 # Asynchronous iterator allowing consumer to use async for
 # put_nowait QueueFull exception can be ignored allowing oldest data to be discarded.
 
-import uasyncio as asyncio
+import asyncio
 
 
 class RingbufQueue:  # MicroPython optimised
