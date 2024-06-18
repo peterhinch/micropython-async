@@ -2257,7 +2257,7 @@ class PinCall(io.IOBase):
 Once again latency can be high: if implemented fast I/O scheduling will improve
 this.
 
-The demo program [iorw.py](./as_demos/iorw.py) illustrates a complete example.
+The demo program [iorw.py](../as_demos/iorw.py) illustrates a complete example.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
