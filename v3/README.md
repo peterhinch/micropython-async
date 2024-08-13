@@ -32,11 +32,11 @@ deal with blocking functions.
 This official tool enables an application to launch a REPL which is active
 while the application is running. From this you can modify and query the
 application and run `asyncio` scripts concurrently with the running
-application.
+application. Author Jim Mussared @jimmo.
 
 [aioprof](https://gitlab.com/alelec/aioprof/-/tree/main) A profiler for
 `asyncio` applications: show the number of calls and the total time used by
-each task. Author Matt Trentini.
+each task. Author Andrew Leech @andrewleech.
 
 [monitor](https://github.com/peterhinch/micropython-monitor) enables a running
 `asyncio` application to be monitored using a Pi Pico, ideally with a scope or
