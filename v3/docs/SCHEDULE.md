@@ -163,7 +163,7 @@ supports the asynchronous iterator interface:
 ```python
 import asyncio
 from sched.sched import schedule, Sequence
-from time import localtime
+from time import gmtime
 
 async def main():
     print("Asynchronous test running...")
@@ -174,7 +174,7 @@ async def main():
     # A one-shot trigger
     asyncio.create_task(schedule(seq, 'one shot', hrs=None, mins=range(0, 60, 2), times=1))
     async for args in seq:
-        yr, mo, md, h, m, s, wd = localtime()[:7]
+        yr, mo, md, h, m, s, wd = gmtime()[:7]
         print(f"Event {h:02d}:{m:02d}:{s:02d} on {md:02d}/{mo:02d}/{yr} args: {args}")
 
 try:
@@ -269,21 +269,14 @@ will raise a `ValueError`.
 A `cron` call typically takes 270 to 520μs on a Pyboard, but the upper bound
 depends on the complexity of the time specifiers.
 
-On hardware platforms the MicroPython `time` module does not handle daylight
-saving time. Scheduled times are relative to system time. This does not apply
-to the Unix build where daylight saving needs to be considered.
+Scheduled times use UTC time, on both hardware platforms and the unix port use
+UTC. This avoids issues with DST, but the user will need to keep into 
+consideration that the times are UTC based.
 
 ## 4.4 The Unix build
 
 Asynchronous use requires `asyncio` V3, so ensure this is installed on the
-Linux target.
-
-The synchronous and asynchronous demos run under the Unix build. The module is
-usable on Linux provided the daylight saving time (DST) constraints are met. A
-consequence of DST is that there are impossible times when clocks go forward
-and duplicates when they go back. Scheduling those times will fail. A solution
-is to avoid scheduling the times in your region where this occurs (01.00.00 to
-02.00.00 in March and October here).
+Linux target. The synchronous and asynchronous demos run under the Unix build. 
 
 ##### [Top](./SCHEDULE.md#0-contents)
 
@@ -300,15 +293,15 @@ This is the demo code.
 ```python
 import asyncio
 from sched.sched import schedule
-from time import localtime
+from time import gmtime
 
 def foo(txt):  # Demonstrate callback
-    yr, mo, md, h, m, s, wd = localtime()[:7]
+    yr, mo, md, h, m, s, wd = gmtime()[:7]
     fst = 'Callback {} {:02d}:{:02d}:{:02d} on {:02d}/{:02d}/{:02d}'
     print(fst.format(txt, h, m, s, md, mo, yr))
 
 async def bar(txt):  # Demonstrate coro launch
-    yr, mo, md, h, m, s, wd = localtime()[:7]
+    yr, mo, md, h, m, s, wd = gmtime()[:7]
     fst = 'Coroutine {} {:02d}:{:02d}:{:02d} on {:02d}/{:02d}/{:02d}'
     print(fst.format(txt, h, m, s, md, mo, yr))
     await asyncio.sleep(0)
@@ -339,7 +332,7 @@ in that extra positional args passed to `schedule` are lost.
 ```python
 import asyncio
 from sched.sched import schedule
-from time import localtime
+from time import gmtime
 
 async def main():
     print("Asynchronous test running...")
@@ -348,7 +341,7 @@ async def main():
     while True:
         await evt.wait()  # Multiple tasks may wait on an Event
         evt.clear()  # It must be cleared.
-        yr, mo, md, h, m, s, wd = localtime()[:7]
+        yr, mo, md, h, m, s, wd = gmtime()[:7]
         print(f"Event {h:02d}:{m:02d}:{s:02d} on {md:02d}/{mo:02d}/{yr}")
 
 try:
@@ -446,10 +439,10 @@ import sched.synctest
 This is the demo code.
 ```python
 from .cron import cron
-from time import localtime, sleep, time
+from time import gmtime, sleep, time
 
 def foo(txt):
-    yr, mo, md, h, m, s, wd = localtime()[:7]
+    yr, mo, md, h, m, s, wd = gmtime()[:7]
     fst = "{} {:02d}:{:02d}:{:02d} on {:02d}/{:02d}/{:02d}"
     print(fst.format(txt, h, m, s, md, mo, yr))
 
@@ -507,7 +500,7 @@ the first expected callback:
 
 ```python
 def wait_for(**kwargs):
-    tim = mktime(localtime()[:3] + (0, 0, 0, 0, 0))  # Midnight last night
+    tim = timegm(gmtime()[:3] + (0, 0, 0, 0, 0))  # Midnight last night
     now = round(time())
     scron = cron(**kwargs)  # Cron instance for search.
     while tim < now:  # Find first event in sequence
