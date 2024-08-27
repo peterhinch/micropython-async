@@ -5,17 +5,17 @@
 
 import asyncio
 from sched.sched import schedule
-from time import localtime
+from time import gmtime
 
 
 def foo(txt):  # Demonstrate callback
-    yr, mo, md, h, m, s, wd = localtime()[:7]
+    yr, mo, md, h, m, s, wd = gmtime()[:7]
     fst = "Callback {} {:02d}:{:02d}:{:02d} on {:02d}/{:02d}/{:02d}"
     print(fst.format(txt, h, m, s, md, mo, yr))
 
 
 async def bar(txt):  # Demonstrate coro launch
-    yr, mo, md, h, m, s, wd = localtime()[:7]
+    yr, mo, md, h, m, s, wd = gmtime()[:7]
     fst = "Coroutine {} {:02d}:{:02d}:{:02d} on {:02d}/{:02d}/{:02d}"
     print(fst.format(txt, h, m, s, md, mo, yr))
     await asyncio.sleep(0)
@@ -30,7 +30,9 @@ async def main():
     # Launch a coroutine
     asyncio.create_task(schedule(bar, "every 3 mins", hrs=None, mins=range(0, 60, 3)))
 
-    asyncio.create_task(schedule(foo, "one shot", hrs=None, mins=range(0, 60, 2), times=1))
+    asyncio.create_task(
+        schedule(foo, "one shot", hrs=None, mins=range(0, 60, 2), times=1)
+    )
     await asyncio.sleep(900)  # Quit after 15 minutes
 
 

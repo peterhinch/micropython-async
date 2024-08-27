@@ -3,12 +3,12 @@
 # Copyright (c) 2020-2023 Peter Hinch
 # Released under the MIT License (MIT) - see LICENSE file
 
-from time import time, ticks_diff, ticks_us, localtime, mktime
-from sched.cron import cron
-import sys
+from time import ticks_diff, ticks_us, gmtime
+from sched.cron import cron, timegm
 
 maxruntime = 0
 fail = 0
+
 
 # Args:
 # ts Time of run in secs since epoch
@@ -17,8 +17,8 @@ fail = 0
 # kwargs are args for cron
 def test(ts, exp, msg, *, secs=0, mins=0, hrs=3, mday=None, month=None, wday=None):
     global maxruntime, fail
-    texp = mktime(exp + (0, 0))  # Expected absolute end time
-    yr, mo, md, h, m, s, wd = localtime(texp)[:7]
+    texp = timegm(exp + (0, 0))  # Expected absolute end time
+    yr, mo, md, h, m, s, wd = gmtime(texp)[:7]
     print(f"Test: {msg}")
     print(f"Expected endtime:  {h:02d}:{m:02d}:{s:02d} on {md:02d}/{mo:02d}/{yr:02d}")
 
@@ -27,7 +27,7 @@ def test(ts, exp, msg, *, secs=0, mins=0, hrs=3, mday=None, month=None, wday=Non
     t = cg(ts)  # Wait duration returned by cron (secs)
     delta = ticks_diff(ticks_us(), start)
     maxruntime = max(maxruntime, delta)
-    yr, mo, md, h, m, s, wd = localtime(t + ts)[:7]  # Get absolute time from cron
+    yr, mo, md, h, m, s, wd = gmtime(t + ts)[:7]  # Get absolute time from cron
     print(f"Endtime from cron: {h:02d}:{m:02d}:{s:02d} on {md:02d}/{mo:02d}/{yr:02d}")
     if t == texp - ts:
         print(f"PASS")
@@ -37,7 +37,7 @@ def test(ts, exp, msg, *, secs=0, mins=0, hrs=3, mday=None, month=None, wday=Non
     print(f"Runtime = {delta}us\n")
 
 
-now = mktime((2020, 7, 30, 3, 0, 0, 0, 0))  # 3am Thursday (day 3) 30 July 2020
+now = timegm((2020, 7, 30, 3, 0, 0, 0, 0))  # 3am Thursday (day 3) 30 July 2020
 
 exp = (2020, 7, 31, 1, 5, 0)  # Expect 01:05:00 on 31/07/2020
 msg = "wday and time both cause 1 day increment."
