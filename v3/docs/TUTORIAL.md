@@ -2420,10 +2420,8 @@ There are two basic approaches to socket programming under `asyncio`. By
 default sockets block until a specified read or write operation completes.
 `asyncio` supports blocking sockets by using `select.poll` to prevent them
 from blocking the scheduler. In most cases it is simplest to use this
-mechanism. Example client and server code may be found in the `client_server`
-directory. The `userver` application uses `select.poll` explicitly to poll
-the server socket. The client sockets use it implicitly in that the `asyncio`
-stream mechanism employs it.
+mechanism. Note that the `asyncio` stream mechanism employs it. Example client
+and server code may be found in the `client_server` directory.
 
 Note that `socket.getaddrinfo` currently blocks. The time will be minimal in
 the example code but if a DNS lookup is required the blocking period could be
