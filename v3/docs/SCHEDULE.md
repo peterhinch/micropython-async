@@ -216,8 +216,10 @@ Default values schedule an event every day at 03.00.00.
 ## 4.2 Calendar behaviour
 
 Specifying a day in the month which exceeds the length of a specified month
-(e.g. `month=(2, 6, 7), mday=30`) will produce a `ValueError`. February is
-assumed to have 28 days.
+(e.g. `month=(2, 6, 7), mday=30`) will produce a `ValueError`. The `mday`
+parameter assumes there are 28 days in February, but outside of this paramenter
+schedules do execute on the 29th of February (e.g. having `hrs=2` to run
+something every 2 hours will continue doing this on February 29th).
 
 ### 4.2.1 Behaviour of mday and wday values
 
@@ -271,19 +273,21 @@ depends on the complexity of the time specifiers.
 
 On hardware platforms the MicroPython `time` module does not handle daylight
 saving time. Scheduled times are relative to system time. This does not apply
-to the Unix build where daylight saving needs to be considered.
+to the Unix build where the `localtime` and `mktime` functions work with
+daylight saving time (DST). To keep consistent behavior between the Unix build
+and hardware platforms, `gmtime` and `timegm` should be used instead. An
+implementation of `timegm` is provided in the cron module.
 
 ## 4.4 The Unix build
 
 Asynchronous use requires `asyncio` V3, so ensure this is installed on the
 Linux target.
 
-The synchronous and asynchronous demos run under the Unix build. The module is
-usable on Linux provided the daylight saving time (DST) constraints are met. A
-consequence of DST is that there are impossible times when clocks go forward
-and duplicates when they go back. Scheduling those times will fail. A solution
-is to avoid scheduling the times in your region where this occurs (01.00.00 to
-02.00.00 in March and October here).
+Unlike the hardware platforms, the Unix build of micropython works with daylight
+saving (DST) and timezones when using `localtime` and `mktime` functions. To
+keep behavior consistent between platforms and to avoid issues stemming from DST
+only `gmtime` and `timegm` should be used. An implementation of `timegm` is
+provided in the cron module.
 
 ##### [Top](./SCHEDULE.md#0-contents)
 
