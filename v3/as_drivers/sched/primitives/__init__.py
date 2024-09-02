@@ -10,7 +10,10 @@ async def _g():
     pass
 
 
-type_coro = type(_g())
+coro = _g()
+type_coro = type(coro)
+# Await to avoid RuntimeWarning on CPython
+asyncio.run(coro)
 
 # If a callback is passed, run it and return.
 # If a coro is passed initiate it and return.

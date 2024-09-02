@@ -10,10 +10,10 @@ from sched.cron import cron, timegm
 
 
 # uasyncio can't handle long delays so split into 1000s (1e6 ms) segments
-_MAXT = const(1000)
+_MAXT = 1000
 # Wait prior to a sequence start: see
 # https://github.com/peterhinch/micropython-async/blob/master/v3/docs/SCHEDULE.md#71-initialisation
-_PAUSE = const(2)
+_PAUSE = 2
 
 
 class Sequence:  # Enable asynchronous iterator interface
@@ -61,5 +61,5 @@ async def schedule(func, *args, times=None, **kwargs):
             res = launch(func, args)
         if times is not None:
             times -= 1
-        await asyncio.sleep_ms(1200)  # ensure we're into next second
+        await asyncio.sleep(_PAUSE)  # ensure we're into next second
     return res
