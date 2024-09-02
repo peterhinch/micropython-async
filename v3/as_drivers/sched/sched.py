@@ -5,8 +5,8 @@
 
 import asyncio
 from sched.primitives import launch
-from time import time, mktime, localtime
-from sched.cron import cron
+from time import time, gmtime
+from sched.cron import cron, timegm
 
 
 # uasyncio can't handle long delays so split into 1000s (1e6 ms) segments
@@ -40,7 +40,7 @@ async def schedule(func, *args, times=None, **kwargs):
             await asyncio.sleep(min(t, _MAXT))
             t -= _MAXT
 
-    tim = mktime(localtime()[:3] + (0, 0, 0, 0, 0))  # Midnight last night
+    tim = timegm(gmtime()[:3] + (0, 0, 0, 0, 0))  # Midnight last night
     now = round(time())  # round() is for Unix
     fcron = cron(**kwargs)  # Cron instance for search.
     while tim < now:  # Find first future trigger in sequence

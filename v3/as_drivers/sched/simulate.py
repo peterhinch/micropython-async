@@ -1,13 +1,13 @@
 # simulate.py Adapt this to simulate scheduled sequences
 
-from time import localtime, mktime
-from sched.cron import cron
+from sched.cron import cron, timegm
+from time import gmtime
 
 days = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
 tim = 0  # Global time in secs
 
 def print_time(msg=""):
-    yr, mo, md, h, m, s, wd = localtime(tim)[:7]
+    yr, mo, md, h, m, s, wd = gmtime(tim)[:7]
     print(f"{msg} {h:02d}:{m:02d}:{s:02d} on {days[wd]} {md:02d}/{mo:02d}/{yr:02d}")
 
 def wait(cr):  # Simulate waiting on a cron instance
@@ -22,7 +22,7 @@ def wait(cr):  # Simulate waiting on a cron instance
 
 def set_time(y, month, mday, hrs, mins, secs):
     global tim
-    tim = mktime((y, month, mday, hrs, mins, secs, 0, 0))
+    tim = timegm((y, month, mday, hrs, mins, secs, 0, 0))
     print_time("Start at:")
 
 # Adapt the following to emulate the proposed application. Cron args

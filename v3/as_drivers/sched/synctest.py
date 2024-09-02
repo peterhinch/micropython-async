@@ -4,11 +4,11 @@
 # Released under the MIT License (MIT) - see LICENSE file
 
 from .cron import cron
-from time import localtime, sleep, time
+from time import sleep, time, gmtime
 
 def foo(txt):
-    yr, mo, md, h, m, s, wd = localtime()[:7]
-    fst = "{} {:02d}:{:02d}:{:02d} on {:02d}/{:02d}/{:02d}"
+    yr, mo, md, h, m, s, wd = gmtime()[:7]
+    fst = '{} {:02d}:{:02d}:{:02d} on {:02d}/{:02d}/{:02d}'
     print(fst.format(txt, h, m, s, md, mo, yr))
 
 def main():
