@@ -19,13 +19,14 @@
  7. [Use in synchronous code](./SCHEDULE.md#7-use-in-synchronous-code) If you really must.  
   7.1 [Initialisation](./SCHEDULE.md#71-initialisation)__
  8. [The simulate script](./SCHEDULE.md#8-the-simulate-script) Rapidly test sequences.  
+ 9. [Design note](./SCHEDULE.md#9-design-note) Notes on use under an OS.  
 
 Release note:  
 11th Dec 2023 Document astronomy module, allowing scheduling based on Sun and
-Moon rise and set times.
-23rd Nov 2023 Add asynchronous iterator interface.
+Moon rise and set times.  
+23rd Nov 2023 Add asynchronous iterator interface.  
 3rd April 2023 Fix issue #100. Where an iterable is passed to `secs`, triggers
-must now be at least 10s apart (formerly 2s).
+must now be at least 10s apart (formerly 2s).  
 
 ##### [Tutorial](./TUTORIAL.md#contents)  
 ##### [Main V3 README](../README.md)
@@ -284,6 +285,9 @@ consequence of DST is that there are impossible times when clocks go forward
 and duplicates when they go back. Scheduling those times will fail. A solution
 is to avoid scheduling the times in your region where this occurs (01.00.00 to
 02.00.00 in March and October here).
+
+It is believed that in other respects DST is handled correctly by the OS: see
+[Design note](./SCHEDULE.md#9-design-note).
 
 ##### [Top](./SCHEDULE.md#0-contents)
 
@@ -546,3 +550,55 @@ the value of system time when the delay ends. In this instance the start of a
 sequence is delayed to ensure that the first trigger occurs at 01:00.
 
 ##### [Top](./SCHEDULE.md#0-contents)
+
+# 9. Design note
+
+This module is primarily intended for use on a microcontroller, where the time
+source is a hardware RTC. This is usually set to local time and does not change
+for daylight saving time (DST). Changing the system time while running `asyncio`
+code is not recommended.
+
+A [question was raised](https://github.com/peterhinch/micropython-async/pull/126)
+regarding the behaviour of the module when running under the Unix build - in
+particular whether the module's use of `time.localtime` is correct, because
+`.localtime` changes when DST is invoked. To test whether a problem exists, an
+attempt was made to write a script whose behaviour under Unix differed from that
+on a microcontroller. The latter has no concept of DST or timezone (TZ) so can
+be assumed to be free of such bugs. Unless such a reproducer can be found, it
+seems that usage under the Unix build should be correct.
+
+The following test script outputs the time in seconds between two fixed times
+separated by two months, the period being chosen to cross a DST boundary here in
+the UK. It passed under the following conditions:
+
+* On a Pyboard.
+* On an ESP32.
+* On Unix MicroPython.
+* On CPython.
+* On the Unix build with my laptop's location set to California. Reported time
+changed by -7hrs.
+* On CPython in California.
+
+The conclusion is that the OS ensures that DST related errors do not occur.
+
+```py
+from time import mktime, gmtime, localtime
+from sys import implementation
+cpython = implementation.name == 'cpython'
+if cpython:
+    from time import struct_time
+
+start = [2024, 9, 5, 11, 49, 2, 3, 249, 1]
+sept = round(mktime(struct_time(start))) if cpython else mktime(start)
+
+end = start[:]
+end[1] += 2  # Same time + 2months Crosses DST boundary in the UK
+
+november = round(mktime(struct_time(end))) if cpython else mktime(end)
+print(november - sept)
+
+if november - sept == 5270400:
+    print('PASS')
+else:
+    print('FAIL')
+```
