@@ -19,9 +19,10 @@
  7. [Use in synchronous code](./SCHEDULE.md#7-use-in-synchronous-code) If you really must.  
   7.1 [Initialisation](./SCHEDULE.md#71-initialisation)__
  8. [The simulate script](./SCHEDULE.md#8-the-simulate-script) Rapidly test sequences.  
- 9. [Design note](./SCHEDULE.md#9-design-note) Notes on use under an OS.  
+ 9. [Daylight saving time](./SCHEDULE.md#9-daylight-saving-time) Notes on timezone and DST when running under an OS.  
 
-Release note:  
+Release note:
+7th Sep 2024 Document timezone and DST behaviour under Unix build.   
 11th Dec 2023 Document astronomy module, allowing scheduling based on Sun and
 Moon rise and set times.  
 23rd Nov 2023 Add asynchronous iterator interface.  
@@ -271,23 +272,24 @@ A `cron` call typically takes 270 to 520μs on a Pyboard, but the upper bound
 depends on the complexity of the time specifiers.
 
 On hardware platforms the MicroPython `time` module does not handle daylight
-saving time. Scheduled times are relative to system time. This does not apply
-to the Unix build where daylight saving needs to be considered.
+saving time. Scheduled times are relative to system time. Under the Unix build,
+where the locale uses daylight saving, its effects should be considered. See
+[Daylight saving time](./SCHEDULE.md#9-daylight-saving-time).
 
 ## 4.4 The Unix build
 
 Asynchronous use requires `asyncio` V3, so ensure this is installed on the
-Linux target.
+Linux target. This may be checked with:
+```py
+import asyncio
+asyncio.__version__
+```
+The module uses local time. When running under an OS, local time is affected by
+geographical longitude (timezone - TZ) and daylight saving time (DST). The use
+of local time avoids TZ issues but has consequences when the underlying time
+source changes due to crossing a DST boundary.
 
-The synchronous and asynchronous demos run under the Unix build. The module is
-usable on Linux provided the daylight saving time (DST) constraints are met. A
-consequence of DST is that there are impossible times when clocks go forward
-and duplicates when they go back. Scheduling those times will fail. A solution
-is to avoid scheduling the times in your region where this occurs (01.00.00 to
-02.00.00 in March and October here).
-
-It is believed that in other respects DST is handled correctly by the OS: see
-[Design note](./SCHEDULE.md#9-design-note).
+This is explained in detail in [Daylight saving time](./SCHEDULE.md#9-daylight-saving-time).
 
 ##### [Top](./SCHEDULE.md#0-contents)
 
@@ -551,36 +553,53 @@ sequence is delayed to ensure that the first trigger occurs at 01:00.
 
 ##### [Top](./SCHEDULE.md#0-contents)
 
-# 9. Design note
+# 9. Daylight saving time
+
+Thanks are due to @rhermanklink for raising this issue.
 
 This module is primarily intended for use on a microcontroller, where the time
-source is a hardware RTC. This is usually set to local time and does not change
-for daylight saving time (DST). Changing the system time while running `asyncio`
-code is not recommended.
+source is a hardware RTC. This is usually set to local time, and must not change
+for daylight saving time (DST); on a microcontroller neither this module nor
+`asyncio` will work correctly if system time is changed at runtime. Under an OS,
+some kind of thaumaturgy enables `asyncio` to tolerate this behaviour.
 
-A [question was raised](https://github.com/peterhinch/micropython-async/pull/126)
-regarding the behaviour of the module when running under the Unix build - in
-particular whether the module's use of `time.localtime` is correct, because
-`.localtime` changes when DST is invoked. To test whether a problem exists, an
-attempt was made to write a script whose behaviour under Unix differed from that
-on a microcontroller. The latter has no concept of DST or timezone (TZ) so can
-be assumed to be free of such bugs. Unless such a reproducer can be found, it
-seems that usage under the Unix build should be correct.
+Internally the module uses local time (`time.time()` and `time.localtime()`) to
+retrieve the current time. Under an OS, in a locale where DST is used, the time
+returned by these methods does not increase monotonically but is subject to
+sudden changes at a DST boundary.
 
-The following test script outputs the time in seconds between two fixed times
-separated by two months, the period being chosen to cross a DST boundary here in
-the UK. It passed under the following conditions:
+A `cron` instance accepts "time now" measured in seconds from the epoch, and
+returns the time to wait for the first scheduled event. This wait time is
+calculated on the basis of a monotonic local time. Assume that the time is
+10:00:00 on 1st August, and the first scheduled event is at 10:00:00 on 1st
+November. The `cron` instance will return the time to wait. The application task
+waits for that period, but local clocks will have changed so that the time reads
+9:00:00.
 
-* On a Pyboard.
-* On an ESP32.
-* On Unix MicroPython.
-* On CPython.
-* On the Unix build with my laptop's location set to California. Reported time
-changed by -7hrs.
-* On CPython in California.
+The primary application for this module is on microcontrollers. Further, there
+are alternatives such as [Python schedule](https://github.com/dbader/schedule)
+which are designed to run under an OS. Fixing this would require a timezone
+solution; in many cases the application can correct for DST. Consequently this
+behaviour has been deemed to be in the "document, don't fix" category.
 
-The conclusion is that the OS ensures that DST related errors do not occur.
+The following notes are general observations which may be of interest.
 
+### The epoch
+
+The Python `time.time()` method returns the number of seconds since the epoch.
+This is computed relative to the system clock; consecutive calls around a DST
+change will yield a sudden change (+3600 secs for a +one hour change).
+This value may be converted to a time tuple with `time.gmtime(secs)` or with
+`time.localtime(secs)`. If UTC and local time differ, for the same value of
+`secs` these will produce UTC-relative and localtime-relative tuples.
+
+Consider `time.mktime()`. This converts a time tuple to a number of seconds
+since the epoch. The time difference between a specified time and the epoch is
+independent of timezone and DST. The specified time and the epoch are assumed to
+be defined in the same (unknown, unspecified) time system. Consequently, if a
+delay is defined by the difference between two `mktime()` values, that delay
+will be unaffected if a DST change occurs between those two values. This may be
+verified with the following script:
 ```py
 from time import mktime, gmtime, localtime
 from sys import implementation
@@ -602,3 +621,15 @@ if november - sept == 5270400:
 else:
     print('FAIL')
 ```
+This test passes on the Unix build, under CPython, and on MicroPython on a
+microcontroller. It also passes under an OS if the system's local time differs
+substantially from UTC.
+
+The `cron` module returns a time difference between a passed time value and one
+produced by `mktime()`: accordingly `cron` takes no account of local time or
+DST. If local time is changed while waiting for the period specified by `cron`,
+at the end of the delay, clocks measuring local time will indicate an incorrect
+time.
+
+This is only an issue when running under an OS: if it is considered an error, it
+should be addressed in application code.
