@@ -259,7 +259,7 @@ async def bar(x):
         await asyncio.sleep(1)  # Pause 1s
 
 async def main():
-    tasks = [None] * 3  # For CPython compaibility must store a reference see Note
+    tasks = [None] * 3  # For CPython compaibility must store a reference see 2.2 Note
     for x in range(3):
         tasks[x] = asyncio.create_task(bar(x))
     await asyncio.sleep(10)
@@ -351,7 +351,7 @@ async def bar(x):
         await asyncio.sleep(1)  # Pause 1s
 
 async def main():
-    tasks = [None] * 3  # For CPython compaibility must store a reference see Note
+    tasks = [None] * 3  # For CPython compaibility must store a reference see 2.2 Note
     for x in range(3):
         tasks[x] = asyncio.create_task(bar(x))
     print('Tasks are running')
@@ -621,12 +621,8 @@ The following provides a discussion of the primitives.
 
 ## 3.1 Lock
 
-This describes the use of the official `Lock` primitive.
-
-This guarantees unique access to a shared resource. In the following code
-sample a `Lock` instance `lock` has been created and is passed to all tasks
-wishing to access the shared resource. Each task attempts to acquire the lock,
-pausing execution until it succeeds.
+This describes the use of the official `Lock` primitive. This guarantees unique
+access to a shared resource.
 ```python
 from asyncio import Lock
 lock = Lock()
@@ -639,7 +635,10 @@ Asynchronous method:
  `await lock.acquire()`.
 
 A task waiting on a lock may be cancelled or may be run subject to a timeout.
-The normal way to use a `Lock` is in a context manager:
+The normal way to use a `Lock` is in a context manager. In the following code
+sample a `Lock` instance `lock` has been created and is passed to all tasks
+wishing to access the shared resource. Each task attempts to acquire the lock,
+pausing execution until it succeeds.
 ```python
 import asyncio
 from asyncio import Lock
@@ -652,7 +651,7 @@ async def task(i, lock):
 
 async def main():
     lock = Lock()  # The Lock instance
-    tasks = [None] * 3  # For CPython compaibility must store a reference see Note
+    tasks = [None] * 3  # For CPython compaibility must store a reference see 2.2 Note
     for n in range(1, 4):
         tasks[n - 1] = asyncio.create_task(task(n, lock))
     await asyncio.sleep(10)
@@ -680,7 +679,7 @@ async def task(i, lock):
 
 async def main():
     lock = Lock()  # The Lock instance
-    tasks = [None] * 3  # For CPython compaibility must store a reference see Note
+    tasks = [None] * 3  # For CPython compaibility must store a reference see 2.2 Note
     for n in range(1, 4):
         tasks[n - 1] = asyncio.create_task(task(n, lock))
     await asyncio.sleep(10)
@@ -911,7 +910,7 @@ async def foo(n, sema):
 
 async def main():
     sema = Semaphore()
-    tasks = [None] * 3  # For CPython compaibility must store a reference see Note
+    tasks = [None] * 3  # For CPython compaibility must store a reference see 2.2 Note
     for num in range(3):
         tasks[num] = asyncio.create_task(foo(num, sema))
     await asyncio.sleep(2)
@@ -1204,7 +1203,7 @@ async def main():
     sw1 = asyncio.StreamWriter(UART(1, 9600), {})
     sw2 = asyncio.StreamWriter(UART(2, 1200), {})
     barrier = Barrier(3)
-    tasks = [None] * 2  # For CPython compaibility must store a reference see Note
+    tasks = [None] * 2  # For CPython compaibility must store a reference see 2.2 Note
     for n, sw in enumerate((sw1, sw2)):
         tasks[n] = asyncio.create_task(sender(barrier, sw, n + 1))
     await provider(barrier)
