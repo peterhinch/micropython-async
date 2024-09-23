@@ -627,7 +627,46 @@ This guarantees unique access to a shared resource. In the following code
 sample a `Lock` instance `lock` has been created and is passed to all tasks
 wishing to access the shared resource. Each task attempts to acquire the lock,
 pausing execution until it succeeds.
+```python
+from asyncio import Lock
+lock = Lock()
+```
+Synchronous methods:
+ * `locked` No args. Returns `True` if locked.
+ * `release` No args. Releases the lock. See note below.
+Asynchronous method:
+ * `acquire` No args. Pauses until the lock has been acquired. Use by executing
+ `await lock.acquire()`.
 
+A task waiting on a lock may be cancelled or may be run subject to a timeout.
+The normal way to use a `Lock` is in a context manager:
+```python
+import asyncio
+from asyncio import Lock
+
+async def task(i, lock):
+    while 1:
+        async with lock:
+            print("Acquired lock in task", i)
+            await asyncio.sleep(0.5)
+
+async def main():
+    lock = Lock()  # The Lock instance
+    tasks = [None] * 3  # For CPython compaibility must store a reference see Note
+    for n in range(1, 4):
+        tasks[n - 1] = asyncio.create_task(task(n, lock))
+    await asyncio.sleep(10)
+
+asyncio.run(main())  # Run for 10s
+```
+Use of a context manager is strongly recommended - otherwise an application must
+ensure that `.release` is only ever called when that same task has called
+`.locked`. Calling `.release` on an unlocked `Lock` will raise a `ValueError`.
+Calling it on a `Lock` which has been locked by another task will cause that
+second task to produce a `ValueError` when it attempts to release the `Lock` or
+when its context manager exits. Context managers avoid these issues.
+
+For the brave the following illustrates use without a CM.
 ```python
 import asyncio
 from asyncio import Lock
@@ -648,37 +687,6 @@ async def main():
 
 asyncio.run(main())  # Run for 10s
 ```
-
-Methods:
-
- * `locked` No args. Returns `True` if locked.
- * `release` No args. Releases the lock.
- * `acquire` No args. Coro which pauses until the lock has been acquired. Use
- by executing `await lock.acquire()`.
-
-A task waiting on a lock may be cancelled or may be run subject to a timeout.
-The normal way to use a `Lock` is in a context manager:
-
-```python
-import asyncio
-from asyncio import Lock
-
-async def task(i, lock):
-    while 1:
-        async with lock:
-            print("Acquired lock in task", i)
-            await asyncio.sleep(0.5)
-
-async def main():
-    lock = Lock()  # The Lock instance
-    tasks = [None] * 3  # For CPython compaibility must store a reference see Note
-    for n in range(1, 4):
-        tasks[n - 1] = asyncio.create_task(task(n, lock))
-    await asyncio.sleep(10)
-
-asyncio.run(main())  # Run for 10s
-```
-
 ###### [Contents](./TUTORIAL.md#contents)
 
 ## 3.2 Event
