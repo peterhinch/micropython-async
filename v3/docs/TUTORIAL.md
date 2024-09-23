@@ -630,6 +630,7 @@ lock = Lock()
 Synchronous methods:
  * `locked` No args. Returns `True` if locked.
  * `release` No args. Releases the lock. See note below.
+
 Asynchronous method:
  * `acquire` No args. Pauses until the lock has been acquired. Use by executing
  `await lock.acquire()`.
