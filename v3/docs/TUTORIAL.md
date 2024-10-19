@@ -1098,7 +1098,9 @@ class which allows multiple tasks to wait on it.
 
 ### 3.6.1 Querying a ThreadSafeFlag
 
-The state of a ThreadSafeFlag may be tested as follows:
+The `ThreadSafeFlag` class has no equivalent to `Event.is_set`. A synchronous
+function which returns the state of a `ThreadSafeFlag` instance may be created
+as follows:
 ```python
 import asyncio
 from select import poll, POLLIN
@@ -1109,12 +1111,12 @@ async def foo(tsf):  # Periodically set the ThreadSafeFlag
         await asyncio.sleep(1)
         tsf.set()
 
-def ready(tsf, poller):
+def ready(tsf, poller):  # Return a function which returns tsf status
     r = (tsf, POLLIN)
     poller.register(*r)
 
     def is_rdy():
-        return r in poller.ipoll(0)
+        return r in poller.ipoll(0)  # Immediate return
 
     return is_rdy
 
@@ -1136,8 +1138,11 @@ async def test():
 asyncio.run(test())
 ```
 The `ready` closure returns a nonblocking function which tests the status of a
-given flag. In the above example `.wait()` is not called until the flag has been
+passed flag. In this example `.wait()` is not called until the flag has been
 set, consequently `.wait()` returns rapidly.
+
+The `select.poll` mechanism works because `ThreadSafeFlag` is subclassed from
+`io.IOBase` and has an `ioctl` method.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
