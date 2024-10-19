@@ -1019,8 +1019,9 @@ running in another thread or on another core. It operates in a similar way to
  * It is self-clearing.
  * Only one task may wait on the flag.
 
-Synchronous method:
+Synchronous methods:
  * `set` Triggers the flag. Like issuing `set` then `clear` to an `Event`.
+ * `clear` Unconditionally clear down the flag.
 
 Asynchronous method:
  * `wait` Wait for the flag to be set. If the flag is already set then it
