@@ -1,6 +1,6 @@
 # encoder.py Asynchronous driver for incremental quadrature encoder.
 
-# Copyright (c) 2021-2023 Peter Hinch
+# Copyright (c) 2021-2024 Peter Hinch
 # Released under the MIT License (MIT) - see LICENSE file
 
 # For an explanation of the design please see
@@ -17,19 +17,10 @@
 # Raul Kompaß (@rkompass) for suggesting a bugfix here
 # https://forum.micropython.org/viewtopic.php?f=15&t=9929&p=66175#p66156
 
+# Now uses ThreadSafeFlag.clear()
+
 import asyncio
 from machine import Pin
-from select import poll, POLLIN
-
-
-def ready(tsf, poller):
-    r = (tsf, POLLIN)
-    poller.register(*r)
-
-    def is_rdy():
-        return r in poller.ipoll(0)
-
-    return is_rdy
 
 
 class Encoder:
@@ -58,7 +49,6 @@ class Encoder:
         if ((vmin is not None) and v < vmin) or ((vmax is not None) and v > vmax):
             raise ValueError("Incompatible args: must have vmin <= v <= vmax")
         self._tsf = asyncio.ThreadSafeFlag()
-        self._tsf_ready = ready(self._tsf, poll())  # Create a ready function
         trig = Pin.IRQ_RISING | Pin.IRQ_FALLING
         try:
             xirq = pin_x.irq(trigger=trig, handler=self._x_cb, hard=True)
@@ -90,10 +80,9 @@ class Encoder:
         plcv = pcv  # Previous value after limits applied
         delay = self.delay
         while True:
-            if delay > 0 and self._tsf_ready():  # Ensure ThreadSafeFlag is clear
-                await self._tsf.wait()
-            await self._tsf.wait()
-            await asyncio.sleep_ms(delay)  # Wait for motion to stop.
+            self._tsf.clear()
+            await self._tsf.wait()  # Wait for an edge. A stopped encoder waits here.
+            await asyncio.sleep_ms(delay)  # Optional rate limit for callback/trig.
             hv = self._v  # Sample hardware (atomic read).
             if hv == pv:  # A change happened but was negated before
                 continue  # this got scheduled. Nothing to do.
