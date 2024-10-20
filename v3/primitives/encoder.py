@@ -104,7 +104,7 @@ class Encoder:
     def __aiter__(self):
         return self
 
-    def __anext__(self):
+    async def __anext__(self):
         await self._trig.wait()
         self._trig.clear()
         return self._cv
