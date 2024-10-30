@@ -6,7 +6,9 @@
 # API differs from CPython
 # Uses pre-allocated ring buffer: can use list or array
 # Asynchronous iterator allowing consumer to use async for
-# put_nowait QueueFull exception can be ignored allowing oldest data to be discarded.
+# put_nowait QueueFull exception can be ignored allowing oldest data to be discarded -
+# this is not thread safe, however the class as a whole is not TS because of its
+# use of Event objects.
 
 import asyncio
 

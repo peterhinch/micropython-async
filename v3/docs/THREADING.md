@@ -340,7 +340,7 @@ instances are required.
 Attributes of `ThreadSafeQueue`:
  1. It is of fixed capacity defined on instantiation.
  2. It uses a pre-allocated buffer of user selectable type (`Queue` uses a
- dynaically allocated `list`).
+ dynamically allocated `list`).
  3. It is an asynchronous iterator allowing retrieval with `async for`.
  4. It provides synchronous "put" and "get" methods. If the queue becomes full
  (put) or empty (get), behaviour is user definable. The method either blocks or

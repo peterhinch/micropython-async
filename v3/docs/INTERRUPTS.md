@@ -184,17 +184,69 @@ async def process_data():
         await tsf.wait()
         # Process the data here before waiting for the next interrupt
 ```
+## 3.4 micropython.RingIO
 
-## 3.4 Thread Safe Classes
+This is a byte-oriented circular buffer [documented here]
+(https://docs.micropython.org/en/latest/library/micropython.html#micropython.RingIO),
+which provides an efficient way to return data from an ISR to an `asyncio` task.
+It is implemented in C so performance is high, and supports stream I/O. The
+following is a usage example:
+```py
+import asyncio
+from machine import Timer
+import micropython
+micropython.alloc_emergency_exception_buf(100)
+
+imu = SomeDevice()  # Fictional hardware IMU device
+
+FRAMESIZE = 8  # Count, x, y, z accel
+BUFSIZE = 200  # No. of records. Size allows for up to 200ms of asyncio latency.
+rio = micropython.RingIO(FRAMESIZE * BUFSIZE + 1)  # RingIO requires an extra byte
+count = 0x4000  # Bit14 is "Start of frame" marker. Low bits are a frame counter.
+
+def cb(_):  # Timer callback. Runs at 1KHz.
+    global count  # Frame count
+    imu.get_accel_irq()  # Trigger the device
+    rio.write(chr(count >> 8))
+    rio.write(chr(count & 0xff))
+    rio.write(imu.accel.ix)  # Device returns bytes objects (length 2)
+    rio.write(imu.accel.iy)
+    rio.write(imu.accel.iz)
+    count += 1
+
+async def main(nrecs):
+    t = Timer(freq=1_000, callback=cb)
+    sreader = asyncio.StreamReader(rio)
+    rpb = 100  # Records per block
+    blocksize = FRAMESIZE * rpb
+    with open('/sd/imudata', 'wb') as f:
+        swriter = asyncio.StreamWriter(f, {})
+        while nrecs:
+            data = await sreader.readexactly(blocksize)
+            swriter.write(data)
+            await swriter.drain()
+            nrecs -= rpb
+    t.deinit()
+
+asyncio.run(main(1_000))
+```
+In this example data is acquired at a timer-controlled rate of 1KHz, with eight
+bytes being written to the `RingIO` every tick. The `main()` task reads the data
+stream and writes it out to a file. Similar code was tested on a Pyboard 1.1.
+
+## 3.5 Other Thread Safe Classes
 
 Other classes capable of being used to interface an ISR with `asyncio` are
 discussed [here](https://github.com/peterhinch/micropython-async/blob/master/v3/docs/THREADING.md),
-notably the `ThreadSafeQueue`.
+notably the `ThreadSafeQueue`. This ring buffer allows entries to be objects
+other than bytes. It supports the asynchronous iterator protocol (rather than
+stream I/O) and is written in Python.
 
 # 4. Conclusion
 
-The key take-away is that `ThreadSafeFlag` is the only official `asyncio`
-construct which can safely be used in an ISR context. Unofficial "thread
-safe" classes may also be used.
+The `ThreadSafeFlag` and `RingIO` classes are the official `asyncio` constructs
+which can safely be used in an ISR context. Unofficial "thread safe" classes may
+also be used. Beware of classes such as `Queue` and `RingbufQueue` which are not
+thread safe.
 
 ###### [Main tutorial](./TUTORIAL.md#contents)
