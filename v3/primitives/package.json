@@ -3,6 +3,7 @@
     ["primitives/__init__.py", "github:peterhinch/micropython-async/v3/primitives/__init__.py"],
     ["primitives/aadc.py", "github:peterhinch/micropython-async/v3/primitives/aadc.py"],
     ["primitives/barrier.py", "github:peterhinch/micropython-async/v3/primitives/barrier.py"],
+    ["primitives/broker.py", "github:peterhinch/micropython-async/v3/primitives/broker.py"],
     ["primitives/condition.py", "github:peterhinch/micropython-async/v3/primitives/condition.py"],
     ["primitives/delay_ms.py", "github:peterhinch/micropython-async/v3/primitives/delay_ms.py"],
     ["primitives/encoder.py", "github:peterhinch/micropython-async/v3/primitives/encoder.py"],

@@ -26,11 +26,15 @@ MicroPython's `asyncio` when used in a microcontroller context.
   6.1 [Encoder class](./DRIVERS.md#61-encoder-class)  
  7. [Ringbuf Queue](./DRIVERS.md#7-ringbuf-queue) A MicroPython optimised queue primitive.  
  8. [Delay_ms class](./DRIVERS.md#8-delay_ms-class) A flexible retriggerable delay with callback or Event interface.  
- 9. [Additional functions](./DRIVERS.md#9-additional-functions)  
-  9.1 [launch](./DRIVERS.md#91-launch) Run a coro or callback interchangeably.  
-  9.2 [set_global_exception](./DRIVERS.md#92-set_global_exception) Simplify debugging with a global exception handler.  
+ 9. [Message Broker](./DRIVERS.md#9-message-broker) A flexible means of messaging between
+ tasks.  
+  9.1 [Further examples](./DRIVERS.md#91-further-examples)  
+  9.2 [User agents](./DRIVERS.md#92-user-agents)  
+ 10. [Additional functions](./DRIVERS.md#10-additional-functions)  
+  10.1 [launch](./DRIVERS.md#101-launch) Run a coro or callback interchangeably.  
+  10.2 [set_global_exception](./DRIVERS.md#102-set_global_exception) Simplify debugging with a global exception handler.  
 
-###### [Tutorial](./TUTORIAL.md#contents)
+###### [asyncio Tutorial](./TUTORIAL.md#contents)
 
 # 1. Introduction
 
@@ -1126,9 +1130,116 @@ finally:
 ```
 ###### [Contents](./DRIVERS.md#0-contents)
 
-# 9. Additional functions
+# 9. Message Broker
 
-## 9.1 Launch
+This is under development: please check for updates.
+
+The `Broker` class provides a flexible means of messaging between running tasks.
+It uses a publish-subscribe model (akin to MQTT) whereby the transmitting task
+publishes to a topic. Any tasks subscribed to that topic will receive the
+message. This enables one to one, one to many or many to many messaging.
+
+A task subscribes to a topic with an `agent`. This is stored by the broker. When
+the broker publishes a message, the `agent` of each task subscribed to its topic
+will be triggered. In the simplest case the `agent` is a `Queue` instance: the
+broker puts the topic and message onto the subscriber's queue for retrieval.
+
+More advanced agents can perform actions in response to a message, such as
+calling a function or launching a `task`.
+
+Broker methods. All are synchronous, constructor has no args:
+* `subscribe(topic, agent)` Passed `agent` will be triggered by messages with a
+matching `topic`.
+* `unsubscribe(topic, agent)` The `agent` will stop being triggered.
+* `publish(topic, message)` All `agent` instances subscribed to `topic` will be
+triggered, receiving `topic` and `message` args. Returns `True` unless a `Queue`
+agent has become full, in which case data for that queue has been lost.
+
+The `topic` arg is typically a string but may be any hashable object. A
+`message` is an arbitrary Python object. An `agent` may be any of the following:
+* `Queue` When a message is received receives 2-tuple `(topic, message)`.
+* `function` Called when a message is received. Gets 2 args, topic and message.
+* `bound method` Called when a message is received. Gets 2 args, topic and
+message.
+* `coroutine` Task created when a message is received with 2 args, topic and
+message.
+* `bound coroutine` Task created when a message is received with 2 args, topic
+and message.
+* Instance of a user class. See user agents below.
+* `Event` Set when a message is received.
+
+Note that synchronous `agent` instances must run to completion quickly otherwise
+the `publish` method will be slowed.
+
+The following is a simple example:
+```py
+import asyncio
+from primitives import Broker, Queue
+
+broker = Broker()
+queue = Queue()
+async def sender(t):
+    for x in range(t):
+        await asyncio.sleep(1)
+        broker.publish("foo_topic", f"test {x}")
+
+async def main():
+    broker.subscribe("foo_topic", queue)
+    n = 10
+    asyncio.create_task(sender(n))
+    print("Letting queue part-fill")
+    await asyncio.sleep(5)
+    for _ in range(n):
+        topic, message = await queue.get()
+        print(topic, message)
+
+asyncio.run(main())
+```
+## 9.1 Further examples
+
+An interesting application is to extend MQTT into the Python code
+(see [mqtt_as](https://github.com/peterhinch/micropython-mqtt/tree/master)).
+This is as simple as:
+```py
+async def messages(client):
+    async for topic, msg, retained in client.queue:
+        broker.publish(topic.decode(), msg.decode())
+```
+Assuming the MQTT client is subscribed to multiple topics, message strings are
+directed to individual tasks each supporting one topic.
+
+## 9.2 User agents
+
+An `agent` can be an instance of a user class. The class must be a subclass of
+`Agent`, and it must support a synchronous `.put` method. The latter takes two
+args, being `topic` and `message`. It should run to completion quickly.
+
+```py
+import asyncio
+from primitives import Broker, Agent
+
+broker = Broker()
+class MyAgent(Agent):
+    def put(sef, topic, message):
+        print(f"User agent. Topic: {topic} Message: {message}")
+
+async def sender(t):
+    for x in range(t):
+        await asyncio.sleep(1)
+        broker.publish("foo_topic", f"test {x}")
+
+async def main():
+    broker.subscribe("foo_topic", MyAgent())
+    await sender(10)
+
+asyncio.run(main())
+```
+
+###### [Contents](./DRIVERS.md#0-contents)
+
+# 10. Additional functions
+
+## 10.1 Launch
 
 Import as follows:
 ```python
@@ -1140,7 +1251,7 @@ runs it and returns the callback's return value. If a coro is passed, it is
 converted to a `task` and run asynchronously. The return value is the `task`
 instance. A usage example is in `primitives/switch.py`.
 
-## 9.2 set_global_exception
+## 10.2 set_global_exception
 
 Import as follows:
 ```python

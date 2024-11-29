@@ -53,6 +53,8 @@ _attrs = {
     "RingbufQueue": "ringbuf_queue",
     "Keyboard": "sw_array",
     "SwArray": "sw_array",
+    "Broker": "broker",
+    "Agent": "broker",
 }
 
 # Copied from uasyncio.__init__.py
