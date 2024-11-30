@@ -1132,7 +1132,8 @@ finally:
 
 # 9. Message Broker
 
-This is under development: please check for updates.
+This is under development: please check for updates. See
+[code](https://github.com/peterhinch/micropython-async/blob/master/v3/primitives/broker.py).
 
 The `Broker` class provides a flexible means of messaging between running tasks.
 It uses a publish-subscribe model (akin to MQTT) whereby the transmitting task
@@ -1153,7 +1154,8 @@ matching `topic`.
 * `unsubscribe(topic, agent)` The `agent` will stop being triggered.
 * `publish(topic, message)` All `agent` instances subscribed to `topic` will be
 triggered, receiving `topic` and `message` args. Returns `True` unless a `Queue`
-agent has become full, in which case data for that queue has been lost.
+agent has become full. A `False` value indicates that at least one message has
+been lost.
 
 The `topic` arg is typically a string but may be any hashable object. A
 `message` is an arbitrary Python object. An `agent` may be any of the following:
