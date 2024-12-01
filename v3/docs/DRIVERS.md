@@ -29,7 +29,8 @@ MicroPython's `asyncio` when used in a microcontroller context.
  9. [Message Broker](./DRIVERS.md#9-message-broker) A flexible means of messaging between
  tasks.  
   9.1 [Further examples](./DRIVERS.md#91-further-examples)  
-  9.2 [User agents](./DRIVERS.md#92-user-agents)  
+  9.2 [User agents](./DRIVERS.md#92-user-agents) User defined Agent classes.  
+  9.3 [Notes](./DRIVERS.md#93-notes)  
  10. [Additional functions](./DRIVERS.md#10-additional-functions)  
   10.1 [launch](./DRIVERS.md#101-launch) Run a coro or callback interchangeably.  
   10.2 [set_global_exception](./DRIVERS.md#102-set_global_exception) Simplify debugging with a global exception handler.  
@@ -1027,6 +1028,9 @@ def add_item(q, data):
 
 # 8. Delay_ms class
 
+```python
+from primitives import Delay_ms  # delay_ms.py
+```
 This implements the software equivalent of a retriggerable monostable or a
 watchdog timer. It has an internal boolean `running` state. When instantiated
 the `Delay_ms` instance does nothing, with `running` `False` until triggered.
@@ -1132,15 +1136,16 @@ finally:
 
 # 9. Message Broker
 
-This is under development: please check for updates. See
-[code](https://github.com/peterhinch/micropython-async/blob/master/v3/primitives/broker.py).
-```py
-from primitives import Broker
+This is under development: please check for updates.
+
+```python
+from primitives import Broker  # broker.py
 ```
 The `Broker` class provides a flexible means of messaging between running tasks.
 It uses a publish-subscribe model (akin to MQTT) whereby the transmitting task
 publishes to a topic. Any tasks subscribed to that topic will receive the
-message. This enables one to one, one to many or many to many messaging.
+message. This enables one to one, one to many, many to one or many to many
+messaging.
 
 A task subscribes to a topic with an `agent`. This is stored by the broker. When
 the broker publishes a message, the `agent` of each task subscribed to its topic
@@ -1148,34 +1153,53 @@ will be triggered. In the simplest case the `agent` is a `Queue` instance: the
 broker puts the topic and message onto the subscriber's queue for retrieval.
 
 More advanced agents can perform actions in response to a message, such as
-calling a function or launching a `task`.
+calling a function, launching a `task` or lighting an LED.
 
-Broker methods. All are synchronous, constructor has no args:
-* `subscribe(topic, agent)` Passed `agent` will be triggered by messages with a
-matching `topic`.
-* `unsubscribe(topic, agent)` The `agent` will stop being triggered.
+#### Broker methods
+
+All are synchronous. They are not threadsafe so should not be called from a hard
+ISR or from another thread. The constructor has no args.
+* `subscribe(topic, agent, *args)` Passed `agent` will be triggered by messages
+with a matching `topic`. Any additional args will be passed to the `agent` when
+it is triggered.
+* `unsubscribe(topic, agent, *args)` The `agent` will stop being triggered. If
+args were passed on subscription, the same args must be passed.
 * `publish(topic, message)` All `agent` instances subscribed to `topic` will be
-triggered, receiving `topic` and `message` args. The method is not threadsafe;
-it should not be called from a hard ISR or from another thread.
+triggered, receiving `topic` and `message` plus any further args that were
+passed to `subscribe`.
 
 The `topic` arg is typically a string but may be any hashable object. A
-`message` is an arbitrary Python object. An `agent` may be any of the following:
-* `Queue` When a message is received receives 2-tuple `(topic, message)`.
-* `RingbufQueue` When a message is received receives 2-tuple `(topic, message)`.
-* `function` Called when a message is received. Gets 2 args, topic and message.
-* `bound method` Called when a message is received. Gets 2 args, topic and
-message.
-* `coroutine` Task created when a message is received with 2 args, topic and
-message.
-* `bound coroutine` Task created when a message is received with 2 args, topic
-and message.
-* Instance of a user class. See user agents below.
+`message` is an arbitrary Python object.
+
+#### Agent types
+
+An `agent` may be any of the following:
+
+* `Queue` When a message is received it receives 2-tuple `(topic, message)`. If
+extra args were passed on subscription the queue receives a 3-tuple.
+`(topic, message, (args...))`.
+* `RingbufQueue` When a message is received it receives 2-tuple `(topic, message)`.
+If extra args were passed on subscription it receives a 3-tuple,
+`(topic, message, (args...))`.
+* `function` Called when a message is received. Args: topic, message plus any
+further args.
+* `bound method` Called when a message is received. Args: topic, message plus any
+further args.
+* `coroutine` Converted to a `task` when a message is received. Args: topic,
+message plus any further args.
+* `bound coroutine`  Converted to a `task` when a message is received. Args: topic,
+message plus any further args.
+* `user_agent` Instance of a user class. See user agents below.
 * `Event` Set when a message is received.
 
 Note that synchronous `agent` instances must run to completion quickly otherwise
 the `publish` method will be slowed.
 
-The following is a simple example:
+#### Broker class variable
+
+* `Verbose=True` Enables printing of debug messages.
+
+#### example
 ```py
 import asyncio
 from primitives import Broker, Queue
@@ -1212,11 +1236,43 @@ async def messages(client):
 Assuming the MQTT client is subscribed to multiple topics, message strings are
 directed to individual tasks each supporting one topic.
 
+The following illustrates a use case for `agent` args.
+```py
+import asyncio
+from primitives import Broker
+from machine import Pin
+red = Pin("A13", Pin.OUT, value=0)  # Pin nos. for Pyboard V1.1
+green = Pin("A14", Pin.OUT, value=0)
+broker = Broker()
+
+async def flash():
+    broker.publish("led", 1)
+    await asyncio.sleep(1)
+    broker.publish("led", 0)
+
+def recv(topic, message, led):
+    led(message)  # Light or extinguish an LED
+
+async def main():
+    broker.subscribe("led", recv, red)
+    broker.subscribe("led", recv, green)
+    for _ in range(10):
+        await flash()
+        await asyncio.sleep(1)
+    broker.unsubscribe("led", recv, green)  # Arg(s) must be passed
+    for _ in range(3):
+        await flash()
+        await asyncio.sleep(1)
+
+asyncio.run(main())
+```
+
 ## 9.2 User agents
 
 An `agent` can be an instance of a user class. The class must be a subclass of
-`Agent`, and it must support a synchronous `.put` method. The latter takes two
-args, being `topic` and `message`. It should run to completion quickly.
+`Agent`, and it must support a synchronous `.put` method. Arguments are `topic`
+and `message`, followed by any further args passed on subscription. The method
+should run to completion quickly.
 
 ```py
 import asyncio
@@ -1224,8 +1280,8 @@ from primitives import Broker, Agent
 
 broker = Broker()
 class MyAgent(Agent):
-    def put(sef, topic, message):
-        print(f"User agent. Topic: {topic} Message: {message}")
+    def put(sef, topic, message, arg):
+        print(f"User agent. Topic: {topic} Message: {message} Arg: {arg}")
 
 async def sender(t):
     for x in range(t):
@@ -1233,11 +1289,47 @@ async def sender(t):
         broker.publish("foo_topic", f"test {x}")
 
 async def main():
-    broker.subscribe("foo_topic", MyAgent())
+    broker.subscribe("foo_topic", MyAgent(), 42)
     await sender(10)
 
 asyncio.run(main())
 ```
+## 9.3 Notes
+
+#### The publish/subscribe model
+
+As in the real world publication carries no guarantee of reception. If at the
+time of publication there are no tasks with subscribed `agent` instances, the
+message will silently be lost.
+
+#### agent arguments
+
+Arguments must be hashable objects. Mutable objects such as lists and
+dictionaries are not permitted. If an object can be added to a `set` it is
+valid. In general, interfaces such as `Pin` instances are OK.
+
+#### agent uniqueness
+
+An `agent` can be subscribed to multiple `topic`s. An `agent` may be subscribed
+to a `topic` multiple times only if each instance has different arguments.
+
+#### queues
+
+If a message causes a queue to fill, a message will silently be lost. It is the
+responsibility of the subscriber to avoid this. In the case of a `Queue`
+instance the lost message is the one causing the overflow. In the case of
+`RingbufQueue` the oldest message in the queue is discarded. In some
+applications this behaviour is preferable.
+
+#### exceptions
+
+An instance of an `agent` objects is owned by a subscribing tasks but is
+executed by a publishing task. If a function used as an `agent` throws an
+exception, the traceback will point to a `Broker.publish` call.
+
+The `Broker` class does not throw exceptions. There are a number of non-fatal
+conditions which can occur such as a queue overflow or an attempt to unsubscribe
+an `agent` twice. The `Broker` will report these if `Broker.Verboase=True`.
 
 ###### [Contents](./DRIVERS.md#0-contents)
 

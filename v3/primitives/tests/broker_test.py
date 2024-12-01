@@ -39,9 +39,9 @@ async def event_test():
 
 
 class TestClass:
-    async def fetch_data(self, topic, message):
+    async def fetch_data(self, topic, message, arg1, arg2):
         await asyncio.sleep_ms(100)
-        print("bound coro", topic, message)
+        print("bound coro", topic, message, arg1, arg2)
 
     def get_data(self, topic, message):
         print("bound method", topic, message)
@@ -53,16 +53,21 @@ async def print_queue(q):
         print(topic, message)
 
 
+async def print_ringbuf_q(q):
+    async for topic, message, args in q:
+        print(topic, message, args)
+
+
 async def main():
     tc = TestClass()
     q = Queue(10)
     rq = RingbufQueue(10)
     print("Subscribing Event, coroutine, Queue, RingbufQueue and bound coroutine.")
-    broker.subscribe("foo_topic", tc.fetch_data)  # Bound coroutine
+    broker.subscribe("foo_topic", tc.fetch_data, 1, 42)  # Bound coroutine
     broker.subscribe("bar_topic", subs)  # Coroutine
     broker.subscribe("bar_topic", event)
     broker.subscribe("foo_topic", q)
-    broker.subscribe("bar_topic", rq)
+    broker.subscribe("bar_topic", rq, "args", "added")
 
     asyncio.create_task(test(30))  # Publish to topics for 30s
     asyncio.create_task(event_test())
@@ -83,7 +88,7 @@ async def main():
     broker.unsubscribe("bar_topic", func)
     print()
     print("Unsubscribing bound coroutine")
-    broker.unsubscribe("foo_topic", tc.fetch_data)  # Async method
+    broker.unsubscribe("foo_topic", tc.fetch_data, 1, 42)  # Async method
     print()
     print("Subscribing method")
     broker.subscribe("foo_topic", tc.get_data)  # Sync method
@@ -91,16 +96,21 @@ async def main():
     print()
     print("Unsubscribing method")
     broker.unsubscribe("foo_topic", tc.get_data)  # Async method
-    print("Pause 5s")
-    await asyncio.sleep(5)
+    # print("Pause 5s")
+    # await asyncio.sleep(5)
     print("Retrieving foo_topic messages from Queue")
     try:
         await asyncio.wait_for(print_queue(q), 5)
     except asyncio.TimeoutError:
         print("Timeout")
     print("Retrieving bar_topic messages from RingbufQueue")
-    async for topic, message in rq:
-        print(topic, message)
+    try:
+        await asyncio.wait_for(print_ringbuf_q(rq), 5)
+    except asyncio.TimeoutError:
+        print("Timeout")
+    print("Check error on invalid unsubscribe")
+    broker.unsubscribe("rats", "more rats")  # Invalid topic
+    broker.unsubscribe("foo_topic", "rats")  # Invalid agent
 
 
 asyncio.run(main())

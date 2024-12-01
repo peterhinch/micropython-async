@@ -15,36 +15,45 @@ class Agent:
 
 
 class Broker(dict):
-    def subscribe(self, topic, agent):
-        if not self.get(topic, False):
-            self[topic] = {agent}
-        else:
-            self[topic].add(agent)
+    Verbose = True
 
-    def unsubscribe(self, topic, agent):
-        try:
-            self[topic].remove(agent)
+    def subscribe(self, topic, agent, *args):
+        aa = (agent, args)
+        if not (t := self.get(topic, False)):
+            self[topic] = {aa}
+        else:
+            if aa in t and Broker.Verbose:
+                print(f"Duplicate agent {aa} in topic {topic}.")
+            t.add(aa)
+
+    def unsubscribe(self, topic, agent, *args):
+        if topic in self:
+            if (aa := (agent, args)) in self[topic]:
+                self[topic].remove(aa)
+            elif Broker.Verbose:
+                print(f"Unsubscribe agent {aa} from topic {topic} fail: agent not subscribed.")
             if len(self[topic]) == 0:
                 del self[topic]
-        except KeyError:
-            pass  # Topic already removed
+        elif Broker.Verbose:
+            print(f"Unsubscribe topic {topic} fail: topic not subscribed.")
 
     def publish(self, topic, message):
         agents = self.get(topic, [])
-        for agent in agents:
+        for agent, args in agents:
             if isinstance(agent, asyncio.Event):
                 agent.set()
                 continue
             if isinstance(agent, Agent):  # User class
-                agent.put(topic, message)  # Must support .put
+                agent.put(topic, message, *args)  # Must support .put
                 continue
             if isinstance(agent, Queue) or isinstance(agent, RingbufQueue):
+                t = (topic, message, args)
                 try:
-                    agent.put_nowait((topic, message))
-                except Exception:  # TODO
-                    pass
+                    agent.put_nowait(t if args else t[:2])
+                except Exception:  # Queue discards current message. RingbufQueue discards oldest
+                    Broker.verbose and print(f"Message lost topic {topic} message {message}")
                 continue
             # agent is function, method, coroutine or bound coroutine
-            res = agent(topic, message)
+            res = agent(topic, message, *args)
             if isinstance(res, type_coro):
                 asyncio.create_task(res)
