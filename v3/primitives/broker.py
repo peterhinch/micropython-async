@@ -7,7 +7,7 @@
 # https://www.joeltok.com/posts/2021-03-building-an-event-bus-in-python/
 
 import asyncio
-from primitives import Queue, type_coro
+from primitives import Queue, RingbufQueue, type_coro
 
 
 class Agent:
@@ -31,7 +31,6 @@ class Broker(dict):
 
     def publish(self, topic, message):
         agents = self.get(topic, [])
-        result = True
         for agent in agents:
             if isinstance(agent, asyncio.Event):
                 agent.set()
@@ -39,14 +38,13 @@ class Broker(dict):
             if isinstance(agent, Agent):  # User class
                 agent.put(topic, message)  # Must support .put
                 continue
-            if isinstance(agent, Queue):
-                if agent.full():
-                    result = False
-                else:
+            if isinstance(agent, Queue) or isinstance(agent, RingbufQueue):
+                try:
                     agent.put_nowait((topic, message))
+                except Exception:  # TODO
+                    pass
                 continue
             # agent is function, method, coroutine or bound coroutine
             res = agent(topic, message)
             if isinstance(res, type_coro):
                 asyncio.create_task(res)
-        return result

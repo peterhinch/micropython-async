@@ -3,7 +3,7 @@
 # import primitives.tests.broker_test
 
 import asyncio
-from primitives import Broker, Queue
+from primitives import Broker, Queue, RingbufQueue
 
 broker = Broker()
 
@@ -56,11 +56,13 @@ async def print_queue(q):
 async def main():
     tc = TestClass()
     q = Queue(10)
-    print("Subscribing Event, coroutine, Queue and bound coroutine.")
+    rq = RingbufQueue(10)
+    print("Subscribing Event, coroutine, Queue, RingbufQueue and bound coroutine.")
     broker.subscribe("foo_topic", tc.fetch_data)  # Bound coroutine
     broker.subscribe("bar_topic", subs)  # Coroutine
     broker.subscribe("bar_topic", event)
     broker.subscribe("foo_topic", q)
+    broker.subscribe("bar_topic", rq)
 
     asyncio.create_task(test(30))  # Publish to topics for 30s
     asyncio.create_task(event_test())
@@ -91,11 +93,14 @@ async def main():
     broker.unsubscribe("foo_topic", tc.get_data)  # Async method
     print("Pause 5s")
     await asyncio.sleep(5)
-    print("Retrieving foo_topic messages from queue")
+    print("Retrieving foo_topic messages from Queue")
     try:
         await asyncio.wait_for(print_queue(q), 5)
     except asyncio.TimeoutError:
-        print("Done")
+        print("Timeout")
+    print("Retrieving bar_topic messages from RingbufQueue")
+    async for topic, message in rq:
+        print(topic, message)
 
 
 asyncio.run(main())

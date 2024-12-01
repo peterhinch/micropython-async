@@ -1134,7 +1134,9 @@ finally:
 
 This is under development: please check for updates. See
 [code](https://github.com/peterhinch/micropython-async/blob/master/v3/primitives/broker.py).
-
+```py
+from primitives import Broker
+```
 The `Broker` class provides a flexible means of messaging between running tasks.
 It uses a publish-subscribe model (akin to MQTT) whereby the transmitting task
 publishes to a topic. Any tasks subscribed to that topic will receive the
@@ -1153,13 +1155,13 @@ Broker methods. All are synchronous, constructor has no args:
 matching `topic`.
 * `unsubscribe(topic, agent)` The `agent` will stop being triggered.
 * `publish(topic, message)` All `agent` instances subscribed to `topic` will be
-triggered, receiving `topic` and `message` args. Returns `True` unless a `Queue`
-agent has become full. A `False` value indicates that at least one message has
-been lost.
+triggered, receiving `topic` and `message` args. The method is not threadsafe;
+it should not be called from a hard ISR or from another thread.
 
 The `topic` arg is typically a string but may be any hashable object. A
 `message` is an arbitrary Python object. An `agent` may be any of the following:
 * `Queue` When a message is received receives 2-tuple `(topic, message)`.
+* `RingbufQueue` When a message is received receives 2-tuple `(topic, message)`.
 * `function` Called when a message is received. Gets 2 args, topic and message.
 * `bound method` Called when a message is received. Gets 2 args, topic and
 message.
@@ -1179,7 +1181,7 @@ import asyncio
 from primitives import Broker, Queue
 
 broker = Broker()
-queue = Queue()
+queue = Queue()  # Or (e.g. RingbufQueue(20))
 async def sender(t):
     for x in range(t):
         await asyncio.sleep(1)
