@@ -59,6 +59,7 @@ async def print_ringbuf_q(q):
 
 
 async def main():
+    Broker.Verbose = False  # Suppress q full messages
     tc = TestClass()
     q = Queue(10)
     rq = RingbufQueue(10)
@@ -96,8 +97,6 @@ async def main():
     print()
     print("Unsubscribing method")
     broker.unsubscribe("foo_topic", tc.get_data)  # Async method
-    # print("Pause 5s")
-    # await asyncio.sleep(5)
     print("Retrieving foo_topic messages from Queue")
     try:
         await asyncio.wait_for(print_queue(q), 5)
@@ -108,9 +107,19 @@ async def main():
         await asyncio.wait_for(print_ringbuf_q(rq), 5)
     except asyncio.TimeoutError:
         print("Timeout")
-    print("Check error on invalid unsubscribe")
+    print()
+    print("*** Testing error reports and exception ***")
+    print()
+    Broker.Verbose = True
+    print("*** Check error on invalid unsubscribe ***")
     broker.unsubscribe("rats", "more rats")  # Invalid topic
     broker.unsubscribe("foo_topic", "rats")  # Invalid agent
+    print("*** Check exception on invalid subscribe ***")
+    try:
+        broker.subscribe("foo_topic", "rubbish_agent")
+        print("Test FAIL")
+    except ValueError:
+        print("Test PASS")
 
 
 asyncio.run(main())

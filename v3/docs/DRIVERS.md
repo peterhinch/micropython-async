@@ -1173,14 +1173,10 @@ The `topic` arg is typically a string but may be any hashable object. A
 
 #### Agent types
 
-An `agent` may be any of the following:
+An `agent` may be an instance of any of the following:
 
-* `Queue` When a message is received it receives 2-tuple `(topic, message)`. If
-extra args were passed on subscription the queue receives a 3-tuple.
-`(topic, message, (args...))`.
-* `RingbufQueue` When a message is received it receives 2-tuple `(topic, message)`.
-If extra args were passed on subscription it receives a 3-tuple,
-`(topic, message, (args...))`.
+* `RingbufQueue` Received messages are queued as a 2-tuple `(topic, message)`.
+* `Queue` Received messages are queued as a 2-tuple `(topic, message)`.
 * `function` Called when a message is received. Args: topic, message plus any
 further args.
 * `bound method` Called when a message is received. Args: topic, message plus any
@@ -1193,7 +1189,8 @@ message plus any further args.
 * `Event` Set when a message is received.
 
 Note that synchronous `agent` instances must run to completion quickly otherwise
-the `publish` method will be slowed.
+the `publish` method will be slowed. See [Notes](./DRIVERS.md#93-notes) for
+further details on queue behaviour.
 
 #### Broker class variable
 
@@ -1202,24 +1199,25 @@ the `publish` method will be slowed.
 #### example
 ```py
 import asyncio
-from primitives import Broker, Queue
+from primitives import Broker, RingbufQueue
 
 broker = Broker()
-queue = Queue()  # Or (e.g. RingbufQueue(20))
+queue = RingbufQueue(20)
 async def sender(t):
     for x in range(t):
         await asyncio.sleep(1)
         broker.publish("foo_topic", f"test {x}")
 
+async def receiver():
+    async for topic, message in queue:
+        print(topic, message)
+
 async def main():
     broker.subscribe("foo_topic", queue)
-    n = 10
-    asyncio.create_task(sender(n))
-    print("Letting queue part-fill")
-    await asyncio.sleep(5)
-    for _ in range(n):
-        topic, message = await queue.get()
-        print(topic, message)
+    rx = asyncio.create_task(receiver())
+    await sender(10)
+    await asyncio.sleep(2)
+    rx.cancel()
 
 asyncio.run(main())
 ```
@@ -1236,7 +1234,8 @@ async def messages(client):
 Assuming the MQTT client is subscribed to multiple topics, message strings are
 directed to individual tasks each supporting one topic.
 
-The following illustrates a use case for `agent` args.
+The following illustrates a use case for passing args to an `agent` (pin nos.
+are for Pyoard 1.1).
 ```py
 import asyncio
 from primitives import Broker
@@ -1319,7 +1318,12 @@ If a message causes a queue to fill, a message will silently be lost. It is the
 responsibility of the subscriber to avoid this. In the case of a `Queue`
 instance the lost message is the one causing the overflow. In the case of
 `RingbufQueue` the oldest message in the queue is discarded. In some
-applications this behaviour is preferable.
+applications this behaviour is preferable. In general `RingbufQueue` is
+preferred as it is optimised for microcontroller use and supports retrieval by
+an asynchronous iterator.
+
+If either queue type is subscribed with args, publications will queued as a
+3-tuple `(topic, message, (args...))`. There is no obvious use case for this.
 
 #### exceptions
 
@@ -1327,9 +1331,10 @@ An instance of an `agent` objects is owned by a subscribing tasks but is
 executed by a publishing task. If a function used as an `agent` throws an
 exception, the traceback will point to a `Broker.publish` call.
 
-The `Broker` class does not throw exceptions. There are a number of non-fatal
-conditions which can occur such as a queue overflow or an attempt to unsubscribe
-an `agent` twice. The `Broker` will report these if `Broker.Verboase=True`.
+The `Broker` class throws a `ValueError` if `.subscribe` is called with an
+invalid `agent` type. There are a number of non-fatal conditions which can occur
+such as a queue overflow or an attempt to unsubscribe an `agent` twice. The
+`Broker` will report these if `Broker.Verbose=True`.
 
 ###### [Contents](./DRIVERS.md#0-contents)
 

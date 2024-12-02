@@ -14,10 +14,22 @@ class Agent:
     pass
 
 
+def _validate(a):
+    return (
+        isinstance(a, asyncio.Event)
+        or isinstance(a, Queue)
+        or isinstance(a, RingbufQueue)
+        or isinstance(a, Agent)
+        or callable(a)
+    )
+
+
 class Broker(dict):
     Verbose = True
 
     def subscribe(self, topic, agent, *args):
+        if not _validate(agent):
+            raise ValueError("Invalid agent:", agent)
         aa = (agent, args)
         if not (t := self.get(topic, False)):
             self[topic] = {aa}
@@ -51,7 +63,7 @@ class Broker(dict):
                 try:
                     agent.put_nowait(t if args else t[:2])
                 except Exception:  # Queue discards current message. RingbufQueue discards oldest
-                    Broker.verbose and print(f"Message lost topic {topic} message {message}")
+                    Broker.Verbose and print(f"Message lost topic {topic} message {message}")
                 continue
             # agent is function, method, coroutine or bound coroutine
             res = agent(topic, message, *args)
