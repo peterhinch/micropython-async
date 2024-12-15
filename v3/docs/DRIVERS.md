@@ -1136,8 +1136,6 @@ finally:
 
 # 9. Message Broker
 
-This is under development: please check for updates.
-
 ```python
 from primitives import Broker  # broker.py
 ```
@@ -1148,7 +1146,7 @@ message. This enables one to one, one to many, many to one or many to many
 messaging.
 
 A task subscribes to a topic with an `agent`. This is stored by the broker. When
-the broker publishes a message, the `agent` of each task subscribed to its topic
+the broker publishes a message, every `agent` subscribed to the message topic
 will be triggered. In the simplest case the `agent` is a `Queue` instance: the
 broker puts the topic and message onto the subscriber's queue for retrieval.
 
@@ -1173,18 +1171,20 @@ The `topic` arg is typically a string but may be any hashable object. A
 
 #### Agent types
 
-An `agent` may be an instance of any of the following:
+An `agent` may be an instance of any of the following types. Args refers to any
+arguments passed to the `agent`'s' subscription.
 
-* `RingbufQueue` Received messages are queued as a 2-tuple `(topic, message)`.
+* `RingbufQueue` Received messages are queued as a 2-tuple `(topic, message)`
+assuming no args.
 * `Queue` Received messages are queued as a 2-tuple `(topic, message)`.
-* `function` Called when a message is received. Args: topic, message plus any
+* `function` Called when a message is received. Args: `topic`, `message` plus any
 further args.
-* `bound method` Called when a message is received. Args: topic, message plus any
-further args.
-* `coroutine` Converted to a `task` when a message is received. Args: topic,
-message plus any further args.
-* `bound coroutine`  Converted to a `task` when a message is received. Args: topic,
-message plus any further args.
+* `bound method` Called when a message is received. Args: `topic`, `message`
+plus any further args.
+* `coroutine` Converted to a `task` when a message is received. Args: `topic`,
+`message` plus any further args.
+* `bound coroutine`  Converted to a `task` when a message is received. Args: `topic`,
+`message` plus any further args.
 * `user_agent` Instance of a user class. See user agents below.
 * `Event` Set when a message is received.
 
@@ -1232,7 +1232,8 @@ async def messages(client):
         broker.publish(topic.decode(), msg.decode())
 ```
 Assuming the MQTT client is subscribed to multiple topics, message strings are
-directed to individual tasks each supporting one topic.
+directed to agents, each dedicated to handling a topic. An `agent` might operate
+an interface or queue the message for a running task.
 
 The following illustrates a use case for passing args to an `agent` (pin nos.
 are for Pyoard 1.1).
@@ -1322,14 +1323,15 @@ applications this behaviour is preferable. In general `RingbufQueue` is
 preferred as it is optimised for microcontroller use and supports retrieval by
 an asynchronous iterator.
 
-If either queue type is subscribed with args, publications will queued as a
-3-tuple `(topic, message, (args...))`. There is no obvious use case for this.
+If either queue type is subscribed with args, a publication will create a queue
+entry that is a 3-tuple `(topic, message, (args...))`. There is no obvious use
+case for this.
 
 #### exceptions
 
-An instance of an `agent` objects is owned by a subscribing tasks but is
-executed by a publishing task. If a function used as an `agent` throws an
-exception, the traceback will point to a `Broker.publish` call.
+An `agent` instance is owned by a subscribing tasks but is executed by a
+publishing task. If a function used as an `agent` throws an exception, the
+traceback will point to a `Broker.publish` call.
 
 The `Broker` class throws a `ValueError` if `.subscribe` is called with an
 invalid `agent` type. There are a number of non-fatal conditions which can occur

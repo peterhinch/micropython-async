@@ -45,7 +45,8 @@ import uasyncio as asyncio
   3.7 [Barrier](./TUTORIAL.md#37-barrier)  
   3.8 [Delay_ms](./TUTORIAL.md#38-delay_ms-class) Software retriggerable delay.  
   3.9 [Message](./TUTORIAL.md#39-message)  
-  3.10 [Synchronising to hardware](./TUTORIAL.md#310-synchronising-to-hardware)
+  3.10 [Message broker](./TUTORIAL.md#310-message-broker) A publish-subscribe model of messaging and control.  
+  3.11 [Synchronising to hardware](./TUTORIAL.md#311-synchronising-to-hardware)
   Debouncing switches, pushbuttons, ESP32 touchpads and encoder knobs. Taming ADC's.  
  4. [Designing classes for asyncio](./TUTORIAL.md#4-designing-classes-for-asyncio)  
   4.1 [Awaitable classes](./TUTORIAL.md#41-awaitable-classes)  
@@ -589,6 +590,8 @@ following classes which are non-standard, are also in that directory:
  in a similar (but not identical) way to `gather`.
  * `Delay_ms` A useful software-retriggerable monostable, akin to a watchdog.
  Calls a user callback if not cancelled or regularly retriggered.
+ * `RingbufQueue` a MicroPython-optimised queue.
+ * `Broker` a means of messaging and control based on a publish/subscribe model.
 
 A further set of primitives for synchronising hardware are detailed in
 [section 3.9](./TUTORIAL.md#39-synchronising-to-hardware).
@@ -1280,7 +1283,26 @@ provide an object similar to `Event` with the following differences:
 It may be found in the `threadsafe` directory and is documented
 [here](./THREADING.md#32-message).
 
-## 3.10 Synchronising to hardware
+## 3.10 Message broker
+
+A `Broker` is a means of communicating data and/or control within or between
+modules. It is typically a single global object, and uses a publish-subscribe
+model. A publication comprises a `topic` and a `message`; the latter may be any
+Python object. Tasks subscribe to a `topic` via an `agent` object. Whenever a
+publication, occurs all `agent` instances currently subscribed to that topic are
+triggered.
+
+An `agent` may be an instance of various types including a function, a coroutine
+or a queue.
+
+A benefit of this approach is that the design of publishing tasks can proceed
+independently from that of the subscribers; `agent` instances can be subscribed
+and unsubscribed at run time with no effect on the publisher. The publisher
+neither knows or cares about the type or number of subscribing `agent`s.
+
+This is [documented here](https://github.com/peterhinch/micropython-async/blob/master/v3/docs/DRIVERS.md#9-message-broker).
+
+## 3.11 Synchronising to hardware
 
 The following hardware-related classes are documented [here](./DRIVERS.md):
  * `ESwitch` A debounced switch with an `Event` interface.
