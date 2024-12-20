@@ -11,7 +11,6 @@ import ustruct
 import asyncio
 from micropython import const
 
-_ADDRESS = const(0x40)  # HTU21D Address
 _PAUSE_MS = const(60)  # HTU21D acquisition delay
 _READ_USER_REG = const(0xE7)
 
@@ -25,10 +24,11 @@ class HTU21D:
     START_TEMP_MEASURE = b"\xF3"  # Commands
     START_HUMD_MEASURE = b"\xF5"
 
-    def __init__(self, i2c, read_delay=10):
+    def __init__(self, i2c, read_delay=10, address=0x40):
         self.i2c = i2c
-        if _ADDRESS not in self.i2c.scan():
+        if address not in self.i2c.scan():
             raise OSError("No HTU21D device found.")
+        self.address = address
         self.temperature = None
         self.humidity = None
         asyncio.create_task(self._run(read_delay))
@@ -46,9 +46,9 @@ class HTU21D:
             yield from asyncio.sleep(0)
 
     async def _get_data(self, cmd, divisor=0x131 << 15, bit=1 << 23):
-        self.i2c.writeto(_ADDRESS, cmd)  # Start reading
+        self.i2c.writeto(self.address, cmd)  # Start reading
         await asyncio.sleep_ms(_PAUSE_MS)  # Wait for device
-        value = self.i2c.readfrom(_ADDRESS, 3)  # Read result, check CRC8
+        value = self.i2c.readfrom(self.address, 3)  # Read result, check CRC8
         data, crc = ustruct.unpack(">HB", value)
         remainder = (data << 8) | crc
         while bit > 128:
@@ -61,4 +61,4 @@ class HTU21D:
         return data & 0xFFFC  # Clear the status bits
 
     def user_register(self):  # Read the user register byte (should be 2)
-        return self.i2c.readfrom_mem(_ADDRESS, _READ_USER_REG, 1)[0]
+        return self.i2c.readfrom_mem(self.address, _READ_USER_REG, 1)[0]

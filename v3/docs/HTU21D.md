@@ -52,9 +52,10 @@ import as_drivers.htu21d.htu_test
 This provides a single class `HTU21D`.
 
 Constructor.  
-This takes two args, `i2c` (mandatory) and an optional `read_delay=10`. The
-former must be an initialised I2C bus instance. The `read_delay` (secs)
-determines how frequently the data values are updated.
+This takes the following args
+* `i2c` (mandatory) An initialised I2C bus instance.
+* `read_delay=10`. The frequency (secs) at which data values are updated.
+* `address=0x40` I2C address of the chip.
 
 Public bound values
  1. `temperature` Latest value in Celcius.
