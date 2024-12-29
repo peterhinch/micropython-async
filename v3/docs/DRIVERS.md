@@ -1141,11 +1141,10 @@ from primitives import Broker  # broker.py
 ```
 The `Broker` class provides a flexible means of messaging between running tasks.
 It uses a publish-subscribe model (akin to MQTT) whereby the transmitting task
-publishes to a topic. Any tasks subscribed to that topic will receive the
-message. This enables one to one, one to many, many to one or many to many
-messaging.
+publishes to a topic. Objects subscribed to that topic will receive the message.
+This enables one to one, one to many, many to one or many to many messaging.
 
-A task subscribes to a topic with an `agent`. This is stored by the broker. When
+A task subscribes to a topic via an `agent`. This is stored by the broker. When
 the broker publishes a message, every `agent` subscribed to the message topic
 will be triggered. In the simplest case the `agent` is a `Queue` instance: the
 broker puts the topic and message onto the subscriber's queue for retrieval.
@@ -1153,10 +1152,15 @@ broker puts the topic and message onto the subscriber's queue for retrieval.
 More advanced agents can perform actions in response to a message, such as
 calling a function, launching a `task` or lighting an LED.
 
+Agents may be subscribed and unsubscribed dynamically. The publishing task has
+no "knowledge" of the number or type of agents subscribed to a topic. The module
+is not threadsafe: `Broker` methods should not be called from a hard ISR or from
+another thread.
+
 #### Broker methods
 
-All are synchronous. They are not threadsafe so should not be called from a hard
-ISR or from another thread. The constructor has no args.
+All are synchronous.
+* Constructor This has no args.
 * `subscribe(topic, agent, *args)` Passed `agent` will be triggered by messages
 with a matching `topic`. Any additional args will be passed to the `agent` when
 it is triggered.
@@ -1172,21 +1176,21 @@ The `topic` arg is typically a string but may be any hashable object. A
 #### Agent types
 
 An `agent` may be an instance of any of the following types. Args refers to any
-arguments passed to the `agent`'s' subscription.
+arguments passed to the `agent` on subscription.
 
 * `RingbufQueue` Received messages are queued as a 2-tuple `(topic, message)`
-assuming no args.
-* `Queue` Received messages are queued as a 2-tuple `(topic, message)`.
+assuming no subscription args - otheriwse `(topic, message, (args...))`.
+* `Queue` Received messages are queued as described above.
 * `function` Called when a message is received. Args: `topic`, `message` plus any
-further args.
+further subscription args.
 * `bound method` Called when a message is received. Args: `topic`, `message`
 plus any further args.
 * `coroutine` Converted to a `task` when a message is received. Args: `topic`,
-`message` plus any further args.
+`message` plus any further subscription args.
 * `bound coroutine`  Converted to a `task` when a message is received. Args: `topic`,
-`message` plus any further args.
-* `user_agent` Instance of a user class. See user agents below.
+`message` plus any further subscription args.
 * `Event` Set when a message is received.
+* `user_agent` Instance of a user class. See user agents below.
 
 Note that synchronous `agent` instances must run to completion quickly otherwise
 the `publish` method will be slowed. See [Notes](./DRIVERS.md#93-notes) for
@@ -1202,18 +1206,18 @@ import asyncio
 from primitives import Broker, RingbufQueue
 
 broker = Broker()
-queue = RingbufQueue(20)
 async def sender(t):
     for x in range(t):
         await asyncio.sleep(1)
         broker.publish("foo_topic", f"test {x}")
 
 async def receiver():
+    queue = RingbufQueue(20)
+    broker.subscribe("foo_topic", queue)
     async for topic, message in queue:
         print(topic, message)
 
 async def main():
-    broker.subscribe("foo_topic", queue)
     rx = asyncio.create_task(receiver())
     await sender(10)
     await asyncio.sleep(2)
@@ -1266,6 +1270,40 @@ async def main():
 
 asyncio.run(main())
 ```
+A task can wait on multiple topics using a `RingbufQueue`:
+```python
+import asyncio
+from primitives import Broker, RingbufQueue
+
+broker = Broker()
+
+async def receiver():
+    q = RingbufQueue(10)
+    broker.subscribe("foo_topic", q)
+    broker.subscribe("bar_topic", q)
+    async for topic, message in q:
+        print(f"Received  Topic: {topic} Message: {message}")
+
+
+async def sender(t):
+    for x in range(t):
+        await asyncio.sleep(1)
+        broker.publish("foo_topic", f"test {x}")
+        broker.publish("bar_topic", f"test {x}")
+        broker.publish("ignore me", f"test {x}")
+
+
+async def main():
+    rx = asyncio.create_task(receiver())
+    await sender(10)
+    await asyncio.sleep(2)
+    rx.cancel()
+
+
+asyncio.run(main())
+```
+here the `receiver` task waits on two topics. The asynchronous iterator returns
+messages as they are published.
 
 ## 9.2 User agents
 
@@ -1298,7 +1336,7 @@ asyncio.run(main())
 
 #### The publish/subscribe model
 
-As in the real world publication carries no guarantee of reception. If at the
+As in the real world, publication carries no guarantee of readership. If at the
 time of publication there are no tasks with subscribed `agent` instances, the
 message will silently be lost.
 

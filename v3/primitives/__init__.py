@@ -1,6 +1,6 @@
 # __init__.py Common functions for uasyncio primitives
 
-# Copyright (c) 2018-2022 Peter Hinch
+# Copyright (c) 2018-2024 Peter Hinch
 # Released under the MIT License (MIT) - see LICENSE file
 
 import asyncio
@@ -57,7 +57,7 @@ _attrs = {
     "Agent": "broker",
 }
 
-# Copied from uasyncio.__init__.py
+# Copied from asyncio.__init__.py
 # Lazy loader, effectively does:
 #   global attr
 #   from .mod import attr
