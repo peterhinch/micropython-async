@@ -100,9 +100,9 @@ class LCD:  # LCD objects appear as read/write lists
             for row in range(self.rows):
                 if self.dirty[row]:
                     msg = self[row]
+                    self.dirty[row] = False
                     self.lcd_byte(LCD.LCD_LINES[row], LCD.CMD)
                     for thisbyte in msg:
                         self.lcd_byte(ord(thisbyte), LCD.CHR)
                         await asyncio.sleep_ms(0)  # Reshedule ASAP
-                    self.dirty[row] = False
             await asyncio.sleep_ms(20)  # Give other coros a look-in
