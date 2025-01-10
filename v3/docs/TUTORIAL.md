@@ -797,7 +797,9 @@ wa = WaitAll((evt1, evt2)).wait()
 await wa
 # Both were triggered
 ```
-Awaiting `WaitAll` or `WaitAny` may be cancelled or subject to a timeout.
+Awaiting `WaitAll` or `WaitAny` may be cancelled or subject to a timeout. These
+primitives are documented in
+[event baed programming](https://github.com/peterhinch/micropython-async/blob/master/v3/docs/EVENTS.md).
 
 ###### [Contents](./TUTORIAL.md#contents)
 
