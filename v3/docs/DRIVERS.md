@@ -26,11 +26,11 @@ MicroPython's `asyncio` when used in a microcontroller context.
   6.1 [Encoder class](./DRIVERS.md#61-encoder-class)  
  7. [Ringbuf Queue](./DRIVERS.md#7-ringbuf-queue) A MicroPython optimised queue primitive.  
  8. [Delay_ms class](./DRIVERS.md#8-delay_ms-class) A flexible retriggerable delay with callback or Event interface.  
- 9. [Message Broker](./DRIVERS.md#9-message-broker) A flexible means of messaging between
- tasks.  
+ 9. [Message Broker](./DRIVERS.md#9-message-broker) A flexible means of messaging between tasks.  
   9.1 [Further examples](./DRIVERS.md#91-further-examples)  
   9.2 [User agents](./DRIVERS.md#92-user-agents) User defined Agent classes.  
-  9.3 [Notes](./DRIVERS.md#93-notes)  
+  9.3 [Wildcard subscriptions](./DRIVERS.md#93-wildcard-subscriptions)  
+  9.4 [Notes](./DRIVERS.md#9-notes)  
  10. [Additional functions](./DRIVERS.md#10-additional-functions)  
   10.1 [launch](./DRIVERS.md#101-launch) Run a coro or callback interchangeably.  
   10.2 [set_global_exception](./DRIVERS.md#102-set_global_exception) Simplify debugging with a global exception handler.  
@@ -1332,7 +1332,21 @@ async def main():
 
 asyncio.run(main())
 ```
-## 9.3 Notes
+## 9.3 Wildcard subscriptions
+
+In the case of publications whose topics are strings, a single call to
+`.subscribe` can subscribe an `agent` to multiple topics. This is by wildcard
+matching. By default exact matching is used, however this can be changed to use
+regular expressions as in this code fragment:
+```py
+from primitives import Broker, RegExp
+broker.subscribe(RegExp(".*_topic"), some_agent)
+```
+In this case `some_agent` would be triggered by publications to `foo_topic` or
+`bar_topic` because the string `".*_topic"` matches these by the rules of
+regular expressions.
+
+## 9.4 Notes
 
 #### The publish/subscribe model
 

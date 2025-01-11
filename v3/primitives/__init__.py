@@ -55,6 +55,7 @@ _attrs = {
     "SwArray": "sw_array",
     "Broker": "broker",
     "Agent": "broker",
+    "RegExp": "broker",
 }
 
 # Copied from asyncio.__init__.py

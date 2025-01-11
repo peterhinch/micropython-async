@@ -3,7 +3,7 @@
 # import primitives.tests.broker_test
 
 import asyncio
-from primitives import Broker, Queue, RingbufQueue
+from primitives import Broker, Queue, RingbufQueue, RegExp
 
 broker = Broker()
 
@@ -49,12 +49,13 @@ class TestClass:
 
 async def print_queue(q):
     while True:
-        topic, message = await q.get()
+        topic, message = await asyncio.wait_for(q.get(), 2)
         print(topic, message)
 
 
 async def print_ringbuf_q(q):
-    async for topic, message, args in q:
+    while True:
+        topic, message, args = await asyncio.wait_for(q.get(), 2)
         print(topic, message, args)
 
 
@@ -98,20 +99,19 @@ async def main():
     print("Unsubscribing method")
     broker.unsubscribe("foo_topic", tc.get_data)  # Async method
     print("Retrieving foo_topic messages from Queue")
-    try:
-        await asyncio.wait_for(print_queue(q), 5)
-    except asyncio.TimeoutError:
-        print("Timeout")
     print("Retrieving bar_topic messages from RingbufQueue")
-    try:
-        await asyncio.wait_for(print_ringbuf_q(rq), 5)
-    except asyncio.TimeoutError:
-        print("Timeout")
+    await asyncio.gather(print_queue(q), print_ringbuf_q(rq), return_exceptions=True)
+    # Queues are now empty
     print()
+    print("*** Unsubscribing queues ***")
+    broker.unsubscribe("foo_topic", q)
+    broker.unsubscribe("bar_topic", rq, "args", "added")
+    print()
+
     print("*** Testing error reports and exception ***")
     print()
     Broker.Verbose = True
-    print("*** Check error on invalid unsubscribe ***")
+    print("*** Produce warning messages on invalid unsubscribe ***")
     broker.unsubscribe("rats", "more rats")  # Invalid topic
     broker.unsubscribe("foo_topic", "rats")  # Invalid agent
     print("*** Check exception on invalid subscribe ***")
@@ -120,6 +120,12 @@ async def main():
         print("Test FAIL")
     except ValueError:
         print("Test PASS")
+    print()
+    print("*** Test wildcard subscribe ***")
+    broker.subscribe(RegExp(".*_topic"), func)
+    broker.publish("FAIL", func)  # No match
+    asyncio.create_task(test(5))
+    await asyncio.sleep(10)
 
 
 asyncio.run(main())
