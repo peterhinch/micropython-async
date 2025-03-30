@@ -1070,7 +1070,9 @@ Synchronous methods:
  the `Task` instance. This allows the `Task` to be cancelled or awaited.
  6. `callback` args `func=None`, `args=()`. Allows the callable and its args to
  be assigned, reassigned or disabled at run time.
- 7. `deinit` No args. Cancels the running task. See [Object scope](./TUTORIAL.md#44-object-scope).
+ 7. `deinit` No args. Cancels the running task. To avoid a memory leak this
+ should be called before allowing a `Delay_ms` object to go out of scope. See
+ [Object scope](./TUTORIAL.md#44-object-scope).
  8. `clear` No args. Clears the `Event` described in `wait` below.
  9. `set` No args. Sets the `Event` described in `wait` below.
 
