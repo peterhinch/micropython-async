@@ -1139,14 +1139,15 @@ finally:
 # 9. Message Broker
 
 ```python
-from primitives import Broker  # broker.py
+from primitives import Broker, broker  # broker.py
 ```
 The `Broker` class provides a flexible means of messaging between running tasks.
 It uses a publish-subscribe model (akin to MQTT) whereby the transmitting task
 publishes to a topic. Objects subscribed to that topic will receive the message.
 This enables one to one, one to many, many to one or many to many messaging.
 
-A task subscribes to a topic via an `agent`. This is stored by the broker. When
+A task subscribes to a topic via an `agent`: this term describes a set of Python
+types which may be used in this role. An `agent` is stored by the broker. When
 the broker publishes a message, every `agent` subscribed to the message topic
 will be triggered. In the simplest case the `agent` is a `Queue` instance: the
 broker puts the topic and message onto the subscriber's queue for retrieval.
@@ -1159,6 +1160,12 @@ no "knowledge" of the number or type of agents subscribed to a topic. The module
 is not threadsafe: `Broker` methods should not be called from a hard ISR or from
 another thread.
 
+A `Broker` instance `broker` is provided. Where multiple modules issue
+```python
+from primitives import broker
+```
+all will see the same instance, facilitating message passing between modules.
+
 #### Broker methods
 
 All are synchronous.
@@ -1168,12 +1175,17 @@ with a matching `topic`. Any additional args will be passed to the `agent` when
 it is triggered.
 * `unsubscribe(topic, agent, *args)` The `agent` will stop being triggered. If
 args were passed on subscription, the same args must be passed.
-* `publish(topic, message)` All `agent` instances subscribed to `topic` will be
-triggered, receiving `topic` and `message` plus any further args that were
-passed to `subscribe`.
+* `publish(topic, message=None)` All `agent` instances subscribed to `topic`
+will be triggered, receiving `topic` and `message` plus any further args that
+were passed to `subscribe`.
 
 The `topic` arg is typically a string but may be any hashable object. A
-`message` is an arbitrary Python object.
+`message` is an arbitrary Python object. Where string topics are used, wildcard
+subscriptions are possible.
+
+#### Broker class variable
+
+* `Verbose=True` Enables printing of debug messages.
 
 #### Agent types
 
@@ -1198,16 +1210,11 @@ Note that synchronous `agent` instances must run to completion quickly otherwise
 the `publish` method will be slowed. See [Notes](./DRIVERS.md#93-notes) for
 further details on queue behaviour.
 
-#### Broker class variable
-
-* `Verbose=True` Enables printing of debug messages.
-
 #### example
 ```py
 import asyncio
-from primitives import Broker, RingbufQueue
+from primitives import broker, RingbufQueue
 
-broker = Broker()
 async def sender(t):
     for x in range(t):
         await asyncio.sleep(1)
@@ -1245,11 +1252,10 @@ The following illustrates a use case for passing args to an `agent` (pin nos.
 are for Pyoard 1.1).
 ```py
 import asyncio
-from primitives import Broker
+from primitives import broker
 from machine import Pin
 red = Pin("A13", Pin.OUT, value=0)  # Pin nos. for Pyboard V1.1
 green = Pin("A14", Pin.OUT, value=0)
-broker = Broker()
 
 async def flash():
     broker.publish("led", 1)
@@ -1275,9 +1281,8 @@ asyncio.run(main())
 A task can wait on multiple topics using a `RingbufQueue`:
 ```python
 import asyncio
-from primitives import Broker, RingbufQueue
+from primitives import broker, RingbufQueue
 
-broker = Broker()
 
 async def receiver():
     q = RingbufQueue(10)
@@ -1316,9 +1321,8 @@ should run to completion quickly.
 
 ```py
 import asyncio
-from primitives import Broker, Agent
+from primitives import broker, Agent
 
-broker = Broker()
 class MyAgent(Agent):
     def put(sef, topic, message, arg):
         print(f"User agent. Topic: {topic} Message: {message} Arg: {arg}")

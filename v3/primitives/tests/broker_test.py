@@ -3,9 +3,7 @@
 # import primitives.tests.broker_test
 
 import asyncio
-from primitives import Broker, Queue, RingbufQueue, RegExp
-
-broker = Broker()
+from primitives import broker, Queue, RingbufQueue, RegExp
 
 # Periodically publish messages to two topics
 async def test(t):

@@ -54,6 +54,7 @@ _attrs = {
     "Keyboard": "sw_array",
     "SwArray": "sw_array",
     "Broker": "broker",
+    "broker": "broker",
     "Agent": "broker",
     "RegExp": "broker",
 }

@@ -1,6 +1,6 @@
 # broker.py A message broker for MicroPython
 
-# Copyright (c) 2024 Peter Hinch
+# Copyright (c) 2024-2025 Peter Hinch
 # Released under the MIT License (MIT) - see LICENSE file
 
 # Inspired by the following
@@ -11,7 +11,7 @@ from primitives import Queue, RingbufQueue, type_coro
 import re
 
 
-class Agent:
+class Agent:  # ABC for user agent
     pass
 
 
@@ -58,7 +58,7 @@ class Broker(dict):
         elif Broker.Verbose:
             print(f"Unsubscribe topic {topic} fail: topic not subscribed.")
 
-    def publish(self, topic, message):
+    def publish(self, topic, message=None):
         agents = set()  # Agents which are triggered by this topic
         if isinstance(topic, str):  # Check regexps
             # Are any keys RegExp instances?
@@ -84,3 +84,6 @@ class Broker(dict):
             res = agent(topic, message, *args)
             if isinstance(res, type_coro):
                 asyncio.create_task(res)
+
+
+broker = Broker()
