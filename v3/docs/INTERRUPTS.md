@@ -8,7 +8,7 @@ interrupts in `asyncio` applications.
 Writing an interrupt service routine (ISR) requires care: see the
 [official docs](https://docs.micropython.org/en/latest/reference/isr_rules.html).
 There are restrictions (detailed below) on the way an ISR can interface with
-`asyncio`. Finally, on many platformasyncioupts are a limited resource. In
+`asyncio`. Finally, on many platforms interrupts are a limited resource. In
 short interrupts are extremely useful but, if a practical alternative exists,
 it should be seriously considered.
 
