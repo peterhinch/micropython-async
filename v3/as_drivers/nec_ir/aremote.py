@@ -6,7 +6,7 @@
 
 from sys import platform
 import asyncio
-from primitives.message import Message
+from threadsafe.message import Message
 from micropython import const
 from array import array
 from utime import ticks_ms, ticks_us, ticks_diff
