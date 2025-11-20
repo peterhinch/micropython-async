@@ -1,4 +1,4 @@
-# Test of uasyncio stream I/O using UART
+# Test of asyncio stream I/O using UART
 # Author: Peter Hinch
 # Copyright Peter Hinch 2017-2022 Released under the MIT license
 # Link X1 and X2 to test.

@@ -13,10 +13,10 @@
 # Sending: $PMTK251,38400*27\r\n'
 
 import asyncio
-from uasyncio import Event
+from asyncio import Event
 from threadsafe.message import Message
 import pyb
-import utime
+import time
 import math
 from .as_tGPS import GPS_RWTimer
 from .as_rwGPS import FULL_COLD_START

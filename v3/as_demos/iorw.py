@@ -72,12 +72,12 @@ class MyIO(io.IOBase):
             self.ridx += 1
         return chr(ch)
 
-    # Emulate unbuffered hardware which writes one character: uasyncio waits
+    # Emulate unbuffered hardware which writes one character: asyncio waits
     # until hardware is ready for the next. Hardware ready is emulated by write
     # timer callback.
     def write(self, buf, off=0, sz=0):
         self.wch = buf[off]  # Hardware starts to write a char
-        return 1  # 1 byte written. uasyncio waits on ioctl write ready
+        return 1  # 1 byte written. asyncio waits on ioctl write ready
 
 
 async def receiver(myior):

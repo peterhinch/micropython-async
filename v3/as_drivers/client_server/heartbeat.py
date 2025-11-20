@@ -1,4 +1,4 @@
-# flash.py Heartbeat code for simple uasyncio-based echo server
+# flash.py Heartbeat code for simple asyncio-based echo server
 
 # Released under the MIT licence
 # Copyright (c) Peter Hinch 2019

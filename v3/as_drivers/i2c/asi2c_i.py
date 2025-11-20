@@ -1,5 +1,5 @@
 # asi2c_i.py A communications link using I2C slave mode on Pyboard.
-# Initiator class. Adapted for uasyncio V3, WBUS DIP28.
+# Initiator class. Adapted for asyncio V3, WBUS DIP28.
 
 # The MIT License (MIT)
 #
@@ -25,7 +25,7 @@
 
 import asyncio
 import machine
-import utime
+import time
 import gc
 from .asi2c import Channel
 

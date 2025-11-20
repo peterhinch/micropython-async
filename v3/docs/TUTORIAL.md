@@ -8,12 +8,6 @@ which can be cut and pasted at the REPL.
 See [this overview](../README.md) for a summary of resources for `asyncio`
 including device drivers, debugging aids, and documentation.
 
-The name of the module was formerly `uasyncio`. To run the demo scripts on old
-firmware please use
-```python
-import uasyncio as asyncio
-```
-
 # Contents
 
  0. [Introduction](./TUTORIAL.md#0-introduction)  

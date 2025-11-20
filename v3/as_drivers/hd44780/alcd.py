@@ -1,7 +1,7 @@
-# LCD class for Micropython and uasyncio.
+# LCD class for Micropython and asyncio.
 # Author: Peter Hinch
 # Copyright Peter Hinch 2017 Released under the MIT license
-# V1.1 24 Apr 2020 Updated for uasyncio V3
+# V1.1 24 Apr 2020 Updated for asyncio V3
 # V1.0 13 May 2017
 
 # Assumes an LCD with standard Hitachi HD44780 controller chip wired using four data lines

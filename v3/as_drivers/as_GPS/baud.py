@@ -1,4 +1,4 @@
-# baud.py Test uasyncio at high baudrate
+# baud.py Test asyncio at high baudrate
 import pyb
 import asyncio
 import utime

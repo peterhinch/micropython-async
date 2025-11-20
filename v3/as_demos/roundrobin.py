@@ -3,9 +3,9 @@
 # Copyright Peter Hinch 2017-2020 Released under the MIT license
 
 # Result on Pyboard 1.1 with print('Foo', n) commented out
-# executions/second 5575.6 on uasyncio V3
+# executions/second 5575.6 on asyncio V3
 
-# uasyncio V2 produced the following results
+# asyncio V2 produced the following results
 # 4249 - with a hack where sleep_ms(0) was replaced with yield
 # Using sleep_ms(0) 2750
 

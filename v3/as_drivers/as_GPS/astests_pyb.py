@@ -9,7 +9,7 @@
 # Copyright (c) 2018-2020 Peter Hinch
 # Released under the MIT License (MIT) - see LICENSE file
 
-# Ported to uasyncio V3 OK.
+# Ported to asyncio V3 OK.
 
 from .as_GPS import *
 from machine import UART

@@ -1,11 +1,11 @@
-# rate.py Benchmark for uasyncio. Author Peter Hinch Feb 2018-Apr 2020.
-# Benchmark uasyncio round-robin scheduling performance
-# This measures the rate at which uasyncio can schedule a minimal coro which
+# rate.py Benchmark for asyncio. Author Peter Hinch Feb 2018-Apr 2020.
+# Benchmark asyncio round-robin scheduling performance
+# This measures the rate at which asyncio can schedule a minimal coro which
 # mereley increments a global.
 
 # Outcome on a Pyboard 1.1
-# 100 minimal coros are scheduled at an interval of 195μs on uasyncio V3
-# Compares with ~156μs on official uasyncio V2.
+# 100 minimal coros are scheduled at an interval of 195μs on asyncio V3
+# Compares with ~156μs on official asyncio V2.
 
 # Results for 100 coros on other platforms at standard clock rate:
 # Pyboard D SF2W 124μs

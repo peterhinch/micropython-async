@@ -1,4 +1,4 @@
-# i2c_esp.py Test program for asi2c.py. Adapted for uasyncio V3, WBUS DIP28.
+# i2c_esp.py Test program for asi2c.py. Adapted for asyncio V3, WBUS DIP28.
 # Tests Responder on ESP8266.
 
 # The MIT License (MIT)

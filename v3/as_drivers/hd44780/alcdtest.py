@@ -1,7 +1,7 @@
 # alcdtest.py Test program for LCD class
 # Author: Peter Hinch
 # Copyright Peter Hinch 2017-2020 Released under the MIT license
-# Updated for uasyncio V3
+# Updated for asyncio V3
 # runs for 20s
 import asyncio
 import utime as time

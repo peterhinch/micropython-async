@@ -11,7 +11,7 @@
 # astests.py runs under CPython but not MicroPython because mktime is missing
 # from Unix build of utime
 
-# Ported to uasyncio V3 OK.
+# Ported to asyncio V3 OK.
 
 import asyncio
 

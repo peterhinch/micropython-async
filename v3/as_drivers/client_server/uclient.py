@@ -1,11 +1,11 @@
-# uclient.py Demo of simple uasyncio-based client for echo server
+# uclient.py Demo of simple asyncio-based client for echo server
 
 # Released under the MIT licence
 # Copyright (c) Peter Hinch 2019-2020
 
-import usocket as socket
+import socket
 import asyncio
-import ujson
+import json
 from heartbeat import heartbeat  # Optional LED flash
 
 server = "192.168.0.41"

@@ -1,6 +1,6 @@
 # syncom.py Synchronous communication channel between two MicroPython
 # platforms. 4 June 2017
-# Uses uasyncio.
+# Uses asyncio.
 
 # The MIT License (MIT)
 #

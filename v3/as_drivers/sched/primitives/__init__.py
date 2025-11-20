@@ -1,4 +1,4 @@
-# __init__.py Common functions for uasyncio primitives
+# __init__.py Common functions for asyncio primitives
 
 # Copyright (c) 2018-2020 Peter Hinch
 # Released under the MIT License (MIT) - see LICENSE file

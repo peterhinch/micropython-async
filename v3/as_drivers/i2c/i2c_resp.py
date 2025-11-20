@@ -1,4 +1,4 @@
-# i2c_resp.py Test program for asi2c.py. Adapted for uasyncio V3, WBUS DIP28.
+# i2c_resp.py Test program for asi2c.py. Adapted for asyncio V3, WBUS DIP28.
 # Tests Responder on a Pyboard.
 
 # The MIT License (MIT)

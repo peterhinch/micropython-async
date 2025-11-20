@@ -96,7 +96,7 @@ class Encoder:
             lcv = lcv if mod is None else lcv % mod
             self._cv = lcv  # update ._cv for .value() before CB.
             if lcv != plcv:
-                cb(lcv, lcv - plcv, *args)  # Run user CB in uasyncio context
+                cb(lcv, lcv - plcv, *args)  # Run user CB in asyncio context
                 self._trig.set()  # Enable async iterator
             pcv = cv
             plcv = lcv

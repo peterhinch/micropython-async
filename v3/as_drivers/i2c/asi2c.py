@@ -1,5 +1,5 @@
 # asi2c.py A communications link using I2C slave mode on Pyboard.
-# Channel and Responder classes. Adapted for uasyncio V3, WBUS DIP28.
+# Channel and Responder classes. Adapted for asyncio V3, WBUS DIP28.
 
 # The MIT License (MIT)
 #
@@ -25,7 +25,7 @@
 
 import asyncio
 import machine
-import utime
+import time
 from micropython import const
 import io
 
@@ -114,7 +114,7 @@ class Channel(io.IOBase):
 
     # Set .txbyt to the required data. Return its size. So awrite returns
     # with transmission occurring in tha background.
-    # uasyncio V3: Stream.drain() calls write with buf being a memoryview
+    # asyncio V3: Stream.drain() calls write with buf being a memoryview
     # and no off or sz args.
     def write(self, buf):
         if self.synchronised:

@@ -1,4 +1,4 @@
-# i2c_init.py Test program for asi2c.py. Adapted for uasyncio V3, WBUS DIP28.
+# i2c_init.py Test program for asi2c.py. Adapted for asyncio V3, WBUS DIP28.
 # Tests Initiator on a Pyboard
 
 # The MIT License (MIT)
@@ -27,7 +27,7 @@ import asyncio
 from pyb import I2C  # Only pyb supports slave mode
 from machine import Pin
 from .asi2c_i import Initiator
-import ujson
+import json
 import os
 
 i2c = I2C(2, mode=I2C.SLAVE)
