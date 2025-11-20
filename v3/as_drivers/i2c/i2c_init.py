@@ -44,21 +44,21 @@ async def receiver():
     sreader = asyncio.StreamReader(chan)
     for _ in range(5):  # Test flow control
         res = await sreader.readline()
-        print("Received", ujson.loads(res))
+        print("Received", json.loads(res))
         await asyncio.sleep(4)
     while True:
         res = await sreader.readline()
-        print("Received", ujson.loads(res))
+        print("Received", json.loads(res))
 
 
 async def sender():
     swriter = asyncio.StreamWriter(chan, {})
     txdata = [0, 0]
-    await swriter.awrite("".join((ujson.dumps("this is a test 1"), "\n")))
-    await swriter.awrite("".join((ujson.dumps("this is a test 2"), "\n")))
-    await swriter.awrite("".join((ujson.dumps("this is a test 3"), "\n")))
+    await swriter.awrite("".join((json.dumps("this is a test 1"), "\n")))
+    await swriter.awrite("".join((json.dumps("this is a test 2"), "\n")))
+    await swriter.awrite("".join((json.dumps("this is a test 3"), "\n")))
     while True:
-        await swriter.awrite("".join((ujson.dumps(txdata), "\n")))
+        await swriter.awrite("".join((json.dumps(txdata), "\n")))
         txdata[0] += 1
         await asyncio.sleep_ms(800)
 

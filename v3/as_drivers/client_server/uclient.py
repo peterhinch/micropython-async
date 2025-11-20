@@ -34,14 +34,14 @@ async def run():
         data = ["value", 1]
         while True:
             try:
-                swriter.write("{}\n".format(ujson.dumps(data)))
+                swriter.write("{}\n".format(json.dumps(data)))
                 await swriter.drain()
                 res = await sreader.readline()
             except OSError:
                 close()
                 return
             try:
-                print("Received", ujson.loads(res))
+                print("Received", json.loads(res))
             except ValueError:
                 close()
                 return

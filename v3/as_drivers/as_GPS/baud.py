@@ -1,7 +1,7 @@
 # baud.py Test asyncio at high baudrate
 import pyb
 import asyncio
-import utime
+import time
 import as_drivers.as_rwGPS as as_rwGPS
 
 # Outcome
@@ -53,7 +53,7 @@ async def gps_test():
         minlen = min(minlen, l)
         print(l, maxlen, minlen, res)
         red.toggle()
-        utime.sleep_ms(10)
+        time.sleep_ms(10)
 
 
 def test():

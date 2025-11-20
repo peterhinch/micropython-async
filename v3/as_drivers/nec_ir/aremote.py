@@ -9,7 +9,7 @@ import asyncio
 from threadsafe import Message
 from micropython import const
 from array import array
-from utime import ticks_ms, ticks_us, ticks_diff
+from time import ticks_ms, ticks_us, ticks_diff
 
 if platform == "pyboard":
     from pyb import Pin, ExtInt

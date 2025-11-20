@@ -7,7 +7,7 @@
 
 import asyncio
 import pyb
-import utime as time
+import time
 
 
 class Accelerometer(object):
@@ -33,7 +33,7 @@ class Accelerometer(object):
     def vector(self):
         return self.coords
 
-    def timed_out(self):  # Time since last change or last timeout report
+    def timed_out(self):  # Time since last change or last timeout reptimeort
         if time.ticks_diff(time.ticks_ms(), self.last_change) > self.timeout:
             self.last_change = time.ticks_ms()
             return True

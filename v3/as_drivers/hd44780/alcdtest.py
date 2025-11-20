@@ -4,7 +4,7 @@
 # Updated for asyncio V3
 # runs for 20s
 import asyncio
-import utime as time
+import time
 from .alcd import LCD, PINLIST
 
 lcd = LCD(PINLIST, cols=16)

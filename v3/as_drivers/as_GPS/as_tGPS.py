@@ -14,7 +14,7 @@ try:
     rtc = pyb.RTC()
 except ImportError:
     on_pyboard = False
-import utime
+import time
 import micropython
 import gc
 from .as_GPS import RMC, AS_GPS
@@ -90,7 +90,7 @@ class GPS_Tbase:
     # If update rate > 1Hz, when PPS edge occurs the last RMC message will have
     # a nonzero ms value. Need to set RTC to 1 sec after the last 1 second boundary
     def _isr(self, _):
-        acquired = utime.ticks_us()  # Save time of PPS
+        acquired = time.ticks_us()  # Save time of PPS
         # Time in last NMEA sentence was time of last PPS.
         # Reduce to integer secs since midnight local time.
         isecs = (self.epoch_time + int(3600 * self.local_offset)) % 86400
@@ -142,7 +142,7 @@ class GPS_Tbase:
     # local time.
     def _get_rtc_usecs(self):
         y, m, d, weekday, hrs, mins, secs, subsecs = rtc.datetime()
-        tim = 1000000 * utime.mktime((y, m, d, hrs, mins, secs, weekday - 1, 0))
+        tim = 1000000 * time.mktime((y, m, d, hrs, mins, secs, weekday - 1, 0))
         return tim + ((1000000 * (255 - subsecs)) >> 8)
 
     # Return no. of μs RTC leads GPS. Done by comparing times at the instant of
@@ -164,7 +164,7 @@ class GPS_Tbase:
         st = rtc.datetime()[7]
         while rtc.datetime()[7] == st:  # Wait for RTC to change (4ms max)
             pass
-        dt = utime.ticks_diff(utime.ticks_us(), self.acquired)
+        dt = time.ticks_diff(time.ticks_us(), self.acquired)
         trtc = self._get_rtc_usecs() - dt  # Read RTC now and adjust for PPS edge
         tgps = 1000000 * (self.epoch_time + 3600 * self.local_offset + 1)
         return trtc, tgps
@@ -234,7 +234,7 @@ class GPS_Tbase:
         t = self.t_ms
         acquired = self.acquired
         machine.enable_irq(state)
-        return t + utime.ticks_diff(utime.ticks_us(), acquired) // 1000
+        return t + time.ticks_diff(time.ticks_us(), acquired) // 1000
 
     # Return accurate GPS time of day (hrs: int, mins: int, secs: int, μs: int)
     # The ISR can skip an update of .secs if a day rollover would occur. Next
@@ -249,7 +249,7 @@ class GPS_Tbase:
         isecs, ims = divmod(t, 1000)  # Get integer secs and ms
         x, secs = divmod(isecs, 60)
         hrs, mins = divmod(x, 60)
-        dt = utime.ticks_diff(utime.ticks_us(), acquired)  # μs to time now
+        dt = time.ticks_diff(time.ticks_us(), acquired)  # μs to time now
         ds, us = divmod(dt, 1000000)
         # If dt > 1e6 can add to secs without risk of rollover: see above.
         self._time[0] = hrs

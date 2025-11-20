@@ -16,7 +16,7 @@
 # Site   : http://www.raspberrypi-spy.co.uk
 
 from machine import Pin
-import utime as time
+import time
 import asyncio
 
 # ********************************** GLOBAL CONSTANTS: TARGET BOARD PIN NUMBERS *************************************

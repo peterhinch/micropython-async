@@ -66,9 +66,9 @@ class Initiator(Channel):
         asyncio.create_task(self._run())
 
     def waitfor(self, val):  # Wait for response for 1 sec
-        tim = utime.ticks_ms()
+        tim = time.ticks_ms()
         while not self.rem() == val:
-            if utime.ticks_diff(utime.ticks_ms(), tim) > 1000:
+            if time.ticks_diff(time.ticks_ms(), tim) > 1000:
                 raise OSError
 
     async def reboot(self):
@@ -93,9 +93,9 @@ class Initiator(Channel):
             while True:
                 gc.collect()
                 try:
-                    tstart = utime.ticks_us()
+                    tstart = time.ticks_us()
                     self._sendrx()
-                    t = utime.ticks_diff(utime.ticks_us(), tstart)
+                    t = time.ticks_diff(time.ticks_us(), tstart)
                 except OSError:  # Reboot remote.
                     break
                 await asyncio.sleep_ms(Initiator.t_poll)

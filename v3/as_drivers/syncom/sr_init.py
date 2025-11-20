@@ -26,7 +26,7 @@
 from machine import Pin, Signal
 from pyb import LED
 import asyncio
-from utime import ticks_ms, ticks_diff
+from time import ticks_ms, ticks_diff
 from syncom import SynCom, SynComError
 
 

@@ -4,7 +4,7 @@
 # Released under the MIT License (MIT) - see LICENSE file
 
 import asyncio
-import utime as time
+import time
 from . import launch
 
 

@@ -38,7 +38,7 @@ class Server:
                     res = b""
                 if res == b"":
                     raise OSError
-                print("Received {} from client {}".format(ujson.loads(res.rstrip()), self.cid))
+                print("Received {} from client {}".format(json.loads(res.rstrip()), self.cid))
                 swriter.write(res)
                 await swriter.drain()  # Echo back
         except OSError:

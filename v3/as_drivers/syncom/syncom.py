@@ -30,10 +30,10 @@
 # Instantaneous bit rate running ESP8266 at 160MHz: 1.6Kbps
 # Mean throughput running test programs 8.8ms per char (800bps).
 
-from utime import ticks_diff, ticks_ms
+from time import ticks_diff, ticks_ms
 import asyncio
 from micropython import const
-import ujson
+import json
 
 _BITS_PER_CH = const(7)
 _BITS_SYN = const(8)
@@ -112,7 +112,7 @@ class SynCom:
         if self.string_mode:
             self.lsttx.append(obj)  # strings are immutable
         else:
-            self.lsttx.append(ujson.dumps(obj))
+            self.lsttx.append(json.dumps(obj))
 
     # Number of queued objects (None on timeout)
     def any(self):
@@ -195,8 +195,8 @@ class SynCom:
                         self.lstrx.append(getstr)
                     else:
                         try:
-                            self.lstrx.append(ujson.loads(getstr))
-                        except:  # ujson fail means target has crashed
+                            self.lstrx.append(json.loads(getstr))
+                        except:  # json fail means target has crashed
                             raise SynComError
                     getstr = ""  # Reset for next string
                     rxidx = 0

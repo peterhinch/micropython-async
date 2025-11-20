@@ -162,7 +162,7 @@ class Responder(Channel):
     def _handler(self, _, sn=bytearray(2), txnull=bytearray(2)):
         addr = Responder.addr
         self.rem.irq(handler=None)
-        utime.sleep_us(_DELAY)  # Ensure Initiator has set up to write.
+        time.sleep_us(_DELAY)  # Ensure Initiator has set up to write.
         self.i2c.readfrom_into(addr, sn)
         self.own(1)
         self.waitfor(0)
@@ -173,7 +173,7 @@ class Responder(Channel):
         self.cantx = not bool(sn[1] & 0x80)  # Can Initiator accept a payload?
         if n:
             self.waitfor(1)
-            utime.sleep_us(_DELAY)
+            time.sleep_us(_DELAY)
             mv = memoryview(self.rx_mv[0:n])  # allocates
             self.i2c.readfrom_into(addr, mv)
             self.own(1)
@@ -183,7 +183,7 @@ class Responder(Channel):
 
         self.own(1)  # Request to send
         self.waitfor(1)
-        utime.sleep_us(_DELAY)
+        time.sleep_us(_DELAY)
         dtx = self.txbyt != b"" and self.cantx  # Data to send
         siz = self.txsiz if dtx else txnull
         if self.rxbyt:
@@ -196,7 +196,7 @@ class Responder(Channel):
         if dtx:
             self.own(1)
             self.waitfor(1)
-            utime.sleep_us(_DELAY)
+            time.sleep_us(_DELAY)
             self.i2c.writeto(addr, self.txbyt)
             self.own(0)
             self.waitfor(0)

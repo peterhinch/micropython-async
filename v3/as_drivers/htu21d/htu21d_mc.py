@@ -7,7 +7,7 @@
 # Copyright Peter Hinch 2018-2020 Released under the MIT license
 
 import machine
-import ustruct
+import struct
 import asyncio
 from micropython import const
 
@@ -49,7 +49,7 @@ class HTU21D:
         self.i2c.writeto(self.address, cmd)  # Start reading
         await asyncio.sleep_ms(_PAUSE_MS)  # Wait for device
         value = self.i2c.readfrom(self.address, 3)  # Read result, check CRC8
-        data, crc = ustruct.unpack(">HB", value)
+        data, crc = struct.unpack(">HB", value)
         remainder = (data << 8) | crc
         while bit > 128:
             if remainder & bit:

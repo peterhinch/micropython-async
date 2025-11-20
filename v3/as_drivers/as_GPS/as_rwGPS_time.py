@@ -184,8 +184,8 @@ us_acquired = None  # Time of previous PPS edge in ticks_us()
 def us_cb(my_gps, tick, led):
     global us_acquired
     if us_acquired is not None:
-        # Trigger event. Pass time between PPS measured by utime.ticks_us()
-        tick.set(utime.ticks_diff(my_gps.acquired, us_acquired))
+        # Trigger event. Pass time between PPS measured by time.ticks_us()
+        tick.set(time.ticks_diff(my_gps.acquired, us_acquired))
     us_acquired = my_gps.acquired
     led.toggle()
 

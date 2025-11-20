@@ -4,7 +4,7 @@
 
 import asyncio
 import gc
-from utime import ticks_us, ticks_diff
+from time import ticks_us, ticks_diff
 
 
 def metrics():

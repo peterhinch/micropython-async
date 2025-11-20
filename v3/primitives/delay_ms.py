@@ -6,7 +6,7 @@
 # Released under the MIT License (MIT) - see LICENSE file
 
 import asyncio
-from utime import ticks_add, ticks_diff, ticks_ms
+from time import ticks_add, ticks_diff, ticks_ms
 from . import launch
 
 

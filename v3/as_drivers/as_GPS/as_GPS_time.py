@@ -8,7 +8,7 @@
 
 import asyncio
 import pyb
-import utime
+import time
 import math
 from .as_tGPS import GPS_Timer
 from threadsafe.message import Message
@@ -129,8 +129,8 @@ us_acquired = None
 def us_cb(my_gps, tick, led):
     global us_acquired  # Time of previous PPS edge in ticks_us()
     if us_acquired is not None:
-        # Trigger Message. Pass time between PPS measured by utime.ticks_us()
-        tick.set(utime.ticks_diff(my_gps.acquired, us_acquired))
+        # Trigger Message. Pass time between PPS measured by time.ticks_us()
+        tick.set(time.ticks_diff(my_gps.acquired, us_acquired))
     us_acquired = my_gps.acquired
     led.toggle()
 

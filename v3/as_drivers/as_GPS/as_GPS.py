@@ -9,7 +9,7 @@
 # Released under the MIT License (MIT) - see LICENSE file
 
 # astests.py runs under CPython but not MicroPython because mktime is missing
-# from Unix build of utime
+# from Unix build of time
 
 # Ported to asyncio V3 OK.
 
@@ -102,14 +102,14 @@ class AS_GPS(object):
         self._fix_cb_args = fix_cb_args
         self.battery = False  # Assume no backup battery
 
-        # CPython compatibility. Import utime or time for fix time handling.
+        # CPython compatibility. Import time or time for fix time handling.
         try:
-            import utime
+            import time
 
-            self._get_time = utime.ticks_ms
-            self._time_diff = utime.ticks_diff
-            self._localtime = utime.localtime
-            self._mktime = utime.mktime
+            self._get_time = time.ticks_ms
+            self._time_diff = time.ticks_diff
+            self._localtime = time.localtime
+            self._mktime = time.mktime
         except ImportError:
             # Otherwise default to time module for non-embedded implementations
             # Should still support millisecond resolution.
