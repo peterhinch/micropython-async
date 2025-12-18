@@ -78,6 +78,7 @@ including device drivers, debugging aids, and documentation.
   7.7 [CPython compatibility and the event loop](./TUTORIAL.md#77-cpython-compatibility-and-the-event-loop) Compatibility with CPython 3.5+  
   7.8 [Race conditions](./TUTORIAL.md#78-race-conditions)  
   7.9 [Undocumented asyncio features](./TUTORIAL.md#79-undocumented-asyncio-features)  
+  7.10 [Detecting if asyncio is running](./TUTORIAL.md#710-detecting-if-asyncio-is-running)  
  8. [Notes for beginners](./TUTORIAL.md#8-notes-for-beginners)  
   8.1 [Problem 1: event loops](./TUTORIAL.md#81-problem-1:-event-loops)  
   8.2 [Problem 2: blocking methods](./TUTORIAL.md#8-problem-2:-blocking-methods)  
@@ -2566,6 +2567,18 @@ cancelled).
 If a task has completed, a `.data` bound variable holds any result which was
 returned by the task. If the task throws an exception or is cancelled `.data`
 holds the exception (or `CancelledError`).
+
+## 7.10 Detecting if asyncio is running
+
+This may be achieved with the following CPython compatible code:
+```python
+def asyncio_running():
+    try:
+        _ = asyncio.current_task()
+    except:
+        return False
+    return True
+```
 
 ###### [Contents](./TUTORIAL.md#contents)
 
