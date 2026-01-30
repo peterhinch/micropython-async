@@ -9,7 +9,7 @@ from . import launch, Delay_ms
 
 try:
     from machine import TouchPad
-except ImportError:
+except (ImportError, AttributeError):
     pass
 
 
