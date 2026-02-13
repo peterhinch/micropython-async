@@ -544,7 +544,7 @@ the appropriate time has yielded. The amount of latency depends on the design
 of the application, but is likely to be on the order of tens or hundreds of ms;
 this is discussed further in [Section 6](./TUTORIAL.md#6-interfacing-hardware).
 
-Very precise delays may be issued by using the `utime` functions `sleep_ms`
+Very precise delays may be issued by using the `time` functions `sleep_ms`
 and `sleep_us`. These are best suited for short delays as the scheduler will
 be unable to schedule other tasks while the delay is in progress.
 
@@ -1184,7 +1184,7 @@ on a Pyboard.
 import asyncio
 from primitives import Barrier
 from machine import UART
-import ujson
+import json
 
 data = None
 async def provider(barrier):
@@ -1192,7 +1192,7 @@ async def provider(barrier):
     n = 0
     while True:
         n += 1  # Get data from some source
-        data = ujson.dumps([n, 'the quick brown fox jumps over the lazy dog'])
+        data = json.dumps([n, 'the quick brown fox jumps over the lazy dog'])
         print('Provider triggers senders')
         await barrier  # Free sender tasks
         print('Provider waits for last sender to complete')
@@ -2195,7 +2195,7 @@ class MyIO(io.IOBase):
 The following is a complete awaitable delay class.
 ```python
 import asyncio
-import utime
+import time
 import io
 MP_STREAM_POLL_RD = const(1)
 MP_STREAM_POLL = const(3)
@@ -2210,7 +2210,7 @@ class MillisecTimer(io.IOBase):
         await self.sreader.read(1)
 
     def __call__(self, ms):
-        self.end = utime.ticks_add(utime.ticks_ms(), ms)
+        self.end = time.ticks_add(time.ticks_ms(), ms)
         return self
 
     def read(self, _):
@@ -2221,7 +2221,7 @@ class MillisecTimer(io.IOBase):
         if req == MP_STREAM_POLL:
             ret = 0
             if arg & MP_STREAM_POLL_RD:
-                if utime.ticks_diff(utime.ticks_ms(), self.end) >= 0:
+                if time.ticks_diff(time.ticks_ms(), self.end) >= 0:
                     ret |= MP_STREAM_POLL_RD
         return ret
 
@@ -2287,7 +2287,7 @@ class PinCall(io.IOBase):
         return ret
 ```
 
-Once again latency can be high: if implemented fast I/O scheduling will improve
+Once again latency can be high: if implemented, fast I/O scheduling will improve
 this.
 
 The demo program [iorw.py](../as_demos/iorw.py) illustrates a complete example.
@@ -2613,7 +2613,7 @@ def event_loop():
     led_2_time = 0
     switch_state = switch.state()  # Current state of a switch
     while True:
-        time_now = utime.time()
+        time_now = time.time()
         if time_now >= led_1_time:  # Flash LED #1
             led1.toggle()
             led_1_time = time_now + led_1_period
@@ -2788,7 +2788,7 @@ async def good_code():
     # code omitted
 ```
 
-For the same reason it's bad practice to issue delays like `utime.sleep(1)`
+For the same reason it's bad practice to issue delays like `time.sleep(1)`
 because that will lock out other tasks for 1s; use `await asyncio.sleep(1)`.
 Note that the delays implied by `asyncio` methods `sleep` and  `sleep_ms` can
 overrun the specified time. This is because while the delay is in progress
@@ -2796,7 +2796,7 @@ other tasks will run. When the delay period completes, execution will not
 resume until the running task issues `await` or terminates. A well-behaved task
 will always issue `await` at regular intervals. Where a precise delay is
 required, especially one below a few ms, it may be necessary to use
-`utime.sleep_us(us)`.
+`time.sleep_us(us)`.
 
 ###### [Contents](./TUTORIAL.md#contents)
 
