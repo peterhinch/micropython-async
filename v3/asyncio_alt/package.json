@@ -1,0 +1,11 @@
+{
+  "urls": [
+    ["asyncio_alt/__init__.py", "github:peterhinch/micropython-async/v3/asyncio_alt/__init__.py"],
+    ["asyncio_alt/core.py", "github:peterhinch/micropython-async/v3/asyncio_alt/core.py"],
+    ["asyncio_alt/event.py", "github:peterhinch/micropython-async/v3/asyncio_alt/event.py"],
+    ["asyncio_alt/lock.py", "github:peterhinch/micropython-async/v3/asyncio_alt/lock.py"],
+    ["asyncio_alt/stream.py", "github:peterhinch/micropython-async/v3/asyncio_alt/stream.py"],
+    ["asyncio_alt/task.py", "github:peterhinch/micropython-async/v3/asyncio_alt/task.py"]
+  ],
+  "version": "0.1"
+}
