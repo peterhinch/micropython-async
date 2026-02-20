@@ -17,6 +17,7 @@ _attrs = {
     "StreamReader": "stream",
     "StreamWriter": "stream",
     "power_mode": "core",
+    "roundrobin": "core",
 }
 
 

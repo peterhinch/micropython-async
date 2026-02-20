@@ -7,6 +7,7 @@
 # power consumption.
 
 lowpower = False  # Global low power flag
+late = 0  # Default roundrobin scheduling
 
 from time import ticks_ms as ticks, ticks_diff, ticks_add
 import sys, select
@@ -24,6 +25,14 @@ def power_mode(s: bool | None = None) -> bool:
                 raise ValueError("Light sleep is not currently supported on Pyboard.")
             lowpower = s
     return lowpower
+
+
+# I/O scheduling: roundrobin or fast
+def roundrobin(v: bool | None = None) -> bool:
+    global late
+    if v is not None:
+        late = 0 if v else -1000
+    return late
 
 
 # Import TaskQueue and Task, preferring built-in C code over Python code
@@ -140,11 +149,11 @@ class IOQueue:
                 # print('poll', s, sm, ev)
                 if ev & ~select.POLLOUT and sm[0] is not None:
                     # POLLIN or error
-                    _task_queue.push(sm[0], ticks_add(ticks(), -1000))  # Overdue task
+                    _task_queue.push(sm[0], ticks_add(ticks(), late))  # Overdue task
                     sm[0] = None
                 if ev & ~select.POLLIN and sm[1] is not None:
                     # POLLOUT or error
-                    _task_queue.push(sm[1], ticks_add(ticks(), -1000))  # Overdue task
+                    _task_queue.push(sm[1], ticks_add(ticks(), late))  # Overdue task
                     sm[1] = None
                 if sm[0] is None and sm[1] is None:
                     self._dequeue(s)

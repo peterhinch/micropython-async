@@ -1,3 +1,8 @@
+# timer_test.py Test/demo for asyncio_alt
+
+# Released under the MIT License (MIT). See LICENSE.
+# Copyright (c) 2025 Peter Hinch
+
 import asyncio_alt as asyncio
 
 # import asyncio
@@ -34,6 +39,9 @@ class MillisecTimer(io.IOBase):
         return ret
 
 
+timer = MillisecTimer()
+
+
 async def block(n):
     while True:
         time.sleep_ms(5)
@@ -41,15 +49,32 @@ async def block(n):
         await asyncio.sleep_ms(0)
 
 
-async def timer_test(m):
-    timer = MillisecTimer()
-    tasks = []
-    for n in range(10):
-        tasks.append(asyncio.create_task(block(n)))
+async def pause(m):
     for x in range(m):
         t = time.ticks_ms()
         await timer(100)  # Pause
-        print(x, time.ticks_diff(time.ticks_ms(), t))
+        print(f"Iteration {x} {time.ticks_diff(time.ticks_ms(), t)}ms")
 
 
-asyncio.run(timer_test(20))
+s1 = """
+This tests the accuracy of a MillisecTimer instance in the presence of
+multiple running tasks: first under normal roundrobin scheduling.
+Ideal time is 100ms.
+"""
+s2 = """
+Now using I/O priority scheduling.
+"""
+
+
+async def timer_test(m):
+    print(s1)
+    tasks = []
+    for n in range(10):
+        tasks.append(asyncio.create_task(block(n)))
+    await pause(m)
+    print(s2)
+    asyncio.roundrobin(False)
+    await pause(m)
+
+
+asyncio.run(timer_test(10))
