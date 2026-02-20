@@ -14,7 +14,7 @@ availability and effectiveness of low power mode is platform dependent.
 ```bash
 $ mpremote mip install github:peterhinch/micropython-async/v3/asyncio_alt
 ```
-To install the `timer_test` demo issue
+To install the `timer_test` and `tsf_test` demos issue
 ```bash
 $ mpremote mip install github:peterhinch/micropython-async/v3/asyncio_alt/demos
 ```
@@ -55,6 +55,14 @@ and ~102ms with fast I/O.
 
 Using the official version the duration is around 155ms because each of the
 pending tasks runs in roundrobin fashion before the I/O event is handled.
+
+This tests `ThreadSafeFlag` latency:
+```py
+import tsf_test
+```
+These tests "cheat" slightly because they are triggered from an `asyncio` task.
+If triggering were from a truly asynchronous source, latency of up to 5ms (the
+blocking time of a task) would be expected.
 
 ## 3.2 Implications of prioritising I/O
 

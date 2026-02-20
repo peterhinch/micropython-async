@@ -1,6 +1,7 @@
 {
   "urls": [
-    ["timer_test.py", "github:peterhinch/micropython-async/v3/asyncio_alt/demos/timer_test.py"]
+    ["timer_test.py", "github:peterhinch/micropython-async/v3/asyncio_alt/demos/timer_test.py"],
+    ["tsf_test.py", "github:peterhinch/micropython-async/v3/asyncio_alt/demos/tsf_test.py"]
   ],
   "version": "0.1"
 }
