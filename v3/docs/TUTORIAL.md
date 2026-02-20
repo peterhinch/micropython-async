@@ -6,7 +6,9 @@ current version of `asyncio`, V3.0.0. Most code samples are complete scripts
 which can be cut and pasted at the REPL.
 
 See [this overview](../README.md) for a summary of resources for `asyncio`
-including device drivers, debugging aids, and documentation.
+including device drivers, debugging aids, and documentation. Also a lightly
+modified version of `asyncio` offering fast I/O performance and a route to low
+power operation.
 
 # Contents
 
@@ -2234,11 +2236,13 @@ async def timer_test(n):
 asyncio.run(timer_test(20))
 ```
 
-This currently confers no benefit over `await asyncio.sleep_ms()`, however if
-`asyncio` implements fast I/O scheduling it will be capable of more precise
-timing. This is because I/O will be tested on every scheduler call. Currently
-it is polled once per complete pass, i.e. when all other pending tasks have run
-in round-robin fashion.
+With standard `asyncio` this confers no benefit over `await asyncio.sleep_ms()`.
+This is because, when an I/O event occurs, the waiting task is put on a queue
+awaiting execution. If other tasks are ready at that time, they will be executed
+firs in round-robin sequence. This repository includes
+[asynco_alt](./ASYNCIO_ALT.md): an unofficial version which assigns I/O tasks a
+higher priority. If this is used in typical applications the timer accuracy is
+substantially improved.
 
 It is possible to use I/O scheduling to associate an event with a callback.
 This is more efficient than a polling loop because the task doing the polling

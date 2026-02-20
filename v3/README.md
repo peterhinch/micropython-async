@@ -101,6 +101,16 @@ useful in their own right:
  * [HD44780](./docs/hd44780.md) Driver for common character based LCD displays
  based on the Hitachi HD44780 controller.
 
+ ### 1.3.7 asyncio_alt
+
+ [asyncio_alt](./docs/ASYNCIO_ALT.md) is a MIP-installable, lightly modified,
+ version of `asyncio` offering:
+ 1. Reduced latency for I/O tasks including `ThreadSafeFlag`.
+ 2. Reduced power consumption on platforms that have effective lightsleep
+ capability.
+
+ The reduced I/O latency can enable buffer sizes to be minimised.
+
 # 2. V3 Overview
 
 These notes are intended for users familiar with `asyncio` under CPython.
@@ -134,22 +144,3 @@ supported.
 
 The `Future` class is not supported, nor are the `event_loop` methods
 `call_soon`, `call_later`, `call_at`.
-
-## 2.1 Outstanding issues with V3
-
-V3 is still a work in progress. The following is a list of issues which I hope
-will be addressed in due course.
-
-### 2.1.1 Fast I/O scheduling
-
-There is currently no support for this: I/O is scheduled in round robin fashion
-with other tasks. There are situations where this is too slow and the scheduler
-should be able to poll I/O whenever it gains control.
-
-### 2.1.2 Synchronisation primitives
-
-These CPython primitives are outstanding:
- * `Semaphore`.
- * `BoundedSemaphore`.
- * `Condition`.
- * `Queue`.
