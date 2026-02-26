@@ -14,7 +14,7 @@ availability and effectiveness of low power mode is platform dependent.
 ```bash
 $ mpremote mip install github:peterhinch/micropython-async/v3/asyncio_alt
 ```
-To install the `timer_test` and `tsf_test` demos issue
+To install the `timer_test`, `uart_test` and `tsf_test` demos issue
 ```bash
 $ mpremote mip install github:peterhinch/micropython-async/v3/asyncio_alt/demos
 ```
@@ -121,6 +121,14 @@ The machine should pause for five seconds then print a value of approximately
 5000. A value of ~0 indicates that the `ticks_ms` clock stops during light sleep
 rendering the platform unsuitable. Currently STM32 (Pyboards) are in this
 category. RP2040 and RP2350 work fine.
+
+Low power mode can be demonstrated on an RP2 by running the following test. GPIO
+0 and 1 should be linked. The test demonstrates concurrent I/O on a UART while
+keeping the current consumption down to around 1.5mA.
+```py
+import uart_test
+```
+Messages are printed as they are received.
 
 ## 4.2 Implication of low power mode
 

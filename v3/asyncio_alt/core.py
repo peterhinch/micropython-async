@@ -10,6 +10,7 @@ lowpower = False  # Global low power flag
 late = 0  # Default roundrobin scheduling
 
 from time import ticks_ms as ticks, ticks_diff, ticks_add
+import machine
 import sys, select
 
 # Set, clear or test low power mode.
@@ -17,9 +18,7 @@ def power_mode(s: bool | None = None) -> bool:
     global lowpower
     if s is not None:
         if s:
-            try:
-                from machine import lightsleep
-            except:
+            if not hasattr(machine, "lightsleep"):
                 raise ValueError("Platform does not support lightsleep.")
             if sys.platform == "pyboard":
                 raise ValueError("Light sleep is not currently supported on Pyboard.")
@@ -142,18 +141,22 @@ class IOQueue:
                 break
 
     def wait_io_event(self, dt):
+
         pt = 0 if lowpower else dt  # Poll timeout
+        pending = False
         while dt >= 0:
             for s, ev in self.poller.ipoll(pt):
                 sm = self.map[id(s)]
-                # print('poll', s, sm, ev)
+                #  print("poll", s, sm, ev)
                 if ev & ~select.POLLOUT and sm[0] is not None:
                     # POLLIN or error
                     _task_queue.push(sm[0], ticks_add(ticks(), late))  # Overdue task
+                    pending = True
                     sm[0] = None
                 if ev & ~select.POLLIN and sm[1] is not None:
                     # POLLOUT or error
                     _task_queue.push(sm[1], ticks_add(ticks(), late))  # Overdue task
+                    pending = True
                     sm[1] = None
                 if sm[0] is None and sm[1] is None:
                     self._dequeue(s)
@@ -161,12 +164,12 @@ class IOQueue:
                     self.poller.modify(s, select.POLLOUT)
                 else:
                     self.poller.modify(s, select.POLLIN)
-            if lowpower:
+            if lowpower and not pending:  # brief sleep
                 if (tw := min(dt, 20)) > 0:
-                    lightsleep(tw)
-                dt -= tw
+                    machine.lightsleep(tw)
+                dt -= max(tw, 1)
             else:
-                break
+                break  # to run a task
 
 
 ################################################################################
