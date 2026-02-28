@@ -2,9 +2,9 @@
 # MIT license; Copyright (c) 2019 Damien P. George
 
 # Modifications to IOQueue.wait_io_event by Peter Hinch
-# 1. IO tasks are scheduled with a time in the past to ensure priority scheduling.
-# 2. Where machine.deepsleep is available and lowpower is True uses it to minimise
-# power consumption.
+# 1. IO tasks can be prioritised by scheduling to run at a time in the past.
+# 2. Where machine.deepsleep is available and lowpower is True uses deepsleep to
+# minimise power consumption.
 
 lowpower = False  # Global low power flag
 late = 0  # Default roundrobin scheduling
@@ -22,7 +22,7 @@ def power_mode(s: bool | None = None) -> bool:
                 raise ValueError("Platform does not support lightsleep.")
             if sys.platform == "pyboard":
                 raise ValueError("Light sleep is not currently supported on Pyboard.")
-            lowpower = s
+        lowpower = s
     return lowpower
 
 
