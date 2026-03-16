@@ -63,7 +63,9 @@ class Stream:
             if not l2 or l[-1] == 10:  # \n (check l in case l2 is str)
                 return l
 
-    def write(self, buf):
+    # Handle case where buf is a memoryview of a pre-allocated bytearray
+    # See https://github.com/micropython/micropython/pull/7868
+    def write(self, buf, copy=True):
         if not self.out_buf:
             # Try to write immediately to the underlying stream.
             ret = self.s.write(buf)
@@ -71,7 +73,12 @@ class Stream:
                 return
             if ret is not None:
                 buf = buf[ret:]
-        self.out_buf += buf
+        if copy:
+            self.out_buf += buf
+        else:
+            if self.out_buf:
+                raise OSError("Must drain after write.")
+            self.out_buf = buf
 
     # async
     def drain(self):

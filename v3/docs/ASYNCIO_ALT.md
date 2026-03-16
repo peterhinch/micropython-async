@@ -1,13 +1,16 @@
 # asyncio_alt
 
 This is a minimally modified version of `asyncio` with the objective of enabling
-one or both of:
+any of:
 1. Reduced latency for I/O tasks including `ThreadSafeFlag`.
-2. Reduced power consumption on platforms with effective lightsleep capability.
+2. Non-allocating stream writes where data is stored in a mutable buffer.
+3. Reduced power consumption on platforms with effective lightsleep capability.
 
-Usage and functionality are identical to standard. Some attention to detail is
-required to take advantage of these added features. In particular the
-availability and effectiveness of low power mode is platform dependent.
+By default usage, functionality and performance are identical to `asyncio`. The
+added features must be explicitly enabled (individually or in combination). Some
+attention to detail is required to take advantage of the added features. In
+particular the availability and effectiveness of low power mode is platform
+dependent. Achieving power savings requires careful application design.
 
 # 1. Installation
 
@@ -93,7 +96,47 @@ When running this version, consider the blocking time of any I/O tasks in the
 context of the maximum rate at which the task might be triggered: I/O tasks
 should be designed to run to completion (or to a yield) quickly.
 
-# 4. Low power mode
+# 4. Non allocating stream writes
+
+Allocation can occur where data is streamed from a data source to a
+`StreamWriter`. This does not happen when the data is a `bytes` instance. RAM
+efficient streaming applications typically pre-allocate a mutable buffer which
+can imply a risk of repeated allocation. Consider an application where a large
+file is read in chunks with each chunk being written to the output stream. A
+`bytearray` of the chunk size is created, with a `memoryview` being used to
+allow allocation-free slicing.
+
+The `StreamWriter` maintains its own output buffer (`.out_buf`). Under some
+conditions the buffer passed to `StreamWriter.write()` is appended to `.out_buf`
+which implies allocation. In the `asyncio_alt` version the call signature is
+amended to:
+```py
+    def write(self, buf, copy=True):
+```
+By default, `.write()` attempts to send data to the stream. Any untransmitted
+data is appended to `.out_buf` for transmission by `.drain()`. Note that this
+design permits successive calls to `.write()`, with `.out_buf` growing until
+`.drain()` is called.
+
+If `copy` is `False`, `StreamWriter.write()` assigns any untransmitted data
+to `.out_buf`, avoiding allocation. It is essential to call `drain` after every
+`write`. Failing to do this when copy is `False` will result in an `OSError`.
+See https://github.com/micropython/micropython/pull/7868.
+
+Sample usage (code fragment):
+```py
+import asyncio_alt as asyncio
+buf = bytearray(4096)
+
+async def sender(f, device):  # Send contents of a large open file
+    sr = StreamReader(device)  # Assign to a UART, socket or I2S device
+    mvb = memoryview(buf)
+    while (num_read := f.readinto(mvb)):
+        sr.write(mvb[:num_read], False)
+        await sr.drain()
+```
+
+# 5. Low power mode
 
 Achieving low power consumption requires some attention to detail. The mode
 works by invoking `machine.lightsleep` during periods when the scheduler is
@@ -105,7 +148,7 @@ on a task to be due.
 Note that `lightsleep` power draw is often reduced when the USB interface is
 unused or disabled, with the hardware powered from an external source.
 
-## 4.1 Checking platform suitability
+## 5.1 Checking platform suitability
 
 The low power suitability of a platform may be tested by pasting this script at
 the REPL:
@@ -130,7 +173,7 @@ import uart_test
 ```
 Messages are printed as they are received.
 
-## 4.2 Implication of low power mode
+## 5.2 Implication of low power mode
 
 This mode works as follows. Whenever there are no pending tasks (i.e. tasks
 ready for execution) the scheduler polls the I/O system. Normally polling is

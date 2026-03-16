@@ -2,6 +2,7 @@
 # Author: Peter Hinch
 # Copyright Peter Hinch 2017-2026 Released under the MIT license
 
+# Link GPIO 0 and 1
 # Run with no UART timeout: UART read never blocks.
 import asyncio_alt as asyncio
 from machine import UART, Pin
