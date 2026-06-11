@@ -15,7 +15,8 @@ MicroPython's `asyncio` when used in a microcontroller context.
   4.2 [Pushbutton class](./DRIVERS.md#42-pushbutton-class) Debounced pushbutton with callback interface.  
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.2.1 [The suppress constructor argument](./DRIVERS.md#421-the-suppress-constructor-argument)  
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.2.2 [The sense constructor argument](./DRIVERS.md#422-the-sense-constructor-argument)  
-  4.3 [ESP32Touch class](./DRIVERS.md#43-esp32touch-class)  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.2.3 [ESP32Touch class](./DRIVERS.md#423-esp32touch-class) Subclass of Pushbutton  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.2.4 [RP2Touch class](./DRIVERS.md#424-rp2touch-class) Subclass of Pushbutton  
   4.4 [Keyboard class](./DRIVERS.md#44-keyboard-class) Retrieve characters from a keypad.  
   4.5 [SwArray class](./DRIVERS.md#45-swarray-class) Interface a crosspoint array of switches or buttons.  
   4.6 [Suppress mode](./DRIVERS.md#46-suppress-mode) Reduce the number of events/callbacks.  
@@ -505,7 +506,7 @@ Event names, where `None` is passed to a method listed below, are as follows:
 
 ###### [Contents](./DRIVERS.md#0-contents)
 
-## 4.3 ESP32Touch class
+### 4.2.3 ESP32Touch class
 
 ```py
 from primitives import ESP32Touch  # pushbutton.py
@@ -555,6 +556,105 @@ pad will result in a low value from `machine.TouchPad.read()`. A small pad
 covered with an insulating film will yield a smaller change.
 
 ###### [Contents](./DRIVERS.md#0-contents)
+
+### 4.2.4 RP2Touch class
+
+```py
+from primitives import RP2Touch  # rp2_touch.py
+```
+This `Pushbutton` subclass uses a state machine to provide a touch button. API
+and usage are as per `Pushbutton` with the following provisos:
+ 1. The `sense` constructor arg is not supported.
+ 2. The `Pin` instance passed to the constructor must be defined as an input
+ with a pull down resistor.
+ 3. There is an additional classmethod `config` which takes three positional
+ args:
+ `thresh=5` Detection threshold.  
+ `start_sm=0` State machine no. for first button (further buttons use
+ subsequent SM's).  
+ `freq=500` Sampling frequency in Hz.  
+ 4. There is a method `value` which may be called in test code: it returns two
+ integers, an offset representing stray capacitance followed by the current
+ capacitance (as a delta from the stray value).
+
+If used, the `config` classmethod should be called prior to instantiating any
+touchbuttons. The sensitivity of the buttons is defined by `thresh`: low values
+increase sensitivity with increased risk of accidental operation.
+
+Example usage:
+```py
+from machine import Pin
+import asyncio
+from primitives import RP2Touch
+
+RP2Touch.config(7)  # Set the threshold (optional)
+
+async def main():
+    tb = RP2Touch(Pin(16, Pin.IN, Pin.PULL_DOWN), suppress=True)
+    tb.press_func(lambda : print("press"))
+    tb.double_func(lambda : print("double"))
+    tb.long_func(lambda : print("long"))
+    tb.release_func(lambda : print("release"))
+    while True:
+        await asyncio.sleep(1)
+
+asyncio.run(main())
+```
+Determining the threshold. Run the following. After it starts to print results,
+touch the pad and note the outcome.
+```py
+from machine import Pin
+import asyncio
+from primitives import RP2Touch
+
+async def main():
+    tb = RP2Touch(Pin(16, Pin.IN, Pin.PULL_DOWN), suppress=True)
+    while True:
+        await asyncio.sleep(1)
+        print(tb.value()[1])
+
+asyncio.run(main())
+```
+Results depend on the size of the touch pad, strength of touch and whether it is
+covered by a dielectric. A reasonable approach to setting the threshold is to
+set `thresh` to half the displayed value.
+
+#### Limitations
+
+RP2350 chips: see errata RP2350-E9. This design requires chip stepping level >= A3.
+
+Each touch button uses a state machine: this constrains the number of buttons
+which can be created. The mode of operation is unofficial and relies on the
+touch pad briefly being open circuit. In this state it is vulnerable to
+electromagnetic interference or to static discharge. The latter can be avoided
+by covering the touchpad with a dielectric. While reliable in testing, the
+possibility of false positives cannot be discounted: use in critical
+applications is not recommended.
+
+#### Sensitivity
+
+Sensitivity may be enhanced by replacing the on-chip pulldown with a higher
+value physical resistor. Values on the order of 100KΩ to 470KΩ may be tried.
+
+#### Mode of operation
+
+The basic concept draws on the work of
+[Matthias Wandel](https://github.com/Matthias-Wandel/Pico-femtofarad)
+and that of [AncientJames](https://github.com/AncientJames/jtouch), although the
+code was rewritten. The state machine runs continuously, pushing values to the
+RX FIFO: in practice the FIFO fills and the SM stalls, waiting for Python to
+`get` a value. The `get` occurs in a timer hard ISR: it is guaranteed to be fast
+because the FIFO is always full. The ISR puts samples into a small circular
+buffer. When the asynchronous code queries the button state, the mean buffer
+value (adjusted for stray capacitance) is compared to the threshold.
+
+The SM cycle starts with the pin configured as an output and set high, with the
+SM stalled on a full RX FIFO. When a word is removed it sets `x=0xFF` and sets
+the pin to an input. The effect of the pull down is for the voltage on the pin
+to reduce, with the rate being inversely proportional to capacitance (see the
+Matthias Wandel reference). The SM reduces `x` until the pin reads as a low
+level, when it pushes the value. The ISR gets a number proportional to
+capacitance as `0xFF - x`. See code comments for further details.
 
 ## 4.4 Keyboard class
 

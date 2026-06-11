@@ -41,6 +41,7 @@ _attrs = {
     "Encoder": "encoder",
     "Pushbutton": "pushbutton",
     "ESP32Touch": "pushbutton",
+    "RP2Touch": "rp2_touch",
     "Queue": "queue",
     "Semaphore": "semaphore",
     "BoundedSemaphore": "semaphore",
