@@ -1,4 +1,8 @@
 # rp2_touch.py
+
+# Copyright (c) 2026 Peter Hinch
+# Released under the MIT License (MIT) - see LICENSE file
+
 import rp2
 from machine import Pin, Timer
 import asyncio

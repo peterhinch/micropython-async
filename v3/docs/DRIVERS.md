@@ -568,7 +568,7 @@ and usage are as per `Pushbutton` with the following provisos:
  2. The `Pin` instance passed to the constructor must be defined as an input
  with a pull down resistor.
  3. There is an additional classmethod `config` which takes three positional
- args:
+ args:  
  `thresh=5` Detection threshold.  
  `start_sm=0` State machine no. for first button (further buttons use
  subsequent SM's).  
@@ -600,8 +600,10 @@ async def main():
 
 asyncio.run(main())
 ```
-Determining the threshold. Run the following. After it starts to print results,
-touch the pad and note the outcome.
+#### Determining the threshold.
+
+Run the following. After it starts to print results, touch the pad and note the
+outcome.
 ```py
 from machine import Pin
 import asyncio
@@ -615,9 +617,9 @@ async def main():
 
 asyncio.run(main())
 ```
-Results depend on the size of the touch pad, strength of touch and whether it is
-covered by a dielectric. A reasonable approach to setting the threshold is to
-set `thresh` to half the displayed value.
+Results depend on the strength of touch, the size of the touch pad and whether
+it is covered by a dielectric. A reasonable approach to setting the threshold is
+to set `thresh` to half the displayed value.
 
 #### Limitations
 
@@ -640,9 +642,9 @@ value physical resistor. Values on the order of 100KΩ to 470KΩ may be tried.
 
 The basic concept draws on the work of
 [Matthias Wandel](https://github.com/Matthias-Wandel/Pico-femtofarad)
-and that of [AncientJames](https://github.com/AncientJames/jtouch), although the
-code was rewritten. The state machine runs continuously, pushing values to the
-RX FIFO: in practice the FIFO fills and the SM stalls, waiting for Python to
+and [AncientJames](https://github.com/AncientJames/jtouch). The code was
+rewritten from scratch. The state machine runs continuously, pushing values to
+the RX FIFO: in practice the FIFO fills and the SM stalls, waiting for Python to
 `get` a value. The `get` occurs in a timer hard ISR: it is guaranteed to be fast
 because the FIFO is always full. The ISR puts samples into a small circular
 buffer. When the asynchronous code queries the button state, the mean buffer
@@ -653,7 +655,7 @@ SM stalled on a full RX FIFO. When a word is removed it sets `x=0xFF` and sets
 the pin to an input. The effect of the pull down is for the voltage on the pin
 to reduce, with the rate being inversely proportional to capacitance (see the
 Matthias Wandel reference). The SM reduces `x` until the pin reads as a low
-level, when it pushes the value. The ISR gets a number proportional to
+level, when it pushes the value. The ISR stores a number proportional to
 capacitance as `0xFF - x`. See code comments for further details.
 
 ## 4.4 Keyboard class
