@@ -562,20 +562,20 @@ covered with an insulating film will yield a smaller change.
 ```py
 from primitives import RP2Touch  # rp2_touch.py
 ```
-This `Pushbutton` subclass uses a state machine to provide a touch button. API
-and usage are as per `Pushbutton` with the following provisos:
+This `Pushbutton` subclass uses a state machine on RP2040 or RP2350 to provide a
+touch button. API and usage are as per `Pushbutton` with the following provisos:
  1. The `sense` constructor arg is not supported.
  2. The `Pin` instance passed to the constructor must be defined as an input
  with a pull down resistor.
- 3. There is an additional classmethod `config` which takes three positional
- args:  
- `thresh=5` Detection threshold.  
- `start_sm=0` State machine no. for first button (further buttons use
- subsequent SM's).  
- `freq=500` Sampling frequency in Hz.  
+ 3. There is an additional classmethod with this pattern:  
+ `config(thresh=5, start_sm=0, freq=500)` Args are:  
+ `thresh` Detection threshold.  
+ `start_sm` State machine no. for first button (further buttons use subsequent
+ SM's).  
+ `freq` Sampling frequency in Hz.  
  4. There is a method `value` which may be called in test code: it returns two
  integers, an offset representing stray capacitance followed by the current
- capacitance (as a delta from the stray value).
+ capacitance (as a delta from the stray value). See below for usage example.
 
 If used, the `config` classmethod should be called prior to instantiating any
 touchbuttons. The sensitivity of the buttons is defined by `thresh`: low values
@@ -627,7 +627,7 @@ RP2350 chips: see errata RP2350-E9. This design requires chip stepping level >= 
 
 Each touch button uses a state machine: this constrains the number of buttons
 which can be created. The mode of operation is unofficial and relies on the
-touch pad briefly being open circuit. In this state it is vulnerable to
+touch pad briefly (< 1μs) being open circuit. In this state it is vulnerable to
 electromagnetic interference or to static discharge. The latter can be avoided
 by covering the touchpad with a dielectric. While reliable in testing, the
 possibility of false positives cannot be discounted: use in critical
@@ -653,10 +653,13 @@ value (adjusted for stray capacitance) is compared to the threshold.
 The SM cycle starts with the pin configured as an output and set high, with the
 SM stalled on a full RX FIFO. When a word is removed it sets `x=0xFF` and sets
 the pin to an input. The effect of the pull down is for the voltage on the pin
-to reduce, with the rate being inversely proportional to capacitance (see the
-Matthias Wandel reference). The SM reduces `x` until the pin reads as a low
-level, when it pushes the value. The ISR stores a number proportional to
-capacitance as `0xFF - x`. See code comments for further details.
+to reduce. After a period the voltage declines to the point where it reads as 0.
+The time this takes is proportional to capacitance: the SM measures this period
+by reducing `x` until the pin reads as 0, when it pushes the `x` value. The code
+derives a number proportional to capacitance as `0xFF - x`.
+
+See code comments for further details, and the Matthias Wandel reference for
+further explanation of the mechanism with scope traces.
 
 ## 4.4 Keyboard class
 

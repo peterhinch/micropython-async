@@ -3,10 +3,14 @@
 # Copyright (c) 2026 Peter Hinch
 # Released under the MIT License (MIT) - see LICENSE file
 
+# Version optimised to minimise timer callback time for multiple buttons.
+
 import rp2
 from machine import Pin, Timer
 import asyncio
 from . import Pushbutton
+
+# from time import ticks_us, ticks_diff
 
 # Array size 16 samples at 500Hz default = 32ms
 _NSAMPLES = const(16)
@@ -16,40 +20,37 @@ _NSAMPLES = const(16)
 def get_cap():
     out(y, 32)  # Wait for count from Python
     wrap_target()
+    label("full_scale")
     set(pindirs, 1)  # Set sense pin to output.
     set(pins, 1)[31]  # Drive it high and charge.
     in_(x, 30)  # Push count << 2 to Python. FIFO fills and SM stalls until a word is read.
-    label("invalid")  # Discard overflow caused by excessive capacitance
     mov(x, y)  # Reset count
     set(pindirs, 0)  # Change to input
     label("loop")  # Wait for it to drift low
-    jmp(x_dec, "next")
-    jmp("invalid")  # x was 0 (now -1): discard invalid reading
+    jmp(x_dec, "next")  # Jump unless it's timed out
+    set(x, 0)  # Return 0 on timeout (maximum time)
+    jmp("full_scale")
     label("next")  # x was nonzero
     jmp(pin, "loop")  # Loop until sense pin reads low
     wrap()
 
 
-def indx(i=0):  # Yield index values modulo _NSAMPLES
-    while True:
-        # yield (i := i - 1 if i else _NSAMPLES - 1)
-        yield (i := (i + 1) & 0x0F)
-
-
 class RP2Touch(Pushbutton):
-    _sm_no = 0
-    _freq = 500
-    _thresh = 5
+    _sm_no = 0  # Initial state machine no.
+    _freq = 500  # Poll frequency (Hz)
+    _thresh = 5  # Detection threshold
+    _insts = set()  # Instance list
+    _idx = 0  # Index for above
+    _tim = None  # Single Timer instance
 
     @classmethod
-    def config(cls, thresh=5, start_sm=0, freq=500):
+    def config(cls, thresh=5, start_sm=0, freq=500):  # Override defaults
         cls._sm_no = start_sm
         cls._freq = freq
         cls._thresh = thresh
 
     def __init__(self, pin_sense, suppress=False):
         self._a = bytearray(_NSAMPLES)
-        self._idx = indx()
         self._offs = 0
         self._running = False  # Hold off until initialised
 
@@ -66,32 +67,48 @@ class RP2Touch(Pushbutton):
         RP2Touch._sm_no += 1
         self._sm.active(1)
         self._sm.put(0xFF)  # Initialise SM with counter value
-        super().__init__(pin_sense, suppress, False)
-
-        # Timer runs continuously, populating the buffer with samples. If multiple
-        # instances exist their timers will be out of phase by an arbitrary angle.
-        self._tim = Timer(freq=RP2Touch._freq, mode=Timer.PERIODIC, callback=self._tcb, hard=True)
+        super().__init__(pin_sense, suppress, False)  # No sense
+        if RP2Touch._tim is None:  # Single timer instance. Callback gets a sample from the
+            f = RP2Touch._freq  # SM and puts in the buffer for every class instance.
+            RP2Touch._tim = Timer(freq=f, mode=Timer.PERIODIC, callback=self._tcb, hard=True)
+        RP2Touch._insts.add(self)
         asyncio.create_task(self._init())
 
-    # Store an integer proportional to capacitance. Note right shift by 2: this
-    # ensures a small int is returned, enabling use in a hard ISR.
-    def _tcb(self, _):  # Timer callback: get a sample and put in buffer
-        self._a[next(self._idx)] = 0xFF - self._sm.get(None, 2)
+    # Timer callback: ~170μs with five buttons at stock 125MHz = 8.5% utilisation.
+    # Store an integer from the SM. Note right shift by 2: this ensures a small int is
+    # returned, enabling use in a hard ISR.
+    @micropython.viper
+    def _tcb(self, _):
+        # t = ticks_us()
+        i: uint = uint(self._idx)
+        for inst in self._insts:  # For each instance
+            inst._a[i] = inst._sm.get(None, 2)  # Save a sample in buffer
+        self._idx = (i + 1) & 0x0F  # Update index modulo 16
+        # dt = ticks_diff(ticks_us(), t)
+        # print(dt)
 
-    def _init(self):  # Measure stray capacitance. Button must not be pressed
-        await asyncio.sleep_ms(200)
-        self._offs = sum(self._a) >> 4
+    async def _init(self):  # Measure stray capacitance. Button must not be pressed
+        await asyncio.sleep_ms(200)  # Ensure samples have baan gathered.
+        self._offs = self._cap()
         self._running = True
 
-    # ***** Pushbutton override *****
-    # Moving average of _NSAMPLES
-    def rawstate(self):
-        return self._running and (((sum(self._a) >> 4) - self._offs) > RP2Touch._thresh)
-
-    def deinit(self):
-        self._tim.deinit()
-        self._sm.active(0)
-        super().deinit()
+    # Current capacitance value. Readings from the SM are summed then divided by
+    # the number of samples to give mean. Capacitance is 0xFF - mean SM reading.
+    # Optionally adjust for stray capacitance (offs).
+    def _cap(self, offs=0):
+        return 0xFF - (sum(self._a) >> 4) - offs
 
     def value(self):  # User test function to help detemine threshold
-        return self._offs, (sum(self._a) >> 4) - self._offs
+        return self._offs, self._cap(self._offs)
+
+    # ***** Pushbutton class override *****
+    # Moving average of _NSAMPLES
+    def rawstate(self):
+        return self._running and (self._cap(self._offs) > RP2Touch._thresh)
+
+    def deinit(self):
+        if (t := RP2Touch._tim) is not None:
+            t.deinit()
+            RP2Touch._tim = None
+        self._sm.active(0)
+        super().deinit()
