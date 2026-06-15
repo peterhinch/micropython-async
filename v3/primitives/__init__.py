@@ -40,7 +40,7 @@ _attrs = {
     "Delay_ms": "delay_ms",
     "Encoder": "encoder",
     "Pushbutton": "pushbutton",
-    "ESP32Touch": "pushbutton",
+    "ESP32Touch": "esp32_touch",
     "RP2Touch": "rp2_touch",
     "Queue": "queue",
     "Semaphore": "semaphore",

@@ -10,6 +10,7 @@
     ["primitives/events.py", "github:peterhinch/micropython-async/v3/primitives/events.py"],
     ["primitives/pushbutton.py", "github:peterhinch/micropython-async/v3/primitives/pushbutton.py"],
     ["primitives/rp2_touch.py", "github:peterhinch/micropython-async/v3/primitives/rp2_touch.py"],
+    ["primitives/esp32_touch.py", "github:peterhinch/micropython-async/v3/primitives/esp32_touch.py"],
     ["primitives/queue.py", "github:peterhinch/micropython-async/v3/primitives/queue.py"],
     ["primitives/ringbuf_queue.py", "github:peterhinch/micropython-async/v3/primitives/ringbuf_queue.py"],
     ["primitives/semaphore.py", "github:peterhinch/micropython-async/v3/primitives/semaphore.py"],

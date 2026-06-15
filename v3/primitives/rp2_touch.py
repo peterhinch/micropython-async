@@ -1,4 +1,4 @@
-# rp2_touch.py
+# rp2_touch.py RP2 hosts: support Pushbutton based on touch pad.
 
 # Copyright (c) 2026 Peter Hinch
 # Released under the MIT License (MIT) - see LICENSE file
