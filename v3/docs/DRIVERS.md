@@ -642,8 +642,8 @@ value physical resistor. Values on the order of 100KΩ to 470KΩ may be tried.
 
 The basic concept draws on the work of
 [Matthias Wandel](https://github.com/Matthias-Wandel/Pico-femtofarad)
-and [AncientJames](https://github.com/AncientJames/jtouch). The code was
-rewritten from scratch. The state machine runs continuously, pushing values to
+and [AncientJames](https://github.com/AncientJames/jtouch). The code is original
+and human-written. The state machine runs continuously, pushing values to
 the RX FIFO: in practice the FIFO fills and the SM stalls, waiting for Python to
 `get` a value. The `get` occurs in a timer hard ISR: it is guaranteed to be fast
 because the FIFO is always full. The ISR puts samples into a small circular
@@ -659,7 +659,7 @@ by reducing `x` until the pin reads as 0, when it pushes the `x` value. The code
 derives a number proportional to capacitance as `0xFF - x`.
 
 See code comments for further details, and the Matthias Wandel reference for
-further explanation of the mechanism with scope traces.
+illustration of the mechanism with scope traces.
 
 ## 4.4 Keyboard class
 
