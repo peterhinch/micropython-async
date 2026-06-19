@@ -80,10 +80,10 @@ class RP2Touch(Pushbutton):
     @micropython.viper
     def _tcb(self, _):
         # t = ticks_us()
-        i: uint = uint(self._idx)
-        for inst in self._insts:  # For each instance
-            inst._a[i] = inst._sm.get(None, 2)  # Save a sample in buffer
-        self._idx = (i + 1) & 0x0F  # Update index modulo 16
+        i: uint = uint(RP2Touch._idx)
+        for inst in RP2Touch._insts:  # For each instance
+            inst._a[i] = uint(inst._sm.get(None, 2)) & 0xFF  # Save a sample in buffer
+        RP2Touch._idx = (i + 1) & 0x0F  # Update index modulo 16
         # dt = ticks_diff(ticks_us(), t)
         # print(dt)
 
