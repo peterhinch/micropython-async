@@ -10,8 +10,6 @@ from machine import Pin, Timer
 import asyncio
 from . import Pushbutton
 
-# from time import ticks_us, ticks_diff
-
 # Array size 16 samples at 500Hz default = 32ms
 _NSAMPLES = const(16)
 
@@ -79,13 +77,10 @@ class RP2Touch(Pushbutton):
     # returned, enabling use in a hard ISR.
     @micropython.viper
     def _tcb(self, _):
-        # t = ticks_us()
         i: uint = uint(RP2Touch._idx)
         for inst in RP2Touch._insts:  # For each instance
-            inst._a[i] = uint(inst._sm.get(None, 2)) & 0xFF  # Save a sample in buffer
+            inst._a[i] = inst._sm.get(None, 2)  # Save a sample in buffer
         RP2Touch._idx = (i + 1) & 0x0F  # Update index modulo 16
-        # dt = ticks_diff(ticks_us(), t)
-        # print(dt)
 
     async def _init(self):  # Measure stray capacitance. Button must not be pressed
         await asyncio.sleep_ms(200)  # Ensure samples have baan gathered.
