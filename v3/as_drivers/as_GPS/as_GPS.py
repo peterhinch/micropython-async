@@ -293,7 +293,7 @@ class AS_GPS(object):
         m = int(date_string[2:4])  # month
         y = int(date_string[4:6]) + 2000  # year
         wday = self._week_day(y, m, d)
-        t = int(self._mktime((y, m, d, hrs, mins, int(secs), wday - 1, 0, 0)))
+        t = int(self._mktime((y, m, d, hrs, mins, int(secs), wday - 1, 0, 0))) 
         self.epoch_time = t  # This is the fundamental datetime reference.
         self._dtset(wday)  # Subclass may override
 
@@ -624,3 +624,16 @@ class AS_GPS(object):
         from .as_GPS_utils import date_string
 
         return date_string(self, formatting)
+    
+     # ===== MicroPython-friendly ISO 8601 format =====
+    @property
+    def iso_datetime(self):
+        """Returns an ISO 8601-like datetime string."""
+        if self.epoch_time is None:
+            return "1970-01-01T00:00:00"  # Default/fallback
+
+        tm = self._localtime(self.epoch_time)
+        return '{}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}'.format(
+            tm[0], tm[1], tm[2], tm[3], tm[4], tm[5]
+        )
+
