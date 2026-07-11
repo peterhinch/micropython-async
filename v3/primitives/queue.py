@@ -1,6 +1,6 @@
 # queue.py: adapted from asyncio V2
 
-# Copyright (c) 2018-2020 Peter Hinch
+# Copyright (c) 2018-2026 Peter Hinch
 # Released under the MIT License (MIT) - see LICENSE file
 
 # Code is based on Paul Sokolovsky's work.
@@ -85,6 +85,8 @@ class Queue:
             self._jnevt.clear()
 
     def task_done(self):  # Task Done decrements counter
+        if self._jncnt == 0:
+            raise ValueError("task_done() called too many times")
         self._upd_jnevt(-1)
 
     async def join(self):  # Wait for join event
