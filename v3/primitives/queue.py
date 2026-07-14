@@ -4,7 +4,8 @@
 # Released under the MIT License (MIT) - see LICENSE file
 
 # Code is based on Paul Sokolovsky's work.
-# This is a temporary solution until asyncio V3 gets an efficient official version
+
+# Poposal for official implementation https://github.com/micropython/micropython/pull/19459
 
 import asyncio
 
