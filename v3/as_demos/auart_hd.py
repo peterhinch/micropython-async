@@ -81,7 +81,7 @@ async def main():
         if res:
             print("Result is:")
             for line in res:
-                print(line.decode("UTF8"), end="")
+                print(line.decode("utf8"), end="")
         else:
             print("Timed out waiting for result.")
 

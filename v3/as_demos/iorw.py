@@ -94,7 +94,7 @@ async def sender(myiow):
     while True:
         count += 1
         tosend = "Wrote Hello MyIO {}\n".format(count)
-        await swriter.awrite(tosend.encode("UTF8"))
+        await swriter.awrite(tosend.encode("utf8"))
         await asyncio.sleep(2)
 
 
